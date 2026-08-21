@@ -304,10 +304,22 @@ class SetlistsManager {
     }
     
     showCreateSetlistModal() {
+        // Check if user is logged in before creating setlist
+        const userId = this.getCurrentUserId();
+        if (!userId) {
+            // Show auth modal instead of creating setlist
+            if (this.app && this.app.openAuthModal) {
+                this.app.openAuthModal();
+            } else {
+                alert('Você precisa estar logado para criar uma setlist');
+            }
+            return;
+        }
+
         const modal = document.createElement('div');
         modal.className = 'create-setlist-modal';
         modal.id = 'createSetlistModal';
-        
+
         modal.innerHTML = `
             <div class="modal-content">
                 <div class="modal-header">
@@ -332,7 +344,6 @@ class SetlistsManager {
                 </div>
             </div>
         `;
-        
         document.body.appendChild(modal);
         
         // Add event listeners
@@ -481,10 +492,22 @@ class SetlistsManager {
     }
     
     showCreateSetlistModalForSong(songData) {
+        // Check if user is logged in before creating setlist
+        const userId = this.getCurrentUserId();
+        if (!userId) {
+            // Show auth modal instead of creating setlist
+            if (this.app && this.app.openAuthModal) {
+                this.app.openAuthModal();
+            } else {
+                alert('Você precisa estar logado para criar uma setlist');
+            }
+            return;
+        }
+
         const modal = document.createElement('div');
         modal.className = 'modal';
         modal.id = 'createSetlistModal';
-        
+
         modal.innerHTML = `
             <div class="modal-content create-setlist-modal">
                 <div class="modal-header">
@@ -593,12 +616,15 @@ class SetlistsManager {
     
     async createSetlistWithSong(name, songData) {
         const userId = this.getCurrentUserId();
-        
+
         if (!userId) {
-            alert('Você precisa estar logado para criar uma setlist');
+            // Show auth modal instead of creating setlist
+            if (this.app && this.app.openAuthModal) {
+                this.app.openAuthModal();
+            }
             return;
         }
-        
+
         if (!this.db) {
             alert('Erro: Firebase não disponível');
             return;
@@ -653,7 +679,10 @@ class SetlistsManager {
         console.log('[SETLISTS] Creating setlist with userId:', userId);
 
         if (!userId) {
-            alert('Você precisa estar logado para criar uma setlist');
+            // Show auth modal instead of creating setlist
+            if (this.app && this.app.openAuthModal) {
+                this.app.openAuthModal();
+            }
             return;
         }
 

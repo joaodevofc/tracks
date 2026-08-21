@@ -576,6 +576,14 @@ class MultracksApp {
     downloadCommunityTrack(track) {
         console.log('[APP] Downloading community track:', track.name, 'from:', track.downloadUrl);
 
+        // Check if user is logged in before allowing download
+        const currentUser = window.firebaseAuth && window.firebaseAuth.auth && window.firebaseAuth.auth.currentUser;
+        if (!currentUser) {
+            // Show auth modal instead of allowing download
+            this.openAuthModal();
+            return;
+        }
+
         // Open download URL in new tab
         window.open(track.downloadUrl, '_blank');
 
@@ -755,11 +763,20 @@ class MultracksApp {
         }
 
         try {
-            const { db, doc, getDoc } = window.firebaseDB;
+            const { db, doc, getDoc, collection, query, where, getDocs } = window.firebaseDB;
+            // First try to get by UID (new method)
             const userDoc = await getDoc(doc(db, 'users', userId));
             if (userDoc.exists()) {
                 const userData = userDoc.data();
                 return userData.plano || 'home';
+            } else {
+                // Fallback: try to find by uid field (old method with auto-generated IDs)
+                const q = query(collection(db, 'users'), where('uid', '==', userId));
+                const querySnapshot = await getDocs(q);
+                if (!querySnapshot.empty) {
+                    const userData = querySnapshot.docs[0].data();
+                    return userData.plano || 'home';
+                }
             }
         } catch (error) {
             console.warn('[APP] Could not fetch user plan:', error);
@@ -5587,7 +5604,11 @@ class MultracksApp {
         }
 
         try {
-            const displayName = this.settingsDisplayName?.value || currentUser.displayName || currentUser.email.split('@')[0];
+            let displayName = this.settingsDisplayName?.value || currentUser.displayName;
+            // Fallback to email only if displayName is still null/undefined (not empty string)
+            if (!displayName || displayName.trim() === '') {
+                displayName = currentUser.email.split('@')[0];
+            }
 
             // Upload profile photo if selected
             let profilePhotoUrl = null;
@@ -5697,14 +5718,24 @@ class MultracksApp {
 
                 // Populate form fields with Firestore data as priority
                 if (this.settingsDisplayName) {
-                    this.settingsDisplayName.value = data.displayName || currentUser.displayName || currentUser.email.split('@')[0];
+                    let displayName = data.displayName || currentUser.displayName;
+                    // Fallback to email only if displayName is still null/undefined (not empty string)
+                    if (!displayName || displayName.trim() === '') {
+                        displayName = currentUser.email.split('@')[0];
+                    }
+                    this.settingsDisplayName.value = displayName;
                 }
 
                 console.log('[PROFILE] Profile data loaded:', currentUser.uid);
             } else {
                 // If no profile data exists, use current user data
                 if (this.settingsDisplayName) {
-                    this.settingsDisplayName.value = currentUser.displayName || currentUser.email.split('@')[0];
+                    let displayName = currentUser.displayName;
+                    // Fallback to email only if displayName is still null/undefined (not empty string)
+                    if (!displayName || displayName.trim() === '') {
+                        displayName = currentUser.email.split('@')[0];
+                    }
+                    this.settingsDisplayName.value = displayName;
                 }
             }
         } catch (error) {
@@ -5744,21 +5775,34 @@ class MultracksApp {
 
                 try {
                     if (window.firebaseDB && user.uid) {
-                        const { db, doc, getDoc } = window.firebaseDB;
+                        const { db, doc, getDoc, collection, query, where, getDocs } = window.firebaseDB;
+                        // First try to get by UID (new method)
                         const userDoc = await getDoc(doc(db, 'users', user.uid));
                         if (userDoc.exists()) {
                             const userData = userDoc.data();
                             displayName = userData.displayName || displayName;
                             profilePhoto = userData.profilePhoto || null;
                             user.plano = userData.plano || 'home'; // Get plan from Firestore
+                        } else {
+                            // Fallback: try to find by uid field (old method with auto-generated IDs)
+                            const q = query(collection(db, 'users'), where('uid', '==', user.uid));
+                            const querySnapshot = await getDocs(q);
+                            if (!querySnapshot.empty) {
+                                const userData = querySnapshot.docs[0].data();
+                                displayName = userData.displayName || displayName;
+                                profilePhoto = userData.profilePhoto || null;
+                                user.plano = userData.plano || 'home';
+                            }
                         }
                     }
                 } catch (error) {
                     console.warn('[SETTINGS] Could not fetch user data from Firestore:', error);
                 }
 
-                // Fallback to email if still no displayName
-                displayName = displayName || email.split('@')[0];
+                // Fallback to email only if displayName is still null/undefined (not empty string)
+                if (!displayName || displayName.trim() === '') {
+                    displayName = email.split('@')[0];
+                }
                 const initial = displayName.charAt(0).toUpperCase();
 
                 const settingsUserInitial = document.getElementById('settingsUserInitial');
@@ -7371,20 +7415,32 @@ class MultracksApp {
 
         try {
             if (window.firebaseDB) {
-                const { db, doc, getDoc } = window.firebaseDB;
+                const { db, doc, getDoc, collection, query, where, getDocs } = window.firebaseDB;
+                // First try to get by UID (new method)
                 const userDoc = await getDoc(doc(db, 'users', user.uid));
                 if (userDoc.exists()) {
                     const userData = userDoc.data();
                     displayName = userData.displayName || displayName;
                     profilePhoto = userData.profilePhoto || null;
+                } else {
+                    // Fallback: try to find by uid field (old method with auto-generated IDs)
+                    const q = query(collection(db, 'users'), where('uid', '==', user.uid));
+                    const querySnapshot = await getDocs(q);
+                    if (!querySnapshot.empty) {
+                        const userData = querySnapshot.docs[0].data();
+                        displayName = userData.displayName || displayName;
+                        profilePhoto = userData.profilePhoto || null;
+                    }
                 }
             }
         } catch (error) {
             console.warn('[AUTH] Could not fetch user data from Firestore:', error);
         }
 
-        // Fallback to email if still no displayName
-        displayName = displayName || email.split('@')[0];
+        // Fallback to email only if displayName is still null/undefined (not empty string)
+        if (!displayName || displayName.trim() === '') {
+            displayName = email.split('@')[0];
+        }
         const initial = displayName.charAt(0).toUpperCase();
 
         const userInitial = document.getElementById('userInitial');
@@ -7485,26 +7541,24 @@ class MultracksApp {
 
     handleLogout() {
         if (!window.firebaseAuth) {
-            alert('Firebase não está disponível. Verifique se os scripts foram carregados.');
+            console.error('Firebase não está disponível. Verifique se os scripts foram carregados.');
             return;
         }
 
         const { auth, signOut } = window.firebaseAuth;
 
-        if (confirm('Deseja realmente sair da sua conta?')) {
-            signOut(auth)
-                .then(() => {
-                    console.log('[AUTH] Logout successful');
-                    this.updateProfileButtonForLoggedOut();
-                    localStorage.removeItem('currentUser');
-                    this.communityFavorites = []; // Clear favorites on logout
-                    alert('Você saiu da sua conta.');
-                })
-                .catch((error) => {
-                    console.error('[AUTH] Logout error:', error);
-                    alert('Erro ao sair: ' + error.message);
-                });
-        }
+        signOut(auth)
+            .then(() => {
+                console.log('[AUTH] Logout successful');
+                this.updateProfileButtonForLoggedOut();
+                localStorage.removeItem('currentUser');
+                this.communityFavorites = []; // Clear favorites on logout
+                // Reload page to clear user session
+                window.location.reload();
+            })
+            .catch((error) => {
+                console.error('[AUTH] Logout error:', error);
+            });
     }
 
     openAuthModal() {
@@ -7516,6 +7570,15 @@ class MultracksApp {
         this.authModal.classList.remove('active');
         this.loginForm.reset();
         this.registerForm.reset();
+        // Hide error messages
+        const loginError = document.getElementById('loginError');
+        if (loginError) {
+            loginError.style.display = 'none';
+        }
+        const registerError = document.getElementById('registerError');
+        if (registerError) {
+            registerError.style.display = 'none';
+        }
     }
     
     showLoginForm() {
@@ -7523,6 +7586,15 @@ class MultracksApp {
         this.registerForm.style.display = 'none';
         if (this.loginTitle) {
             this.loginTitle.textContent = 'Bem-vindo de volta';
+        }
+        // Hide error messages
+        const loginError = document.getElementById('loginError');
+        if (loginError) {
+            loginError.style.display = 'none';
+        }
+        const registerError = document.getElementById('registerError');
+        if (registerError) {
+            registerError.style.display = 'none';
         }
     }
 
@@ -7532,22 +7604,41 @@ class MultracksApp {
         if (this.registerTitle) {
             this.registerTitle.textContent = 'Crie sua conta';
         }
+        // Hide error messages
+        const loginError = document.getElementById('loginError');
+        if (loginError) {
+            loginError.style.display = 'none';
+        }
+        const registerError = document.getElementById('registerError');
+        if (registerError) {
+            registerError.style.display = 'none';
+        }
     }
     
     handleLogin(e) {
         e.preventDefault();
+
+        // Hide any previous error messages
+        const loginError = document.getElementById('loginError');
+        if (loginError) {
+            loginError.style.display = 'none';
+        }
         
         const email = document.getElementById('loginEmail').value;
         const password = document.getElementById('loginPassword').value;
-        
+
         console.log('[AUTH] Login attempt:', email);
-        
+
         // Check if Firebase is available
         if (!window.firebaseAuth) {
-            alert('Firebase não está disponível. Verifique se os scripts foram carregados.');
+            const loginError = document.getElementById('loginError');
+            if (loginError) {
+                loginError.textContent = 'Firebase não está disponível. Verifique se os scripts foram carregados.';
+                loginError.style.display = 'flex';
+            }
             return;
         }
-        
+
         const { auth, signInWithEmailAndPassword } = window.firebaseAuth;
         
         signInWithEmailAndPassword(auth, email, password)
@@ -7558,12 +7649,23 @@ class MultracksApp {
                 // Check if user is banned or suspended
                 if (window.firebaseDB) {
                     try {
-                        const { db, doc, getDoc } = window.firebaseDB;
-                        const userDoc = await getDoc(doc(db, 'users', user.uid));
+                        const { db, doc, getDoc, collection, query, where, getDocs } = window.firebaseDB;
+                        // First try to get by UID (new method)
+                        let userDoc = await getDoc(doc(db, 'users', user.uid));
+                        let userData = null;
 
                         if (userDoc.exists()) {
-                            const userData = userDoc.data();
+                            userData = userDoc.data();
+                        } else {
+                            // Fallback: try to find by uid field (old method with auto-generated IDs)
+                            const q = query(collection(db, 'users'), where('uid', '==', user.uid));
+                            const querySnapshot = await getDocs(q);
+                            if (!querySnapshot.empty) {
+                                userData = querySnapshot.docs[0].data();
+                            }
+                        }
 
+                        if (userData) {
                             // Ensure user has a plan, set to 'home' if missing
                             if (!userData.plano) {
                                 try {
@@ -7605,13 +7707,11 @@ class MultracksApp {
                 // Reload user to get updated profile including displayName
                 user.reload().then(async () => {
                     console.log('[AUTH] User profile reloaded:', user.displayName);
-                    alert(`Login realizado com sucesso!\n\nEmail: ${user.email}`);
                     this.closeAuthModal();
                     this.updateUserProfile(user);
                     await this.loadCommunityFavorites();
                 }).catch(async (error) => {
                     console.warn('[AUTH] Could not reload user profile:', error);
-                    alert(`Login realizado com sucesso!\n\nEmail: ${user.email}`);
                     this.closeAuthModal();
                     this.updateUserProfile(user);
                     await this.loadCommunityFavorites();
@@ -7621,21 +7721,35 @@ class MultracksApp {
                 console.error('[AUTH] Login error:', error);
                 const errorCode = error.code;
                 const errorMessage = error.message;
-                
+
+                let errorText = '';
                 if (errorCode === 'auth/user-not-found') {
-                    alert('Usuário não encontrado. Verifique seu email.');
+                    errorText = 'Usuário não encontrado. Verifique seu email.';
                 } else if (errorCode === 'auth/wrong-password') {
-                    alert('Senha incorreta.');
+                    errorText = 'Senha incorreta.';
                 } else if (errorCode === 'auth/invalid-email') {
-                    alert('Email inválido.');
+                    errorText = 'Email inválido.';
                 } else {
-                    alert('Erro ao fazer login: ' + errorMessage);
+                    errorText = 'Erro ao fazer login: ' + errorMessage;
+                }
+
+                // Show error in the modal
+                const loginError = document.getElementById('loginError');
+                if (loginError) {
+                    loginError.textContent = errorText;
+                    loginError.style.display = 'flex';
                 }
             });
     }
     
-    handleRegister(e) {
+    async handleRegister(e) {
         e.preventDefault();
+
+        // Hide any previous error messages
+        const registerError = document.getElementById('registerError');
+        if (registerError) {
+            registerError.style.display = 'none';
+        }
 
         const name = document.getElementById('registerName').value;
         const email = document.getElementById('registerEmail').value;
@@ -7649,40 +7763,64 @@ class MultracksApp {
 
         // Validações
         if (!accountType) {
-            alert('Por favor, selecione o tipo de conta.');
+            const registerError = document.getElementById('registerError');
+            if (registerError) {
+                registerError.textContent = 'Por favor, selecione o tipo de conta.';
+                registerError.style.display = 'flex';
+            }
             return;
         }
 
         if (accountType === 'outro' && !otherType.trim()) {
-            alert('Por favor, especifique o tipo de conta.');
+            const registerError = document.getElementById('registerError');
+            if (registerError) {
+                registerError.textContent = 'Por favor, especifique o tipo de conta.';
+                registerError.style.display = 'flex';
+            }
             return;
         }
 
         if (password.length < 6) {
-            alert('A senha deve ter pelo menos 6 caracteres.');
+            const registerError = document.getElementById('registerError');
+            if (registerError) {
+                registerError.textContent = 'A senha deve ter pelo menos 6 caracteres.';
+                registerError.style.display = 'flex';
+            }
             return;
         }
 
         if (password !== confirmPassword) {
-            alert('As senhas não coincidem.');
+            const registerError = document.getElementById('registerError');
+            if (registerError) {
+                registerError.textContent = 'As senhas não coincidem.';
+                registerError.style.display = 'flex';
+            }
             return;
         }
 
         if (!acceptTerms) {
-            alert('Você deve concordar com os Termos de Uso e Política de Privacidade.');
+            const registerError = document.getElementById('registerError');
+            if (registerError) {
+                registerError.textContent = 'Você deve concordar com os Termos de Uso e Política de Privacidade.';
+                registerError.style.display = 'flex';
+            }
             return;
         }
 
         // Check if Firebase is available
         if (!window.firebaseAuth) {
-            alert('Firebase não está disponível. Verifique se os scripts foram carregados.');
+            const registerError = document.getElementById('registerError');
+            if (registerError) {
+                registerError.textContent = 'Firebase não está disponível. Verifique se os scripts foram carregados.';
+                registerError.style.display = 'flex';
+            }
             return;
         }
-        
+
         const { auth, createUserWithEmailAndPassword } = window.firebaseAuth;
 
         createUserWithEmailAndPassword(auth, email, password)
-            .then((userCredential) => {
+            .then(async (userCredential) => {
                 const user = userCredential.user;
                 console.log('[AUTH] Registration successful:', user.email);
 
@@ -7698,19 +7836,13 @@ class MultracksApp {
                 // Update user profile with display name
                 try {
                     if (user.updateProfile) {
-                        user.updateProfile({
+                        await user.updateProfile({
                             displayName: name
-                        }).then(() => {
-                            console.log('[AUTH] Display name updated:', name);
-                            // Force reload user to get updated profile
-                            user.reload().then(() => {
-                                console.log('[AUTH] User profile reloaded with displayName:', user.displayName);
-                            }).catch((error) => {
-                                console.warn('[AUTH] Could not reload user profile:', error);
-                            });
-                        }).catch((error) => {
-                            console.warn('[AUTH] Could not update display name:', error);
                         });
+                        console.log('[AUTH] Display name updated:', name);
+                        // Force reload user to get updated profile
+                        await user.reload();
+                        console.log('[AUTH] User profile reloaded with displayName:', user.displayName);
                     }
                 } catch (error) {
                     console.warn('[AUTH] Could not update display name:', error);
@@ -7718,8 +7850,8 @@ class MultracksApp {
 
                 // Store additional user data in Firestore if available
                 if (window.firebaseDB) {
-                    const { db, collection, addDoc, serverTimestamp } = window.firebaseDB;
-                    addDoc(collection(db, 'users'), {
+                    const { db, collection, doc, setDoc, serverTimestamp } = window.firebaseDB;
+                    setDoc(doc(db, 'users', user.uid), {
                         uid: user.uid,
                         displayName: name,
                         email: email,
@@ -7733,23 +7865,31 @@ class MultracksApp {
                     });
                 }
 
-                alert(`Conta criada com sucesso!\n\nNome: ${name}\nTipo: ${finalAccountType}\nEmail: ${user.email}`);
                 this.closeAuthModal();
+                // Update profile immediately after all async operations
                 this.updateUserProfile(user);
             })
             .catch((error) => {
                 console.error('[AUTH] Registration error:', error);
                 const errorCode = error.code;
                 const errorMessage = error.message;
-                
+
+                let errorText = '';
                 if (errorCode === 'auth/email-already-in-use') {
-                    alert('Este email já está sendo usado por outra conta.');
+                    errorText = 'Este email já está sendo usado por outra conta.';
                 } else if (errorCode === 'auth/invalid-email') {
-                    alert('Email inválido.');
+                    errorText = 'Email inválido.';
                 } else if (errorCode === 'auth/weak-password') {
-                    alert('A senha é muito fraca. Use pelo menos 6 caracteres.');
+                    errorText = 'A senha é muito fraca. Use pelo menos 6 caracteres.';
                 } else {
-                    alert('Erro ao criar conta: ' + errorMessage);
+                    errorText = 'Erro ao criar conta: ' + errorMessage;
+                }
+
+                // Show error in the modal
+                const registerError = document.getElementById('registerError');
+                if (registerError) {
+                    registerError.textContent = errorText;
+                    registerError.style.display = 'flex';
                 }
             });
     }
@@ -7769,19 +7909,30 @@ class MultracksApp {
 
             try {
                 if (window.firebaseDB) {
-                    const { db, doc, getDoc } = window.firebaseDB;
+                    const { db, doc, getDoc, collection, query, where, getDocs } = window.firebaseDB;
+                    // First try to get by UID (new method)
                     const userDoc = await getDoc(doc(db, 'users', user.uid));
                     if (userDoc.exists()) {
                         const userData = userDoc.data();
                         displayName = userData.displayName || displayName;
+                    } else {
+                        // Fallback: try to find by uid field (old method with auto-generated IDs)
+                        const q = query(collection(db, 'users'), where('uid', '==', user.uid));
+                        const querySnapshot = await getDocs(q);
+                        if (!querySnapshot.empty) {
+                            const userData = querySnapshot.docs[0].data();
+                            displayName = userData.displayName || displayName;
+                        }
                     }
                 }
             } catch (error) {
                 console.warn('[AUTH] Could not fetch user data from Firestore:', error);
             }
 
-            // Fallback to email if still no displayName
-            displayName = displayName || email.split('@')[0];
+            // Fallback to email only if displayName is still null/undefined (not empty string)
+            if (!displayName || displayName.trim() === '') {
+                displayName = email.split('@')[0];
+            }
             const initial = displayName.charAt(0).toUpperCase();
 
             if (profileBtn) {
@@ -8667,7 +8818,12 @@ class MultracksApp {
             // Pre-fill with current user data if available
             const currentUser = window.firebaseAuth && window.firebaseAuth.auth && window.firebaseAuth.auth.currentUser;
             if (currentUser && this.creatorDisplayName) {
-                this.creatorDisplayName.value = currentUser.displayName || currentUser.email.split('@')[0] || '';
+                let displayName = currentUser.displayName;
+                // Fallback to email only if displayName is still null/undefined (not empty string)
+                if (!displayName || displayName.trim() === '') {
+                    displayName = currentUser.email.split('@')[0];
+                }
+                this.creatorDisplayName.value = displayName || '';
             }
         }
     }

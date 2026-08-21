@@ -4602,6 +4602,9 @@ a {
     padding: 0;
     overflow: hidden;
     border-radius: var(--radius-xl);
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
 }
 
 .auth-modal .modal-close {
@@ -4631,7 +4634,9 @@ a {
 
 .auth-container {
     display: flex;
-    min-height: 600px;
+    min-height: 500px;
+    max-height: 100%;
+    overflow: hidden;
 }
 
 .auth-visual {
@@ -4643,6 +4648,7 @@ a {
     justify-content: center;
     position: relative;
     overflow: hidden;
+    min-width: 0;
 }
 
 .auth-visual-content {
@@ -4745,6 +4751,7 @@ a {
     display: flex;
     align-items: center;
     justify-content: center;
+    overflow-y: auto;
 }
 
 .auth-form {
@@ -4771,6 +4778,24 @@ a {
 .auth-subtitle {
     font-size: var(--font-size-sm);
     color: var(--color-white-muted);
+}
+
+.auth-error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+    color: #ef4444;
+    font-size: var(--font-size-sm);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.auth-error::before {
+    content: '⚠';
+    font-size: var(--font-size-base);
 }
 
 .auth-inputs {
