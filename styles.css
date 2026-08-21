@@ -976,6 +976,39 @@
     border: 1px solid var(--border-subtle);
 }
 
+.profile-account-plan {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+    margin-top: 4px;
+}
+
+.account-plan-label {
+    color: var(--color-subtle);
+}
+
+.account-plan-value {
+    color: var(--color-white);
+    font-weight: 500;
+    padding: 2px 8px;
+    background: var(--color-black-card);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-subtle);
+}
+
+.account-plan-value.studio {
+    background: rgba(59, 130, 246, 0.2);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.account-plan-value.home {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--color-white-muted);
+    border: 1px solid var(--border-subtle);
+}
+
 .settings-divider {
     height: 1px;
     background: var(--border-subtle);
@@ -6666,6 +6699,133 @@ a {
 
 .setlist-selection-modal .modal-body {
     padding: 24px;
+}
+
+/* ========================================
+   UPGRADE MODAL
+   ======================================== */
+
+.upgrade-modal {
+    max-width: 480px;
+    background: linear-gradient(135deg, var(--color-black-card) 0%, var(--color-black-elevated) 100%);
+    border: 1px solid rgba(201, 162, 39, 0.3);
+}
+
+.upgrade-modal .modal-header {
+    background: rgba(201, 162, 39, 0.1);
+    border-bottom: 1px solid rgba(201, 162, 39, 0.2);
+}
+
+.upgrade-modal .modal-title {
+    color: #c9a227;
+    font-size: 1.25rem;
+}
+
+.upgrade-content {
+    text-align: center;
+    padding: 32px 24px;
+}
+
+.upgrade-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 20px;
+    background: rgba(201, 162, 39, 0.15);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #c9a227;
+}
+
+.upgrade-icon svg {
+    width: 32px;
+    height: 32px;
+}
+
+.upgrade-title {
+    font-size: 1.35rem;
+    font-weight: 600;
+    color: var(--color-white);
+    margin-bottom: 12px;
+}
+
+.upgrade-message {
+    font-size: 0.95rem;
+    color: var(--color-white-muted);
+    line-height: 1.5;
+    margin-bottom: 28px;
+}
+
+.upgrade-features {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 28px;
+    text-align: left;
+}
+
+.upgrade-feature {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.9rem;
+    color: var(--color-white-muted);
+}
+
+.upgrade-feature svg {
+    width: 18px;
+    height: 18px;
+    color: #4ade80;
+    flex-shrink: 0;
+}
+
+.upgrade-actions {
+    display: flex;
+    gap: 12px;
+    padding: 20px 24px;
+    border-top: 1px solid var(--border-subtle);
+}
+
+.upgrade-actions .btn {
+    flex: 1;
+    padding: 12px 16px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+}
+
+.upgrade-actions .btn-primary {
+    background: linear-gradient(135deg, #c9a227 0%, #e6b82d 100%);
+    color: #000;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.upgrade-actions .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(201, 162, 39, 0.4);
+}
+
+.upgrade-actions .btn-primary svg {
+    width: 18px;
+    height: 18px;
+}
+
+.upgrade-actions .btn-secondary {
+    background: var(--color-black);
+    color: var(--color-white-muted);
+    border: 1px solid var(--border-medium);
+}
+
+.upgrade-actions .btn-secondary:hover {
+    background: var(--color-black-hover);
+    color: var(--color-white);
+    border-color: var(--border-strong);
 }
 
 .create-new-setlist-btn {

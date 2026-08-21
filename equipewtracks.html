@@ -422,12 +422,12 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;}
   background:var(--bg-hover);
 }
 
-/* Contas Table - 5 columns */
+/* Contas Table - 6 columns */
 #tab-contas .table-header {
-  grid-template-columns: 60px 1fr 1fr 140px 100px;
+  grid-template-columns: 60px 1fr 1fr 140px 120px 100px;
 }
 #tab-contas .table-row {
-  grid-template-columns: 60px 1fr 1fr 140px 100px;
+  grid-template-columns: 60px 1fr 1fr 140px 120px 100px;
 }
 .table-cell{
   font-family:var(--font-mono);
@@ -712,11 +712,12 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;}
       </div>
 
       <div class="data-table">
-        <div class="table-header" style="grid-template-columns: 60px 1fr 1fr 140px 100px;">
+        <div class="table-header" style="grid-template-columns: 60px 1fr 1fr 140px 120px 100px;">
           <span>#</span>
           <span>Nome</span>
           <span>Email</span>
           <span>Tipo</span>
+          <span>Plano</span>
           <span>Ações</span>
         </div>
         <div id="allContas">
@@ -2623,30 +2624,39 @@ async function loadContasFromFirebase(){
   }
 
   try {
-    const q = window.firebaseDB.query(
-      window.firebaseDB.collection(window.firebaseDB.db, 'users'),
-      window.firebaseDB.orderBy('createdAt', 'desc')
-    );
+    console.log('[FIREBASE] Attempting to load contas from users collection...');
 
-    const querySnapshot = await window.firebaseDB.getDocs(q);
+    // Try to get all documents from 'users' collection without ordering first
+    const usersCollection = window.firebaseDB.collection(window.firebaseDB.db, 'users');
+    const snapshot = await window.firebaseDB.getDocs(usersCollection);
+    console.log('[FIREBASE] Total documents in users collection:', snapshot.size);
+
     contasCache = [];
-    querySnapshot.forEach((doc) => {
+    snapshot.forEach((doc) => {
       const data = doc.data();
+      console.log('[FIREBASE] User document found:', doc.id, data);
       contasCache.push({
         id: doc.id,
-        uid: data.uid,
+        uid: data.uid || doc.id, // Use doc.id if uid is not present
         nome: data.displayName || 'N/A',
         email: data.email || 'N/A',
         tipo: data.accountType || 'N/A',
+        plano: data.plano || 'home',
+        status: data.status || 'active', // active, banned, suspended
+        banReason: data.banReason || null,
         createdAt: data.createdAt,
         at: data.createdAt ? new Date(data.createdAt.seconds * 1000).toISOString() : new Date().toISOString()
       });
     });
 
+    // Sort by createdAt manually after loading
+    contasCache.sort((a, b) => new Date(b.at) - new Date(a.at));
+
     console.log('[FIREBASE] Loaded', contasCache.length, 'contas');
     return contasCache;
   } catch (error) {
     console.error('[FIREBASE] Error loading contas:', error);
+    console.error('[FIREBASE] Error details:', error.message, error.code);
     return [];
   }
 }
@@ -2685,17 +2695,46 @@ function renderContas(contas){
   contas.forEach((conta, index) => {
     const row = document.createElement('div');
     row.className = 'table-row';
-    row.style.gridTemplateColumns = '60px 1fr 1fr 140px 100px';
+    row.style.gridTemplateColumns = '60px 1fr 1fr 140px 120px 100px';
 
     const date = new Date(conta.at).toLocaleString('pt-BR');
 
+    // Plan badge styling
+    const planBadgeStyle = conta.plano === 'studio'
+      ? 'background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3);'
+      : 'background: rgba(255, 255, 255, 0.1); color: var(--muted); border: 1px solid var(--border);';
+
+    // Status badge for banned accounts
+    const statusBadge = conta.status === 'banned'
+      ? '<span style="background: rgba(239, 68, 68, 0.2); color: #f87171; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; border: 1px solid rgba(239, 68, 68, 0.3);">BANIDO</span>'
+      : '';
+
+    const rowStyle = conta.status === 'banned' ? 'opacity: 0.6; background: rgba(239, 68, 68, 0.05);' : '';
+
     row.innerHTML = `
       <div class="table-cell id">${index + 1}</div>
-      <div class="table-cell email">${escapeHtml(conta.nome)}</div>
+      <div class="table-cell email">
+        ${escapeHtml(conta.nome)}
+        ${statusBadge}
+      </div>
       <div class="table-cell email">${escapeHtml(conta.email)}</div>
       <div class="table-cell date">${escapeHtml(conta.tipo)}</div>
+      <div class="table-cell">
+        <select
+          onchange="changeUserPlan('${conta.id}', this.value)"
+          style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-card); color: var(--white-dim); font-size: 0.85rem; cursor: pointer;"
+          ${conta.status === 'banned' ? 'disabled' : ''}
+        >
+          <option value="home" ${conta.plano === 'home' ? 'selected' : ''}>Home</option>
+          <option value="studio" ${conta.plano === 'studio' ? 'selected' : ''}>Studio</option>
+        </select>
+      </div>
       <div class="table-cell actions">
         <button class="action-btn" onclick="viewConta('${conta.id}')">Ver</button>
+        ${conta.status === 'banned'
+          ? `<button class="action-btn" style="color: #4ade80;" onclick="unbanConta('${conta.id}')">Desbanir</button>`
+          : `<button class="action-btn" style="color: #f59e0b;" onclick="banConta('${conta.id}')">Banir</button>`
+        }
         <button class="action-btn delete" onclick="deleteConta('${conta.id}')">Excluir</button>
       </div>
     `;
@@ -2710,9 +2749,30 @@ function filterContas(){
   const filtered = contasCache.filter(conta =>
     conta.nome.toLowerCase().includes(searchTerm) ||
     conta.email.toLowerCase().includes(searchTerm) ||
-    conta.tipo.toLowerCase().includes(searchTerm)
+    conta.tipo.toLowerCase().includes(searchTerm) ||
+    conta.plano.toLowerCase().includes(searchTerm)
   );
   renderContas(filtered);
+}
+
+// Change user plan
+async function changeUserPlan(userId, newPlan){
+  if(!confirm(`Tem certeza que deseja alterar o plano do usuário para ${newPlan.toUpperCase()}?`)) return;
+
+  if (window.firebaseDB) {
+    try {
+      await window.firebaseDB.updateDoc(
+        window.firebaseDB.doc(window.firebaseDB.db, 'users', userId),
+        { plano: newPlan }
+      );
+      console.log('[FIREBASE] User plan updated:', userId, 'to', newPlan);
+      alert(`Plano alterado para ${newPlan.toUpperCase()} com sucesso!`);
+      await loadContas();
+    } catch (error) {
+      console.error('[FIREBASE] Error updating user plan:', error);
+      alert('Erro ao alterar plano: ' + error.message);
+    }
+  }
 }
 
 // View conta details
@@ -2721,7 +2781,9 @@ function viewConta(id){
   if(!conta) return;
 
   const date = new Date(conta.at).toLocaleString('pt-BR');
-  alert(`Detalhes da Conta:\n\nNome: ${conta.nome}\nEmail: ${conta.email}\nTipo: ${conta.tipo}\nUID: ${conta.uid}\nData de registro: ${date}`);
+  const statusText = conta.status === 'banned' ? `Status: BANIDO\nMotivo: ${conta.banReason || 'Não especificado'}` : 'Status: Ativo';
+
+  alert(`Detalhes da Conta:\n\nNome: ${conta.nome}\nEmail: ${conta.email}\nTipo: ${conta.tipo}\nPlano: ${conta.plano ? conta.plano.toUpperCase() : 'HOME'}\n${statusText}\nUID: ${conta.uid}\nData de registro: ${date}`);
 }
 
 // Delete conta
@@ -2739,6 +2801,62 @@ async function deleteConta(id){
     } catch (error) {
       console.error('[FIREBASE] Error deleting conta:', error);
       alert('Erro ao excluir conta: ' + error.message);
+    }
+  }
+}
+
+// Ban conta
+async function banConta(id){
+  const reason = prompt('Motivo do banimento:');
+  if (reason === null) return; // User cancelled
+
+  if (!reason.trim()) {
+    alert('Por favor, forneça um motivo para o banimento.');
+    return;
+  }
+
+  if(!confirm(`Tem certeza que deseja banir esta conta?\n\nMotivo: ${reason}\n\nEsta ação impedirá o usuário de fazer login.`)) return;
+
+  if (window.firebaseDB) {
+    try {
+      await window.firebaseDB.updateDoc(
+        window.firebaseDB.doc(window.firebaseDB.db, 'users', id),
+        {
+          status: 'banned',
+          banReason: reason,
+          bannedAt: window.firebaseDB.serverTimestamp()
+        }
+      );
+      console.log('[FIREBASE] Conta banned:', id, 'reason:', reason);
+      alert('Conta banida com sucesso!');
+      await loadContas();
+    } catch (error) {
+      console.error('[FIREBASE] Error banning conta:', error);
+      alert('Erro ao banir conta: ' + error.message);
+    }
+  }
+}
+
+// Unban conta
+async function unbanConta(id){
+  if(!confirm('Tem certeza que deseja desbanir esta conta? O usuário poderá fazer login novamente.')) return;
+
+  if (window.firebaseDB) {
+    try {
+      await window.firebaseDB.updateDoc(
+        window.firebaseDB.doc(window.firebaseDB.db, 'users', id),
+        {
+          status: 'active',
+          banReason: null,
+          bannedAt: null
+        }
+      );
+      console.log('[FIREBASE] Conta unbanned:', id);
+      alert('Conta desbanida com sucesso!');
+      await loadContas();
+    } catch (error) {
+      console.error('[FIREBASE] Error unbanning conta:', error);
+      alert('Erro ao desbanir conta: ' + error.message);
     }
   }
 }

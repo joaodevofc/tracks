@@ -60,13 +60,30 @@ class SetlistsManager {
         otherNavLinks.forEach(link => {
             link.addEventListener('click', () => {
                 document.getElementById('setlistsFloatingMenu').classList.remove('visible');
+                document.getElementById('setlistsView').style.display = 'none';
             });
         });
         
         // Floating menu - Create setlist
         const floatingCreateSetlistBtn = document.getElementById('floatingCreateSetlistBtn');
         if (floatingCreateSetlistBtn) {
-            floatingCreateSetlistBtn.addEventListener('click', () => this.showCreateSetlistModal());
+            floatingCreateSetlistBtn.addEventListener('click', async () => {
+                // Check plan restrictions for Home users
+                const userPlan = await this.getUserPlan();
+                console.log('[SETLISTS] Create button clicked - User plan:', userPlan, 'Current setlists:', this.setlists.length);
+
+                if (userPlan === 'home' && this.setlists.length >= 1) {
+                    console.log('[SETLISTS] Home user already has 1 setlist, showing upgrade modal');
+                    if (this.app && this.app.showUpgradeModal) {
+                        this.app.showUpgradeModal('Setlists');
+                    } else {
+                        alert('No plano Home, você pode criar apenas 1 setlist. Faça upgrade para o plano Studio para criar setlists ilimitadas.');
+                    }
+                    return;
+                }
+
+                this.showCreateSetlistModal();
+            });
         }
         
         // YouTube search (main page)
@@ -430,7 +447,22 @@ class SetlistsManager {
             });
             
             // Create new setlist button
-            createNewBtn.addEventListener('click', () => {
+            createNewBtn.addEventListener('click', async () => {
+                // Check plan restrictions for Home users
+                const userPlan = await this.getUserPlan();
+                console.log('[SETLISTS] Create new setlist from selection - User plan:', userPlan, 'Current setlists:', this.setlists.length);
+
+                if (userPlan === 'home' && this.setlists.length >= 1) {
+                    console.log('[SETLISTS] Home user already has 1 setlist, showing upgrade modal');
+                    overlay.remove();
+                    if (this.app && this.app.showUpgradeModal) {
+                        this.app.showUpgradeModal('Setlists');
+                    } else {
+                        alert('No plano Home, você pode criar apenas 1 setlist. Faça upgrade para o plano Studio para criar setlists ilimitadas.');
+                    }
+                    return;
+                }
+
                 overlay.remove();
                 this.showCreateSetlistModalForSong(songData);
             });
@@ -514,25 +546,36 @@ class SetlistsManager {
     
     async addSongToExistingSetlist(setlistId, songData) {
         const setlist = this.setlists.find(s => s.id === setlistId);
-        
+
         if (!setlist) {
             console.error('[SETLISTS] Setlist not found:', setlistId);
             return;
         }
-        
+
         songData.position = setlist.songs?.length || 0;
-        
+
         if (!setlist.songs) {
             setlist.songs = [];
         }
-        
+
+        // Check plan restrictions for Home users (max 5 songs per setlist)
+        const userPlan = await this.getUserPlan();
+        if (userPlan === 'home' && setlist.songs.length >= 5) {
+            if (this.app && this.app.showUpgradeModal) {
+                this.app.showUpgradeModal('Setlists');
+            } else {
+                alert('No plano Home, você pode adicionar no máximo 5 músicas por setlist. Faça upgrade para o plano Studio para adicionar músicas ilimitadas.');
+            }
+            return;
+        }
+
         setlist.songs.push(songData);
-        
+
         // Save to Firebase
         await this.saveSetlistById(setlistId, setlist);
-        
+
         console.log('[SETLISTS] Song added to setlist:', songData.title, 'in setlist:', setlist.name);
-        
+
         // Show feedback
         alert(`"${songData.title}" adicionada à setlist "${setlist.name}"`);
     }
@@ -595,22 +638,38 @@ class SetlistsManager {
     
     async createSetlist(name) {
         const userId = this.getCurrentUserId();
-        
+
         console.log('[SETLISTS] Creating setlist with userId:', userId);
-        
+
         if (!userId) {
             alert('Você precisa estar logado para criar uma setlist');
             return;
         }
-        
+
         if (!this.db) {
             alert('Erro: Firebase não disponível');
             return;
         }
-        
+
+        // Check plan restrictions for Home users (backup check)
+        const userPlan = await this.getUserPlan();
+        console.log('[SETLISTS] Creating setlist - User plan:', userPlan, 'Current setlists count:', this.setlists.length);
+
+        if (userPlan === 'home') {
+            // Check if user already has a setlist
+            if (this.setlists.length >= 1) {
+                console.log('[SETLISTS] Home user already has 1 setlist, blocking creation (backup check)');
+                // This should normally be caught by the button click handler, but keeping as backup
+                if (this.app && this.app.showUpgradeModal) {
+                    this.app.showUpgradeModal('Setlists');
+                }
+                return;
+            }
+        }
+
         try {
             const shareId = this.generateShareId();
-            
+
             const setlistData = {
                 name: name,
                 userId: userId,
@@ -619,16 +678,16 @@ class SetlistsManager {
                 createdAt: this.serverTimestamp(),
                 updatedAt: this.serverTimestamp()
             };
-            
+
             console.log('[SETLISTS] Adding document to setlists collection:', setlistData);
-            
+
             const docRef = await this.addDoc(this.collection(this.db, 'setlists'), setlistData);
-            
+
             console.log('[SETLISTS] Setlist created with ID:', docRef.id);
-            
+
             // Reload setlists
             await this.loadSetlists();
-            
+
             // Open the new setlist
             this.openSetlist(docRef.id);
         } catch (error) {
@@ -1206,20 +1265,40 @@ class SetlistsManager {
             alert('Erro ao excluir setlist: ' + error.message);
         }
     }
-    
+
     // Utility methods
     getCurrentUserId() {
         if (this.app && this.app.getCurrentUserId) {
             return this.app.getCurrentUserId();
         }
-        
+
         // Fallback to auth
         if (window.firebaseAuth && window.firebaseAuth.auth) {
             const user = window.firebaseAuth.auth.currentUser;
             return user ? user.uid : null;
         }
-        
+
         return null;
+    }
+
+    async getUserPlan() {
+        const userId = this.getCurrentUserId();
+        if (!userId || !window.firebaseDB) {
+            return 'home'; // Default to home if not logged in or Firebase unavailable
+        }
+
+        try {
+            const { db, doc, getDoc } = window.firebaseDB;
+            const userDoc = await getDoc(doc(db, 'users', userId));
+            if (userDoc.exists()) {
+                const userData = userDoc.data();
+                return userData.plano || 'home';
+            }
+        } catch (error) {
+            console.warn('[SETLISTS] Could not fetch user plan:', error);
+        }
+
+        return 'home'; // Default to home
     }
     
     escapeHtml(text) {

@@ -748,15 +748,93 @@ class MultracksApp {
         return null;
     }
 
-    switchView(viewName) {
+    async getUserPlan() {
+        const userId = this.getCurrentUserId();
+        if (!userId || !window.firebaseDB) {
+            return 'home'; // Default to home if not logged in or Firebase unavailable
+        }
+
+        try {
+            const { db, doc, getDoc } = window.firebaseDB;
+            const userDoc = await getDoc(doc(db, 'users', userId));
+            if (userDoc.exists()) {
+                const userData = userDoc.data();
+                return userData.plano || 'home';
+            }
+        } catch (error) {
+            console.warn('[APP] Could not fetch user plan:', error);
+        }
+
+        return 'home'; // Default to home
+    }
+
+    async isStudioPlan() {
+        const plan = await this.getUserPlan();
+        return plan === 'studio';
+    }
+
+    async requireStudioPlan(featureName = 'este recurso') {
+        const isStudio = await this.isStudioPlan();
+        if (!isStudio) {
+            // Show upgrade modal for all features (including setlists and minhas tracks)
+            this.showUpgradeModal(featureName);
+            return false;
+        }
+        return true;
+    }
+
+    showUpgradeModal(featureName) {
+        const upgradeModal = document.getElementById('upgradeModal');
+        const upgradeTitle = document.getElementById('upgradeTitle');
+        const upgradeMessage = document.getElementById('upgradeMessage');
+
+        if (upgradeModal && upgradeTitle && upgradeMessage) {
+            // Customize message based on feature
+            const messages = {
+                'Setlists': 'No plano Home, você pode criar apenas 1 setlist com até 5 músicas.',
+                'Minhas Tracks': 'A criação de conta de criador está disponível apenas para usuários do plano Studio.',
+                'Adicionar músicas': 'A adição de músicas personalizadas está disponível apenas para usuários do plano Studio.',
+                'PAD': 'O sistema PAD está disponível apenas para usuários do plano Studio.',
+                'default': `${featureName} está disponível apenas para usuários do plano Studio.`
+            };
+
+            upgradeTitle.textContent = 'Recurso Exclusivo Studio';
+            upgradeMessage.textContent = messages[featureName] || messages['default'];
+
+            upgradeModal.classList.add('active');
+        }
+    }
+
+    hideUpgradeModal() {
+        const upgradeModal = document.getElementById('upgradeModal');
+        if (upgradeModal) {
+            upgradeModal.classList.remove('active');
+        }
+    }
+
+    navigateToPlans() {
+        window.location.href = 'planos.html';
+    }
+
+    async switchView(viewName) {
+        // Check plan restrictions for certain views (setlists is allowed for Home with limitations)
+        if (viewName === 'myTracks') {
+            const hasAccess = await this.requireStudioPlan('Minhas Tracks');
+            if (!hasAccess) return;
+        }
+
         // Hide all views
-        document.getElementById('libraryView').style.display = 'none';
-        document.getElementById('communityView').style.display = 'none';
-        document.getElementById('exploreView').style.display = 'none';
-        document.getElementById('myTracksView').style.display = 'none';
+        const views = ['libraryView', 'communityView', 'exploreView', 'myTracksView', 'setlistsView'];
+        views.forEach(viewId => {
+            const viewElement = document.getElementById(viewId);
+            if (viewElement) viewElement.style.display = 'none';
+        });
 
         // Show selected view
-        document.getElementById(`${viewName}View`).style.display = 'block';
+        const selectedView = document.getElementById(`${viewName}View`);
+        if (selectedView) {
+            selectedView.style.display = 'block';
+        }
 
         // Update nav links
         document.querySelectorAll('.nav-link').forEach(link => {
@@ -1048,7 +1126,12 @@ class MultracksApp {
                 if (emptyCta) {
                     emptyCta.textContent = 'Adicionar música';
                     emptyCta.style.display = 'block';
-                    emptyCta.onclick = () => this.openModal();
+                    emptyCta.onclick = async () => {
+                        const hasAccess = await this.requireStudioPlan('Adicionar músicas');
+                        if (hasAccess) {
+                            this.openModal();
+                        }
+                    };
                 }
             }
         } else {
@@ -3106,31 +3189,38 @@ class MultracksApp {
     // ========================================
     // EFFECTS MANAGEMENT
     // ========================================
-    showEffectPopover(clientX, clientY, timeInSeconds, clickX, canvasWidth) {
+    async showEffectPopover(clientX, clientY, timeInSeconds, clickX, canvasWidth) {
+        // Check plan restriction - Home users cannot add effects
+        const isStudio = await this.isStudioPlan();
+        if (!isStudio) {
+            this.showUpgradeModal('Efeitos no canvas');
+            return;
+        }
+
         // Store current click time
         this.currentClickTime = timeInSeconds;
-        
+
         // Format time for display
         const formattedTime = this.formatTime(timeInSeconds);
         this.popoverTime.textContent = formattedTime;
-        
+
         // Position popover near the click
         const popover = this.effectPopover;
         const timelineRect = document.getElementById('timelineWaveform').getBoundingClientRect();
-        
+
         // Calculate position (ensure it stays within viewport)
         let leftPos = clientX - 100; // Center horizontally (popover is ~200px wide)
         let topPos = clientY - 150; // Position above the click
-        
+
         // Adjust if too close to edges
         if (leftPos < 10) leftPos = 10;
         if (leftPos + 200 > window.innerWidth) leftPos = window.innerWidth - 210;
         if (topPos < 10) topPos = clientY + 20; // Show below if too close to top
-        
+
         popover.style.left = `${leftPos}px`;
         popover.style.top = `${topPos}px`;
         popover.classList.add('active');
-        
+
         // Store canvas data for effect positioning
         this.currentCanvasWidth = canvasWidth;
         this.currentClickX = clickX;
@@ -5336,6 +5426,23 @@ class MultracksApp {
             localStorage.setItem('transitionMode', e.target.checked);
         });
 
+        // Upgrade modal event listeners
+        const upgradeModalClose = document.getElementById('upgradeModalClose');
+        const upgradeCancelBtn = document.getElementById('upgradeCancelBtn');
+        const upgradeBtn = document.getElementById('upgradeBtn');
+
+        upgradeModalClose?.addEventListener('click', () => this.hideUpgradeModal());
+        upgradeCancelBtn?.addEventListener('click', () => this.hideUpgradeModal());
+        upgradeBtn?.addEventListener('click', () => this.navigateToPlans());
+
+        // Close upgrade modal when clicking outside
+        const upgradeModal = document.getElementById('upgradeModal');
+        upgradeModal?.addEventListener('click', (e) => {
+            if (e.target === upgradeModal) {
+                this.hideUpgradeModal();
+            }
+        });
+
         // Save profile button
         this.saveProfileBtn?.addEventListener('click', () => this.saveUserProfile());
     }
@@ -5505,12 +5612,19 @@ class MultracksApp {
             const docSnap = await window.firebaseDB.getDoc(userDocRef);
 
             if (docSnap.exists()) {
-                // Update existing document
+                // Update existing document, preserving plano field
+                const existingData = docSnap.data();
+                if (existingData.plano) {
+                    profileData.plano = existingData.plano;
+                } else {
+                    profileData.plano = 'home'; // Set default plan if missing
+                }
                 await window.firebaseDB.updateDoc(userDocRef, profileData);
                 console.log('[PROFILE] Profile updated:', currentUser.uid);
             } else {
-                // Create new document
+                // Create new document with default plan
                 profileData.createdAt = window.firebaseDB.serverTimestamp();
+                profileData.plano = 'home';
                 await window.firebaseDB.setDoc(userDocRef, profileData);
                 console.log('[PROFILE] Profile created:', currentUser.uid);
             }
@@ -5618,6 +5732,7 @@ class MultracksApp {
                             const userData = userDoc.data();
                             displayName = userData.displayName || displayName;
                             profilePhoto = userData.profilePhoto || null;
+                            user.plano = userData.plano || 'home'; // Get plan from Firestore
                         }
                     }
                 } catch (error) {
@@ -5632,6 +5747,7 @@ class MultracksApp {
                 const settingsProfileName = document.getElementById('settingsProfileName');
                 const settingsProfileEmail = document.getElementById('settingsProfileEmail');
                 const settingsAccountType = document.getElementById('settingsAccountType');
+                const settingsAccountPlan = document.getElementById('settingsAccountPlan');
 
                 if (settingsUserInitial) {
                     if (profilePhoto) {
@@ -5657,6 +5773,12 @@ class MultracksApp {
 
                 if (settingsAccountType) {
                     settingsAccountType.textContent = user.accountType || 'Usuário';
+                }
+
+                if (settingsAccountPlan) {
+                    const plan = user.plano || 'home';
+                    settingsAccountPlan.textContent = plan.toUpperCase();
+                    settingsAccountPlan.className = 'account-plan-value ' + plan;
                 }
             } catch (e) {
                 console.warn('[SETTINGS] Could not parse stored user:', e);
@@ -6247,11 +6369,11 @@ class MultracksApp {
         // Navigation links
         const navLinks = document.querySelectorAll('.nav-link');
         navLinks.forEach(link => {
-            link.addEventListener('click', (e) => {
+            link.addEventListener('click', async (e) => {
                 e.preventDefault();
                 const view = link.dataset.view;
                 if (view) {
-                    this.switchView(view);
+                    await this.switchView(view);
                 }
             });
         });
@@ -6505,8 +6627,14 @@ class MultracksApp {
 
         // My Tracks button
         const myTracksBtn = document.getElementById('myTracksBtn');
-        myTracksBtn?.addEventListener('click', () => {
+        myTracksBtn?.addEventListener('click', async () => {
             profileDropdown?.classList.remove('active');
+            // Check plan restriction
+            const isStudio = await this.isStudioPlan();
+            if (!isStudio) {
+                this.showUpgradeModal('Minhas Tracks');
+                return;
+            }
             this.switchToMyTracks();
         });
 
@@ -6520,15 +6648,20 @@ class MultracksApp {
         const fabAdd = document.getElementById('fabAdd');
         const emptyAddBtn = document.getElementById('emptyAddBtn');
         
-        const checkAuthBeforeOpenModal = () => {
+        const checkAuthBeforeOpenModal = async () => {
             // Check Firebase Auth state instead of localStorage
             const isUserLoggedIn = window.firebaseAuth && window.firebaseAuth.auth && window.firebaseAuth.auth.currentUser;
             
-            if (isUserLoggedIn) {
-                this.openModal();
-            } else {
+            if (!isUserLoggedIn) {
                 // Show guest warning modal instead of auth modal
                 this.openGuestWarningModal();
+                return;
+            }
+
+            // Check if user has Studio plan for adding music
+            const hasAccess = await this.requireStudioPlan('Adicionar músicas');
+            if (hasAccess) {
+                this.openModal();
             }
         };
         
@@ -6685,7 +6818,7 @@ class MultracksApp {
         };
         
         // Handle drag end (bound to check isDragging)
-        this.handleTimelineDragEnd = (e) => {
+        this.handleTimelineDragEnd = async (e) => {
             if (!this.isDragging) return;
             
             const rect = this.waveformCanvas.getBoundingClientRect();
@@ -6709,7 +6842,7 @@ class MultracksApp {
             if (dragDuration < 200 && dragDistance < 5) {
                 const percentage = x / rect.width;
                 const seekTime = percentage * this.totalDuration;
-                this.showEffectPopover(e.clientX, e.clientY, seekTime, x, rect.width);
+                await this.showEffectPopover(e.clientX, e.clientY, seekTime, x, rect.width);
                 this.showClickIndicator(x);
             } else {
                 // It was a drag, hide any open popover
@@ -7416,6 +7549,16 @@ class MultracksApp {
                         if (userDoc.exists()) {
                             const userData = userDoc.data();
 
+                            // Ensure user has a plan, set to 'home' if missing
+                            if (!userData.plano) {
+                                try {
+                                    await window.firebaseDB.updateDoc(userDoc, { plano: 'home' });
+                                    console.log('[AUTH] Default plan set for existing user:', user.uid);
+                                } catch (error) {
+                                    console.warn('[AUTH] Could not set default plan:', error);
+                                }
+                            }
+
                             if (userData.status === 'banned') {
                                 await signOut(auth);
                                 alert(`Sua conta foi banida.\n\nMotivo: ${userData.banReason || 'Não especificado'}\n\nPara mais informações, entre em contato com o suporte.`);
@@ -7566,9 +7709,10 @@ class MultracksApp {
                         displayName: name,
                         email: email,
                         accountType: finalAccountType,
+                        plano: 'home', // Default plan for new users
                         createdAt: serverTimestamp()
                     }).then(() => {
-                        console.log('[AUTH] User data stored in Firestore');
+                        console.log('[AUTH] User data stored in Firestore with default plan: home');
                     }).catch((error) => {
                         console.warn('[AUTH] Could not store user data in Firestore:', error);
                     });
@@ -7840,10 +7984,16 @@ class MultracksApp {
         }
     }
     
-    setupPadButton() {
+    async setupPadButton() {
         const padBtn = document.getElementById('padBtn');
         if (padBtn) {
-            padBtn.addEventListener('click', () => {
+            padBtn.addEventListener('click', async () => {
+                // Check plan restriction - Home users cannot use PAD
+                const isStudio = await this.isStudioPlan();
+                if (!isStudio) {
+                    this.showUpgradeModal('PAD');
+                    return;
+                }
                 this.showPadSelectionModal();
             });
         }
@@ -8492,7 +8642,14 @@ class MultracksApp {
         }
     }
 
-    openCreatorSignupModal() {
+    async openCreatorSignupModal() {
+        // Check plan restriction - Home users cannot create creator accounts
+        const isStudio = await this.isStudioPlan();
+        if (!isStudio) {
+            this.showUpgradeModal('Minhas Tracks');
+            return;
+        }
+
         if (this.creatorSignupModal) {
             this.creatorSignupModal.classList.add('active');
             // Reset form
@@ -8623,12 +8780,19 @@ class MultracksApp {
         }
     }
     
-    switchToMyTracks() {
+    async switchToMyTracks() {
         // Check if user is logged in using Firebase Auth
         const isUserLoggedIn = window.firebaseAuth && window.firebaseAuth.auth && window.firebaseAuth.auth.currentUser;
 
         if (!isUserLoggedIn) {
             this.openAuthModal();
+            return;
+        }
+
+        // Check plan restriction - Home users cannot access Minhas Tracks
+        const isStudio = await this.isStudioPlan();
+        if (!isStudio) {
+            this.showUpgradeModal('Minhas Tracks');
             return;
         }
 
@@ -8639,8 +8803,17 @@ class MultracksApp {
             myTracksSplashScreen.classList.remove('hidden');
         }
 
-        // Use switchView to handle proper view switching
-        this.switchView('myTracks');
+        // Switch to myTracks view directly without plan restriction
+        const views = ['libraryView', 'communityView', 'exploreView', 'myTracksView', 'setlistsView'];
+        views.forEach(viewId => {
+            const viewElement = document.getElementById(viewId);
+            if (viewElement) viewElement.style.display = 'none';
+        });
+
+        const myTracksView = document.getElementById('myTracksView');
+        if (myTracksView) {
+            myTracksView.style.display = 'block';
+        }
 
         // Hide loading screen after 2 seconds
         setTimeout(() => {

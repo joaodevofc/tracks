@@ -946,6 +946,10 @@
                                 <span class="account-type-label">Tipo de conta:</span>
                                 <span class="account-type-value" id="settingsAccountType"></span>
                             </div>
+                            <div class="profile-account-plan">
+                                <span class="account-plan-label">Plano atual:</span>
+                                <span class="account-plan-value" id="settingsAccountPlan"></span>
+                            </div>
                         </div>
                     </div>
                     <input type="file" id="profilePhotoInput" accept="image/*" style="display: none;">
@@ -1006,6 +1010,69 @@
                             <span>Ativar transição entre tracks</span>
                         </label>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- UPGRADE MODAL -->
+    <div class="modal-overlay" id="upgradeModal">
+        <div class="modal upgrade-modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Funcionalidade Premium</h3>
+                <button class="modal-close" id="upgradeModalClose" aria-label="Fechar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="upgrade-content">
+                    <div class="upgrade-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                        </svg>
+                    </div>
+                    <h4 class="upgrade-title" id="upgradeTitle">Recurso Exclusivo Studio</h4>
+                    <p class="upgrade-message" id="upgradeMessage">Esta funcionalidade está disponível apenas para usuários do plano Studio.</p>
+                    
+                    <div class="upgrade-features">
+                        <div class="upgrade-feature">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <span>Setlists ilimitadas</span>
+                        </div>
+                        <div class="upgrade-feature">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <span>Sistema PAD completo</span>
+                        </div>
+                        <div class="upgrade-feature">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <span>Efeitos personalizados</span>
+                        </div>
+                        <div class="upgrade-feature">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <span>Conta de criador</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="upgrade-actions">
+                    <button class="btn btn-secondary" id="upgradeCancelBtn">Depois</button>
+                    <button class="btn btn-primary" id="upgradeBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                        </svg>
+                        Fazer Upgrade
+                    </button>
                 </div>
             </div>
         </div>

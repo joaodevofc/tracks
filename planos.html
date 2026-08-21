@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Planos - W.Tracks</title>
+<meta name="description" content="Compare os planos W.Tracks Home e W.Tracks Studio">
+<meta name="theme-color" content="#000000">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="icon-black-transparent.png">
+<style>
+  :root{
+    --bg:#000000;
+    --bg-elevated:#0e0e0e;
+    --card:#131313;
+    --card-border:#232323;
+    --card-border-hover:#3a3a3a;
+    --text:#ffffff;
+    --text-muted:#9a9a9a;
+    --text-faint:#5c5c5c;
+    --accent:#ffffff;
+    --accent-soft:#d4d4d4;
+    --studio-accent:#c9a227;
+    --danger:#ff4d4d;
+    --success:#3ddc84;
+    --radius:14px;
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box;}
+
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Poppins',sans-serif;
+    font-weight:300;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+
+  a{color:inherit;text-decoration:none;}
+
+  /* HEADER */
+  .header{
+    border-bottom:1px solid var(--card-border);
+    padding:18px 0;
+    position:sticky;
+    top:0;
+    background:rgba(0,0,0,0.85);
+    backdrop-filter:blur(10px);
+    z-index:10;
+  }
+  .header-inner{
+    max-width:1180px;
+    margin:0 auto;
+    padding:0 24px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .logo{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-weight:600;
+    font-size:18px;
+    letter-spacing:0.5px;
+  }
+  .logo-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);}
+  .back-link{
+    font-size:13px;
+    color:var(--text-muted);
+    font-weight:400;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    transition:color .2s;
+  }
+  .back-link:hover{color:var(--text);}
+
+  /* HERO */
+  .hero{
+    max-width:720px;
+    margin:64px auto 56px;
+    padding:0 24px;
+    text-align:center;
+  }
+  .hero-eyebrow{
+    font-size:12px;
+    letter-spacing:2.5px;
+    text-transform:uppercase;
+    color:var(--text-faint);
+    margin-bottom:18px;
+    font-weight:500;
+  }
+  .hero h1{
+    font-size:38px;
+    font-weight:600;
+    letter-spacing:-0.5px;
+    margin-bottom:16px;
+    line-height:1.2;
+  }
+  .hero p{
+    font-size:15px;
+    color:var(--text-muted);
+    font-weight:300;
+    line-height:1.6;
+  }
+
+  /* BILLING TOGGLE (visual only, monthly only for now) */
+  .billing-note{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    margin-top:28px;
+    padding:8px 18px;
+    border:1px solid var(--card-border);
+    border-radius:100px;
+    font-size:12px;
+    color:var(--text-muted);
+  }
+  .billing-note span.dot{width:6px;height:6px;border-radius:50%;background:var(--success);}
+
+  /* PLANS GRID */
+  .plans{
+    max-width:960px;
+    margin:0 auto;
+    padding:0 24px 100px;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:24px;
+  }
+
+  @media (max-width:760px){
+    .plans{grid-template-columns:1fr;}
+    .hero h1{font-size:28px;}
+  }
+
+  .plan-card{
+    background:var(--card);
+    border:1px solid var(--card-border);
+    border-radius:var(--radius);
+    padding:36px 32px 32px;
+    display:flex;
+    flex-direction:column;
+    position:relative;
+    transition:border-color .25s, transform .25s;
+  }
+  .plan-card:hover{border-color:var(--card-border-hover);}
+
+  .plan-card.studio{
+    border-color:rgba(201,162,39,0.35);
+    background:linear-gradient(180deg, rgba(201,162,39,0.06) 0%, var(--card) 22%);
+  }
+  .plan-card.studio:hover{border-color:rgba(201,162,39,0.6);}
+
+  .plan-badge{
+    position:absolute;
+    top:-13px;
+    left:32px;
+    background:var(--studio-accent);
+    color:#000;
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    padding:5px 12px;
+    border-radius:100px;
+  }
+
+  .plan-name{
+    font-size:13px;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    color:var(--text-faint);
+    font-weight:500;
+    margin-bottom:10px;
+  }
+  .plan-card.studio .plan-name{color:var(--studio-accent);}
+
+  .plan-title{
+    font-size:26px;
+    font-weight:600;
+    margin-bottom:20px;
+    letter-spacing:-0.3px;
+  }
+
+  .plan-price{
+    display:flex;
+    align-items:baseline;
+    gap:6px;
+    margin-bottom:6px;
+  }
+  .plan-price .amount{
+    font-size:40px;
+    font-weight:600;
+    letter-spacing:-1px;
+  }
+  .plan-price .currency{
+    font-size:16px;
+    font-weight:500;
+    color:var(--text-muted);
+  }
+  .plan-price .period{
+    font-size:14px;
+    color:var(--text-muted);
+    font-weight:300;
+  }
+  .plan-sub{
+    font-size:12.5px;
+    color:var(--text-faint);
+    margin-bottom:28px;
+  }
+
+  .plan-cta{
+    display:block;
+    text-align:center;
+    padding:13px 20px;
+    border-radius:10px;
+    font-size:14px;
+    font-weight:500;
+    cursor:pointer;
+    border:none;
+    width:100%;
+    margin-bottom:30px;
+    transition:opacity .2s, background .2s;
+  }
+  .plan-cta.current{
+    background:transparent;
+    border:1px solid var(--card-border-hover);
+    color:var(--text-muted);
+    cursor:default;
+  }
+  .plan-cta.upgrade{
+    background:var(--studio-accent);
+    color:#000;
+  }
+  .plan-cta.upgrade:hover{opacity:0.88;}
+
+  .features{
+    list-style:none;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+  .features li{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    font-size:13.5px;
+    color:var(--text-muted);
+    line-height:1.5;
+    font-weight:300;
+  }
+  .features li strong{
+    color:var(--text);
+    font-weight:500;
+  }
+  .icon-check, .icon-x{
+    flex-shrink:0;
+    width:16px;
+    height:16px;
+    margin-top:2px;
+  }
+  .icon-check{color:var(--success);}
+  .icon-x{color:var(--text-faint);}
+
+  .features li.disabled{color:var(--text-faint);}
+
+  /* COMPARISON TABLE */
+  .compare-section{
+    max-width:960px;
+    margin:0 auto 100px;
+    padding:0 24px;
+  }
+  .compare-heading{
+    text-align:center;
+    margin-bottom:36px;
+  }
+  .compare-heading h2{
+    font-size:24px;
+    font-weight:600;
+    margin-bottom:8px;
+    letter-spacing:-0.3px;
+  }
+  .compare-heading p{
+    font-size:13.5px;
+    color:var(--text-muted);
+    font-weight:300;
+  }
+
+  .compare-table{
+    width:100%;
+    border-collapse:collapse;
+    background:var(--card);
+    border:1px solid var(--card-border);
+    border-radius:var(--radius);
+    overflow:hidden;
+  }
+  .compare-table thead th{
+    padding:18px 22px;
+    font-size:12px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    font-weight:500;
+    text-align:left;
+    color:var(--text-faint);
+    border-bottom:1px solid var(--card-border);
+  }
+  .compare-table thead th.col-plan{
+    text-align:center;
+    color:var(--text);
+    font-size:14px;
+    text-transform:none;
+    letter-spacing:0;
+  }
+  .compare-table thead th.col-plan.studio-col{color:var(--studio-accent);}
+
+  .compare-table tbody td{
+    padding:16px 22px;
+    font-size:13.5px;
+    color:var(--text-muted);
+    font-weight:300;
+    border-bottom:1px solid var(--card-border);
+  }
+  .compare-table tbody tr:last-child td{border-bottom:none;}
+  .compare-table tbody td:first-child{color:var(--text);font-weight:400;}
+  .compare-table td.center{text-align:center;}
+
+  .compare-table .yes{color:var(--success);}
+  .compare-table .no{color:var(--text-faint);}
+
+  @media (max-width:760px){
+    .compare-table{font-size:12px;}
+    .compare-table thead th, .compare-table tbody td{padding:12px 10px;}
+  }
+
+  /* FAQ / FOOTER NOTE */
+  .note-section{
+    max-width:640px;
+    margin:0 auto 80px;
+    padding:0 24px;
+    text-align:center;
+  }
+  .note-section p{
+    font-size:12.5px;
+    color:var(--text-faint);
+    line-height:1.7;
+    font-weight:300;
+  }
+
+  footer.app-footer{
+    border-top:1px solid var(--card-border);
+    padding:28px 24px;
+    text-align:center;
+  }
+  .footer-link{
+    font-size:12px;
+    color:var(--text-faint);
+  }
+  .footer-separator{color:var(--text-faint);margin:0 10px;}
+</style>
+</head>
+<body>
+
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-dot"></span>
+        W.Tracks
+      </div>
+      <a href="index.html" class="back-link">← Voltar</a>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-eyebrow">Planos</div>
+    <h1>Escolha como você toca</h1>
+    <p>Do ensaio individual à banda completa. Escolha o plano que acompanha o seu momento.</p>
+    <div class="billing-note"><span class="dot"></span> Cobrança mensal, cancele quando quiser</div>
+  </section>
+
+  <section class="plans">
+
+    <!-- HOME -->
+    <div class="plan-card home">
+      <div class="plan-name">Gratuito</div>
+      <div class="plan-title">W.Tracks Home</div>
+      <div class="plan-price">
+        <span class="currency">R$</span>
+        <span class="amount">0</span>
+        <span class="period">/mês</span>
+      </div>
+      <div class="plan-sub">Ideal para começar e testar a plataforma</div>
+
+      <button class="plan-cta current" id="btnHomeCurrent">Plano atual</button>
+
+      <ul class="features">
+        <li><svg class="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg> Músicas salvas <strong>localmente</strong> no dispositivo</li>
+        <li><svg class="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg> <strong>1 setlist</strong>, com até <strong>5 músicas</strong></li>
+        <li class="disabled"><svg class="icon-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Pads no player</li>
+        <li class="disabled"><svg class="icon-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Efeitos no canvas</li>
+        <li class="disabled"><svg class="icon-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Conta em Minhas Tracks</li>
+        <li><svg class="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg> Suporte básico</li>
+      </ul>
+    </div>
+
+    <!-- STUDIO -->
+    <div class="plan-card studio">
+      <div class="plan-badge">Recomendado</div>
+      <div class="plan-name">Studio</div>
+      <div class="plan-title">W.Tracks Studio</div>
+      <div class="plan-price">
+        <span class="currency">R$</span>
+        <span class="amount">19,99</span>
+        <span class="period">/mês</span>
+      </div>
+      <div class="plan-sub">Para quem toca com regularidade e em equipe</div>
+
+      <button class="plan-cta upgrade" id="btnUpgradeStudio">Fazer upgrade</button>
+
+      <ul class="features">
+        <li><svg class="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg> Músicas salvas <strong>na nuvem</strong>, acesso em qualquer dispositivo</li>
+        <li><svg class="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg> Setlists e músicas <strong>ilimitadas</strong></li>
+        <li><svg class="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg> <strong>Pads</strong> habilitados no player</li>
+        <li><svg class="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg> <strong>Efeitos</strong> no canvas</li>
+        <li><svg class="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg> Conta própria em <strong>Minhas Tracks</strong> para compartilhar e vender</li>
+        <li><svg class="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg> Suporte <strong>prioritário</strong></li>
+      </ul>
+    </div>
+
+  </section>
+
+  <section class="compare-section">
+    <div class="compare-heading">
+      <h2>Comparativo completo</h2>
+      <p>Todos os recursos, lado a lado</p>
+    </div>
+
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>Recurso</th>
+          <th class="col-plan">Home</th>
+          <th class="col-plan studio-col">Studio</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Armazenamento das músicas</td>
+          <td class="center">Local no dispositivo</td>
+          <td class="center yes">Nuvem, todos os dispositivos</td>
+        </tr>
+        <tr>
+          <td>Setlists</td>
+          <td class="center">1 setlist · até 5 músicas</td>
+          <td class="center yes">Ilimitadas</td>
+        </tr>
+        <tr>
+          <td>Pads no player</td>
+          <td class="center no">—</td>
+          <td class="center yes">Incluído</td>
+        </tr>
+        <tr>
+          <td>Efeitos no canvas</td>
+          <td class="center no">—</td>
+          <td class="center yes">Incluído</td>
+        </tr>
+        <tr>
+          <td>Conta em Minhas Tracks</td>
+          <td class="center no">—</td>
+          <td class="center yes">Compartilhar e vender</td>
+        </tr>
+        <tr>
+          <td>Suporte</td>
+          <td class="center">Básico</td>
+          <td class="center yes">Prioritário</td>
+        </tr>
+        <tr>
+          <td>Preço</td>
+          <td class="center">Gratuito</td>
+          <td class="center yes">R$ 19,99/mês</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="note-section">
+    <p>O upgrade é aplicado imediatamente à sua conta. Você pode cancelar quando quiser, mantendo o acesso ao Studio até o fim do período já pago.</p>
+  </section>
+
+  <footer class="app-footer">
+    <a href="termos.html" class="footer-link">Termos de Uso</a>
+    <span class="footer-separator">•</span>
+    <a href="privacidade.html" class="footer-link">Política de Privacidade</a>
+  </footer>
+
+  <script>
+    // Placeholder de ação — o Windsurf deve ligar isso ao fluxo real de pagamento/Firestore
+    document.getElementById('btnUpgradeStudio').addEventListener('click', function () {
+      // TODO: abrir checkout/pagamento e, após confirmação, atualizar o campo "plano" do usuário no Firestore para "studio"
+      console.log('Upgrade para Studio solicitado');
+    });
+  </script>
+
+</body>
+</html>
