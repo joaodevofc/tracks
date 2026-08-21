@@ -6651,20 +6651,17 @@ class MultracksApp {
         const checkAuthBeforeOpenModal = async () => {
             // Check Firebase Auth state instead of localStorage
             const isUserLoggedIn = window.firebaseAuth && window.firebaseAuth.auth && window.firebaseAuth.auth.currentUser;
-            
+
             if (!isUserLoggedIn) {
                 // Show guest warning modal instead of auth modal
                 this.openGuestWarningModal();
                 return;
             }
 
-            // Check if user has Studio plan for adding music
-            const hasAccess = await this.requireStudioPlan('Adicionar músicas');
-            if (hasAccess) {
-                this.openModal();
-            }
+            // Adding music is allowed for all users (no plan restriction)
+            this.openModal();
         };
-        
+
         fabAdd?.addEventListener('click', () => checkAuthBeforeOpenModal());
         emptyAddBtn?.addEventListener('click', () => checkAuthBeforeOpenModal());
         
