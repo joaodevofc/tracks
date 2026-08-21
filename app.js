@@ -817,9 +817,9 @@ class MultracksApp {
     }
 
     async switchView(viewName) {
-        // Check plan restrictions for certain views (setlists is allowed for Home with limitations)
-        if (viewName === 'myTracks') {
-            const hasAccess = await this.requireStudioPlan('Minhas Tracks');
+        // Check plan restrictions for certain views
+        if (viewName === 'setlists') {
+            const hasAccess = await this.requireStudioPlan('Setlists');
             if (!hasAccess) return;
         }
 
