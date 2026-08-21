@@ -67,7 +67,7 @@
         // Register Service Worker for PWA with immediate updates
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js')
+                navigator.serviceWorker.register('/tracks/sw.js')
                     .then(registration => {
                         console.log('Service Worker registered:', registration);
                         
@@ -314,7 +314,7 @@
             </svg>
         </button>
 
-        <!-- Setlists List -->
+        <!-- Setlists Listw -->
         <div class="floating-setlists-list" id="floatingSetlistsList">
             <!-- Setlist items will be rendered here -->
         </div>

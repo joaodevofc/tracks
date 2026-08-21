@@ -3,11 +3,11 @@
  * Provides offline functionality and caching for PWA
  */
 
-const CACHE_NAME = 'wmult-v4'; 
-const STATIC_CACHE = 'wmult-static-v4'; 
-const DYNAMIC_CACHE = 'multracks-dynamic-v4'; 
+const CACHE_NAME = 'wmult-v3'; // Incremented version to force cache update
+const STATIC_CACHE = 'wmult-static-v3'; // Incremented version to force cache update
+const DYNAMIC_CACHE = 'multracks-dynamic-v3'; // Incremented version to force cache update
 
-// ADICIONADO O PREFIXO /tracks EM TODOS OS ARQUIVOS ESTÁTICOS
+// Assets to cache on install
 const STATIC_ASSETS = [
     '/tracks/',
     '/tracks/index.html',
@@ -89,6 +89,28 @@ self.addEventListener('fetch', (event) => {
         return;
     }
     
+    // For requests to /tracks/ path, use network-first strategy
+    if (url.pathname.startsWith('/tracks/')) {
+        event.respondWith(
+            fetch(event.request)
+                .then((networkResponse) => {
+                    // Cache successful responses
+                    if (networkResponse.ok) {
+                        const responseClone = networkResponse.clone();
+                        caches.open(DYNAMIC_CACHE).then((cache) => {
+                            cache.put(event.request, responseClone);
+                        });
+                    }
+                    return networkResponse;
+                })
+                .catch(() => {
+                    // If network fails, try cache
+                    return caches.match(event.request);
+                })
+        );
+        return;
+    }
+    
     // For other requests, use network-first strategy
     event.respondWith(
         fetch(event.request)
@@ -120,8 +142,8 @@ self.addEventListener('sync', (event) => {
 self.addEventListener('push', (event) => {
     const options = {
         body: event.data ? event.data.text() : 'Nova atualização disponível',
-        icon: '/tracks/icon-black-transparent.png', // Corrigido caminho aqui também
-        badge: '/tracks/icon-black-transparent.png', // Corrigido caminho aqui também
+        icon: '/data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'><rect width=\'100\' height=\'100\' fill=\'%23000000\'/><text y=\'.9em\' font-size=\'90\'>🎵</text></svg>',
+        badge: '/data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'><rect width=\'100\' height=\'100\' fill=\'%23000000\'/><text y=\'.9em\' font-size=\'90\'>🎵</text></svg>',
         vibrate: [200, 100, 200],
         data: {
             dateOfArrival: Date.now(),
