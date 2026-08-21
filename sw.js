@@ -3,20 +3,20 @@
  * Provides offline functionality and caching for PWA
  */
 
-const CACHE_NAME = 'wmult-v3'; // Incremented version to force cache update
-const STATIC_CACHE = 'wmult-static-v3'; // Incremented version to force cache update
-const DYNAMIC_CACHE = 'multracks-dynamic-v3'; // Incremented version to force cache update
+const CACHE_NAME = 'wmult-v4'; 
+const STATIC_CACHE = 'wmult-static-v4'; 
+const DYNAMIC_CACHE = 'multracks-dynamic-v4'; 
 
-// Assets to cache on install
+// ADICIONADO O PREFIXO /tracks EM TODOS OS ARQUIVOS ESTÁTICOS
 const STATIC_ASSETS = [
-    '/',
-    '/index.html',
-    '/styles.css',
-    '/storage.js',
-    '/player.js',
-    '/app.js',
-    '/manifest.json',
-    '/icon-black-transparent.png'
+    '/tracks/',
+    '/tracks/index.html',
+    '/tracks/styles.css',
+    '/tracks/storage.js',
+    '/tracks/player.js',
+    '/tracks/app.js',
+    '/tracks/manifest.json',
+    '/tracks/icon-black-transparent.png'
 ];
 
 // Install event - cache static assets
@@ -120,8 +120,8 @@ self.addEventListener('sync', (event) => {
 self.addEventListener('push', (event) => {
     const options = {
         body: event.data ? event.data.text() : 'Nova atualização disponível',
-        icon: '/data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'><rect width=\'100\' height=\'100\' fill=\'%23000000\'/><text y=\'.9em\' font-size=\'90\'>🎵</text></svg>',
-        badge: '/data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'><rect width=\'100\' height=\'100\' fill=\'%23000000\'/><text y=\'.9em\' font-size=\'90\'>🎵</text></svg>',
+        icon: '/tracks/icon-black-transparent.png', // Corrigido caminho aqui também
+        badge: '/tracks/icon-black-transparent.png', // Corrigido caminho aqui também
         vibrate: [200, 100, 200],
         data: {
             dateOfArrival: Date.now(),
