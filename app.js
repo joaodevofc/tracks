@@ -1126,11 +1126,8 @@ class MultracksApp {
                 if (emptyCta) {
                     emptyCta.textContent = 'Adicionar música';
                     emptyCta.style.display = 'block';
-                    emptyCta.onclick = async () => {
-                        const hasAccess = await this.requireStudioPlan('Adicionar músicas');
-                        if (hasAccess) {
-                            this.openModal();
-                        }
+                    emptyCta.onclick = () => {
+                        this.openModal();
                     };
                 }
             }
@@ -6647,7 +6644,7 @@ class MultracksApp {
         // FAB add button
         const fabAdd = document.getElementById('fabAdd');
         const emptyAddBtn = document.getElementById('emptyAddBtn');
-        
+
         const checkAuthBeforeOpenModal = async () => {
             // Check Firebase Auth state instead of localStorage
             const isUserLoggedIn = window.firebaseAuth && window.firebaseAuth.auth && window.firebaseAuth.auth.currentUser;
@@ -6658,7 +6655,7 @@ class MultracksApp {
                 return;
             }
 
-            // Adding music is allowed for all users (no plan restriction)
+            // Home users can add music - no plan restriction
             this.openModal();
         };
 
