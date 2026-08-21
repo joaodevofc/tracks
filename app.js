@@ -794,7 +794,6 @@ class MultracksApp {
                 'Setlists': 'No plano Home, você pode criar apenas 1 setlist com até 5 músicas.',
                 'Minhas Tracks': 'A criação de conta de criador está disponível apenas para usuários do plano Studio.',
                 'Adicionar músicas': 'A adição de músicas personalizadas está disponível apenas para usuários do plano Studio.',
-                'PAD': 'O sistema PAD está disponível apenas para usuários do plano Studio.',
                 'default': `${featureName} está disponível apenas para usuários do plano Studio.`
             };
 
@@ -817,11 +816,8 @@ class MultracksApp {
     }
 
     async switchView(viewName) {
-        // Check plan restrictions for certain views
-        if (viewName === 'setlists') {
-            const hasAccess = await this.requireStudioPlan('Setlists');
-            if (!hasAccess) return;
-        }
+        // Note: Setlists view is now accessible to Home users (limit: 1 setlist)
+        // The restriction is applied when creating setlists, not when viewing
 
         // Hide all views
         const views = ['libraryView', 'communityView', 'exploreView', 'myTracksView', 'setlistsView'];
@@ -1811,11 +1807,11 @@ class MultracksApp {
     async openProject(projectId) {
         console.log('[APP] =======================================');
         console.log('[APP] openProject() called with projectId:', projectId);
-        
+
         const project = storage.getProject(projectId);
         if (project) {
             console.log('[APP] Found project:', project.name);
-            
+
             // Stop current playback before opening new project
             if (this.audioPlayer && this.audioPlayer.isPlaying) {
                 console.log('[APP] Stopping current playback before opening new project');
@@ -1869,13 +1865,13 @@ class MultracksApp {
     // ========================================
     switchToPlayer() {
         this.currentView = 'player';
-        
+
         const library = document.querySelector('.library');
         const hero = document.querySelector('.hero');
         const fab = document.querySelector('.fab-add');
         const playerView = document.getElementById('playerView');
         const exploreView = document.getElementById('exploreView');
-        
+
         if (library) library.style.display = 'none';
         if (hero) hero.style.display = 'none';
         if (fab) fab.style.display = 'none';
@@ -4585,17 +4581,38 @@ class MultracksApp {
     
     toggleMetronome() {
         this.metronomeEnabled = !this.metronomeEnabled;
-        
+
         if (this.audioPlayer) {
             this.audioPlayer.setMetronomeEnabled(this.metronomeEnabled);
         }
-        
+
         // Update button state
         this.metronomeBtn.classList.toggle('active', this.metronomeEnabled);
-        
+
+        // If metronome solo is active, restore states before re-rendering mixer
+        if (!this.metronomeEnabled && this.metronomeSolo) {
+            console.log('[APP] Disabling metronome - restoring metronome solo states first');
+            this.metronomeSolo = false;
+            const soloBtn = document.querySelector('.metronome-solo-btn');
+            if (soloBtn) soloBtn.classList.remove('active');
+
+            if (this.currentProject && this.audioPlayer) {
+                this.currentProject.tracks.forEach(track => {
+                    // Restore previous mute state
+                    if (track.wasMutedBeforeMetronomeSolo !== undefined) {
+                        track.mute = track.wasMutedBeforeMetronomeSolo;
+                        delete track.wasMutedBeforeMetronomeSolo;
+                    }
+                    this.audioPlayer.applyMuteSoloToTrack(track.id);
+                });
+                // Update fader visual effects before re-rendering
+                this.updateSoloMutedEffect();
+            }
+        }
+
         // Re-render mixer to show/hide metronome channel
         this.renderMixer();
-        
+
         // Update metronome level in visualization
         if (this.metronomeEnabled) {
             this.startMetronomeVisualization();
@@ -4631,10 +4648,10 @@ class MultracksApp {
     
     toggleMetronomeSolo() {
         this.metronomeSolo = !this.metronomeSolo;
-        
+
         const soloBtn = document.querySelector('.metronome-solo-btn');
         soloBtn.classList.toggle('active', this.metronomeSolo);
-        
+
         if (this.metronomeSolo) {
             // Metronome solo enabled - mute all tracks
             console.log('[APP] Metronome solo enabled - muting all tracks');
@@ -4645,6 +4662,8 @@ class MultracksApp {
                     track.mute = true;
                     this.audioPlayer.applyMuteSoloToTrack(track.id);
                 });
+                // Update fader visual effects immediately
+                this.updateSoloMutedEffect();
             }
         } else {
             // Metronome solo disabled - restore previous mute states
@@ -4658,6 +4677,8 @@ class MultracksApp {
                     }
                     this.audioPlayer.applyMuteSoloToTrack(track.id);
                 });
+                // Update fader visual effects immediately
+                this.updateSoloMutedEffect();
             }
         }
     }
@@ -7982,12 +8003,7 @@ class MultracksApp {
         const padBtn = document.getElementById('padBtn');
         if (padBtn) {
             padBtn.addEventListener('click', async () => {
-                // Check plan restriction - Home users cannot use PAD
-                const isStudio = await this.isStudioPlan();
-                if (!isStudio) {
-                    this.showUpgradeModal('PAD');
-                    return;
-                }
+                // PAD is now available for Home users
                 this.showPadSelectionModal();
             });
         }

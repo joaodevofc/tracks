@@ -105,6 +105,12 @@ class MultitrackPlayer {
             this.metronome.setBpm(this.metronomeBpm);
             this.metronome.setTimeSignature(this.metronomeTimeSignature);
             this.metronome.enable(this.metronomeEnabled);
+
+            // Set beat callback for visualization
+            this.metronome.onBeat = (beatInMeasure, isDownbeat, scheduledTime) => {
+                // Callback for UI visualization if needed
+                // The scheduledTime parameter allows UI to sync animations with actual audio timing
+            };
             
         } catch (error) {
             console.error('[PLAYER] Error initializing AudioContext:', error);
@@ -447,32 +453,32 @@ class MultitrackPlayer {
      * Handle track ended event for loop support with synchronized restart
      */
     handleTrackEnded(trackId) {
-        console.log('[PLAYER] Track ended:', trackId, 'loopEnabled:', this.loopEnabled);
-        
+        // console.log('[PLAYER] Track ended:', trackId, 'loopEnabled:', this.loopEnabled);
+
         // Only handle loop if loop is enabled
         if (!this.loopEnabled) {
             return;
         }
-        
+
         // Check if this is the first track to end (to avoid multiple restarts)
         // Use a flag to prevent multiple simultaneous restarts
         if (this.isRestarting) {
-            console.log('[PLAYER] Already restarting, ignoring ended event for track:', trackId);
+            // console.log('[PLAYER] Already restarting, ignoring ended event for track:', trackId);
             return;
         }
-        
+
         this.isRestarting = true;
-        console.log('[PLAYER] Starting synchronized loop restart process');
-        
+        // console.log('[PLAYER] Starting synchronized loop restart process');
+
         // Stop current playback first to ensure clean restart
         this.stopPlaybackTimer();
-        
+
         // Use requestAnimationFrame to ensure synchronized reset of all tracks
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 // Double requestAnimationFrame for precise timing
-                console.log('[PLAYER] Loop restart - synchronized reset to loop start:', this.loopStart);
-                
+                // console.log('[PLAYER] Loop restart - synchronized reset to loop start:', this.loopStart);
+
                 // Pause all audio elements first
                 this.trackNodes.forEach((nodes, id) => {
                     if (nodes.audioElement) {
@@ -483,35 +489,41 @@ class MultitrackPlayer {
                         }
                     }
                 });
-                
+
                 // Reset all track currentTimes simultaneously to loop start
                 this.trackNodes.forEach((nodes, id) => {
                     if (nodes.audioElement) {
-                        console.log('[PLAYER] Resetting track:', id, 'to loop start:', this.loopStart);
+                        // console.log('[PLAYER] Resetting track:', id, 'to loop start:', this.loopStart);
                         nodes.audioElement.currentTime = this.loopStart;
                     }
                 });
-                
+
                 // Reset player currentTime
                 this.currentTime = this.loopStart;
-                
+
+                // Restart metronome at loop start if enabled
+                if (this.metronome && this.metronomeEnabled) {
+                    // console.log('[PLAYER] Loop: Restarting metronome at loop start:', this.loopStart);
+                    this.metronome.start(this.loopStart);
+                }
+
                 // Notify UI of time update
                 if (this.onTimeUpdate) {
                     this.onTimeUpdate(this.currentTime);
                 }
-                
+
                 // Clear restart flag
                 this.isRestarting = false;
-                
+
                 // Restart playback immediately after reset using synchronized method
                 if (this.isPlaying) {
-                    console.log('[PLAYER] Restarting synchronized playback from loop start');
-                    
+                    // console.log('[PLAYER] Restarting synchronized playback from loop start');
+
                     // Record playback start time for hardware clock synchronization
                     this.playbackStartContextTime = this.audioContext.currentTime;
                     this.playbackStartOffset = this.currentTime;
-                    console.log('[PLAYER] Loop restart: Recorded playback start - contextTime:', this.playbackStartContextTime.toFixed(3), 'offset:', this.playbackStartOffset.toFixed(3));
-                    
+                    // console.log('[PLAYER] Loop restart: Recorded playback start - contextTime:', this.playbackStartContextTime.toFixed(3), 'offset:', this.playbackStartOffset.toFixed(3));
+
                     this.startSynchronizedPlayback();
                     this.startPlaybackTimer(); // Restart timer after synchronized playback
                 }
@@ -571,9 +583,10 @@ class MultitrackPlayer {
         console.log('[PLAYER] Total tracks in project:', this.currentProject.tracks.length);
         console.log('[PLAYER] Total trackNodes loaded:', this.trackNodes.size);
         
-        // Start metronome if enabled
+        // Start metronome if enabled - use musical position (currentTime) not audioContext.currentTime
         if (this.metronome && this.metronomeEnabled) {
-            this.metronome.start(this.audioContext.currentTime);
+            console.log('[PLAYER] Starting metronome at musical position:', this.currentTime);
+            this.metronome.start(this.currentTime);
         }
         
         // Pre-synchronization: Set all audio elements to the exact same position first
@@ -843,8 +856,14 @@ class MultitrackPlayer {
                         // Record playback start time for hardware clock synchronization
                         this.playbackStartContextTime = this.audioContext.currentTime;
                         this.playbackStartOffset = this.currentTime;
-                        console.log('[PLAYER] Seek: Recorded playback start - contextTime:', this.playbackStartContextTime.toFixed(3), 'offset:', this.playbackStartOffset.toFixed(3));
-                        
+                        // console.log('[PLAYER] Seek: Recorded playback start - contextTime:', this.playbackStartContextTime.toFixed(3), 'offset:', this.playbackStartOffset.toFixed(3));
+
+                        // Restart metronome at new position if enabled
+                        if (this.metronome && this.metronomeEnabled) {
+                            // console.log('[PLAYER] Seek: Restarting metronome at new position:', this.currentTime);
+                            this.metronome.start(this.currentTime);
+                        }
+
                         this.startSynchronizedPlayback();
                         resolve();
                     });
@@ -1439,16 +1458,16 @@ class MultitrackPlayer {
      */
     startPlaybackTimer() {
         this.stopPlaybackTimer();
-        
+
         const updateInterval = 50; // ms
         const driftThreshold = 0.05; // 50ms threshold for drift correction
-        
+
         this.playbackTimer = setInterval(() => {
             if (this.isPlaying) {
                 // Calculate real time using audioContext hardware clock (immune to setInterval delays)
                 const elapsedRealTime = this.audioContext.currentTime - this.playbackStartContextTime;
                 this.currentTime = this.playbackStartOffset + elapsedRealTime;
-                
+
                 // Continuous drift correction: check each track's actual currentTime
                 // and correct if drift exceeds threshold
                 this.trackNodes.forEach((nodes, trackId) => {
@@ -1456,25 +1475,24 @@ class MultitrackPlayer {
                     if (nodes.audioElement && this.currentTime >= 0 && this.currentTime < nodes.duration) {
                         const actualTime = nodes.audioElement.currentTime;
                         const drift = Math.abs(actualTime - this.currentTime);
-                        
+
                         if (drift > driftThreshold) {
-                            console.log('[PLAYER] Drift detected for track:', track.name, 'drift:', (drift * 1000).toFixed(2), 'ms, correcting');
+                            // Drift correction without logging (high frequency operation)
                             nodes.audioElement.currentTime = this.currentTime;
                         }
                     }
                 });
-                
+
                 // Handle loop with synchronized restart
                 if (this.loopEnabled && this.currentTime >= this.loopEnd) {
-                    console.log('[PLAYER] Timer-based loop trigger at currentTime:', this.currentTime, 'loopEnd:', this.loopEnd);
                     // Use the ended handler logic for consistency
                     this.handleTrackEnded(null); // null indicates timer-based loop
                 }
-                
+
                 // Stop at end (only if loop is not enabled)
                 if (!this.loopEnabled && this.currentTime >= this.totalDuration) {
                     this.stop();
-                    
+
                     // Notify app that song ended (only once)
                     if (this.onSongEnded && !this.songEndedNotified) {
                         this.songEndedNotified = true;
@@ -1482,7 +1500,7 @@ class MultitrackPlayer {
                     }
                     return;
                 }
-                
+
                 if (this.onTimeUpdate) {
                     this.onTimeUpdate(this.currentTime);
                 }
@@ -1566,8 +1584,8 @@ class MultitrackPlayer {
             
             // Start/stop metronome immediately if playback is active
             if (enabled && this.isPlaying && this.audioContext) {
-                console.log('[PLAYER] Starting metronome during playback at time:', this.audioContext.currentTime);
-                this.metronome.start(this.audioContext.currentTime);
+                console.log('[PLAYER] Starting metronome during playback at musical position:', this.currentTime);
+                this.metronome.start(this.currentTime);
             } else if (!enabled && this.metronome.isPlaying) {
                 console.log('[PLAYER] Stopping metronome during playback');
                 this.metronome.stop();
@@ -1700,27 +1718,41 @@ class Metronome {
     constructor(audioContext, masterGain) {
         this.audioContext = audioContext;
         this.masterGain = masterGain;
-        
+
         this.bpm = 120;
         this.timeSignature = '4/4';
         this.isEnabled = false;
         this.isPlaying = false;
-        
+
         // Metronome track nodes
         this.gain = null;
+        this.boost = null; // Internal boost gain node
         this.panner = null;
         this.analyser = null;
-        
+
+        // Metronome internal boost (in dB)
+        this.METRONOME_BOOST_DB = 6; // +6 dB internal boost
+
         // Scheduler
         this.lookahead = 25.0; // ms
         this.scheduleAheadTime = 0.1; // seconds
         this.nextNoteTime = 0.0;
         this.currentBeat = 0;
         this.schedulerTimer = null;
-        
+
+        // Temporal references for precise timing
+        this.startMusicalTime = undefined;
+        this.startAudioTime = undefined;
+
+        // Protection against infinite loops
+        this.maxScheduledNotes = 100; // Maximum notes per scheduler call
+
         // Callbacks
         this.onBeat = null;
-        
+
+        // Debug mode
+        this.debug = false;
+
         this.init();
     }
     
@@ -1728,24 +1760,56 @@ class Metronome {
         // Create metronome-specific nodes
         this.gain = this.audioContext.createGain();
         this.gain.gain.value = 0.5; // Default volume
-        
+
+        // Create internal boost gain node
+        this.boost = this.audioContext.createGain();
+        this.boost.gain.value = this.dbToGain(this.METRONOME_BOOST_DB);
+
         // Use standard StereoPannerNode
         this.panner = this.audioContext.createStereoPanner();
-        
+
         this.analyser = this.audioContext.createAnalyser();
         this.analyser.fftSize = 256;
-        
-        // Connect: gain -> panner -> analyser -> master
-        this.gain.connect(this.panner);
+
+        // Connect: gain -> boost -> panner -> analyser -> master
+        this.gain.connect(this.boost);
+        this.boost.connect(this.panner);
         this.panner.connect(this.analyser);
         this.analyser.connect(this.masterGain);
-        
-        console.log('[METRONOME] Metronome initialized');
+
+        console.log('[METRONOME] Metronome initialized with +', this.METRONOME_BOOST_DB, 'dB internal boost');
+    }
+
+    /**
+     * Convert dB to linear gain for Web Audio
+     */
+    dbToGain(db) {
+        if (db === -Infinity) {
+            return 0;
+        }
+        return Math.pow(10, db / 20);
     }
     
     setBpm(bpm) {
+        const oldBpm = this.bpm;
         this.bpm = Math.max(40, Math.min(240, bpm));
-        console.log('[METRONOME] BPM set to:', this.bpm);
+        // BPM change log is user-initiated, keep it for feedback
+        console.log('[METRONOME] BPM changed from', oldBpm, 'to:', this.bpm);
+
+        // If playing, schedule next click immediately with new BPM
+        if (this.isPlaying && this.nextNoteTime > 0) {
+            const currentAudioTime = this.audioContext.currentTime;
+            const beatDuration = this.getBeatDuration();
+
+            // Schedule next click immediately (or with minimal safe lookahead)
+            this.nextNoteTime = currentAudioTime + 0.01; // 10ms minimal safe lookahead
+            this.currentBeat++;
+
+            if (this.debug) console.log('[METRONOME] Immediate BPM change - nextNoteTime:', this.nextNoteTime.toFixed(3), 'currentBeat:', this.currentBeat, 'beatDuration:', beatDuration.toFixed(3));
+
+            // Trigger scheduler immediately to schedule the new click
+            this.scheduler();
+        }
     }
     
     setTimeSignature(timeSignature) {
@@ -1831,7 +1895,7 @@ class Metronome {
      */
     recreatePanGraph() {
         console.log('[METRONOME] 🔧 recreatePanGraph called');
-        
+
         if (!this.audioContext) {
             console.log('[METRONOME] 🔧 ERROR: AudioContext not available');
             return;
@@ -1855,34 +1919,39 @@ class Metronome {
             console.log('[METRONOME] 🔧 Created all pan nodes');
 
             // Reconnect the graph with mono conversion:
-            // analyser -> inputSplitter -> monoGain (sums L+R to mono) -> channelSplitter -> [leftGain, rightGain] -> merger -> masterGain
-            if (this.analyser && this.masterGain) {
-                // Step 1: Split source channels
+            // boost -> panner -> analyser -> inputSplitter -> monoGain (sums L+R to mono) -> channelSplitter -> [leftGain, rightGain] -> merger -> masterGain
+            if (this.boost && this.panner && this.analyser && this.masterGain) {
+                // Step 1: Reconnect standard chain (boost -> panner -> analyser)
+                this.boost.connect(this.panner);
+                this.panner.connect(this.analyser);
+                console.log('[METRONOME] 🔧 Step 1: Reconnected boost -> panner -> analyser');
+
+                // Step 2: Split source channels
                 this.analyser.connect(this.inputSplitter);
-                console.log('[METRONOME] 🔧 Step 1: Connected analyser -> inputSplitter');
-                
-                // Step 2: Mix both channels to mono (sum L+R)
+                console.log('[METRONOME] 🔧 Step 2: Connected analyser -> inputSplitter');
+
+                // Step 3: Mix both channels to mono (sum L+R)
                 this.inputSplitter.connect(this.monoGain, 0); // Left channel to mono
                 this.inputSplitter.connect(this.monoGain, 1); // Right channel to mono
-                console.log('[METRONOME] 🔧 Step 2: Connected inputSplitter L+R -> monoGain');
-                
-                // Step 3: Split the mono signal for pan control
+                console.log('[METRONOME] 🔧 Step 3: Connected inputSplitter L+R -> monoGain');
+
+                // Step 4: Split the mono signal for pan control
                 this.monoGain.connect(this.channelSplitter);
-                console.log('[METRONOME] 🔧 Step 3: Connected monoGain -> channelSplitter');
-                
-                // Step 4: Connect both outputs of mono splitter to pan gains (identical mono signal)
+                console.log('[METRONOME] 🔧 Step 4: Connected monoGain -> channelSplitter');
+
+                // Step 5: Connect both outputs of mono splitter to pan gains (identical mono signal)
                 this.channelSplitter.connect(this.leftGain, 0); // Mono to left gain
                 this.channelSplitter.connect(this.rightGain, 0); // Mono to right gain (same channel 0)
-                console.log('[METRONOME] 🔧 Step 4: Connected channelSplitter -> leftGain & rightGain');
-                
-                // Step 5: Merge with pan gains applied
+                console.log('[METRONOME] 🔧 Step 5: Connected channelSplitter -> leftGain & rightGain');
+
+                // Step 6: Merge with pan gains applied
                 this.leftGain.connect(this.channelMerger, 0, 0); // Left to left
                 this.rightGain.connect(this.channelMerger, 0, 1); // Right to right
-                console.log('[METRONOME] 🔧 Step 5: Connected leftGain/rightGain -> channelMerger');
-                
-                // Step 6: Connect to master
+                console.log('[METRONOME] 🔧 Step 6: Connected leftGain/rightGain -> channelMerger');
+
+                // Step 7: Connect to master
                 this.channelMerger.connect(this.masterGain);
-                console.log('[METRONOME] 🔧 Step 6: Connected channelMerger -> masterGain');
+                console.log('[METRONOME] 🔧 Step 7: Connected channelMerger -> masterGain');
             }
 
             console.log('[METRONOME] ✅ Recreated pan graph with mono conversion and hard cut control');
@@ -1920,26 +1989,82 @@ class Metronome {
     }
     
     /**
+     * Get current musical time relative to metronome start
+     */
+    getCurrentMusicalTime() {
+        if (!this.isPlaying || this.startMusicalTime === undefined) {
+            return 0;
+        }
+        // Calculate musical time based on audioContext.currentTime and start reference
+        const audioTimeElapsed = this.audioContext.currentTime - this.startAudioTime;
+        return this.startMusicalTime + audioTimeElapsed;
+    }
+
+    /**
+     * Convert musical time to audioContext time
+     * @param {number} musicalTime - Musical position in seconds
+     * @returns {number} AudioContext time in seconds
+     */
+    musicalTimeToAudioTime(musicalTime) {
+        if (this.startMusicalTime === undefined || this.startAudioTime === undefined) {
+            return this.audioContext.currentTime;
+        }
+        const musicalOffset = musicalTime - this.startMusicalTime;
+        return this.startAudioTime + musicalOffset;
+    }
+
+    /**
      * Calculate which beat we should start from based on current time
+     * Aligned to musical grid - finds the next beat on the grid
      */
     calculateStartingBeat(currentTime) {
         const beatDuration = this.getBeatDuration();
         const beatNumber = Math.floor(currentTime / beatDuration);
-        return beatNumber;
+        // Return the NEXT beat number, not the current one
+        return beatNumber + 1;
+    }
+
+    /**
+     * Calculate the time of the next beat on the musical grid
+     */
+    calculateNextBeatTime(currentTime) {
+        const beatDuration = this.getBeatDuration();
+        const beatNumber = Math.floor(currentTime / beatDuration);
+        const nextBeatTime = (beatNumber + 1) * beatDuration;
+        return nextBeatTime;
     }
     
     /**
-     * Start metronome from a specific time
+     * Start metronome from a specific musical time
+     * @param {number} musicalTime - The musical position in seconds (e.g., 13.27s)
      */
-    start(startTime) {
+    start(musicalTime) {
         if (!this.isEnabled) return;
-        
-        console.log('[METRONOME] Starting at time:', startTime);
-        
+
+        // Idempotent: stop existing scheduler before creating new one
+        if (this.schedulerTimer) {
+            if (this.debug) console.log('[METRONOME] Stopping existing scheduler before start');
+            clearInterval(this.schedulerTimer);
+            this.schedulerTimer = null;
+        }
+
+        if (this.debug) console.log('[METRONOME] Starting at musical time:', musicalTime.toFixed(3));
+
         this.isPlaying = true;
-        this.currentBeat = this.calculateStartingBeat(startTime);
-        this.nextNoteTime = startTime;
-        
+
+        // Store temporal references for precise calculation
+        this.startMusicalTime = musicalTime;
+        this.startAudioTime = this.audioContext.currentTime;
+
+        // Calculate next beat aligned to musical grid
+        this.currentBeat = this.calculateStartingBeat(musicalTime);
+        const nextMusicalTime = this.calculateNextBeatTime(musicalTime);
+
+        // Convert musical time to audioContext time for scheduling
+        this.nextNoteTime = this.musicalTimeToAudioTime(nextMusicalTime);
+
+        if (this.debug) console.log('[METRONOME] currentBeat:', this.currentBeat, 'nextNoteTime (audio):', this.nextNoteTime.toFixed(3));
+
         // Start the scheduler
         this.schedulerTimer = setInterval(() => this.scheduler(), this.lookahead);
     }
@@ -1948,10 +2073,10 @@ class Metronome {
      * Stop metronome
      */
     stop() {
-        console.log('[METRONOME] Stopping');
-        
+        if (this.debug) console.log('[METRONOME] Stopping');
+
         this.isPlaying = false;
-        
+
         if (this.schedulerTimer) {
             clearInterval(this.schedulerTimer);
             this.schedulerTimer = null;
@@ -1962,9 +2087,18 @@ class Metronome {
      * Scheduler - looks ahead and schedules notes
      */
     scheduler() {
-        while (this.nextNoteTime < this.audioContext.currentTime + this.scheduleAheadTime) {
+        let notesScheduled = 0;
+        const targetTime = this.audioContext.currentTime + this.scheduleAheadTime;
+
+        while (this.nextNoteTime < targetTime && notesScheduled < this.maxScheduledNotes) {
             this.scheduleNote(this.currentBeat, this.nextNoteTime);
             this.nextNote();
+            notesScheduled++;
+        }
+
+        // Log warning if we hit the limit (indicates timing issue)
+        if (notesScheduled >= this.maxScheduledNotes) {
+            console.warn('[METRONOME] Hit max scheduled notes limit:', this.maxScheduledNotes);
         }
     }
     
@@ -1974,41 +2108,47 @@ class Metronome {
     scheduleNote(beatNumber, time) {
         const beatsPerMeasure = this.getBeatsPerMeasure();
         const beatInMeasure = beatNumber % beatsPerMeasure;
-        
+
         // First beat of measure gets higher pitch
         const isDownbeat = beatInMeasure === 0;
         const frequency = isDownbeat ? 1200 : 800;
         const duration = isDownbeat ? 0.04 : 0.03; // Slightly longer for downbeat
-        
+
         // Create oscillator
         const osc = this.audioContext.createOscillator();
         const oscGain = this.audioContext.createGain();
-        
+
         osc.type = 'sine';
         osc.frequency.value = frequency;
-        
+
         // Envelope
         oscGain.gain.setValueAtTime(0, time);
         oscGain.gain.linearRampToValueAtTime(0.5, time + 0.005);
         oscGain.gain.exponentialRampToValueAtTime(0.001, time + duration);
-        
+
         // Connect
         osc.connect(oscGain);
         oscGain.connect(this.gain);
-        
+
         // Schedule
         osc.start(time);
         osc.stop(time + duration);
-        
-        // Cleanup
-        setTimeout(() => {
+
+        // Cleanup - use web audio timing instead of setTimeout
+        // Nodes will be garbage collected after stop()
+        // Disconnect is optional but good practice
+        osc.onended = () => {
             osc.disconnect();
             oscGain.disconnect();
-        }, (duration + 0.1) * 1000);
-        
-        // Callback for UI
+        };
+
+        // Schedule visual callback at the exact same time as audio
+        // Note: This creates a setTimeout for each beat - consider if needed
         if (this.onBeat) {
-            this.onBeat(beatInMeasure, isDownbeat);
+            const delay = Math.max(0, (time - this.audioContext.currentTime) * 1000);
+            setTimeout(() => {
+                this.onBeat(beatInMeasure, isDownbeat, time);
+            }, delay);
         }
     }
     
@@ -2026,8 +2166,9 @@ class Metronome {
      */
     destroy() {
         this.stop();
-        
+
         if (this.gain) this.gain.disconnect();
+        if (this.boost) this.boost.disconnect();
         if (this.panner) this.panner.disconnect();
         if (this.analyser) this.analyser.disconnect();
         // Disconnect custom pan nodes if they exist

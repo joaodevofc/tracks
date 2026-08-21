@@ -61,6 +61,17 @@ class SetlistsManager {
             link.addEventListener('click', () => {
                 document.getElementById('setlistsFloatingMenu').classList.remove('visible');
                 document.getElementById('setlistsView').style.display = 'none';
+
+                // Clean up any inline styles that might have been applied during setlists view
+                const libraryView = document.getElementById('libraryView');
+                if (libraryView) {
+                    libraryView.style.removeProperty('position');
+                    libraryView.style.removeProperty('top');
+                    libraryView.style.removeProperty('bottom');
+                    libraryView.style.removeProperty('transform');
+                    libraryView.style.removeProperty('margin');
+                    libraryView.style.removeProperty('padding');
+                }
             });
         });
         
