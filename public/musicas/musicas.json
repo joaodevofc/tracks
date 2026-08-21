@@ -1,0 +1,20 @@
+{
+  "musicas": [
+    {
+      "id": "musica_jesus",
+      "nome": "Jesus",
+      "arquivo": "jesus.mp3",
+      "capa": "jesus.jpg",
+      "artista": "Adoração",
+      "duracao": "4:30"
+    },
+    {
+      "id": "musica_deus",
+      "nome": "Deus",
+      "arquivo": "deus.mp3",
+      "capa": "deus.jpg",
+      "artista": "Louvor",
+      "duracao": "5:15"
+    }
+  ]
+}

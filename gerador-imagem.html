@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Link de Imagem - Vizu</title>
+    <link rel="icon" href="wave 2 prof.ico" type="image/x-icon">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: #000;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #fff;
+            margin-bottom: 10px;
+            font-size: 2rem;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #999;
+            margin-bottom: 30px;
+            font-size: 0.95rem;
+        }
+
+        .upload-area {
+            border: 3px dashed #333;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 30px;
+            background: #1a1a1a;
+        }
+
+        .upload-area:hover {
+            background: #222;
+            border-color: #666;
+        }
+
+        .upload-area.dragover {
+            background: #222;
+            border-color: #666;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            margin-bottom: 15px;
+            color: #fff;
+        }
+
+        .upload-text {
+            color: #ccc;
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        .preview-area {
+            display: none;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .preview-image {
+            max-width: 100%;
+            max-height: 400px;
+            border-radius: 10px;
+            margin: 0 auto 15px;
+            display: block;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .file-info {
+            color: #999;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+        }
+
+        .result-area {
+            display: none;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .result-label {
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .result-url {
+            background: #222;
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 0.9rem;
+            color: #fff;
+            word-break: break-all;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-block;
+            text-align: center;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background: #fff;
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            background: #ccc;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #333;
+            color: #fff;
+        }
+
+        .btn-secondary:hover {
+            background: #555;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #fff;
+            color: #000;
+        }
+
+        .btn-success:hover {
+            background: #ccc;
+        }
+
+        .btn:disabled {
+            background: #333;
+            cursor: not-allowed;
+            transform: none;
+            color: #666;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .spinner {
+            border: 4px solid #333;
+            border-top: 4px solid #fff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #333;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #fff;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            text-align: center;
+            color: #999;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+
+        .error {
+            display: none;
+            background: #330000;
+            border: 1px solid #600;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #ff6666;
+        }
+
+        .success {
+            display: none;
+            background: #003300;
+            border: 1px solid #006600;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #66ff66;
+        }
+
+        .back-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .back-link a {
+            color: #fff;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .back-link a:hover {
+            text-decoration: underline;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🖼️ Gerador de Link de Imagem</h1>
+        <p class="subtitle">Envie uma imagem e obtenha um link para usar na sua loja</p>
+
+        <div class="upload-area" id="upload-area">
+            <div class="upload-icon">📁</div>
+            <p class="upload-text">Clique ou arraste uma imagem aqui</p>
+            <p class="upload-hint">Formatos aceitos: JPG, PNG, WEBP (máx. 5MB)</p>
+            <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp">
+        </div>
+
+        <div class="preview-area" id="preview-area">
+            <img id="preview-image" class="preview-image" alt="Preview">
+            <p class="file-info" id="file-info"></p>
+            <button class="btn btn-primary" id="upload-btn">📤 Fazer Upload</button>
+            <button class="btn btn-secondary" id="cancel-btn" style="margin-top: 10px;">❌ Cancelar</button>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p class="progress-text" id="progress-text">Fazendo upload...</p>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+        </div>
+
+        <div class="result-area" id="result-area">
+            <label class="result-label">✅ Link da imagem gerado:</label>
+            <div class="result-url" id="result-url"></div>
+            <button class="btn btn-success" id="copy-btn">📋 Copiar Link</button>
+            <div class="button-group">
+                <button class="btn btn-secondary" id="new-image-btn">🔄 Nova Imagem</button>
+            </div>
+        </div>
+
+        <div class="error" id="error"></div>
+        <div class="success" id="success"></div>
+
+        <div class="back-link">
+            <a href="admin.html">← Voltar para o Admin</a>
+        </div>
+    </div>
+
+    <script>
+        // Configuração do Cloudinary
+        const CLOUDINARY_URL = 'https://api.cloudinary.com/v1_1/dkfe21jnc/image/upload';
+        const UPLOAD_PRESET = 'vizu_upload'; // Upload preset do Cloudinary
+        const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('file-input');
+        const previewArea = document.getElementById('preview-area');
+        const previewImage = document.getElementById('preview-image');
+        const fileInfo = document.getElementById('file-info');
+        const uploadBtn = document.getElementById('upload-btn');
+        const cancelBtn = document.getElementById('cancel-btn');
+        const loading = document.getElementById('loading');
+        const progressText = document.getElementById('progress-text');
+        const progressFill = document.getElementById('progress-fill');
+        const resultArea = document.getElementById('result-area');
+        const resultUrl = document.getElementById('result-url');
+        const copyBtn = document.getElementById('copy-btn');
+        const newImageBtn = document.getElementById('new-image-btn');
+        const errorDiv = document.getElementById('error');
+        const successDiv = document.getElementById('success');
+
+        let selectedFile = null;
+
+        // Event listeners
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        uploadBtn.addEventListener('click', uploadImage);
+        cancelBtn.addEventListener('click', resetForm);
+        copyBtn.addEventListener('click', copyToClipboard);
+        newImageBtn.addEventListener('click', resetForm);
+
+        function handleFileSelect(file) {
+            // Validar tipo
+            if (!file.type.match(/image\/(jpeg|png|webp)/)) {
+                showError('Por favor, selecione apenas arquivos JPG, PNG ou WEBP.');
+                return;
+            }
+
+            // Validar tamanho
+            if (file.size > MAX_SIZE) {
+                showError('A imagem deve ter no máximo 5MB.');
+                return;
+            }
+
+            selectedFile = file;
+
+            // Mostrar preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImage.src = e.target.result;
+                fileInfo.textContent = `${file.name} (${formatFileSize(file.size)})`;
+                previewArea.style.display = 'block';
+                uploadArea.style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function uploadImage() {
+            if (!selectedFile) return;
+
+            // Mostrar loading
+            loading.style.display = 'block';
+            previewArea.style.display = 'none';
+            uploadBtn.disabled = true;
+
+            try {
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+                formData.append('upload_preset', UPLOAD_PRESET);
+                formData.append('quality', 'auto');
+                formData.append('fetch_format', 'auto');
+
+                const xhr = new XMLHttpRequest();
+
+                xhr.upload.addEventListener('progress', (e) => {
+                    if (e.lengthComputable) {
+                        const percent = Math.round((e.loaded / e.total) * 100);
+                        progressFill.style.width = percent + '%';
+                        progressText.textContent = `Fazendo upload... ${percent}%`;
+                    }
+                });
+
+                xhr.addEventListener('load', () => {
+                    if (xhr.status === 200) {
+                        const response = JSON.parse(xhr.responseText);
+                        const imageUrl = response.secure_url;
+                        
+                        // Mostrar resultado
+                        resultUrl.textContent = imageUrl;
+                        resultArea.style.display = 'block';
+                        loading.style.display = 'none';
+                        showSuccess('Imagem enviada com sucesso!');
+                    } else {
+                        throw new Error('Erro no upload');
+                    }
+                });
+
+                xhr.addEventListener('error', () => {
+                    throw new Error('Erro no upload');
+                });
+
+                xhr.open('POST', CLOUDINARY_URL);
+                xhr.send(formData);
+
+            } catch (error) {
+                showError('Erro ao fazer upload da imagem. Tente novamente.');
+                loading.style.display = 'none';
+                previewArea.style.display = 'block';
+                uploadBtn.disabled = false;
+            }
+        }
+
+        function copyToClipboard() {
+            const url = resultUrl.textContent;
+            navigator.clipboard.writeText(url).then(() => {
+                showSuccess('Link copiado para a área de transferência!');
+                copyBtn.textContent = '✓ Copiado!';
+                setTimeout(() => {
+                    copyBtn.textContent = '📋 Copiar Link';
+                }, 2000);
+            }).catch(() => {
+                showError('Erro ao copiar link. Tente manualmente.');
+            });
+        }
+
+        function resetForm() {
+            selectedFile = null;
+            fileInput.value = '';
+            previewImage.src = '';
+            fileInfo.textContent = '';
+            previewArea.style.display = 'none';
+            resultArea.style.display = 'none';
+            loading.style.display = 'none';
+            uploadArea.style.display = 'block';
+            uploadBtn.disabled = false;
+            progressFill.style.width = '0%';
+            hideMessages();
+        }
+
+        function showError(message) {
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            successDiv.style.display = 'none';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+            errorDiv.style.display = 'none';
+            setTimeout(() => {
+                successDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        function hideMessages() {
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+    </script>
+</body>
+</html>

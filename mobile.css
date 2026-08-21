@@ -1,0 +1,1049 @@
+/* ========================================
+   MOBILE STYLES - Dedicate CSS for mobile devices
+   This file is loaded only on screens with max-width: 768px
+   ======================================== */
+
+/* ========================================
+   MOBILE PORTRAIT (max-width: 768px)
+   ======================================== */
+
+/* Remove any borders/shadows that create "card" effect in mobile */
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: auto;
+    overflow-x: hidden;
+}
+
+/* MIXER CONTAINER - ocupa todo o espaço vertical remanescente */
+.mixer-container {
+    height: calc(100vh - 250px); /* Ajustado para ocupar espaço vertical após header e controles */
+    overflow-y: auto;
+    overflow-x: auto;
+}
+
+/* Small vertical screens - adjust mixer container height */
+@media (max-height: 600px) and (orientation: portrait) {
+    .mixer-container {
+        height: calc(100vh - 200px); /* Reduced height for small vertical screens */
+    }
+}
+
+/* Digital mixer effect: faders go down when solo is active on other tracks */
+.track-channel.solo-muted .track-fader .fader-thumb {
+    transition: bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    bottom: 0% !important;
+}
+
+.track-channel.solo-muted .track-fader .fader-fill {
+    transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    height: 0% !important;
+    opacity: 0.3;
+}
+
+/* Digital mixer effect: faders go down when track is muted */
+.track-channel.muted .track-fader .fader-thumb {
+    transition: bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    bottom: 0% !important;
+}
+
+.track-channel.muted .track-fader .fader-fill {
+    transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    height: 0% !important;
+    opacity: 0.3;
+}
+
+/* Pan Knob Container */
+.track-pan-knob-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: var(--spacing-xs);
+    padding: var(--spacing-xs);
+}
+
+/* Pan Knob Circular Dial */
+.pan-knob {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--color-black-elevated);
+    border: 2px solid var(--border-subtle);
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.1s ease-out;
+    user-select: none;
+}
+
+.pan-knob:hover {
+    border-color: var(--color-white-muted);
+}
+
+.pan-knob:active {
+    cursor: grabbing;
+}
+
+/* Pan Knob Pointer */
+.pan-knob-pointer {
+    position: absolute;
+    top: 3px;
+    left: 50%;
+    width: 2px;
+    height: 10px;
+    background: var(--color-white);
+    transform: translateX(-50%);
+    border-radius: 2px;
+}
+
+/* Pan Label Badge */
+.pan-label {
+    font-size: 8px;
+    color: var(--color-white-muted);
+    margin-top: 3px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+/* Idle wave animation for faders when player is paused and idle */
+.mixer-container.idle-wave .track-fader {
+    animation: faderWave 3s ease-in-out infinite;
+}
+
+/* Smooth transition when stopping idle wave */
+.mixer-container.idle-wave-stopping .track-fader {
+    animation: none;
+    transition: transform 0.5s ease-out;
+    transform: translateY(0);
+}
+
+@keyframes faderWave {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-35px);
+    }
+}
+
+/* Staggered animation delays for wave effect across faders */
+.mixer-container.idle-wave .track-channel:nth-child(1) .track-fader {
+    animation-delay: 0s;
+}
+
+.mixer-container.idle-wave .track-channel:nth-child(2) .track-fader {
+    animation-delay: 0.15s;
+}
+
+.mixer-container.idle-wave .track-channel:nth-child(3) .track-fader {
+    animation-delay: 0.3s;
+}
+
+.mixer-container.idle-wave .track-channel:nth-child(4) .track-fader {
+    animation-delay: 0.45s;
+}
+
+.mixer-container.idle-wave .track-channel:nth-child(5) .track-fader {
+    animation-delay: 0.6s;
+}
+
+.mixer-container.idle-wave .track-channel:nth-child(6) .track-fader {
+    animation-delay: 0.75s;
+}
+
+.mixer-container.idle-wave .track-channel:nth-child(7) .track-fader {
+    animation-delay: 0.9s;
+}
+
+.mixer-container.idle-wave .track-channel:nth-child(8) .track-fader {
+    animation-delay: 1.05s;
+}
+
+.mixer-container.idle-wave .track-channel:nth-child(9) .track-fader {
+    animation-delay: 1.2s;
+}
+
+.mixer-container.idle-wave .track-channel:nth-child(10) .track-fader {
+    animation-delay: 1.35s;
+}
+
+/* PLAYER VIEW positioning adjustments for portrait */
+.player-view {
+    top: 0;
+}
+
+/* Remove box-shadows from main containers to eliminate "card" effect */
+.player-view,
+.mixer-container,
+.timeline-container,
+.track-channel,
+.master-channel {
+    box-shadow: none;
+}
+
+/* Header responsive */
+.header-container {
+    padding: var(--spacing-md);
+    gap: var(--spacing-md);
+}
+
+.nav {
+    display: none;
+}
+
+/* Hero adjustments */
+.hero {
+    margin-top: 48px;
+}
+
+.hero-banner {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* Library adjustments */
+.library {
+    padding: var(--spacing-xl) var(--spacing-md);
+}
+
+.library-header {
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.library-controls {
+    width: 100%;
+    justify-content: space-between;
+}
+
+/* Header responsive - reorganize for small screens */
+.header-container {
+    padding: var(--spacing-sm) var(--spacing-md);
+    gap: var(--spacing-sm);
+}
+
+.nav {
+    display: none; /* Hide nav on very small screens, could add hamburger menu */
+}
+
+/* Player view adjustments for tablet */
+.player-view .header {
+    position: relative;
+    z-index: 10;
+}
+
+/* Hide header actions in player view since search and profile are removed */
+.player-view .header-actions {
+    display: none;
+}
+
+.music-selector {
+    padding: var(--spacing-xs) var(--spacing-md);
+}
+
+.player-controls {
+    padding: var(--spacing-xs) var(--spacing-md);
+}
+
+.logo-text {
+    font-size: var(--font-size-lg);
+}
+
+.logo-icon {
+    width: 28px;
+    height: 28px;
+}
+
+.music-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: var(--spacing-md);
+}
+
+.modal {
+    max-height: 95vh;
+    margin: var(--spacing-md);
+}
+
+.import-options {
+    grid-template-columns: 1fr; /* Keep single column on mobile */
+}
+
+/* Smartphone Portrait - Mixer touch optimization */
+.mixer-container {
+    padding: var(--spacing-xs) var(--spacing-md);
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+}
+
+.mixer-tracks {
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+}
+
+.track-channel {
+    width: 70px;
+    min-width: 70px;
+    scroll-snap-align: start;
+}
+
+.track-btn {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+}
+
+.fab-add {
+    bottom: var(--spacing-xl);
+    right: var(--spacing-xl);
+}
+
+/* ========================================
+   MOBILE SMALL SCREENS (max-width: 480px)
+   ======================================== */
+
+/* Header responsive for very small screens */
+.header-container {
+    padding: var(--spacing-sm);
+    gap: var(--spacing-sm);
+}
+
+.nav {
+    display: none;
+}
+
+.logo-text {
+    font-size: var(--font-size-base);
+}
+
+.logo-icon {
+    width: 24px;
+    height: 24px;
+}
+
+.search-btn, .profile-btn {
+    width: 36px;
+    height: 36px;
+}
+
+.music-grid {
+    grid-template-columns: 1fr;
+}
+
+.filter-group {
+    flex-wrap: wrap;
+}
+
+/* Adjust player view for smaller screens */
+.player-view {
+    top: 0;
+}
+
+/* Ensure header doesn't overlap with player content */
+.player-view .header {
+    position: relative;
+    min-height: auto;
+}
+
+/* Hide header actions in player view since search and profile are removed */
+.player-view .header-actions {
+    display: none;
+}
+
+
+
+/* Player Responsive - Reorganized for small screens */
+.player-controls {
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.player-controls-left,
+.player-controls-center,
+.player-controls-right {
+    gap: var(--spacing-xs);
+    justify-content: center;
+    width: 100%;
+}
+
+.player-controls-center {
+    order: -1; /* Move play controls to top */
+    padding: var(--spacing-sm) 0;
+    align-items: center;
+    justify-content: flex-start;
+    padding-left: var(--spacing-md);
+}
+
+.player-controls-left {
+    order: 0;
+    justify-content: flex-start;
+    gap: var(--spacing-md);
+}
+
+.player-controls-right {
+    order: 1;
+    justify-content: center;
+}
+
+/* Waveform responsive adjustment - LIMITED TO 50px */
+.timeline-waveform {
+    height: 50px;
+}
+
+#waveformCanvas {
+    height: 100%;
+}
+
+.control-btn {
+    width: 36px;
+    height: 36px;
+}
+
+.play-btn {
+    width: 48px;
+    height: 48px;
+}
+
+.bpm-display {
+    min-width: 50px;
+}
+
+.bpm-value {
+    font-size: var(--font-size-base);
+}
+
+.time-display {
+    font-size: var(--font-size-sm);
+}
+
+/* ========================================
+   MOBILE AUTH MODAL (max-width: 768px)
+   ======================================== */
+
+.auth-modal {
+    max-width: 100%;
+    margin: var(--spacing-md);
+    border-radius: var(--radius-lg);
+}
+
+.auth-container {
+    flex-direction: column;
+    min-height: auto;
+}
+
+.auth-visual {
+    padding: var(--spacing-xl);
+    min-height: 200px;
+}
+
+.auth-visual-logo {
+    width: 50px;
+    height: 50px;
+    margin-bottom: var(--spacing-md);
+}
+
+.auth-visual-title {
+    font-size: var(--font-size-xl);
+}
+
+.auth-visual-subtitle {
+    font-size: var(--font-size-sm);
+    margin-bottom: var(--spacing-md);
+}
+
+.auth-visual-features {
+    display: none;
+}
+
+.auth-visual-bg {
+    height: 100px;
+}
+
+.auth-wave {
+    height: 50px;
+}
+
+.auth-wave-2 {
+    height: 40px;
+}
+
+.auth-forms-container {
+    padding: var(--spacing-xl);
+}
+
+.auth-form {
+    max-width: 100%;
+}
+
+.auth-title {
+    font-size: var(--font-size-xl);
+}
+
+.auth-social {
+    flex-direction: column;
+}
+
+.form-options {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-xs);
+}
+
+/* ========================================
+   SMARTPHONE LANDSCAPE (max-width: 768px)
+   ======================================== */
+
+@media (max-width: 768px) and (orientation: landscape) and (min-height: 601px) {
+    /* Liberar scroll vertical na página */
+    html, body {
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        height: auto !important;
+    }
+    
+    /* Remove position fixed from player-view to allow scroll */
+    .player-view {
+        position: relative !important;
+        overflow: visible !important;
+    }
+    
+    /* Hide header and music selector */
+    .header,
+    .music-selector {
+        display: none;
+    }
+    
+    /* Forca a barra superior a colar nas pontas */
+    .player-controls {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        width: 100vw;
+        z-index: 1000;
+        background: var(--color-black);
+        border-bottom: 1px solid var(--border-subtle);
+        height: 30px;
+    }
+
+    /* Timeline fixo logo abaixo dos controles */
+    .timeline-container {
+        position: fixed;
+        top: 30px;
+        left: 0;
+        right: 0;
+        width: 100vw;
+        z-index: 999;
+        background: var(--color-black-soft);
+        border-bottom: 1px solid var(--border-subtle);
+        height: 35px;
+    }
+
+    /* Estica o mixer e a timeline na tela toda */
+    .mixer-container,
+    #waveform {
+        width: 100vw;
+        margin-left: 0;
+        margin-right: 0;
+        padding-left: 0;
+        padding-right: 0;
+    }
+    
+    /* Remove padding horizontal do mixer-tracks */
+    .mixer-tracks {
+        padding-left: 0;
+        padding-right: 0;
+    }
+    
+    /* Smartphone landscape specific optimizations */
+    .mixer-container {
+        padding: var(--spacing-xs) var(--spacing-sm);
+        padding-top: 75px; /* 30px controls + 35px timeline + 10px margin */
+        height: auto;
+        overflow-x: auto;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        scroll-snap-type: x mandatory;
+    }
+    
+    .mixer-tracks {
+        -webkit-overflow-scrolling: touch;
+        scroll-snap-type: x mandatory;
+    }
+    
+    .track-channel {
+        width: 60px;
+        min-width: 60px;
+        scroll-snap-align: start;
+    }
+    
+    /* Even more compact faders for smartphone landscape */
+    .track-fader {
+        height: 80px; /* Reduced to fit in small landscape screens */
+        width: 60px; /* Increased width for better touch accuracy */
+    }
+    
+    .master-fader {
+        height: 100px;
+        width: 75px; /* Increased width for better touch accuracy */
+    }
+    
+    .track-btn {
+        width: 24px;
+        height: 24px;
+        min-width: 24px;
+        min-height: 24px;
+    }
+    
+    .track-btn svg {
+        width: 12px;
+        height: 12px;
+    }
+    
+    .track-name {
+        font-size: 7px;
+    }
+    
+    .track-db-value {
+        font-size: 7px;
+    }
+    
+    .master-channel {
+        width: 50px;
+        min-width: 50px;
+    }
+}
+
+/* ========================================
+   LANDSCAPE MOBILE/TABLET MODE (Android landscape)
+   ======================================== */
+
+@media (orientation: landscape) and (max-height: 600px) and (min-height: 401px) {
+    /* Liberar scroll vertical na página */
+    html, body {
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        height: auto !important;
+    }
+    
+    /* Remove position fixed from player-view to allow scroll */
+    .player-view {
+        position: relative !important;
+        overflow: visible !important;
+    }
+    
+    /* Hide common header and music selector for landscape */
+    .header,
+    .music-selector {
+        display: none;
+    }
+    
+    /* Player view adjustments for landscape */
+    .player-view .header {
+        display: none;
+    }
+    
+    /* Forca a barra superior a colar nas pontas */
+    .player-controls {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        width: 100vw;
+        z-index: 1000;
+        background: var(--color-black);
+        border-bottom: 1px solid var(--border-subtle);
+        height: 30px;
+    }
+
+    /* Timeline fixo logo abaixo dos controles */
+    .timeline-container {
+        position: fixed;
+        top: 30px;
+        left: 0;
+        right: 0;
+        width: 100vw;
+        z-index: 999;
+        background: var(--color-black-soft);
+        border-bottom: 1px solid var(--border-subtle);
+        height: 35px;
+    }
+
+    /* Estica o mixer e a timeline na tela toda */
+    .mixer-container,
+    #waveform {
+        width: 100vw;
+        margin-left: 0;
+        margin-right: 0;
+        padding-left: 0;
+        padding-right: 0;
+    }
+    
+    /* Remove padding horizontal do mixer-tracks */
+    .mixer-tracks {
+        padding-left: 0;
+        padding-right: 0;
+    }
+    
+    /* Mixer container com scroll vertical livre e padding-top para não ficar atrás da barra fixa */
+    .mixer-container {
+        padding: var(--spacing-xs) var(--spacing-sm);
+        padding-top: 75px; /* 30px controls + 35px timeline + 10px margin */
+        height: auto;
+        overflow-x: auto;
+        overflow-y: auto;
+        margin-top: 0;
+    }
+    
+    /* Compact player controls for landscape */
+    .player-controls {
+        padding: var(--spacing-xs) var(--spacing-sm);
+        gap: var(--spacing-xs);
+    }
+    
+    /* Waveform height reduced to max 35px */
+    .timeline-waveform {
+        height: 35px;
+        padding: var(--spacing-xs) var(--spacing-sm);
+    }
+    
+    #waveformCanvas {
+        height: 100%;
+    }
+    
+    /* Compact fader heights for landscape - 80px-100px to fit in landscape */
+    .track-fader {
+        height: 90px;
+        width: 65px; /* Increased width for better touch accuracy */
+    }
+    
+    .master-fader {
+        height: 120px;
+        width: 80px; /* Increased width for better touch accuracy */
+    }
+    
+    /* Compact track elements */
+    .track-header {
+        padding: 2px;
+    }
+    
+    .track-name {
+        font-size: 8px;
+    }
+    
+    .track-btn {
+        width: 20px;
+        height: 20px;
+        min-width: 20px;
+        min-height: 20px;
+    }
+    
+    .track-btn svg {
+        width: 10px;
+        height: 10px;
+    }
+    
+    .track-db-value {
+        font-size: 8px;
+    }
+    
+    /* Compact master channel */
+    .master-channel {
+        width: 50px;
+        min-width: 50px;
+    }
+    
+    /* Adjust player view positioning */
+    .player-view {
+        top: 0;
+    }
+}
+
+/* ========================================
+   SEARCH INPUT MOBILE (max-width: 600px)
+   ======================================== */
+
+@media (max-width: 600px) {
+    .search-input.active {
+        width: 150px;
+    }
+}
+
+/* ========================================
+   FADER HEIGHTS FOR MOBILE
+   ======================================== */
+
+/* Fader principal (track-fader) */
+.track-fader {
+    height: 200px;
+    width: 70px;
+}
+
+/* Master Fader */
+.master-fader {
+    height: 280px;
+    width: 80px;
+}
+
+/* Responsive fader heights for different mobile sizes */
+@media (max-width: 480px) {
+    .track-fader {
+        height: 180px;
+        width: 60px;
+    }
+    
+    .fader-thumb {
+        width: 40px;
+        height: 20px;
+    }
+}
+
+/* ========================================
+   MASTER CHANNEL WIDTHS FOR MOBILE
+   ======================================== */
+
+.master-channel {
+    width: 60px;
+}
+
+/* Compact metronome */
+.metronome-channel .track-name {
+    font-size: 10px;
+}
+
+/* ========================================
+   SMALL LANDSCAPE (max-width: 400px height)
+   ======================================== */
+
+@media (orientation: landscape) and (max-height: 400px) {
+    /* Liberar scroll vertical na página */
+    html, body {
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        height: auto !important;
+    }
+    
+    /* Remove position fixed from player-view to allow scroll */
+    .player-view {
+        position: relative !important;
+        overflow: visible !important;
+    }
+    
+    /* Hide common header and music selector for small landscape */
+    .header,
+    .music-selector {
+        display: none;
+    }
+    
+    /* Super compact player controls for very small landscape */
+    .player-controls {
+        padding: var(--spacing-xs) var(--spacing-sm);
+        max-height: 28px;
+        min-height: 28px;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+        background: var(--color-black);
+        border-bottom: 1px solid var(--border-subtle);
+        width: 100vw;
+    }
+    
+    /* Timeline fixo logo abaixo dos controles */
+    .timeline-container {
+        position: fixed;
+        top: 28px;
+        left: 0;
+        right: 0;
+        width: 100vw;
+        z-index: 999;
+        background: var(--color-black-soft);
+        border-bottom: 1px solid var(--border-subtle);
+        height: 30px;
+    }
+    
+    /* Even smaller waveform for very small screens */
+    .timeline-waveform {
+        height: 30px;
+        padding: var(--spacing-xs) var(--spacing-sm);
+    }
+    
+    #waveformCanvas {
+        height: 100%;
+    }
+    
+    /* Mixer container for very small landscape */
+    .mixer-container {
+        padding: var(--spacing-xs);
+        padding-top: 68px; /* 28px controls + 30px timeline + 10px margin */
+        height: auto;
+        overflow-x: auto;
+        overflow-y: auto;
+        width: 100vw;
+        margin-left: 0;
+        margin-right: 0;
+        padding-left: 0;
+        padding-right: 0;
+    }
+    
+    /* Remove padding horizontal do mixer-tracks */
+    .mixer-tracks {
+        padding-left: 0;
+        padding-right: 0;
+    }
+    
+    /* Ultra compact elements */
+    .track-channel {
+        width: 45px;
+        min-width: 45px;
+    }
+    
+    .track-name {
+        font-size: 6px;
+    }
+    
+    .track-btn {
+        width: 18px;
+        height: 18px;
+        min-width: 18px;
+        min-height: 18px;
+    }
+    
+    .track-btn svg {
+        width: 8px;
+        height: 8px;
+    }
+
+    .track-fader {
+        height: 70px;
+        width: 55px; /* Increased width for better touch accuracy */
+    }
+    
+    .fader-thumb {
+        width: 35px;
+        height: 18px;
+    }
+
+    .track-db-value {
+        font-size: 6px;
+    }
+    
+    .master-channel {
+        width: 45px;
+        min-width: 45px;
+    }
+    
+    .master-fader {
+        height: 90px;
+    }
+}
+
+/* ========================================
+   TABLET LANDSCAPE (768px - 1024px)
+   ======================================== */
+
+@media (min-width: 768px) and (max-width: 1024px) and (orientation: landscape) {
+    .player-view {
+        top: 0;
+    }
+    
+    .mixer-container {
+        padding: var(--spacing-md);
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .mixer-tracks {
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .track-channel {
+        width: 100px;
+        min-width: 100px;
+    }
+
+    .track-fader {
+        height: 220px;
+        width: 90px;
+    }
+    
+    .master-channel {
+        width: 100px;
+        min-width: 100px;
+    }
+}
+
+/* ========================================
+   TABLET PORTRAIT (768px - 1024px)
+   ======================================== */
+
+@media (min-width: 768px) and (max-width: 1024px) and (orientation: portrait) {
+    .player-view {
+        top: 0;
+    }
+    
+    .mixer-container {
+        padding: var(--spacing-sm) var(--spacing-md);
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .mixer-tracks {
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .track-channel {
+        width: 105px;
+        min-width: 105px;
+    }
+    
+    .track-btn {
+        width: 34px;
+        height: 34px;
+        min-width: 34px;
+        min-height: 34px;
+    }
+
+    .track-fader {
+        height: 240px;
+        width: 95px;
+    }
+    
+    .master-channel {
+        width: 105px;
+        min-width: 105px;
+    }
+}
+
+/* Track Modal Mobile */
+#trackModal .modal {
+    max-width: 95%;
+    margin: var(--spacing-md);
+}
+
+#trackModal .modal-body {
+    padding: var(--spacing-md);
+}
+
+#trackModal .form-group {
+    margin-bottom: var(--spacing-md);
+}
+
+#trackModal .form-input {
+    padding: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+}
+
+#trackModal .modal-footer {
+    padding: var(--spacing-md);
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+#trackModal .btn {
+    width: 100%;
+    padding: var(--spacing-md);
+}

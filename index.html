@@ -1,0 +1,1674 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>W.Tracks - Multitrack Studio</title>
+    <meta name="description" content="Plataforma profissional para projetos multitrack e stems musicais">
+    <meta name="theme-color" content="#000000">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="mobile.css" media="(max-width: 768px)">
+    <link rel="icon" type="image/png" href="icon-black-transparent.png">
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Firebase SDK -->
+    <script type="module">
+      import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+      import { getFirestore, collection, getDocs, query, orderBy, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, where, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+      import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyDW6P_V4_LRLRg6-FEe2E7QJa9J3oidY5g",
+        authDomain: "wtracks-acff8.firebaseapp.com",
+        projectId: "wtracks-acff8",
+        storageBucket: "wtracks-acff8.firebasestorage.app",
+        messagingSenderId: "719838064855",
+        appId: "1:719838064855:web:3c0631a882aac30cf3c092"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      const auth = getAuth(app);
+
+      window.firebaseDB = {
+        db,
+        collection,
+        getDocs,
+        query,
+        orderBy,
+        addDoc,
+        updateDoc,
+        deleteDoc,
+        doc,
+        serverTimestamp,
+        where,
+        setDoc,
+        getDoc
+      };
+
+      window.firebaseAuth = {
+        auth,
+        createUserWithEmailAndPassword,
+        signInWithEmailAndPassword,
+        signOut,
+        onAuthStateChanged
+      };
+
+      console.log('[FIREBASE] Firebase initialized (Firestore + Auth)');
+    </script>
+
+    <script src="communityTracks.js"></script>
+    <script src="audiostorage.js"></script>
+    <script src="setlists.js"></script>
+    <script>
+        // Register Service Worker for PWA with immediate updates
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(registration => {
+                        console.log('Service Worker registered:', registration);
+                        
+                        // Check for updates immediately
+                        registration.update();
+                        
+                        // Listen for updates and reload automatically
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    // New version available, reload immediately
+                                    console.log('New version available, reloading...');
+                                    window.location.reload();
+                                }
+                            });
+                        });
+                        
+                        // Also check for updates periodically
+                        setInterval(() => {
+                            registration.update();
+                        }, 1000 * 60 * 5); // Check every 5 minutes
+                    })
+                    .catch(error => {
+                        console.log('Service Worker registration failed:', error);
+                    });
+            });
+        }
+    </script>
+</head>
+<body>
+    <!-- SPLASH SCREEN -->
+    <div class="splash-screen" id="splashScreen">
+        <div class="splash-content">
+            <img src="icon-white-transparent.png" alt="W.Tracks" class="splash-logo">
+            <div class="splash-spinner"></div>
+            <p class="splash-text">Carregando...</p>
+        </div>
+    </div>
+
+    <!-- HEADER -->
+    <header class="header">
+        <div class="header-container">
+            <div class="logo">
+                <img src="icon-white-transparent.png" alt="W.Tracks" class="logo-icon">
+                <span class="logo-text">W.Tracks</span>
+            </div>
+            
+            <nav class="nav">
+                <a href="#" class="nav-link active" data-view="library">Biblioteca</a>
+                <a href="#" class="nav-link" data-view="setlists">Setlists</a>
+                <a href="#" class="nav-link" data-view="community">Comunidade</a>
+            </nav>
+            
+            <div class="header-actions">
+                <div class="search-container">
+                    <button class="search-btn" id="searchBtn" aria-label="Buscar">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <path d="m21 21-4.35-4.35"></path>
+                        </svg>
+                    </button>
+                    <input type="text" class="search-input" id="searchInput" placeholder="Buscar músicas...">
+                </div>
+                <div class="profile-container">
+                    <button class="profile-btn" id="profileBtn" aria-label="Perfil">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        <span class="user-initial" id="userInitial"></span>
+                    </button>
+                    <div class="profile-dropdown" id="profileDropdown">
+                        <div class="profile-header">
+                            <div class="profile-avatar">
+                                <span id="dropdownUserInitial"></span>
+                            </div>
+                            <div class="profile-info">
+                                <div class="profile-name" id="profileName"></div>
+                                <div class="profile-email" id="profileEmail"></div>
+                            </div>
+                        </div>
+                        <div class="profile-menu">
+                            <button class="profile-menu-item" id="settingsBtn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                                </svg>
+                                Configurações
+                            </button>
+                            <a href="suporte.html" class="profile-menu-item">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8.9L21 3l-1.9 5.7a8.38 8.38 0 0 1 .9 3.8z"></path>
+                                </svg>
+                                Suporte
+                            </a>
+                            <button class="profile-menu-item" id="myTracksBtn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M9 18V5l12-2v13"></path>
+                                    <circle cx="6" cy="18" r="3"></circle>
+                                    <circle cx="18" cy="16" r="3"></circle>
+                                </svg>
+                                Minhas Tracks
+                            </button>
+                            <button class="profile-menu-item logout-btn" id="logoutBtn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                    <polyline points="16 17 21 12 16 7"></polyline>
+                                    <line x1="21" y1="12" x2="9" y2="12"></line>
+                                </svg>
+                                Sair
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- HERO BANNER -->
+    <section class="hero" id="heroBanner">
+        <img src="banners/baner index.png" alt="W.Tracks Banner" class="hero-banner" id="heroBannerImage">
+        <div class="scroll-indicator">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M7 13l5 5 5-5M7 6l5 5 5-5"/>
+            </svg>
+        </div>
+    </section>
+
+    <!-- LIBRARY -->
+    <main class="library" id="libraryView">
+        <div class="library-welcome">
+            <div class="welcome-logo">
+                <img src="icon-white-transparent.png" alt="W.Tracks" class="welcome-logo-icon">
+            </div>
+            <div class="welcome-text">
+                <h1 class="welcome-title">Bem vindo ao W.Tracks</h1>
+            </div>
+        </div>
+        <div class="library-filters">
+            <div class="filter-group">
+                <button class="filter-btn active" data-filter="all">Todos</button>
+                <button class="filter-btn" data-filter="recent">Recentes</button>
+                <button class="filter-btn" data-filter="favorites">Favoritos</button>
+                <button class="filter-btn" data-filter="playlists">Playlists</button>
+            </div>
+            <div class="library-actions">
+                <button class="sort-btn" aria-label="Ordenar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="4" y1="6" x2="16" y2="6"></line>
+                        <line x1="4" y1="12" x2="12" y2="12"></line>
+                        <line x1="4" y1="18" x2="8" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <div class="library-header">
+            <div class="library-title-section">
+                <h2 class="library-title">Minhas músicas</h2>
+                <span class="library-count" id="libraryCount">0 projetos</span>
+            </div>
+        </div>
+        
+        <div class="music-grid" id="musicGrid">
+            <!-- Music cards will be rendered here -->
+        </div>
+        
+        <div class="empty-state" id="emptyState">
+            <div class="empty-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M9 18V5l12-2v13"></path>
+                    <circle cx="6" cy="18" r="3"></circle>
+                    <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+            </div>
+            <h3 class="empty-title">Nenhuma música ainda</h3>
+            <p class="empty-description">Comece adicionando seu primeiro projeto multitrack</p>
+            <button class="empty-cta" id="emptyAddBtn">Adicionar música</button>
+        </div>
+    </main>
+
+    <!-- EXPLORE -->
+    <main class="explore" id="exploreView" style="display: none;">
+        <div class="library-header">
+            <div class="library-title-section">
+                <h2 class="library-title">Explorar</h2>
+                <span class="library-count" id="exploreCount">0 músicas</span>
+            </div>
+        </div>
+
+        <div class="music-grid" id="exploreGrid">
+            <!-- Explore music cards will be rendered here -->
+        </div>
+    </main>
+
+    <!-- SETLISTS -->
+    <main class="setlists" id="setlistsView" style="display: none;">
+        <div class="library-welcome">
+            <div class="welcome-logo">
+                <img src="icon-white-transparent.png" alt="W.Tracks" class="welcome-logo-icon">
+            </div>
+            <div class="welcome-text">
+                <h1 class="welcome-title">Setlists</h1>
+                <p class="welcome-description">Pesquise músicas no YouTube e organize suas setlists.</p>
+            </div>
+        </div>
+
+        <div class="setlists-search-container">
+            <div class="search-wrapper">
+                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <path d="m21 21-4.35-4.35"></path>
+                </svg>
+                <input type="text" class="setlists-search-input" id="setlistsSearchInput" placeholder="Pesquisar músicas no YouTube...">
+            </div>
+        </div>
+
+        <div class="youtube-results" id="youtubeResults" style="display: none;">
+            <h3 class="results-title">Resultados do YouTube</h3>
+            <div class="youtube-results-grid" id="youtubeResultsGrid">
+                <!-- YouTube search results will be rendered here -->
+            </div>
+        </div>
+
+        <div class="empty-state" id="setlistsSearchEmptyState">
+            <div class="empty-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <path d="m21 21-4.35-4.35"></path>
+                </svg>
+            </div>
+            <h3 class="empty-title">Pesquise músicas</h3>
+            <p class="empty-description"></p>
+        </div>
+    </main>
+
+    <!-- SETLISTS FLOATING MENU -->
+    <div class="setlists-floating-menu" id="setlistsFloatingMenu">
+        <!-- Create Setlist Button -->
+        <button class="floating-menu-item" id="floatingCreateSetlistBtn" data-tooltip="Criar Setlist">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+        </button>
+
+        <!-- Setlists List -->
+        <div class="floating-setlists-list" id="floatingSetlistsList">
+            <!-- Setlist items will be rendered here -->
+        </div>
+
+        <!-- No Setlists Message -->
+        <div class="floating-no-setlists" id="floatingNoSetlists">
+            <span class="no-setlists-text">Nenhuma setlist</span>
+        </div>
+    </div>
+
+    <!-- SETLIST EDITOR -->
+    <main class="setlist-editor" id="setlistEditorView" style="display: none;">
+        <div class="setlist-editor-header">
+            <button class="back-btn" id="backToSetlists">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+                Voltar
+            </button>
+            <div class="setlist-editor-title-section">
+                <h1 class="setlist-editor-title" id="setlistEditorTitle">Nome da Setlist</h1>
+                <p class="setlist-editor-date" id="setlistEditorDate">23/08/2026</p>
+                <div class="setlist-editor-actions">
+                    <button class="setlist-share-btn" id="shareSetlistBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
+                            <polyline points="16 6 12 2 8 6"></polyline>
+                            <line x1="12" y1="2" x2="12" y2="15"></line>
+                        </svg>
+                    </button>
+                    <button class="setlist-delete-btn" id="deleteSetlistBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="setlist-search-container">
+            <div class="search-wrapper">
+                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <path d="m21 21-4.35-4.35"></path>
+                </svg>
+                <input type="text" class="setlist-search-input" id="setlistEditorSearchInput" placeholder="Pesquisar músicas no YouTube...">
+            </div>
+        </div>
+
+        <div class="youtube-results" id="youtubeResults" style="display: none;">
+            <h3 class="results-title">Resultados do YouTube</h3>
+            <div class="youtube-results-grid" id="youtubeResultsGrid">
+                <!-- YouTube search results will be rendered here -->
+            </div>
+        </div>
+
+        <div class="setlist-songs-section">
+            <h3 class="setlist-songs-title">Músicas salvas</h3>
+            <div class="setlist-songs-list" id="setlistSongsList">
+                <!-- Saved songs will be rendered here -->
+            </div>
+        </div>
+
+        <div class="empty-state" id="setlistSongsEmptyState">
+            <div class="empty-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M9 18V5l12-2v13"></path>
+                    <circle cx="6" cy="18" r="3"></circle>
+                    <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+            </div>
+            <h3 class="empty-title">Nenhuma música salva</h3>
+        </div>
+    </main>
+
+    <!-- COMMUNITY -->
+    <main class="community" id="communityView" style="display: none;">
+        <div class="library-welcome">
+            <div class="welcome-logo">
+                <img src="icon-white-transparent.png" alt="W.Tracks" class="welcome-logo-icon">
+            </div>
+            <div class="welcome-text">
+                <h1 class="welcome-title">Bem vindos a Comunidade W.Tracks</h1>
+                <p class="welcome-description">Tracks prontas pra baixar e usar direto no seu player. Sem complicação.</p>
+            </div>
+        </div>
+
+        <div class="community-disclaimer">
+            <div class="disclaimer-content">
+                <h3 class="disclaimer-title">Sobre as tracks</h3>
+                <p class="disclaimer-text">As tracks disponibilizadas na Comunidade W.Tracks são <strong>recriações produzidas para fins de estudo, produção musical e utilização dentro da plataforma</strong>.</p>
+                <p class="disclaimer-text">Os arquivos disponibilizados não correspondem aos stems ou às gravações originais das músicas mencionadas. Cada track é recriada e produzida separadamente, utilizando novas gravações, instrumentos e elementos de produção.</p>
+                <p class="disclaimer-text">As obras musicais, títulos, composições e demais elementos que pertençam a terceiros continuam sujeitos aos respectivos direitos autorais e de seus titulares.</p>
+                <p class="disclaimer-text">O W.Tracks não reivindica a autoria das obras originais. O objetivo da Comunidade é disponibilizar <strong>recriações e materiais de produção</strong>, e não distribuir as gravações originais das obras.</p>
+                <p class="disclaimer-text disclaimer-highlight">Ao baixar uma track, o usuário reconhece que é responsável por verificar se o uso pretendido é permitido em seu projeto, publicação ou distribuição.</p>
+            </div>
+        </div>
+        <div class="library-filters">
+            <div class="filter-group" id="communityFilters">
+                <button class="filter-btn active" data-filter="Todos">Todos</button>
+                <button class="filter-btn" data-filter="Favoritos">Favoritos</button>
+            </div>
+        </div>
+        <div class="library-header">
+            <div class="library-title-section">
+                <h2 class="library-title">Tracks da Comunidade</h2>
+                <span class="library-count" id="communityCount">0 tracks</span>
+            </div>
+        </div>
+
+        <div class="music-grid" id="communityGrid">
+            <!-- Community music cards will be rendered here -->
+        </div>
+    </main>
+
+    <!-- MY TRACKS -->
+    <main class="library" id="myTracksView" style="display: none;">
+        <!-- Loading Screen -->
+        <div class="splash-screen" id="myTracksSplashScreen" style="display: none;">
+            <div class="splash-content">
+                <img src="icon-white-transparent.png" alt="W.Tracks" class="splash-logo">
+                <div class="splash-spinner"></div>
+                <p class="splash-text">Carregando...</p>
+            </div>
+        </div>
+
+        <div class="library-welcome">
+            <div class="welcome-logo">
+                <img src="icon-white-transparent.png" alt="W.Tracks" class="welcome-logo-icon">
+            </div>
+            <div class="welcome-text">
+                <h1 class="welcome-title">Minhas Tracks</h1>
+                <p class="welcome-description">Gerencie suas tracks publicadas na comunidade</p>
+            </div>
+        </div>
+
+        <!-- Creator Signup Section (shown when not signed up) -->
+        <div class="creator-signup-section" id="creatorSignupSection">
+            <div class="creator-signup-card">
+                <div class="creator-signup-header">
+                    <div class="creator-signup-icon-large">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 18V5l12-2v13"></path>
+                            <circle cx="6" cy="18" r="3"></circle>
+                            <circle cx="18" cy="16" r="3"></circle>
+                        </svg>
+                    </div>
+                    <h2 class="creator-signup-title">Torne-se um Criador</h2>
+                    <p class="creator-signup-description">
+                        Compartilhe suas criações musicais com a comunidade W.Tracks.
+                        Para publicar tracks, você precisa se inscrever como criador.
+                    </p>
+                </div>
+
+                <div class="creator-signup-features">
+                    <div class="creator-feature">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 20h9"></path>
+                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                        </svg>
+                        <span>Publique suas tracks originais</span>
+                    </div>
+                    <div class="creator-feature">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                        <span>Conecte-se com outros produtores</span>
+                    </div>
+                    <div class="creator-feature">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                        <span>Acompanhe downloads e visualizações</span>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary btn-large" id="startCreatorSignup">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    Inscrever-se como Criador
+                </button>
+            </div>
+        </div>
+
+        <!-- Tracks Management Section (shown when signed up) -->
+        <div class="tracks-management-section" id="tracksManagementSection" style="display: none;">
+            <div class="library-header">
+                <div class="library-title-section">
+                    <h2 class="library-title">Suas Tracks</h2>
+                    <span class="library-count" id="myTracksCount">0 tracks</span>
+                </div>
+                <div class="library-actions">
+                    <button class="btn btn-primary" id="addNewTrackBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        Nova Track
+                    </button>
+                </div>
+            </div>
+
+            <div class="music-grid" id="myTracksGrid">
+                <!-- User's tracks will be rendered here -->
+            </div>
+
+            <div class="empty-state" id="myTracksEmptyState">
+                <div class="empty-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M9 18V5l12-2v13"></path>
+                        <circle cx="6" cy="18" r="3"></circle>
+                        <circle cx="18" cy="16" r="3"></circle>
+                    </svg>
+                </div>
+                <h3 class="empty-title">Nenhuma track postada ainda</h3>
+                <p class="empty-description">Comece compartilhando sua primeira track com a comunidade</p>
+                <button class="empty-cta" id="emptyAddTrackBtn">Adicionar Primeira Track</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- FLOATING ADD BUTTON -->
+    <button class="fab-add" id="fabAdd" aria-label="Adicionar música">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+    </button>
+
+    <!-- MULTITRACK PLAYER VIEW -->
+    <section class="player-view" id="playerView">
+        <!-- HEADER -->
+        <header class="header">
+            <div class="header-container">
+                <div class="logo">
+                    <img src="icon-white-transparent.png" alt="W.Tracks" class="logo-icon">
+                    <span class="logo-text">W.Tracks</span>
+                </div>
+                
+                <nav class="nav">
+                    <a href="#" class="nav-link active">Biblioteca</a>
+                    <a href="#" class="nav-link" style="opacity: 0.4; pointer-events: none;" title="Em breve">Comunidade</a>
+                </nav>
+                
+                <div class="header-actions">
+                    <!-- Removed search and profile from player view -->
+                </div>
+            </div>
+        </header>
+        
+        <!-- Loading Screen -->
+        <div class="player-loading" id="playerLoading">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Carregando música...</div>
+            <div class="loading-progress" id="loadingProgress">0 de 0 tracks</div>
+            <div class="loading-subtext">Preparando suas tracks</div>
+        </div>
+        
+        <!-- Music Selector -->
+        <div class="music-selector">
+            <div class="music-selector-scroll" id="musicSelectorScroll">
+                <!-- Music items will be rendered here -->
+            </div>
+            <button class="add-music-to-player" id="addMusicToPlayer" aria-label="Adicionar música ao player">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Top Control Bar -->
+        <div class="player-controls">
+            <div class="player-controls-left">
+                <button class="control-btn back-btn" id="backToLibrary" aria-label="Voltar para biblioteca">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                </button>
+                
+                <div class="bpm-display">
+                    <input type="number" class="bpm-input" id="bpmInput" min="40" max="240" value="120">
+                    <div class="bpm-label">BPM</div>
+                </div>
+                
+                <div class="time-signature">
+                    <select class="time-signature-select" id="timeSignatureSelect">
+                        <option value="4/4">4/4</option>
+                        <option value="3/4">3/4</option>
+                        <option value="4/2">4/2</option>
+                        <option value="6/8">6/8</option>
+                        <option value="2/4">2/4</option>
+                        <option value="5/4">5/4</option>
+                        <option value="7/8">7/8</option>
+                    </select>
+                </div>
+                
+                <button class="control-btn" id="metronomeBtn" aria-label="Metrônomo">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M12 6v6l4 2"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="player-controls-center">
+                <button class="control-btn" id="rewindBtn" aria-label="Voltar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="11 19 2 12 11 5 11 19"></polygon>
+                        <polygon points="22 19 13 12 22 5 22 19"></polygon>
+                    </svg>
+                </button>
+                
+                <button class="play-btn" id="playPauseBtn" aria-label="Play/Pause">
+                    <svg class="play-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                    <svg class="pause-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="6" y="4" width="4" height="16"></rect>
+                        <rect x="14" y="4" width="4" height="16"></rect>
+                    </svg>
+                </button>
+                
+                <button class="control-btn" id="forwardBtn" aria-label="Avançar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="13 19 22 12 13 5 13 19"></polygon>
+                        <polygon points="2 19 11 12 2 5 2 19"></polygon>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="player-controls-right">
+                <div class="time-display">
+                    <div class="current-time" id="currentTime">0:00</div>
+                </div>
+                
+                
+                <button class="control-btn pad-btn" id="padBtn" aria-label="PAD">
+                    <span>PAD</span>
+                </button> 
+                
+               <!-- <button class="control-btn" id="editBtn" aria-label="Editar" style="opacity: 0.4; pointer-events: none;" title="Em breve">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                </button> -->
+                
+                <button class="reset-square-btn reset-normal-btn" id="resetNormalVolumes" title="Resetar volumes ao normal">
+                    <span class="btn-label">R</span>
+                    <span class="btn-indicator"></span>
+                </button>
+                
+                <button class="control-btn" id="playerSettingsBtn" aria-label="Configurações">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Timeline -->
+        <div class="timeline-container">
+            <div class="timeline-ruler">
+                <!-- Time markers will be rendered here -->
+            </div>
+            <div class="timeline-waveform" id="timelineWaveform">
+                <canvas id="waveformCanvas"></canvas>
+                <div class="playhead" id="playhead"></div>
+                <div class="waveform-loading" id="waveformLoading">
+                    <div class="loading-spinner"></div>
+                    <span class="loading-text">Carregando waveform</span>
+                    <span class="loading-subtext">Por favor, aguarde...</span>
+                </div>
+                <!-- Effects Layer -->
+                <div class="effects-layer" id="effectsLayer">
+                    <!-- Effect blocks will be rendered here -->
+                </div>
+                <!-- Click Indicator -->
+                <div class="click-indicator" id="clickIndicator"></div>
+            </div>
+            <div class="timeline-markers" id="timelineMarkers">
+                <!-- Markers will be rendered here -->
+            </div>
+            
+            <!-- Effect Upload Popover -->
+            <div class="effect-popover" id="effectPopover">
+                <div class="popover-content">
+                    <h4 class="popover-title">Adicionar Efeito</h4>
+                    <p class="popover-time" id="popoverTime">0:00</p>
+                    <div class="popover-actions">
+                        <label class="popover-btn upload-btn disabled">
+                            <input type="file" id="effectFileInput" accept="audio/*" style="display: none;" disabled>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            Fazer Upload de Efeito
+                        </label>
+                        <button class="popover-btn cancel-btn" id="cancelEffectBtn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mixer -->
+        <div class="mixer-container">
+            <div class="mixer-tracks" id="mixerTracks">
+                <!-- Track channels will be rendered here -->
+            </div>
+            
+            <!-- Master Channel (now part of the mixer row) -->
+            <div class="track-channel master-channel" id="masterChannel">
+                <div class="master-divider"></div>
+                
+                <div class="track-header">
+                    <div class="track-name">MASTER</div>
+                </div>
+                <div class="master-fader">
+                    <input type="range" class="fader-input" id="masterFader" min="0" max="100" value="50">
+                    <div class="master-fader-track">
+                        <div class="master-fader-fill" id="masterFaderFill" style="height: 50%"></div>
+                    </div>
+                    <div class="master-fader-thumb" id="masterFaderThumb" style="bottom: 50%"></div>
+                </div>
+                <div class="track-db-value" id="masterDbValue">0 dB</div>
+                <div class="track-pan-container">
+                    <input type="range" class="track-pan-input" id="masterPanInput" min="-100" max="100" value="0">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ADD SONG TO SESSION MODAL -->
+    <div class="modal-overlay" id="addSongToSessionModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Adicionar música à sessão</h3>
+                <button class="modal-close" id="addSongModalClose" aria-label="Fechar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="form-group">
+                    <input type="text" class="form-input" id="songSearchInput" placeholder="Pesquisar músicas...">
+                </div>
+                <div class="song-list" id="songList">
+                    <!-- Songs will be rendered here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADD MUSIC MODAL -->
+    <div class="modal-overlay" id="addMusicModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Adicionar música</h3>
+                <button class="modal-close" id="modalClose" aria-label="Fechar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <!-- Step 1: Import Method -->
+                <div class="wizard-step active" data-step="1">
+                    <h4 class="step-title">Como você quer adicionar?</h4>
+                    <div class="import-options">
+                        <button class="import-option" data-method="folder">
+                            <div class="import-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                                </svg>
+                            </div>
+                            <span class="import-label">Adicionar pasta</span>
+                            <span class="import-description">Importe uma pasta com todas as tracks</span>
+                        </button>
+                        
+                        <button class="import-option" data-method="files">
+                            <div class="import-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="17 8 12 3 7 8"></polyline>
+                                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                                </svg>
+                            </div>
+                            <span class="import-label">Adicionar tracks</span>
+                            <span class="import-description">Selecione os arquivos um por um</span>
+                        </button>
+                        
+                        <button class="import-option" data-method="drive">
+                            <div class="import-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M17.5 19c0-1.7-1.3-3-3-3h-11c-1.7 0-3 1.3-3 3s1.3 3 3 3h11c1.7 0 3-1.3 3-3z"></path>
+                                    <path d="M19 16c0-1.7-1.3-3-3-3h-1c-1.7 0-3 1.3-3 3s1.3 3 3 3h1c1.7 0 3-1.3 3-3z"></path>
+                                    <path d="M21 13c0-1.7-1.3-3-3-3h-1c-1.7 0-3 1.3-3 3s1.3 3 3 3h1c1.7 0 3-1.3 3-3z"></path>
+                                    <path d="M22.5 10c0-1.7-1.3-3-3-3h-13c-1.7 0-3 1.3-3 3s1.3 3 3 3h13c1.7 0 3-1.3 3-3z"></path>
+                                    <path d="M17.5 7c0-1.7-1.3-3-3-3h-11c-1.7 0-3 1.3-3 3s1.3 3 3 3h11c1.7 0 3-1.3 3-3z"></path>
+                                </svg>
+                            </div>
+                            <span class="import-label">Importar do Google Drive</span>
+                            <span class="import-description">Selecione arquivos do seu Drive</span>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Step 2: File Selection -->
+                <div class="wizard-step" data-step="2">
+                    <h4 class="step-title">Selecione os arquivos</h4>
+                    <div class="drop-zone" id="dropZone">
+                        <div class="drop-zone-content">
+                            <svg class="drop-zone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                            <p class="drop-zone-text">Arraste os arquivos aqui ou clique para selecionar</p>
+                            <p class="drop-zone-hint">Suporta: WAV, MP3, FLAC, OGG, AIFF</p>
+                        </div>
+                        <input type="file" id="fileInput" multiple accept=".wav,.mp3,.flac,.ogg,.aiff" hidden>
+                    </div>
+                    <div class="selected-files" id="selectedFiles"></div>
+                </div>
+                
+                <!-- Step 3: Project Info -->
+                <div class="wizard-step" data-step="3">
+                    <h4 class="step-title">Informações do projeto</h4>
+                    <div class="form-group">
+                        <label class="form-label" for="projectName">Nome da música</label>
+                        <input type="text" class="form-input" id="projectName" placeholder="Ex: Ousado Amor">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="projectKey">Tom / Key</label>
+                        <select class="form-select" id="projectKey">
+                            <option value="">Selecione o tom</option>
+                            <option value="C">C</option>
+                            <option value="C#">C# / Db</option>
+                            <option value="D">D</option>
+                            <option value="Eb">Eb / D#</option>
+                            <option value="E">E</option>
+                            <option value="F">F</option>
+                            <option value="F#">F# / Gb</option>
+                            <option value="G">G</option>
+                            <option value="Ab">Ab / G#</option>
+                            <option value="A">A</option>
+                            <option value="Bb">Bb / A#</option>
+                            <option value="B">B</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Step 4: Track Review -->
+                <div class="wizard-step" data-step="4">
+                    <h4 class="step-title">Revisar tracks</h4>
+                    <p class="step-description">Verifique e organize as tracks do seu projeto</p>
+                    <div class="tracks-list" id="tracksList">
+                        <!-- Tracks will be rendered here -->
+                    </div>
+                    <button class="add-track-btn" id="addTrackBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        Adicionar outra track
+                    </button>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="wizardBack" disabled>Voltar</button>
+                <button class="btn btn-primary" id="wizardNext" disabled>Próximo</button>
+                <button class="btn btn-primary" id="wizardCreate" style="display: none;">Criar música</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SETTINGS MODAL -->
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Configurações</h3>
+                <button class="modal-close" id="settingsModalClose" aria-label="Fechar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <!-- User Profile Section -->
+                <div class="settings-section">
+                    <h4 class="settings-section-title">Perfil Público</h4>
+                    <div class="profile-settings">
+                        <div class="profile-avatar-large" id="settingsProfileAvatarBtn" style="cursor: pointer; position: relative;">
+                            <span id="settingsUserInitial"></span>
+                            <div class="avatar-camera-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                                    <circle cx="12" cy="13" r="4"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="profile-info-large">
+                            <div class="profile-name-large" id="settingsProfileName"></div>
+                            <div class="profile-email-large" id="settingsProfileEmail"></div>
+                            <div class="profile-account-type">
+                                <span class="account-type-label">Tipo de conta:</span>
+                                <span class="account-type-value" id="settingsAccountType"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <input type="file" id="profilePhotoInput" accept="image/*" style="display: none;">
+                    
+                    <!-- Profile Edit Form -->
+                    <div class="profile-edit-form">
+                        <div class="form-group">
+                            <label class="form-label">Nome de Perfil</label>
+                            <input type="text" class="form-input" id="settingsDisplayName" placeholder="Seu nome de exibição">
+                        </div>
+
+                        <button class="btn btn-primary" id="saveProfileBtn">Salvar Perfil</button>
+                    </div>
+                </div>
+
+                <div class="settings-divider"></div>
+
+                <!-- Storage Section -->
+                <div class="settings-section">
+                    <h4 class="settings-section-title">Armazenamento</h4>
+                    <div class="storage-info-card">
+                        <div class="storage-text">
+                            <span class="storage-used" id="storageUsed">0 MB</span>
+                            <span class="storage-total">de 10 GB usados</span>
+                        </div>
+                        <div class="storage-progress-bar">
+                            <div class="storage-progress-fill" id="storageProgressFill"></div>
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary btn-small" id="clearStorageBtn" style="margin-top: 10px;">
+                        Limpar armazenamento local
+                    </button>
+                    <button class="btn btn-danger btn-small" id="clearAllIndexedDBBtn" style="margin-top: 5px;">
+                        Limpar todo o IndexedDB (incluindo dados antigos)
+                    </button>
+                </div>
+
+                <div class="settings-divider"></div>
+
+                <!-- App Settings -->
+                <div class="settings-section">
+                    <h4 class="settings-section-title">Preferências do App</h4>
+                    <div class="settings-option">
+                        <label class="settings-label">
+                            <input type="checkbox" id="repeatMode">
+                            <span>Ativar repetição</span>
+                        </label>
+                    </div>
+                    <div class="settings-option">
+                        <label class="settings-label">
+                            <input type="checkbox" id="autoAdvanceMode">
+                            <span>Avançar automaticamente</span>
+                        </label>
+                    </div>
+                    <div class="settings-option">
+                        <label class="settings-label">
+                            <input type="checkbox" id="transitionMode">
+                            <span>Ativar transição entre tracks</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TRACK MODAL (User Track Creation) -->
+    <div class="modal-overlay" id="trackModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title" id="trackModalTitle">Nova Track</h3>
+                <button class="modal-close" id="trackModalClose">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="trackForm">
+                    <input type="hidden" id="trackId">
+
+                    <div class="form-group">
+                        <label class="form-label">Nome da Track</label>
+                        <input type="text" class="form-input" id="trackName" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Artista</label>
+                        <input type="text" class="form-input" id="trackArtist" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Gêneros (selecione um ou mais)</label>
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(120px, 1fr));gap:8px;">
+                            <label style="display:flex;align-items:center;gap:8px;color:var(--white-dim);font-size:0.9rem;cursor:pointer;">
+                                <input type="checkbox" name="trackGenre" value="Antigas" style="width:16px;height:16px;">
+                                Antigas
+                            </label>
+                            <label style="display:flex;align-items:center;gap:8px;color:var(--white-dim);font-size:0.9rem;cursor:pointer;">
+                                <input type="checkbox" name="trackGenre" value="Novas" style="width:16px;height:16px;">
+                                Novas
+                            </label>
+                            <label style="display:flex;align-items:center;gap:8px;color:var(--white-dim);font-size:0.9rem;cursor:pointer;">
+                                <input type="checkbox" name="trackGenre" value="Worship" style="width:16px;height:16px;">
+                                Worship
+                            </label>
+                            <label style="display:flex;align-items:center;gap:8px;color:var(--white-dim);font-size:0.9rem;cursor:pointer;">
+                                <input type="checkbox" name="trackGenre" value="Americanas" style="width:16px;height:16px;">
+                                Americanas
+                            </label>
+                            <label style="display:flex;align-items:center;gap:8px;color:var(--white-dim);font-size:0.9rem;cursor:pointer;">
+                                <input type="checkbox" name="trackGenre" value="Nacionais" style="width:16px;height:16px;">
+                                Nacionais
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Tom (Key)</label>
+                        <input type="text" class="form-input" id="trackKey" required placeholder="Ex: C Major">
+                    </div>
+
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                        <div class="form-group">
+                            <label class="form-label">BPM</label>
+                            <input type="number" class="form-input" id="trackBpm" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Stems</label>
+                            <input type="number" class="form-input" id="trackStems" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Link de Download (.zip)</label>
+                        <input type="url" class="form-input" id="trackDownloadUrl" required placeholder="https://...">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Capa da Track</label>
+                        <div id="uploadArea" style="border:2px dashed var(--border-medium);border-radius:var(--radius-md);padding:24px;text-align:center;cursor:pointer;transition:all 0.3s ease;background:var(--color-black-elevated);">
+                            <div id="uploadPlaceholder">
+                                <div style="font-size:2rem;margin-bottom:8px;">📁</div>
+                                <p style="color:var(--color-white-muted);font-size:0.9rem;">Clique ou arraste uma imagem</p>
+                                <p style="color:var(--color-white-subtle);font-size:0.8rem;">JPG, PNG, WEBP (máx. 5MB)</p>
+                            </div>
+                            <div id="uploadPreview" style="display:none;">
+                                <img id="previewImage" style="max-width:100%;max-height:200px;border-radius:var(--radius-sm);margin-bottom:8px;">
+                                <p id="fileInfo" style="color:var(--color-white-muted);font-size:0.8rem;"></p>
+                            </div>
+                            <input type="file" id="coverInput" accept="image/jpeg,image/png,image/webp" style="display:none;">
+                            <input type="hidden" id="trackCoverUrl">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Preço e Pagamento</label>
+                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+                            <input type="checkbox" id="trackIsPaid" disabled style="width:18px;height:18px;opacity:0.5;cursor:not-allowed;">
+                            <span style="color:var(--color-white-dim);font-size:0.9rem;">Track paga <span style="color:var(--color-accent);font-size:0.75rem;margin-left:8px;">(Em breve)</span></span>
+                        </div>
+                        <div id="paymentInfoSection" style="display:none;">
+                            <div style="margin-bottom:12px;">
+                                <label style="display:block;color:var(--color-white-muted);font-size:0.85rem;margin-bottom:6px;">Preço (R$)</label>
+                                <input type="number" class="form-input" id="trackPrice" placeholder="0.00" step="0.01" min="0" disabled>
+                            </div>
+                            <div>
+                                <label style="display:block;color:var(--color-white-muted);font-size:0.85rem;margin-bottom:6px;">Dados de Pagamento (Pix ou link)</label>
+                                <input type="text" class="form-input" id="trackPaymentInfo" placeholder="Chave Pix ou link de pagamento" disabled>
+                                <p style="color:var(--color-white-subtle);font-size:0.75rem;margin-top:4px;">Será exibido para compradores interessados</p>
+                            </div>
+                        </div>
+                        <p style="color:var(--color-accent);font-size:0.75rem;margin-top:8px;">
+                            Sistema de pagamentos em desenvolvimento. Por enquanto, todas as tracks são gratuitas.
+                        </p>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Status</label>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <input type="checkbox" id="trackPublished" checked style="width:18px;height:18px;">
+                            <span style="color:var(--color-white-dim);font-size:0.9rem;">Publicar imediatamente</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="background:linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(217, 119, 6, 0.05));border:1px solid rgba(245, 158, 11, 0.3);border-radius:var(--radius-md);padding:var(--spacing-md);">
+                        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;">
+                            <input type="checkbox" id="copyrightAgreement" required style="width:18px;height:18px;margin-top:2px;">
+                            <span style="color:var(--color-white-dim);font-size:0.85rem;line-height:1.4;">
+                                <strong>Li e concordo com os termos de direitos autorais:</strong> Confirmo que esta track é uma recriação original para fins de estudo e produção, não contendo material protegido por direitos autorais de terceiros. Entendo que o descumprimento pode resultar em suspensão da conta.
+                            </span>
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="trackModalCancel">Cancelar</button>
+                <button class="btn btn-primary" id="trackModalSave">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="storage.js"></script>
+    <script src="player.js"></script>
+    <script src="app.js"></script>
+
+    <!-- Google Drive Integration -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
+    <script src="drive.js"></script>
+
+    <!-- AUTH MODAL -->
+    <div class="modal-overlay" id="authModal">
+        <div class="modal auth-modal">
+            <button class="modal-close" id="authModalClose" aria-label="Fechar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+
+            <div class="auth-container">
+                <!-- Auth Sidebar/Visual -->
+                <div class="auth-visual">
+                    <div class="auth-visual-content">
+                        <div class="auth-visual-logo">
+                            <img src="icon-white-transparent.png" alt="W.Tracks">
+                        </div>
+                        <h2 class="auth-visual-title">W.Tracks</h2>
+                        <p class="auth-visual-subtitle">Seu estúdio multitrack na nuvem</p>
+                        
+                        <div class="auth-visual-features">
+                            <div class="auth-feature">
+                                <div class="auth-feature-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M9 18V5l12-2v13"></path>
+                                        <circle cx="6" cy="18" r="3"></circle>
+                                        <circle cx="18" cy="16" r="3"></circle>
+                                    </svg>
+                                </div>
+                                <span>Controle individual de stems</span>
+                            </div>
+                            <div class="auth-feature">
+                                <div class="auth-feature-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                        <polyline points="17 8 12 3 7 8"></polyline>
+                                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                                    </svg>
+                                </div>
+                                <span>Sincronização entre dispositivos</span>
+                            </div>
+                            <div class="auth-feature">
+                                <div class="auth-feature-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <path d="M12 6v6l4 2"></path>
+                                    </svg>
+                                </div>
+                                <span>Acesso em qualquer lugar</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="auth-visual-bg">
+                        <div class="auth-wave"></div>
+                        <div class="auth-wave auth-wave-2"></div>
+                    </div>
+                </div>
+
+                <!-- Auth Forms -->
+                <div class="auth-forms-container">
+                    <!-- Login Form -->
+                    <form id="loginForm" class="auth-form">
+                        <div class="auth-header">
+                            <h1 class="auth-title">Bem-vindo de volta</h1>
+                            <p class="auth-subtitle">Entre para acessar seus projetos multitrack</p>
+                        </div>
+
+                        <div class="auth-inputs">
+                            <div class="auth-input-group">
+                                <label for="loginEmail">Email</label>
+                                <div class="auth-input-wrapper">
+                                    <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                        <polyline points="22,6 12,13 2,6"></polyline>
+                                    </svg>
+                                    <input type="email" id="loginEmail" required placeholder="seu@email.com">
+                                </div>
+                            </div>
+
+                            <div class="auth-input-group">
+                                <label for="loginPassword">Senha</label>
+                                <div class="auth-input-wrapper">
+                                    <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                                    </svg>
+                                    <input type="password" id="loginPassword" required placeholder="••••••••">
+                                    <button type="button" class="auth-password-toggle" data-target="loginPassword">
+                                        <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                            <circle cx="12" cy="12" r="3"></circle>
+                                        </svg>
+                                        <svg class="eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                                            <line x1="1" y1="1" x2="23" y2="23"></line>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="auth-options">
+                            <label class="auth-checkbox">
+                                <input type="checkbox" id="rememberMe">
+                                <span class="auth-checkbox-custom"></span>
+                                <span>Lembrar-me</span>
+                            </label>
+                            <a href="#" class="auth-link">Esqueceu a senha?</a>
+                        </div>
+
+                        <button type="submit" class="auth-submit-btn">
+                            <span>Entrar</span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                                <polyline points="12 5 19 12 12 19"></polyline>
+                            </svg>
+                        </button>
+
+                        <div class="auth-divider">
+                            <span>ou continue com</span>
+                        </div>
+
+                        <div class="auth-social">
+                            <button type="button" class="auth-social-btn google-btn">
+                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                                </svg>
+                                <span>Google</span>
+                            </button>
+                        </div>
+
+                        <div class="auth-switch">
+                            <span>Não tem uma conta? </span>
+                            <button type="button" class="auth-switch-btn" id="switchToRegister">Criar conta</button>
+                        </div>
+                    </form>
+
+                    <!-- Register Form -->
+                    <form id="registerForm" class="auth-form" style="display: none;">
+                        <div class="auth-header">
+                            <h1 class="auth-title">Crie sua conta</h1>
+                            <p class="auth-subtitle">Comece a criar seus projetos multitrack</p>
+                        </div>
+
+                        <div class="auth-inputs">
+                            <div class="auth-input-group">
+                                <label for="registerName">Nome completo</label>
+                                <div class="auth-input-wrapper">
+                                    <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                        <circle cx="12" cy="7" r="4"></circle>
+                                    </svg>
+                                    <input type="text" id="registerName" required placeholder="Seu nome completo">
+                                </div>
+                            </div>
+
+                            <div class="auth-input-group">
+                                <label for="registerEmail">Email</label>
+                                <div class="auth-input-wrapper">
+                                    <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                        <polyline points="22,6 12,13 2,6"></polyline>
+                                    </svg>
+                                    <input type="email" id="registerEmail" required placeholder="seu@email.com">
+                                </div>
+                            </div>
+
+                            <div class="auth-input-group">
+                                <label for="registerType">Tipo de conta</label>
+                                <div class="auth-input-wrapper">
+                                    <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                                        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                                    </svg>
+                                    <select id="registerType" required class="auth-select">
+                                        <option value="">Selecione o tipo</option>
+                                        <option value="banda">Banda</option>
+                                        <option value="igreja">Igreja</option>
+                                        <option value="produtor">Produtor Musical</option>
+                                        <option value="estudio">Estúdio</option>
+                                        <option value="outro">Outro</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="auth-input-group" id="otherTypeGroup" style="display: none;">
+                                <label for="registerOtherType">Especifique o tipo</label>
+                                <div class="auth-input-wrapper">
+                                    <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                                    </svg>
+                                    <input type="text" id="registerOtherType" placeholder="Descreva seu tipo de conta">
+                                </div>
+                            </div>
+
+                            <div class="auth-input-group">
+                                <label for="registerPassword">Senha</label>
+                                <div class="auth-input-wrapper">
+                                    <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                                    </svg>
+                                    <input type="password" id="registerPassword" required placeholder="Mínimo 6 caracteres">
+                                    <button type="button" class="auth-password-toggle" data-target="registerPassword">
+                                        <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                            <circle cx="12" cy="12" r="3"></circle>
+                                        </svg>
+                                        <svg class="eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                                            <line x1="1" y1="1" x2="23" y2="23"></line>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div class="auth-password-strength">
+                                    <div class="auth-strength-bar">
+                                        <div class="auth-strength-fill"></div>
+                                    </div>
+                                    <span class="auth-strength-text">Força da senha</span>
+                                </div>
+                            </div>
+
+                            <div class="auth-input-group">
+                                <label for="registerConfirmPassword">Confirmar Senha</label>
+                                <div class="auth-input-wrapper">
+                                    <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                                    </svg>
+                                    <input type="password" id="registerConfirmPassword" required placeholder="••••••••">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="auth-options">
+                            <label class="auth-checkbox">
+                                <input type="checkbox" id="acceptTerms" required>
+                                <span class="auth-checkbox-custom"></span>
+                                <span>Concordo com os <a href="#" class="auth-link">Termos de Uso</a> e <a href="#" class="auth-link">Política de Privacidade</a></span>
+                            </label>
+                        </div>
+
+                        <button type="submit" class="auth-submit-btn">
+                            <span>Criar Conta</span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                                <polyline points="12 5 19 12 12 19"></polyline>
+                            </svg>
+                        </button>
+
+                        <div class="auth-switch">
+                            <span>Já tem uma conta? </span>
+                            <button type="button" class="auth-switch-btn" id="switchToLogin">Fazer login</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GUEST WARNING MODAL -->
+    <div class="modal-overlay" id="guestWarningModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">⚠️ Você não está logado</h3>
+                <button class="modal-close" id="guestWarningModalClose" aria-label="Fechar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="guest-warning-content">
+                    <div class="warning-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                            <line x1="12" y1="9" x2="12" y2="13"></line>
+                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                    </div>
+                    <p class="warning-text">Você não está logado. Este projeto será perdido se a página for recarregada.</p>
+                    <p class="warning-subtext">Para salvar suas músicas permanentemente, faça login na sua conta.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="guestContinueBtn">Continuar sem login</button>
+                <button class="btn btn-primary" id="guestLoginBtn">Fazer login</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PUBLIC PROFILE MODAL -->
+    <div class="modal-overlay" id="publicProfileModal">
+        <div class="modal profile-modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Perfil do Criador</h3>
+                <button class="modal-close" id="publicProfileModalClose" aria-label="Fechar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body profile-modal-body">
+                <!-- Profile Info -->
+                <div class="profile-info-section">
+                    <div class="profile-avatar-container">
+                        <div class="profile-avatar" id="profileAvatar">
+                            <span id="profileAvatarInitial"></span>
+                        </div>
+                    </div>
+                    <div class="profile-details">
+                        <h2 class="profile-name" id="profileDisplayName"></h2>
+                    </div>
+                </div>
+                
+                <!-- Profile Tracks -->
+                <div class="profile-tracks-section">
+                    <div class="profile-tracks-header">
+                        <h3 class="profile-tracks-title">Tracks do Criador</h3>
+                        <div class="profile-tracks-search">
+                            <input type="text" class="form-input" id="profileTracksSearch" placeholder="Buscar músicas...">
+                        </div>
+                    </div>
+                    <div class="music-grid" id="profileTracksGrid">
+                        <!-- Profile tracks will be rendered here -->
+                    </div>
+                    <div class="empty-state" id="profileTracksEmpty" style="display: none;">
+                        <div class="empty-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M9 18V5l12-2v13"></path>
+                                <circle cx="6" cy="18" r="3"></circle>
+                                <circle cx="18" cy="16" r="3"></circle>
+                            </svg>
+                        </div>
+                        <h3 class="empty-title">Nenhuma track publicada</h3>
+                        <p class="empty-description">Este criador ainda não publicou nenhuma track</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PLAYLIST MODAL -->
+    <div class="modal-overlay" id="playlistModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Criar Nova Playlist</h3>
+                <button class="modal-close" id="playlistModalClose" aria-label="Fechar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="playlistName">Nome da Playlist</label>
+                    <input type="text" class="form-input" id="playlistName" placeholder="Ex: Minhas Favoritas, Workout, etc." required>
+                </div>
+
+                <div class="form-group">
+                    <label for="playlistCover">Capa da Playlist</label>
+                    <div class="cover-upload-area" id="playlistCoverUpload">
+                        <input type="file" id="playlistCoverInput" accept="image/*" style="display: none;">
+                        <div class="cover-upload-placeholder" id="coverUploadPlaceholder">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                <polyline points="21 15 16 10 5 21"></polyline>
+                            </svg>
+                            <span>Clique para enviar imagem</span>
+                        </div>
+                        <div class="cover-preview" id="coverPreview" style="display: none;">
+                            <img id="coverPreviewImage" src="" alt="Preview da capa">
+                            <button class="cover-remove-btn" id="coverRemoveBtn" aria-label="Remover capa">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Selecione as Músicas</label>
+                    <div class="form-group">
+                        <input type="text" class="form-input" id="playlistSongSearch" placeholder="Pesquisar músicas...">
+                    </div>
+                    <div class="playlist-song-selection" id="playlistSongsSelector">
+                        <!-- Songs will be rendered here with checkboxes -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="playlistModalCancel">Cancelar</button>
+                <button class="btn btn-primary" id="playlistModalSave">Criar Playlist</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CREATOR SIGNUP MODAL -->
+    <div class="modal-overlay" id="creatorSignupModal">
+        <div class="modal creator-signup-modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Inscrição de Criador</h3>
+                <button class="modal-close" id="creatorSignupModalClose" aria-label="Fechar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <div class="creator-signup-intro">
+                    <div class="creator-signup-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 18V5l12-2v13"></path>
+                            <circle cx="6" cy="18" r="3"></circle>
+                            <circle cx="18" cy="16" r="3"></circle>
+                        </svg>
+                    </div>
+                    <h4 class="creator-signup-title">Minhas Tracks</h4>
+                    <p class="creator-signup-description">
+                        Compartilhe suas criações musicais com a comunidade W.Tracks. 
+                        Publique tracks originais e conecte-se com outros produtores.
+                    </p>
+                </div>
+
+                <div class="creator-signup-form">
+                    <div class="form-group">
+                        <label class="form-label">Nome de Exibição *</label>
+                        <input type="text" class="form-input" id="creatorDisplayName" placeholder="Como você quer ser conhecido?" required>
+                        <small class="form-help">Este nome aparecerá nos cards das suas tracks</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Foto de Perfil</label>
+                        <div class="profile-photo-upload-area" id="creatorPhotoUploadArea">
+                            <div class="upload-placeholder" id="creatorPhotoPlaceholder">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                    <polyline points="21 15 16 10 5 21"></polyline>
+                                </svg>
+                                <span>Clique para selecionar foto</span>
+                            </div>
+                            <div class="upload-preview" id="creatorPhotoPreview" style="display: none;">
+                                <img id="creatorPhotoPreviewImage" src="" alt="Preview da foto">
+                                <button class="upload-remove-btn" id="creatorPhotoRemoveBtn" aria-label="Remover foto">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                                    </svg>
+                                </button>
+                            </div>
+                            <input type="file" id="creatorPhotoInput" accept="image/jpeg,image/png,image/webp" style="display: none;">
+                        </div>
+                        <small class="form-help">Formatos aceitos: JPG, PNG, WEBP (máx. 5MB)</small>
+                    </div>
+
+                    <div class="creator-copyright-warning">
+                        <div class="warning-header">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                                <line x1="12" y1="9" x2="12" y2="13"></line>
+                                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                            </svg>
+                            <h5>⚠️ Aviso Importante sobre Direitos Autorais</h5>
+                        </div>
+                        <div class="warning-content">
+                            <p>Ao se inscrever como criador, você concorda que:</p>
+                            <ul>
+                                <li>Todas as tracks publicadas são recriações originais para fins de estudo e produção musical</li>
+                                <li>É estritamente proibido postar gravações originais, stems ou material protegido por direitos autorais de terceiros</li>
+                                <li>Você assume total responsabilidade legal pelo conteúdo compartilhado</li>
+                                <li>O descumprimento pode resultar em suspensão imediata da conta e remoção de todas as suas tracks</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="creatorTermsAgreement" required>
+                            <span>Li e concordo com os termos de direitos autorais acima</span>
+                        </label>
+                    </div>
+
+                    <button class="btn btn-primary btn-full" id="creatorSignupSubmit">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        Inscrever-se como Criador
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+        <div class="footer-content">
+            <a href="termos.html" class="footer-link">Termos de Uso</a>
+            <span class="footer-separator">•</span>
+            <a href="privacidade.html" class="footer-link">Política de Privacidade</a>
+        </div>
+    </footer>
+</body>
+</html>

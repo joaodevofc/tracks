@@ -1,0 +1,2696 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wave - Sistema de Pedidos para Restaurantes</title>
+    <link rel="icon" href="wave 2 prof.ico" type="image/x-icon">
+    <link rel="manifest" href="manifest.json">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="notification.js"></script>
+    <script src="site-access-control.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --black: #000000;
+            --white: #ffffff;
+            --gray-50: #fafafa;
+            --gray-100: #f5f5f5;
+            --gray-200: #e5e5e5;
+            --gray-300: #d4d4d4;
+            --gray-400: #a3a3a3;
+            --gray-500: #737373;
+            --gray-600: #525252;
+            --gray-700: #404040;
+            --gray-800: #262626;
+            --gray-900: #171717;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--white);
+            color: var(--black);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Logo */
+        .logo-fixed {
+            position: fixed;
+            top: 24px;
+            left: 24px;
+            font-size: 1.75rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            color: var(--black);
+            text-decoration: none;
+            z-index: 1001;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .version-badge {
+            font-size: 0.5rem;
+            font-weight: 500;
+            color: var(--gray-500);
+            background: var(--gray-100);
+            padding: 2px 5px;
+            border-radius: 8px;
+        }
+
+        /* Side Menu */
+        .side-menu {
+            position: fixed;
+            right: 24px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            z-index: 1001;
+            background: var(--white);
+            padding: 12px;
+            border-radius: 50px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            border: 1px solid var(--gray-200);
+        }
+
+        .side-menu-item {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: var(--gray-600);
+            position: relative;
+        }
+
+        .side-menu-item:hover {
+            background: var(--gray-100);
+            color: var(--black);
+        }
+
+        .side-menu-item svg {
+            width: 22px;
+            height: 22px;
+        }
+
+        .side-menu-item::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            right: 60px;
+            background: var(--black);
+            color: var(--white);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            font-weight: 500;
+        }
+
+        .side-menu-item:hover::after {
+            opacity: 1;
+        }
+
+        .logo {
+            font-size: 1.75rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            color: var(--black);
+            text-decoration: none;
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 100px 24px 100px;
+            background: linear-gradient(180deg, var(--gray-50) 0%, var(--white) 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 1400px;
+            height: 100%;
+            background: radial-gradient(ellipse at top, rgba(0,0,0,0.03) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
+            max-width: 800px;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--gray-100);
+            border: 1px solid var(--gray-200);
+            border-radius: 100px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--gray-700);
+            margin-bottom: 32px;
+        }
+
+        .hero-badge svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .hero-content h1 {
+            font-size: 4.5rem;
+            font-weight: 900;
+            margin-bottom: 24px;
+            letter-spacing: -2px;
+            line-height: 1.1;
+            min-height: 1.1em;
+        }
+
+        .rotating-title {
+            position: relative;
+            display: inline-block;
+        }
+
+        .rotating-title .phrase {
+            display: block;
+            opacity: 0;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        .rotating-title .phrase.active {
+            opacity: 1;
+            position: relative;
+        }
+
+        .hero-content p {
+            font-size: 1.35rem;
+            color: var(--gray-600);
+            margin-bottom: 40px;
+            max-width: 580px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.7;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 16px 32px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: 1.5px solid var(--black);
+        }
+
+        .btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .btn-primary {
+            background-color: var(--black);
+            color: var(--white);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--gray-800);
+            border-color: var(--gray-800);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            color: var(--black);
+        }
+
+        .btn-outline:hover {
+            background-color: var(--gray-100);
+            transform: translateY(-2px);
+        }
+
+        /* Section Styles */
+        .section {
+            padding: 120px 24px;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 80px;
+        }
+
+        .section-label {
+            display: inline-block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--gray-500);
+            margin-bottom: 16px;
+        }
+
+        .section-title {
+            font-size: 3rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            margin-bottom: 20px;
+            line-height: 1.2;
+        }
+
+        .section-subtitle {
+            font-size: 1.15rem;
+            color: var(--gray-600);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* How it Works Section */
+        .steps {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+        }
+
+        @media (max-width: 768px) {
+            .steps {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .step {
+            padding: 40px;
+            background: var(--white);
+            border: 1px solid var(--gray-200);
+            border-radius: 16px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .step::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--black), var(--gray-400));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .step:hover {
+            border-color: var(--gray-300);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+            transform: translateY(-4px);
+        }
+
+        .step:hover::before {
+            opacity: 1;
+        }
+
+        .step-icon {
+            width: 56px;
+            height: 56px;
+            background: var(--gray-100);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+
+        .step-icon svg {
+            width: 28px;
+            height: 28px;
+            color: var(--black);
+        }
+
+        .step-number {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--gray-400);
+        }
+
+        .step h3 {
+            font-size: 1.35rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            letter-spacing: -0.3px;
+        }
+
+        .step p {
+            color: var(--gray-600);
+            line-height: 1.7;
+            font-size: 1rem;
+        }
+
+        /* How it Works Features */
+        .how-it-works-features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 24px;
+            margin-top: 48px;
+        }
+
+        .feature-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 32px 24px;
+            background: var(--gray-50);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .feature-item:hover {
+            background: var(--gray-100);
+            transform: translateY(-2px);
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--black);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+
+        .feature-icon svg {
+            width: 24px;
+            height: 24px;
+            color: var(--white);
+        }
+
+        .feature-item h4 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--black);
+        }
+
+        .feature-item p {
+            color: var(--gray-600);
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        /* Modes Section */
+        .modes {
+            background: linear-gradient(135deg, var(--gray-50) 0%, var(--white) 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .modes::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(0,0,0,0.02) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .mode-cards {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+            perspective: 1000px;
+        }
+
+        .mode-card {
+            flex: 0 0 auto;
+            background: var(--white);
+            padding: 32px 28px;
+            border-radius: 20px;
+            text-align: left;
+            border: 1px solid var(--gray-200);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            opacity: 0;
+            transform: translateY(40px) rotateX(10deg);
+            animation: cardEntrance 0.8s ease forwards;
+        }
+
+        .mode-card:nth-child(1) { animation-delay: 0.1s; }
+        .mode-card:nth-child(2) { animation-delay: 0.2s; }
+        .mode-card:nth-child(3) { animation-delay: 0.3s; }
+        .mode-card:nth-child(4) { animation-delay: 0.4s; }
+
+        @keyframes cardEntrance {
+            to {
+                opacity: 1;
+                transform: translateY(0) rotateX(0);
+            }
+        }
+
+        .mode-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--black) 0%, var(--gray-600) 100%);
+            transform: scaleX(0);
+            transition: transform 0.4s ease;
+        }
+
+        .mode-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .mode-card:hover {
+            border-color: var(--black);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.05);
+            transform: translateY(-8px) rotateX(5deg);
+        }
+
+        .mode-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(0,0,0,0.02) 0%, transparent 100%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            pointer-events: none;
+        }
+
+        .mode-card:hover::after {
+            opacity: 1;
+        }
+
+        /* Duo Banner */
+        .duo-banner {
+            margin-bottom: 48px;
+            background: linear-gradient(135deg, var(--black) 0%, var(--gray-800) 100%);
+            border-radius: 16px;
+            padding: 32px;
+            text-align: center;
+        }
+
+        .duo-banner-content {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .duo-banner-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 100px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--white);
+            margin-bottom: 16px;
+        }
+
+        .duo-banner-badge svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .duo-banner h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--white);
+            margin-bottom: 12px;
+        }
+
+        .duo-banner p {
+            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .duo-banner p strong {
+            color: var(--white);
+            font-weight: 600;
+        }
+
+        .duo-banner-link {
+            display: inline-block;
+            padding: 12px 24px;
+            background: var(--white);
+            color: var(--black);
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+        }
+
+        .duo-banner-link:hover {
+            background: var(--gray-100);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        }
+
+        .duo-banner-carousel {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .duo-banner-slide {
+            display: none;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        .duo-banner-slide.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .duo-banner-dots {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 24px;
+        }
+
+        .duo-banner-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .duo-banner-dot.active {
+            background: var(--white);
+            transform: scale(1.2);
+        }
+
+        .duo-banner-dot:hover {
+            background: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Development Badge */
+        .dev-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: #fef3c7;
+            color: #d97706;
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 16px;
+        }
+
+        .dev-badge svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .mode-card {
+            background: var(--white);
+            padding: 48px 40px;
+            border-radius: 20px;
+            text-align: left;
+            border: 1px solid var(--gray-200);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .mode-card:hover {
+            border-color: var(--black);
+            box-shadow: 0 24px 48px rgba(0,0,0,0.12);
+            transform: translateY(-6px);
+        }
+
+        .mode-icon {
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, var(--black) 0%, var(--gray-800) 100%);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            position: relative;
+            z-index: 1;
+            transition: all 0.4s ease;
+        }
+
+        .mode-card:hover .mode-icon {
+            transform: scale(1.1) rotate(5deg);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        }
+
+        .mode-icon svg {
+            width: 28px;
+            height: 28px;
+            color: var(--white);
+        }
+
+        .mode-card h3 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            letter-spacing: -0.3px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .mode-card p {
+            color: var(--gray-600);
+            margin-bottom: 20px;
+            line-height: 1.6;
+            font-size: 0.95rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .mode-card .btn {
+            width: 100%;
+            justify-content: center;
+            position: relative;
+            z-index: 1;
+            padding: 12px 24px;
+            font-size: 0.9rem;
+        }
+
+        .mode-card-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .mode-how-it-works {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--gray-200);
+        }
+
+        .mode-how-it-works-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: none;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--gray-500);
+            transition: color 0.2s ease;
+        }
+
+        .mode-how-it-works-toggle:hover {
+            color: var(--black);
+        }
+
+        .mode-how-it-works-toggle svg {
+            width: 16px;
+            height: 16px;
+            transition: transform 0.3s ease;
+        }
+
+        .mode-how-it-works-toggle.active svg {
+            transform: rotate(180deg);
+        }
+
+        .mode-how-it-works-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease-out;
+        }
+
+        .mode-how-it-works-content.open {
+            max-height: 1000px;
+            transition: max-height 0.5s ease-in;
+        }
+
+        .mode-how-it-works-content p {
+            font-size: 0.95rem;
+            color: var(--gray-600);
+            line-height: 1.6;
+            margin-bottom: 12px;
+            padding-top: 12px;
+        }
+
+        /* Offline Section */
+        .offline {
+            background: var(--black);
+            color: var(--white);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .offline::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 50%;
+            height: 100%;
+            background: radial-gradient(ellipse at top right, rgba(255,255,255,0.05) 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        .offline-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 80px;
+            align-items: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .offline-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 100px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 24px;
+        }
+
+        .offline-badge svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .offline-text h2 {
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 24px;
+            letter-spacing: -1px;
+            line-height: 1.2;
+        }
+
+        .offline-text p {
+            color: rgba(255,255,255,0.7);
+            margin-bottom: 40px;
+            font-size: 1.15rem;
+            line-height: 1.7;
+        }
+
+        .offline-features {
+            list-style: none;
+        }
+
+        .offline-features li {
+            padding: 16px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 1.05rem;
+            color: rgba(255,255,255,0.9);
+        }
+
+        .offline-features li:last-child {
+            border-bottom: none;
+        }
+
+        .offline-features li svg {
+            width: 20px;
+            height: 20px;
+            color: var(--white);
+            flex-shrink: 0;
+        }
+
+        .offline-cta {
+            margin-top: 32px;
+        }
+
+        .offline-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 16px 32px;
+            font-size: 1rem;
+            font-weight: 600;
+            background: var(--white);
+            color: var(--black);
+            border: 1.5px solid var(--white);
+            border-radius: 8px;
+        }
+
+        .offline-indicator svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .offline-visual {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .offline-icon {
+            width: 280px;
+            height: 280px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .offline-icon svg {
+            width: 120px;
+            height: 120px;
+            color: var(--white);
+        }
+
+        /* Pricing Section */
+        .pricing {
+            background: var(--gray-50);
+        }
+
+        .pricing-card {
+            background: var(--white);
+            padding: 64px 48px;
+            border-radius: 24px;
+            text-align: center;
+            max-width: 520px;
+            margin: 0 auto;
+            border: 2px solid var(--black);
+            box-shadow: 0 24px 48px rgba(0,0,0,0.08);
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--black);
+            color: var(--white);
+            padding: 8px 16px;
+            border-radius: 24px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .hero-login-link {
+            color: var(--gray-600);
+            font-size: 0.95rem;
+            margin-bottom: 24px;
+        }
+
+        .hero-login-link a {
+            color: var(--black);
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s ease;
+        }
+
+        .hero-login-link a:hover {
+            color: var(--gray-800);
+        }
+
+        .trial-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: var(--black);
+            color: var(--white);
+            border-radius: 100px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            margin-bottom: 32px;
+        }
+
+        .trial-badge svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .pricing-card h2 {
+            font-size: 2.25rem;
+            font-weight: 800;
+            margin-bottom: 20px;
+            letter-spacing: -0.5px;
+        }
+
+        .pricing-card p {
+            color: var(--gray-600);
+            margin-bottom: 32px;
+            font-size: 1.1rem;
+            line-height: 1.7;
+        }
+
+        .pricing-note {
+            font-size: 0.95rem;
+            color: var(--gray-500);
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--gray-200);
+        }
+
+        /* Feedback Section */
+        .feedback-section {
+            padding: 100px 24px;
+            background: var(--gray-50);
+        }
+
+        .feedback-content {
+            max-width: 700px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .feedback-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            margin-bottom: 16px;
+            color: var(--black);
+        }
+
+        .feedback-subtitle {
+            font-size: 1.1rem;
+            color: var(--gray-600);
+            margin-bottom: 48px;
+            line-height: 1.6;
+        }
+
+        .feedback-form {
+            text-align: left;
+            background: var(--white);
+            padding: 40px;
+            border-radius: 24px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+            color: var(--gray-700);
+        }
+
+        .form-input,
+        .form-textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--gray-200);
+            border-radius: 12px;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: border-color 0.2s ease;
+            box-sizing: border-box;
+        }
+
+        .form-input:focus,
+        .form-textarea:focus {
+            outline: none;
+            border-color: var(--black);
+        }
+
+        .form-textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .btn-submit-feedback {
+            width: 100%;
+            padding: 16px 32px;
+            background: var(--black);
+            color: var(--white);
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-submit-feedback:hover {
+            background: #333;
+        }
+
+        .feedback-success {
+            text-align: center;
+            padding: 60px 40px;
+            background: var(--white);
+            border-radius: 24px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+
+        .feedback-success svg {
+            margin-bottom: 24px;
+        }
+
+        .feedback-success h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: var(--black);
+        }
+
+        .feedback-success p {
+            color: var(--gray-600);
+            line-height: 1.6;
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .feedback-title {
+                font-size: 2rem;
+            }
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--black);
+            color: var(--white);
+            padding: 80px 24px 32px;
+        }
+
+        .footer-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 48px;
+            margin-bottom: 64px;
+        }
+
+        .footer-section h4 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 24px;
+            letter-spacing: -0.3px;
+        }
+
+        .footer-section p {
+            color: rgba(255,255,255,0.6);
+            line-height: 1.7;
+            font-size: 0.95rem;
+        }
+
+        .footer-section ul {
+            list-style: none;
+        }
+
+        .footer-section ul li {
+            padding: 12px 0;
+        }
+
+        .footer-section ul li a {
+            color: rgba(255,255,255,0.6);
+            text-decoration: none;
+            transition: color 0.2s ease;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .footer-section ul li a svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .footer-section ul li a:hover {
+            color: var(--white);
+        }
+
+        .footer-bottom {
+            text-align: center;
+            padding-top: 32px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.4);
+            font-size: 0.9rem;
+        }
+
+        /* Plans Section */
+        .plans {
+            background: var(--white);
+            padding: 120px 24px;
+        }
+
+        .plans-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .plans-header {
+            text-align: center;
+            margin-bottom: 64px;
+        }
+
+        .plans-label {
+            display: inline-block;
+            background: var(--black);
+            color: var(--white);
+            padding: 8px 20px;
+            border-radius: 24px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 24px;
+        }
+
+        .plans h2 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            letter-spacing: -1.5px;
+            margin-bottom: 24px;
+            color: var(--black);
+        }
+
+        .plans-subtitle {
+            font-size: 1.25rem;
+            line-height: 1.6;
+            color: var(--gray-600);
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .plans-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 32px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .plan-card {
+            background: var(--white);
+            border: 2px solid var(--gray-200);
+            border-radius: 20px;
+            padding: 40px;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .plan-card.featured {
+            border-color: var(--black);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+        }
+
+        .plan-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.15);
+        }
+
+        .plan-badge {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--black);
+            color: var(--white);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .plan-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .plan-name {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 16px;
+            color: var(--black);
+        }
+
+        .plan-price {
+            display: flex;
+            align-items: baseline;
+            justify-content: center;
+            gap: 4px;
+            margin-bottom: 12px;
+        }
+
+        .plan-currency {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--gray-600);
+        }
+
+        .plan-amount {
+            font-size: 3.5rem;
+            font-weight: 800;
+            color: var(--black);
+            line-height: 1;
+        }
+
+        .plan-period {
+            font-size: 1rem;
+            color: var(--gray-600);
+        }
+
+        .plan-description {
+            font-size: 1rem;
+            color: var(--gray-600);
+            line-height: 1.5;
+        }
+
+        .plan-features {
+            margin-bottom: 32px;
+        }
+
+        .plan-feature {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--gray-100);
+            font-size: 0.95rem;
+            color: var(--gray-700);
+        }
+
+        .plan-feature:last-child {
+            border-bottom: none;
+        }
+
+        .plan-feature svg {
+            color: var(--black);
+            flex-shrink: 0;
+        }
+
+        .plan-details {
+            background: var(--gray-50);
+            padding: 24px;
+            border-radius: 12px;
+            margin-bottom: 32px;
+        }
+
+        .plan-details h4 {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: var(--black);
+        }
+
+        .plan-details-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .plan-details-list li {
+            padding: 8px 0;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+            position: relative;
+            padding-left: 20px;
+        }
+
+        .plan-details-list li::before {
+            content: '•';
+            position: absolute;
+            left: 0;
+            color: var(--black);
+            font-weight: 700;
+        }
+
+        .duo-mode-selection {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .duo-mode-option {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: var(--white);
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .duo-mode-option:hover {
+            border-color: var(--gray-300);
+        }
+
+        .duo-mode-option input[type="checkbox"] {
+            margin-right: 12px;
+            width: 18px;
+            height: 18px;
+            accent-color: var(--black);
+        }
+
+        .duo-mode-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+            color: var(--black);
+        }
+
+        .duo-mode-label svg {
+            color: var(--gray-600);
+        }
+
+        .duo-mode-price {
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .duo-total {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 16px;
+            border-top: 2px solid var(--gray-200);
+            font-weight: 700;
+        }
+
+        .duo-total-label {
+            color: var(--gray-600);
+        }
+
+        .duo-total-price {
+            color: var(--black);
+            font-size: 1.1rem;
+        }
+
+        .plan-button {
+            width: 100%;
+            padding: 16px 32px;
+            background: var(--black);
+            color: var(--white);
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .plan-button:hover {
+            background: var(--gray-800);
+            transform: translateY(-2px);
+        }
+
+        /* About Section */
+        .about {
+            background: var(--gray-50);
+            padding: 120px 24px;
+        }
+
+        .about-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .about-header {
+            text-align: center;
+            margin-bottom: 64px;
+        }
+
+        .about-label {
+            display: inline-block;
+            background: var(--black);
+            color: var(--white);
+            padding: 8px 20px;
+            border-radius: 24px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 24px;
+        }
+
+        .about h2 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            letter-spacing: -1.5px;
+            margin-bottom: 24px;
+            color: var(--black);
+        }
+
+        .about-subtitle {
+            font-size: 1.25rem;
+            line-height: 1.6;
+            color: var(--gray-600);
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .about-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 32px;
+            margin-bottom: 48px;
+        }
+
+        .about-card {
+            background: var(--white);
+            padding: 40px 32px;
+            border-radius: 20px;
+            border: 2px solid var(--gray-200);
+            transition: all 0.3s ease;
+        }
+
+        .about-card:hover {
+            border-color: var(--black);
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+        }
+
+        .about-card-icon {
+            width: 56px;
+            height: 56px;
+            background: var(--gray-100);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+
+        .about-card-icon svg {
+            width: 28px;
+            height: 28px;
+            color: var(--black);
+        }
+
+        .about-card h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: var(--black);
+        }
+
+        .about-card p {
+            font-size: 1rem;
+            line-height: 1.7;
+            color: var(--gray-600);
+        }
+
+        .about-story {
+            background: var(--black);
+            color: var(--white);
+            padding: 56px;
+            border-radius: 24px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 56px;
+            align-items: center;
+        }
+
+        .about-story-content h3 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 24px;
+        }
+
+        .about-story-content p {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            color: rgba(255,255,255,0.85);
+            margin-bottom: 16px;
+        }
+
+        .about-story-visual {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .about-story-visual svg {
+            width: 200px;
+            height: 200px;
+            color: var(--white);
+        }
+
+        /* Stats Strip */
+        .stats-strip {
+            background: var(--black);
+            padding: 80px 24px;
+        }
+
+        .stats-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 48px;
+            text-align: center;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .stat-number {
+            font-size: 4.5rem;
+            font-weight: 900;
+            color: var(--white);
+            letter-spacing: -2px;
+            line-height: 1;
+            margin-bottom: 16px;
+        }
+
+        .stat-label {
+            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.7);
+            font-weight: 500;
+            line-height: 1.4;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .hero-content h1 {
+                font-size: 3.5rem;
+            }
+
+            .section-title {
+                font-size: 2.5rem;
+            }
+
+            .offline-content {
+                grid-template-columns: 1fr;
+                gap: 48px;
+            }
+
+            .offline-visual {
+                order: -1;
+            }
+
+            .offline-cta {
+                text-align: center;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 32px;
+            }
+
+            .mode-cards {
+                grid-template-columns: 1fr;
+            }
+
+            .mode-card {
+                animation: none;
+                opacity: 1;
+                transform: none;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .logo-fixed {
+                font-size: 1.5rem;
+                top: 16px;
+                left: 16px;
+            }
+
+            .version-badge {
+                font-size: 0.45rem;
+                padding: 1px 4px;
+            }
+
+            .side-menu {
+                display: none;
+            }
+
+            .hero {
+                padding: 100px 24px 80px;
+            }
+
+            .hero-content h1 {
+                font-size: 2.75rem;
+            }
+
+            .hero-content p {
+                font-size: 1.15rem;
+            }
+
+            .section {
+                padding: 80px 24px;
+            }
+
+            .section-title {
+                font-size: 2rem;
+            }
+
+            .duo-banner {
+                padding: 24px;
+                margin-bottom: 32px;
+            }
+
+            .duo-banner h3 {
+                font-size: 1.25rem;
+            }
+
+            .duo-banner p {
+                font-size: 0.95rem;
+            }
+
+            .pricing-card {
+                padding: 40px 32px;
+            }
+
+            .offline-text h2 {
+                font-size: 2.25rem;
+            }
+
+            .offline-icon {
+                width: 200px;
+                height: 200px;
+            }
+
+            .offline-icon svg {
+                width: 80px;
+                height: 80px;
+            }
+
+            .about h2 {
+                font-size: 2.25rem;
+            }
+
+            .about-subtitle {
+                font-size: 1.1rem;
+            }
+
+            .about-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .about-story {
+                grid-template-columns: 1fr;
+                padding: 40px;
+            }
+
+            .about-story-visual {
+                order: -1;
+            }
+
+            .stat-number {
+                font-size: 3.5rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 48px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .hero-content h1 {
+                font-size: 2.25rem;
+            }
+
+            .hero-content p {
+                font-size: 1rem;
+            }
+
+            .btn {
+                padding: 14px 24px;
+                font-size: 0.95rem;
+            }
+
+            .step, .mode-card {
+                padding: 24px 20px;
+            }
+
+            .section-title {
+                font-size: 1.75rem;
+            }
+
+            .about h2 {
+                font-size: 1.75rem;
+            }
+
+            .about-subtitle {
+                font-size: 1rem;
+            }
+
+            .about-card {
+                padding: 32px 24px;
+            }
+
+            .about-story {
+                padding: 32px;
+            }
+
+            .about-story-content h3 {
+                font-size: 1.5rem;
+            }
+
+            .about-story-content p {
+                font-size: 1rem;
+            }
+
+            .about-story-visual svg {
+                width: 150px;
+                height: 150px;
+            }
+
+            .stat-number {
+                font-size: 2.75rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/></svg>
+                Novo: funciona sem instalar nada
+            </div>
+            <div class="hero-login-link">
+                Já tem conta? <a href="login.html">Entre aqui</a>
+            </div>
+            <h1 class="rotating-title" id="rotatingTitle">
+                <span class="phrase active">Sistema de pedidos que se adapta ao seu restaurante</span>
+                <span class="phrase">Escolha entre Garçom, Mesa ou QR Code — você decide</span>
+                <span class="phrase">Funciona direto no navegador, sem instalar nada</span>
+                <span class="phrase">Continua funcionando mesmo se a internet cair</span>
+            </h1>
+            <p>Escolha entre 3 modos de operação e comece a receber pedidos em minutos. Sem instalação, funciona direto no navegador.</p>
+            <div class="hero-buttons">
+                <a href="cadastro.html" class="btn btn-primary">
+                    Começar teste grátis
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                </a>
+                <a href="#how-it-works" class="btn btn-outline">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                    Como funciona
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- How it Works Section -->
+    <section class="section" id="how-it-works">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-label">Processo detalhado</span>
+                <h2 class="section-title">Como funciona</h2>
+                <p class="section-subtitle">Do cadastro ao primeiro pedido em menos de 15 minutos</p>
+            </div>
+            <div class="steps">
+                <div class="step">
+                    <span class="step-number">01</span>
+                    <div class="step-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </div>
+                    <h3>Faça seu cadastro</h3>
+                    <p>Cadastre seu restaurante em menos de 2 minutos. Informe nome, e-mail, CNPJ e escolha o plano (Simples, Duo ou Trio). Você recebe acesso imediato ao teste grátis de 30 dias.</p>
+                </div>
+                <div class="step">
+                    <span class="step-number">02</span>
+                    <div class="step-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.22-.12a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.22.12a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </div>
+                    <h3>Configure seu restaurante</h3>
+                    <p>No painel intuitivo, cadastre suas mesas, adicione itens ao cardápio com fotos e preços, e crie PINs para seus garçons. Gere QR Codes automáticos para cada mesa em segundos.</p>
+                </div>
+                <div class="step">
+                    <span class="step-number">03</span>
+                    <div class="step-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+                    </div>
+                    <h3>Implemente nos dispositivos</h3>
+                    <p>Acesse os links dos modos contratados nos tablets/celulares. No Modo Garçom, use o PIN para entrar. No Modo Mesa, fixe tablets com suportes. No Modo QR Code, imprima os códigos.</p>
+                </div>
+                <div class="step">
+                    <span class="step-number">04</span>
+                    <div class="step-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
+                    </div>
+                    <h3>Receba pedidos em tempo real</h3>
+                    <p>Os pedidos chegam instantaneamente no seu Dashboard. Acompanhe em tempo real, imprima comandas automaticamente, gerencie mesas e acompanhe suas vendas - tudo funcionando mesmo offline.</p>
+                </div>
+            </div>
+            
+            <!-- Key Features -->
+            <div class="how-it-works-features">
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l22 22"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><path d="M12 20h.01"/></svg>
+                    </div>
+                    <h4>Funciona Offline</h4>
+                    <p>Continua operando mesmo sem internet. Sincroniza automaticamente quando a conexão volta.</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
+                    </div>
+                    <h4>Sem Instalação</h4>
+                    <p>Funciona direto no navegador. Não precisa baixar app nem instalar nada nos dispositivos.</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    </div>
+                    <h4>Seguro e Confiável</h4>
+                    <p>Dados criptografados, backup automático e suporte técnico especializado.</p>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+                    </div>
+                    <h4>Setup em 15 Minutos</h4>
+                    <p>Do cadastro ao primeiro pedido. Configuração guiada e intuitiva para qualquer nível técnico.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Modes Section -->
+    <section class="section modes" id="modes">
+        <div class="container">
+            <!-- Duo Plan Banner Carousel -->
+            <div class="duo-banner">
+                <div class="duo-banner-carousel" id="duoBannerCarousel">
+                    <!-- Combo Especial -->
+                    <div class="duo-banner-slide active">
+                        <div class="duo-banner-content">
+                            <div class="duo-banner-badge">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/></svg>
+                                Combo Especial
+                            </div>
+                            <h3>Quer combinar 2 ou mais modos?</h3>
+                            <p>Conheça o <strong>Wave Duo</strong> e economize até 25% combinando modos numa única assinatura</p>
+                            <a href="#plans" class="duo-banner-link">Ver plano Duo</a>
+                        </div>
+                    </div>
+                    <!-- Wave Reader -->
+                    <div class="duo-banner-slide">
+                        <div class="duo-banner-content">
+                            <div class="duo-banner-badge">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                                Wave Reader
+                            </div>
+                            <h3>Configure seus tablets em segundos</h3>
+                            <p>Use o <strong>Wave Reader</strong> para escanear QR Codes e configurar dispositivos da loja rapidamente</p>
+                            <a href="wave-reader.html" class="duo-banner-link">Acessar Wave Reader</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="duo-banner-dots" id="duoBannerDots"></div>
+            </div>
+            
+            <div class="section-header">
+                <span class="section-label">4 modos disponíveis</span>
+                <h2 class="section-title">Escolha seu modo</h2>
+                <p class="section-subtitle">Cada modo foi projetado para um tipo diferente de operação</p>
+            </div>
+            <div class="mode-cards">
+                    <div class="mode-card">
+                        <div class="mode-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="3" x2="21" y1="9" y2="9"/><path d="m9 16 3-3 3 3"/></svg>
+                        </div>
+                        <h3>Modo Garçom</h3>
+                        <p>O garçom usa um tablet ou celular para lançar o pedido da mesa. O pedido chega automaticamente no PDV, onde é impresso e enviado para a cozinha.</p>
+                        <div class="mode-card-buttons">
+                            <a href="cadastro.html?mode=garcom" class="btn btn-outline">Testar grátis por 1 mês</a>
+                        </div>
+                        <div class="mode-how-it-works">
+                            <button class="mode-how-it-works-toggle" onclick="toggleHowItWorks(this)">
+                                Como funciona
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                            </button>
+                            <div class="mode-how-it-works-content">
+                                <p>Nesse modo, o restaurante não precisa colocar equipamento nenhum nas mesas. O garçom é quem carrega o dispositivo — pode ser um tablet ou até um celular — e é ele quem faz a ponte entre o cliente e o sistema.</p>
+                                <p>Quando o cliente senta na mesa e faz o pedido verbalmente, como sempre foi, o garçom abre o sistema no aparelho dele, seleciona o número da mesa (por exemplo, "Mesa 3"), e escolhe os itens do cardápio que o cliente pediu — pode ser um X-Burguer, uma Coca-Cola, o que for. Ele confirma o pedido na tela.</p>
+                                <p>A partir do momento que o garçom confirma, o sistema envia essa informação instantaneamente, pela rede Wi-Fi do próprio restaurante, até o computador principal da loja (o que a gente chama de PDV, ponto de venda). Nesse computador aparece, em tempo real, algo como "Mesa 3 pediu: 1 X-Burguer, 1 Coca-Cola". Dali, o dono ou o responsável pelo caixa pode imprimir esse pedido numa impressora térmica (a mesma usada em caixa de loja) ou mandar direto pra uma tela na cozinha, dependendo de como o restaurante organiza o fluxo interno.</p>
+                                <p>O grande ganho aqui é que o garçom não precisa mais andar até o caixa pra "bater" o pedido manualmente, nem escrever num papel que pode se perder ou ser mal interpretado pela cozinha. O restaurante continua com o atendimento humano tradicional — o garçom que atende, sugere pratos, tira dúvida — só que a parte de registrar e transmitir o pedido fica digital e instantânea.</p>
+                                <p>Esse modo é o que exige menos investimento em equipamento, porque o restaurante só precisa de 2 ou 3 aparelhos (na mão dos garçons), não um por mesa.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mode-card">
+                        <div class="mode-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
+                        </div>
+                        <h3>Modo Mesa</h3>
+                        <p>Cada mesa tem seu próprio tablet fixo. O cliente faz o pedido direto por ali, sem depender do garçom para anotar.</p>
+                        <div class="mode-card-buttons">
+                            <a href="cadastro.html?mode=mesa" class="btn btn-outline">Testar grátis por 1 mês</a>
+                        </div>
+                        <div class="mode-how-it-works">
+                            <button class="mode-how-it-works-toggle" onclick="toggleHowItWorks(this)">
+                                Como funciona
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                            </button>
+                            <div class="mode-how-it-works-content">
+                                <p>Aqui a lógica muda: em vez do garçom carregar o dispositivo, cada mesa do restaurante tem um tablet fixo, preso com um suporte antifurto (geralmente de metal, aparafusado na própria mesa, pra evitar que seja levado ou roubado).</p>
+                                <p>Quando o cliente senta, ele já encontra o tablet ligado, mostrando o cardápio digital daquele restaurante. Ele mesmo navega pelas categorias (entradas, pratos principais, bebidas, sobremesas), escolhe os itens que quer, ajusta quantidade, e confirma o pedido direto ali, sem precisar chamar ninguém.</p>
+                                <p>Assim que o cliente confirma, o pedido também é enviado, pela rede Wi-Fi interna do restaurante, direto pro computador da loja, já identificado com o número daquela mesa específica. O responsável pelo caixa ou a cozinha recebe a informação da mesma forma que no modo anterior — só que, nesse caso, quem gerou o pedido foi o próprio cliente, sem intermediário.</p>
+                                <p>A vantagem desse modo é que o cliente tem mais autonomia e pode demorar o tempo que quiser decidindo o que pedir, sem se sentir pressionado pela presença do garçom esperando. Também reduz erro de comunicação (o garçom entender errado o que o cliente pediu). A desvantagem é o custo: o restaurante precisa comprar um tablet pra cada mesa, o que em um salão de 20, 30 mesas vira um investimento alto, fora manutenção (queda, derramamento de líquido, bateria viciando com o tempo).</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mode-card">
+                        <div class="mode-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><rect width="5" height="5" x="16" y="16" rx="1"/></svg>
+                        </div>
+                        <h3>Modo QR Code</h3>
+                        <p>O cliente escaneia um QR code na mesa com o próprio celular, acessa o cardápio digital e faz o pedido pelo navegador, sem precisar de app nem tablet.</p>
+                        <div class="mode-card-buttons">
+                            <a href="cadastro.html?mode=qrcode" class="btn btn-outline">Testar grátis por 1 mês</a>
+                        </div>
+                        <div class="mode-how-it-works">
+                            <button class="mode-how-it-works-toggle" onclick="toggleHowItWorks(this)">
+                                Como funciona
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                            </button>
+                            <div class="mode-how-it-works-content">
+                                <p>Esse é o modo que não depende de o restaurante comprar nenhum equipamento extra pras mesas. Em cada mesa fica apenas uma plaquinha ou adesivo pequeno com um QR Code impresso.</p>
+                                <p>Quando o cliente senta, ele usa a câmera do próprio celular (a maioria dos celulares hoje abre QR code direto pela câmera nativa, sem precisar baixar aplicativo) pra escanear esse código. Ao escanear, o celular do cliente abre automaticamente uma página no navegador — não é um aplicativo que precisa ser instalado, é só um site, mas com aparência e comportamento parecido com um app (isso é possível graças à tecnologia de PWA).</p>
+                                <p>Nessa página, o cliente vê o cardápio completo do restaurante, com fotos e descrições dos pratos, e monta o pedido dele diretamente pelo celular, sem precisar de nenhum equipamento do restaurante além da própria plaquinha com o QR Code impresso. Quando ele confirma, o pedido é enviado, agora pela internet (ou pelo Wi-Fi do restaurante, se ele tiver um oferecido aos clientes), direto pro computador da loja, com o número da mesa identificado (isso normalmente é feito porque cada mesa tem um QR Code diferente, específico daquela mesa).</p>
+                                <p>O ganho principal aqui é o custo quase zero de equipamento — só a impressão das plaquinhas com QR code. O desafio é que depende inteiramente do celular do cliente: se a bateria dele estiver fraca, se a internet do restaurante ou do próprio plano de dados do cliente estiver ruim, ou se for uma pessoa mais idosa com dificuldade de mexer no próprio celular, a experiência pode ficar travada ou frustrante — diferente dos outros dois modos, que usam equipamento controlado pelo próprio restaurante.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mode-card">
+                        <div class="mode-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" x2="22" y1="12" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                        </div>
+                        <h3>Modo Online</h3>
+                        <p>Pedidos delivery direto do site do restaurante. Integração com plataformas de delivery e gestão de entregadores.</p>
+                        <a href="modo-online.html" class="btn btn-outline">Veja essa prévia</a>
+                        <div class="mode-how-it-works">
+                            <button class="mode-how-it-works-toggle" onclick="toggleHowItWorks(this)">
+                                Como funciona
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                            </button>
+                            <div class="mode-how-it-works-content">
+                                <p>O Modo Online permite que seu restaurante receba pedidos delivery diretamente pelo seu próprio site, sem depender de plataformas terceiras que cobram comissas altas.</p>
+                                <p>O cliente acessa o cardápio online, escolhe os itens, adiciona ao carrinho e finaliza o pedido com pagamento integrado. O pedido chega automaticamente no sistema, com todas as informações de entrega (endereço, forma de pagamento, observações).</p>
+                                <p>O sistema também permite integração com plataformas de delivery existentes (iFood, Rappi, etc.) centralizando todos os pedidos em um único lugar, além de gestão de entregadores próprios com rastreamento em tempo real.</p>
+                                <p>Esse modo é ideal para restaurantes que têm forte operação de delivery e querem reduzir custos com comissões de plataformas, mantendo controle total sobre a experiência do cliente e dados dos pedidos.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Plans Section -->
+    <section class="section plans" id="plans">
+        <div class="plans-content">
+            <div class="plans-header">
+                <span class="plans-label">Planos</span>
+                <h2>Escolha o plano ideal para seu restaurante</h2>
+                <p class="plans-subtitle">Flexibilidade para operar do jeito que você precisa</p>
+            </div>
+
+            <div class="plans-grid">
+                <!-- Wave Duo Plan -->
+                <div class="plan-card featured">
+                    <div class="plan-badge">Mais Popular</div>
+                    <div class="plan-header">
+                        <h3 class="plan-name">Wave Duo</h3>
+                        <div class="plan-price">
+                            <span class="plan-currency">R$</span>
+                            <span class="plan-amount">38,10</span>
+                            <span class="plan-period">/mês</span>
+                        </div>
+                        <p class="plan-description">Combine 2 ou 3 modos numa única assinatura</p>
+                    </div>
+
+                    <div class="plan-features">
+                        <div class="plan-feature">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                            <span>Escolha quais modos combinar (mínimo 2)</span>
+                        </div>
+                        <div class="plan-feature">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                            <span>Preço dinâmico com desconto progressivo</span>
+                        </div>
+                        <div class="plan-feature">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                            <span>Cardápio compartilhado entre modos</span>
+                        </div>
+                        <div class="plan-feature">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                            <span>Dashboard unificado de pedidos</span>
+                        </div>
+                        <div class="plan-feature">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                            <span>Relatório de faturamento combinado</span>
+                        </div>
+                    </div>
+
+                    <div class="plan-details">
+                        <h4>Escolha seus modos:</h4>
+                        <div class="duo-mode-selection">
+                            <label class="duo-mode-option">
+                                <input type="checkbox" name="duoMode" value="garcom" data-price="19.90" checked>
+                                <span class="duo-mode-label">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="3" x2="21" y1="9" y2="9"/><path d="m9 16 3-3 3 3"/></svg>
+                                    Modo Garçom
+                                </span>
+                                <span class="duo-mode-price">R$ 19,90/mês</span>
+                            </label>
+                            <label class="duo-mode-option">
+                                <input type="checkbox" name="duoMode" value="mesa" data-price="24.90" checked>
+                                <span class="duo-mode-label">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
+                                    Modo Mesa
+                                </span>
+                                <span class="duo-mode-price">R$ 24,90/mês</span>
+                            </label>
+                            <label class="duo-mode-option">
+                                <input type="checkbox" name="duoMode" value="qrcode" data-price="14.90">
+                                <span class="duo-mode-label">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><rect width="5" height="5" x="16" y="16" rx="1"/></svg>
+                                    Modo QR Code
+                                </span>
+                                <span class="duo-mode-price">R$ 14,90/mês</span>
+                            </label>
+                        </div>
+                        <div class="duo-total">
+                            <span class="duo-total-label">Total:</span>
+                            <span class="duo-total-price" id="duoTotalPrice">R$ 35,90/mês</span>
+                        </div>
+                    </div>
+
+                    <a href="#" class="plan-button" id="duoStartBtn">Começar Agora</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Offline Section -->
+    <section class="section offline" id="offline">
+        <div class="container">
+            <div class="offline-content">
+                <div class="offline-text">
+                    <div class="offline-badge">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/></svg>
+                        Recurso Extra
+                    </div>
+                    <h2>Modo Offline</h2>
+                    <p>Seu restaurante nunca para de vender, mesmo quando a internet cai. O sistema continua funcionando e sincroniza tudo quando a conexão voltar.</p>
+                    <ul class="offline-features">
+                        <li>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
+                            Funciona sem internet
+                        </li>
+                        <li>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
+                            Sincronização automática
+                        </li>
+                        <li>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
+                            Nenhum pedido perdido
+                        </li>
+                        <li>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
+                            Teste grátis durante o período de trial
+                        </li>
+                    </ul>
+                    <div class="offline-cta">
+                        <div class="offline-indicator">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/></svg>
+                            Ative no seu Dashboard
+                        </div>
+                    </div>
+                </div>
+                <div class="offline-visual">
+                    <div class="offline-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" x2="12" y1="2" y2="12"/></svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section class="section pricing" id="pricing">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-label">Sem compromisso</span>
+                <h2 class="section-title">Comece sem risco</h2>
+                <p class="section-subtitle">Teste todos os modos gratuitamente por 30 dias</p>
+            </div>
+            <div class="pricing-card">
+                <div class="trial-badge">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/></svg>
+                    1 mês grátis
+                </div>
+                <h2>Teste todos os modos</h2>
+                <p>Experimente qualquer um dos 3 modos de operação gratuitamente por 30 dias. Depois, continue pagando apenas uma mensalidade acessível.</p>
+                <a href="cadastro.html" class="btn btn-primary">Começar teste grátis</a>
+                <p class="pricing-note">O Modo Offline também pode ser testado gratuitamente durante o período de trial.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- About Section -->
+    <section class="section about" id="about">
+        <div class="about-content">
+            <div class="about-header">
+                <span class="about-label">Nossa história</span>
+                <h2>Sobre o Wave</h2>
+                <p class="about-subtitle">Nascemos de um problema real e construímos uma solução flexível para restaurantes de todos os tamanhos.</p>
+            </div>
+
+            <div class="about-grid">
+                <div class="about-card">
+                    <div class="about-card-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/></svg>
+                    </div>
+                    <h3>Problema Real</h3>
+                    <p>Sistemas de pedidos para restaurantes custam caro em hardware (milhares de reais em tablets) ou entregam experiência ruim ao cliente com QR Code puro.</p>
+                </div>
+
+                <div class="about-card">
+                    <div class="about-card-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+                    </div>
+                    <h3>Solução Flexível</h3>
+                    <p>Cada restaurante escolhe o modo que combina com seu jeito de operar: Garçom, Mesa ou QR Code. Sem gastar com hardware desnecessário.</p>
+                </div>
+
+                <div class="about-card">
+                    <div class="about-card-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" x2="22" y1="12" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    </div>
+                    <h3>100% Navegador</h3>
+                    <p>Funciona direto no navegador, sem instalação. Continua operando mesmo quando a internet do restaurante cai, com sincronização automática.</p>
+                </div>
+            </div>
+
+            <div class="about-story">
+                <div class="about-story-content">
+                    <h3>Nossa Missão</h3>
+                    <p>O Wave foi criado para democratizar o acesso a tecnologia de pedidos em restaurantes. Acreditamos que todo estabelecimento, independente do tamanho, deveria ter acesso a um sistema moderno e eficiente sem precisar fazer investimentos pesados em equipamento.</p>
+                    <p>Construímos uma plataforma que se adapta ao seu restaurante, não o contrário. Você escolhe como quer operar, e nós fornecemos a tecnologia para fazer isso acontecer de forma simples, confiável e acessível.</p>
+                </div>
+                <div class="about-story-visual">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Strip -->
+    <section class="stats-strip">
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-number">3</div>
+                <div class="stat-label">modos de operação<br>(Garçom, Mesa, QR Code)</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">0%</div>
+                <div class="stat-label">de comissão por pedido</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">1 mês</div>
+                <div class="stat-label">de teste grátis</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">100%</div>
+                <div class="stat-label">funciona direto no navegador,<br>sem instalar nada</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Feedback Section -->
+    <section class="feedback-section">
+        <div class="container">
+            <div class="feedback-content">
+                <h2 class="feedback-title">Sua opinião é importante para nós</h2>
+                <p class="feedback-subtitle">Deixe seu feedback sobre o Wave e nos ajude a melhorar o sistema.</p>
+                
+                <form id="feedbackForm" class="feedback-form">
+                    <div class="form-group">
+                        <label class="form-label">Seu feedback *</label>
+                        <textarea 
+                            class="form-textarea" 
+                            id="feedbackText" 
+                            rows="4" 
+                            placeholder="Conte-nos o que você achou do Wave, sugestões, críticas ou elogios..."
+                            required
+                        ></textarea>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Nome (opcional)</label>
+                            <input 
+                                type="text" 
+                                class="form-input" 
+                                id="feedbackName" 
+                                placeholder="Seu nome"
+                            >
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">E-mail (opcional)</label>
+                            <input 
+                                type="email" 
+                                class="form-input" 
+                                id="feedbackEmail" 
+                                placeholder="seu@email.com"
+                            >
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn-submit-feedback">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px; vertical-align: middle;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                        Enviar feedback
+                    </button>
+                </form>
+                
+                <div id="feedbackSuccess" class="feedback-success" style="display: none;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
+                    <h3>Obrigado pelo seu feedback!</h3>
+                    <p>Agradecemos por dedicar seu tempo para nos ajudar a melhorar o Wave.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>Wave</h4>
+                    <p>Sistema de pedidos para restaurantes e comércios. Funciona direto no navegador, sem instalação.</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Contato</h4>
+                    <ul>
+                            <li>
+                            <a href="suporte.html">
+                                Suporte
+                            </a>
+                        </li>
+                        <li>
+                            <a href="mailto:contato@wave.com.br">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                                contato@wave.com.br
+                            </a>
+                        </li>
+                        <li>
+                            <a href="tel:+5511999999999">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                                (11) 99999-9999
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Legal</h4>
+                    <ul>
+                        <li><a href="termos-de-uso.html">Termos de Uso</a></li>
+                        <li><a href="politica-privacidade.html">Política de Privacidade</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Redes Sociais</h4>
+                    <ul>
+                        <li><a href="#">Instagram</a></li>
+                        <li><a href="#">Facebook</a></li>
+                        <li><a href="#">LinkedIn</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 Wave. Todos os direitos reservados.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        });
+
+        // Header scroll effect
+        const header = document.querySelector('.header');
+
+        // Duo mode selection and dynamic pricing
+        const duoModeCheckboxes = document.querySelectorAll('input[name="duoMode"]');
+        const duoTotalPrice = document.getElementById('duoTotalPrice');
+
+        const individualPrices = {
+            garcom: 19.90,
+            mesa: 24.90,
+            qrcode: 14.90
+        };
+
+        function calculateDuoPrice() {
+            const selectedModes = Array.from(duoModeCheckboxes)
+                .filter(cb => cb.checked)
+                .map(cb => cb.value);
+
+            if (selectedModes.length === 0) {
+                duoTotalPrice.textContent = 'Selecione pelo menos 2 modos';
+                return false;
+            }
+
+            if (selectedModes.length < 2) {
+                duoTotalPrice.textContent = 'Selecione pelo menos 2 modos';
+                return false;
+            }
+
+            let totalPrice = 0;
+            selectedModes.forEach(mode => {
+                totalPrice += individualPrices[mode];
+            });
+
+            // Apply discount based on number of modes
+            let discount = 0;
+            if (selectedModes.length === 2) {
+                discount = 0.15; // 15% discount for 2 modes
+            } else if (selectedModes.length === 3) {
+                discount = 0.20; // 20% discount for 3 modes
+            }
+
+            const finalPrice = totalPrice * (1 - discount);
+            duoTotalPrice.textContent = `R$ ${finalPrice.toFixed(2).replace('.', ',')}/mês`;
+
+            return true;
+        }
+
+        duoModeCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                const selectedCount = Array.from(duoModeCheckboxes).filter(cb => cb.checked).length;
+
+                // Prevent unchecking if only 2 are selected
+                if (selectedCount < 2 && !e.target.checked) {
+                    e.preventDefault();
+                    e.target.checked = true;
+                    alert('Selecione pelo menos 2 modos para o plano Wave Duo');
+                    return;
+                }
+
+                calculateDuoPrice();
+            });
+        });
+
+        // Initial calculation
+        calculateDuoPrice();
+
+        // Duo start button handler
+        const duoStartBtn = document.getElementById('duoStartBtn');
+        if (duoStartBtn) {
+            duoStartBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                
+                const selectedModes = Array.from(duoModeCheckboxes)
+                    .filter(cb => cb.checked)
+                    .map(cb => cb.value);
+
+                if (selectedModes.length < 2) {
+                    alert('Selecione pelo menos 2 modos para o plano Wave Duo');
+                    return;
+                }
+
+                // Pass selected modes to checkout page
+                const modesParam = selectedModes.join(',');
+                window.location.href = `checkout.html?type=duo&value=${modesParam}`;
+            });
+        }
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 50) {
+                header.style.boxShadow = '0 4px 24px rgba(0,0,0,0.08)';
+            } else {
+                header.style.boxShadow = 'none';
+            }
+        });
+
+        // Toggle "Como funciona" sections
+        function toggleHowItWorks(button) {
+            const content = button.nextElementSibling;
+            const isOpen = content.classList.contains('open');
+            
+            // Close all other sections
+            document.querySelectorAll('.mode-how-it-works-content').forEach(el => {
+                el.classList.remove('open');
+            });
+            document.querySelectorAll('.mode-how-it-works-toggle').forEach(el => {
+                el.classList.remove('active');
+            });
+            
+            // Toggle current section
+            if (!isOpen) {
+                content.classList.add('open');
+                button.classList.add('active');
+            }
+        }
+
+        // Duo Banner Carousel functionality
+        const duoBannerCarousel = document.getElementById('duoBannerCarousel');
+        const duoBannerDots = document.getElementById('duoBannerDots');
+        const duoBannerSlides = duoBannerCarousel.querySelectorAll('.duo-banner-slide');
+        let currentDuoSlide = 0;
+
+        // Create dots for Duo Banner
+        duoBannerSlides.forEach((_, index) => {
+            const dot = document.createElement('div');
+            dot.classList.add('duo-banner-dot');
+            if (index === 0) dot.classList.add('active');
+            dot.addEventListener('click', () => goToDuoSlide(index));
+            duoBannerDots.appendChild(dot);
+        });
+
+        const duoDots = duoBannerDots.querySelectorAll('.duo-banner-dot');
+
+        function updateDuoDots() {
+            duoDots.forEach((dot, index) => {
+                dot.classList.toggle('active', index === currentDuoSlide);
+            });
+        }
+
+        function goToDuoSlide(index) {
+            currentDuoSlide = index;
+            
+            duoBannerSlides.forEach((slide, i) => {
+                slide.classList.remove('active');
+                if (i === index) {
+                    slide.classList.add('active');
+                }
+            });
+
+            updateDuoDots();
+        }
+
+        // Auto-rotate Duo Banner every 5 seconds
+        setInterval(() => {
+            const nextSlide = (currentDuoSlide + 1) % duoBannerSlides.length;
+            goToDuoSlide(nextSlide);
+        }, 5000);
+
+        // Rotating Title
+        const rotatingTitle = document.getElementById('rotatingTitle');
+        const phrases = rotatingTitle.querySelectorAll('.phrase');
+        let currentPhraseIndex = 0;
+        const phraseInterval = 3500; // 3.5 seconds
+
+        function rotatePhrase() {
+            phrases[currentPhraseIndex].classList.remove('active');
+            currentPhraseIndex = (currentPhraseIndex + 1) % phrases.length;
+            phrases[currentPhraseIndex].classList.add('active');
+        }
+
+        setInterval(rotatePhrase, phraseInterval);
+
+        // Feedback form submission
+        const feedbackForm = document.getElementById('feedbackForm');
+        if (feedbackForm) {
+            feedbackForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const feedbackText = document.getElementById('feedbackText').value.trim();
+                const feedbackName = document.getElementById('feedbackName').value.trim();
+                const feedbackEmail = document.getElementById('feedbackEmail').value.trim();
+                
+                if (!feedbackText) {
+                    alert('Por favor, escreva seu feedback.');
+                    return;
+                }
+                
+                try {
+                    // Initialize Firebase
+                    const firebaseConfig = {
+                        apiKey: "AIzaSyAVlhExGDBiDbRxC-fFoJCrNqJy4tuvKoE",
+                        authDomain: "wave-5e0d8.firebaseapp.com",
+                        projectId: "wave-5e0d8",
+                        storageBucket: "wave-5e0d8.firebasestorage.app",
+                        messagingSenderId: "723358978156",
+                        appId: "1:723358978156:web:19a896cf0bf3ee76a58849"
+                    };
+                    
+                    const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js");
+                    const { getFirestore, collection, addDoc, serverTimestamp } = await import("https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js");
+                    
+                    const app = initializeApp(firebaseConfig);
+                    const db = getFirestore(app);
+                    
+                    // Save feedback to Firestore
+                    await addDoc(collection(db, 'feedbacks'), {
+                        text: feedbackText,
+                        name: feedbackName || null,
+                        email: feedbackEmail || null,
+                        createdAt: serverTimestamp(),
+                        status: 'unread',
+                        category: null,
+                        internalNote: null
+                    });
+                    
+                    // Show success message
+                    feedbackForm.style.display = 'none';
+                    document.getElementById('feedbackSuccess').style.display = 'block';
+                    
+                    // Reset form
+                    feedbackForm.reset();
+                    
+                } catch (error) {
+                    console.error('Error submitting feedback:', error);
+                    alert('Erro ao enviar feedback. Por favor, tente novamente.');
+                }
+            });
+        }
+    </script>
+
+    <!-- Logo -->
+    <a href="index.html" class="logo-fixed">
+        Wave
+        <span class="version-badge">v1.3</span>
+    </a>
+
+    <!-- Side Menu -->
+    <nav class="side-menu">
+        <a href="#how-it-works" class="side-menu-item" data-tooltip="Como funciona">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+        </a>
+        <a href="#modes" class="side-menu-item" data-tooltip="Modos">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><line x1="3" x2="21" y1="9" y2="9"/><path d="m9 16 3-3 3 3"/></svg>
+        </a>
+        <a href="#offline" class="side-menu-item" data-tooltip="Offline">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1 22 22"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><path d="M12 20h.01"/></svg>
+        </a>
+        <a href="#plans" class="side-menu-item" data-tooltip="Planos">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </a>
+        <a href="suporte.html" class="side-menu-item" data-tooltip="Suporte">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </a>
+    </nav>
+</body>
+</html>

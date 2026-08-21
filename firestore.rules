@@ -1,0 +1,62 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Regras para usuários - Admin pode ler e modificar todos
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // Regras para criadores - Admin pode ler e modificar todos
+    match /creators/{creatorId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // Regras para communityTracks - Admin pode ler e modificar todos
+    match /communityTracks/{trackId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null;
+    }
+
+    // Regras para waitlist (emails) - Admin pode ler e modificar todos
+    match /waitlist/{waitlistId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // Regras para suporte (supportRequests) - Qualquer um pode criar, admin pode ler e modificar
+    match /supportRequests/{supportId} {
+      allow read: if request.auth != null;
+      allow create: if true;
+      allow update, delete: if request.auth != null;
+    }
+
+    // Regras para reclamações (complaints) - Qualquer um pode criar, admin pode ler e modificar
+    match /complaints/{complaintId} {
+      allow read: if request.auth != null;
+      allow create: if true;
+      allow update, delete: if request.auth != null;
+    }
+
+    // Regras para mensagens de suporte (supportMessages) - Qualquer um pode criar e ler, admin pode modificar
+    match /supportMessages/{messageId} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if request.auth != null;
+    }
+
+    // Regras para favoritos de usuários (userFavorites) - Usuário só pode ler e modificar seus próprios favoritos
+    match /userFavorites/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Regras padrão para outras coleções
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

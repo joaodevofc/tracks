@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>W.Tracks - Setlist Compartilhada</title>
+    <meta name="description" content="Visualize setlists compartilhadas no W.Tracks">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/png" href="icon-black-transparent.png">
+
+    <!-- Firebase SDK -->
+    <script type="module">
+      import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+      import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyDW6P_V4_LRLRg6-FEe2E7QJa9J3oidY5g",
+        authDomain: "wtracks-acff8.firebaseapp.com",
+        projectId: "wtracks-acff8",
+        storageBucket: "wtracks-acff8.firebasestorage.app",
+        messagingSenderId: "719838064855",
+        appId: "1:719838064855:web:3c0631a882aac30cf3c092"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+
+      window.firebaseDB = {
+        db,
+        doc,
+        getDoc,
+        setDoc
+      };
+
+      console.log('[FIREBASE] Firebase initialized for public setlist');
+    </script>
+</head>
+<body>
+    <div class="public-setlist-page">
+        <div class="public-setlist-header">
+            <div class="public-setlist-logo">
+                <img src="icon-white-transparent.png" alt="W.Tracks">
+            </div>
+            <h1 class="public-setlist-title" id="publicSetlistTitle">Carregando...</h1>
+            <p class="public-setlist-date" id="publicSetlistDate"></p>
+        </div>
+
+        <div class="public-setlist-songs" id="publicSetlistSongs">
+            <!-- Songs will be rendered here -->
+        </div>
+
+        <div class="empty-state" id="publicSetlistEmptyState" style="display: none;">
+            <div class="empty-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M9 18V5l12-2v13"></path>
+                    <circle cx="6" cy="18" r="3"></circle>
+                    <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+            </div>
+            <h3 class="empty-title">Setlist não encontrada</h3>
+            <p class="empty-description">Esta setlist não existe ou foi removida.</p>
+            <a href="index.html" class="empty-cta">Voltar ao W.Tracks</a>
+        </div>
+    </div>
+
+    <script>
+        // Get share ID from URL query parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const shareId = urlParams.get('shareId');
+
+        async function loadPublicSetlist() {
+            if (!shareId) {
+                showEmptyState('ID de compartilhamento não fornecido');
+                return;
+            }
+
+            console.log('[PUBLIC SETLIST] Loading setlist with share ID:', shareId);
+
+            if (!window.firebaseDB) {
+                console.error('[PUBLIC SETLIST] Firebase not available');
+                showEmptyState();
+                return;
+            }
+
+            try {
+                const { db, doc, getDoc } = window.firebaseDB;
+                
+                // Try to get from publicSetlists collection first
+                const publicSetlistRef = doc(db, 'publicSetlists', shareId);
+                const publicSetlistDoc = await getDoc(publicSetlistRef);
+                
+                if (publicSetlistDoc.exists()) {
+                    const data = publicSetlistDoc.data();
+                    renderPublicSetlist(data);
+                } else {
+                    console.error('[PUBLIC SETLIST] Setlist not found in public collection');
+                    showEmptyState('Setlist não encontrada ou foi removida');
+                }
+            } catch (error) {
+                console.error('[PUBLIC SETLIST] Error loading setlist:', error);
+                showEmptyState('Erro ao carregar setlist');
+            }
+        }
+
+        function renderPublicSetlist(setlist) {
+            document.getElementById('publicSetlistTitle').textContent = setlist.name;
+            
+            const date = setlist.createdAt ? new Date(setlist.createdAt.seconds * 1000) : new Date();
+            document.getElementById('publicSetlistDate').textContent = formatDate(date);
+            
+            const songsContainer = document.getElementById('publicSetlistSongs');
+            const emptyState = document.getElementById('publicSetlistEmptyState');
+            
+            const songs = setlist.songs || [];
+            
+            if (songs.length === 0) {
+                songsContainer.style.display = 'none';
+                emptyState.style.display = 'block';
+                emptyState.querySelector('.empty-title').textContent = 'Setlist vazia';
+                emptyState.querySelector('.empty-description').textContent = 'Esta setlist não possui músicas ainda.';
+                return;
+            }
+            
+            emptyState.style.display = 'none';
+            songsContainer.style.display = 'block';
+            
+            songsContainer.innerHTML = songs.map((song, index) => createPublicSongItem(song, index)).join('');
+            
+            // Add event listeners
+            songsContainer.querySelectorAll('.public-song-play-btn').forEach((btn, index) => {
+                btn.addEventListener('click', () => {
+                    playYouTubeVideo(songs[index].youtubeVideoId);
+                });
+            });
+        }
+
+        function createPublicSongItem(song, index) {
+            const thumbnail = song.thumbnail || 'https://via.placeholder.com/60x60?text=♫';
+            
+            return `
+                <div class="public-song-item">
+                    <span class="public-song-number">${String(index + 1).padStart(2, '0')}</span>
+                    <div class="public-song-thumbnail">
+                        <img src="${thumbnail}" alt="${escapeHtml(song.title)}">
+                    </div>
+                    <div class="public-song-info">
+                        <h4 class="public-song-title">${escapeHtml(song.title)}</h4>
+                        <p class="public-song-channel">${escapeHtml(song.channel)}</p>
+                    </div>
+                    <button class="public-song-play-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                        </svg>
+                        Ouvir no YouTube
+                    </button>
+                </div>
+            `;
+        }
+
+        function playYouTubeVideo(videoId) {
+            // Create modal with YouTube player
+            const modal = document.createElement('div');
+            modal.className = 'youtube-player-modal';
+            modal.id = 'youtubePlayerModal';
+            
+            modal.innerHTML = `
+                <div class="youtube-player-content">
+                    <div class="youtube-player-header">
+                        <h3 class="youtube-player-title">YouTube Player</h3>
+                        <button class="youtube-player-close-btn" id="closeYouTubePlayer">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="youtube-player-video">
+                        <iframe 
+                            src="https://www.youtube.com/embed/${videoId}?autoplay=1" 
+                            frameborder="0" 
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                            allowfullscreen>
+                        </iframe>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Close button
+            const closeBtn = document.getElementById('closeYouTubePlayer');
+            closeBtn.addEventListener('click', () => {
+                modal.remove();
+            });
+            
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.remove();
+                }
+            });
+        }
+
+        function showEmptyState(message = 'Setlist não encontrada') {
+            document.getElementById('publicSetlistTitle').textContent = message;
+            document.getElementById('publicSetlistDate').textContent = '';
+            document.getElementById('publicSetlistSongs').style.display = 'none';
+            document.getElementById('publicSetlistEmptyState').style.display = 'block';
+        }
+
+        function formatDate(date) {
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            
+            const months = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 
+                          'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+            
+            return `${day} de ${months[date.getMonth()]} de ${year}`;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Load setlist when Firebase is ready
+        if (window.firebaseDB) {
+            loadPublicSetlist();
+        } else {
+            // Wait for Firebase to initialize
+            window.addEventListener('load', () => {
+                setTimeout(loadPublicSetlist, 100);
+            });
+        }
+    </script>
+</body>
+</html>

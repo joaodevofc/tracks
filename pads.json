@@ -1,0 +1,77 @@
+{
+  "pads": [
+    {
+      "file": "Pad + Reverse em A - F#m(Gbm)  30 Minutos  - House of Pads (youtube).mp3",
+      "key": "A",
+      "relativeKey": "F#m",
+      "bpm": 120
+    },
+    {
+      "file": "Pad + Reverse em A#(Bb) - Gm  30 Minutos  - House of Pads (youtube).mp3",
+      "key": "A#",
+      "relativeKey": "Gm",
+      "bpm": 120
+    },
+    {
+      "file": "Pad + Reverse em B - G#m(Abm)  30 Minutos  - House of Pads (youtube).mp3",
+      "key": "B",
+      "relativeKey": "G#m",
+      "bpm": 120
+    },
+    {
+      "file": "Pad + Reverse em C - Am  30 minutos  - House of Pads (youtube).mp3",
+      "key": "C",
+      "relativeKey": "Am",
+      "bpm": 120
+    },
+    {
+      "file": "Pad + Reverse em C# (Db) - A#m (Bbm)  30 Minutos  - House of Pads (youtube).mp3",
+      "key": "C#",
+      "relativeKey": "A#m",
+      "bpm": 120
+    },
+    {
+      "file": "Pad + Reverse em D - Bm  30 Minutos  - House of Pads (youtube).mp3",
+      "key": "D",
+      "relativeKey": "Bm",
+      "bpm": 120
+    },
+    {
+      "file": "Pad + Reverse em D#(Eb) - Cm  30 Minutos  - House of Pads (youtube).mp3",
+      "key": "D#",
+      "relativeKey": "Cm",
+      "bpm": 120
+    },
+    {
+      "file": "Pad + Reverse em E - C#m(Dbm)  30 Minutos  - House of Pads (youtube).mp3",
+      "key": "E",
+      "relativeKey": "C#m",
+      "bpm": 120
+    },
+    {
+      "file": "Pad + Reverse em F - Dm  30 Minutos  - House of Pads (youtube).mp3",
+      "key": "F",
+      "relativeKey": "Dm",
+      "bpm": 120
+    },
+    {
+      "file": "Pad + Reverse em F#(Gb) - D#m(Ebm)  30 Minutos  - House of Pads (youtube).mp3",
+      "key": "F#",
+      "relativeKey": "D#m",
+      "bpm": 120
+    },
+    {
+      "file": "Pad + Reverse em G - Em  30 Minutos  - House of Pads (youtube).mp3",
+      "key": "G",
+      "relativeKey": "Em",
+      "bpm": 120
+    },
+    {
+      "file": "Pad + Reverse em G#(Ab) - Fm  30 Minutos  - House of Pads (youtube).mp3",
+      "key": "G#",
+      "relativeKey": "Fm",
+      "bpm": 120
+    }
+  ],
+  "lastUpdated": "2026-08-16T14:40:00Z"
+}
