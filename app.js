@@ -187,6 +187,9 @@ class MultracksApp {
         this.initMyTracks();
         this.initSetlists();
 
+        // Select storage based on user plan (studio/pro use cloud storage, home uses localStorage)
+        await this.selectStorageBasedOnPlan();
+
         // Wait for storage to load before rendering
         await storage.load();
         this.renderLibrary();
@@ -788,6 +791,34 @@ class MultracksApp {
     async isStudioPlan() {
         const plan = await this.getUserPlan();
         return plan === 'studio';
+    }
+
+    async selectStorageBasedOnPlan() {
+        const userId = this.getCurrentUserId();
+        if (!userId) {
+            console.log('[APP] No user logged in, using localStorage (StorageManager)');
+            return;
+        }
+
+        const plan = await this.getUserPlan();
+        console.log('[APP] User plan:', plan, '- Selecting storage strategy');
+
+        if (plan === 'studio' || plan === 'pro') {
+            console.log('[APP] User is studio/pro - switching to HttpStorageManager (cloud storage)');
+            
+            // Switch to HttpStorageManager for cloud storage
+            if (typeof httpStorage !== 'undefined') {
+                httpStorage.setUserId(userId);
+                window.storage = httpStorage;
+                storage = httpStorage; // Update global storage reference
+                console.log('[APP] Storage switched to HttpStorageManager for user:', userId);
+            } else {
+                console.warn('[APP] HttpStorageManager not available, falling back to localStorage');
+            }
+        } else {
+            console.log('[APP] User is home/guest - using localStorage (StorageManager)');
+            // StorageManager is already set by default in storage.js
+        }
     }
 
     async requireStudioPlan(featureName = 'este recurso') {

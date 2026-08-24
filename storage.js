@@ -760,7 +760,8 @@ class StorageManager {
 }
 
 // Initialize global storage instance
-const storage = new StorageManager();
+// Will be overridden in app.js based on user plan (studio/pro use HttpStorageManager, home uses StorageManager)
+let storage = new StorageManager();
 
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
