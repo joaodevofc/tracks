@@ -33,6 +33,9 @@
       const db = getFirestore(app);
       const auth = getAuth(app);
 
+      // Expose Firebase config for debugging
+      window.firebaseConfig = firebaseConfig;
+
       window.firebaseDB = {
         db,
         collection,
@@ -63,6 +66,7 @@
     <script src="communityTracks.js"></script>
     <script src="audiostorage.js"></script>
     <script src="setlists.js"></script>
+    <script src="api-client.js"></script>
     <script>
         // Register Service Worker for PWA with immediate updates
         if ('serviceWorker' in navigator) {

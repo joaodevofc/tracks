@@ -1,0 +1,26 @@
+{
+  "name": "wtracks",
+  "version": "1.0.0",
+  "description": "W.Tracks - Multitrack Studio Platform",
+  "main": "index.html",
+  "scripts": {
+    "dev": "python -m http.server 8080",
+    "worker:dev": "wrangler dev",
+    "worker:deploy": "wrangler deploy",
+    "setup:worker": "wrangler secret put FIREBASE_PROJECT_ID && wrangler secret put FIREBASE_API_KEY && wrangler secret put STREAM_TOKEN_SECRET"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  },
+  "keywords": [
+    "audio",
+    "multitrack",
+    "music",
+    "studio",
+    "cloudflare",
+    "workers",
+    "r2"
+  ],
+  "author": "W.Tracks",
+  "license": "MIT"
+}

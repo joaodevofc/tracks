@@ -67,6 +67,13 @@ self.addEventListener('fetch', (event) => {
         return;
     }
     
+    // Skip audio streaming endpoints - let them pass directly to network
+    // These use Range requests and should not be cached by Service Worker
+    if (url.pathname.match(/^\/track\/[^/]+\/stream$/)) {
+        console.log('[SW] Skipping audio stream URL:', url.pathname);
+        return; // Let browser handle it directly without SW interception
+    }
+    
     // For static assets, use network-first strategy for immediate updates
     if (STATIC_ASSETS.some(asset => url.pathname === asset || url.pathname.endsWith(asset))) {
         event.respondWith(

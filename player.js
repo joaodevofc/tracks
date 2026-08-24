@@ -318,21 +318,36 @@ class MultitrackPlayer {
         try {
             console.log('[PLAYER] Loading track with streaming:', track.name);
             console.log('[PLAYER] Track has file:', !!track.file);
+            console.log('[PLAYER] Track has streamUrl:', !!track.streamUrl);
             console.log('[PLAYER] Track has audioFileId:', !!track.audioFileId);
             
-            // Check if track has a file
-            if (!track.file) {
-                console.warn('[PLAYER] Track has no file, skipping:', track.name);
+            // Check if track has either a file or streamUrl
+            if (!track.file && !track.streamUrl) {
+                console.warn('[PLAYER] Track has no file or streamUrl, skipping:', track.name);
                 console.warn('[PLAYER] This track needs hydration before loading');
                 return false;
             }
             
             // Create HTMLAudioElement for streaming
             const audioElement = new Audio();
-            const objectUrl = URL.createObjectURL(track.file);
-            audioElement.src = objectUrl;
             
-            console.log('[PLAYER] Created audio element for track:', track.name, 'URL:', objectUrl);
+            // Set crossOrigin for CORS with Web Audio API
+            audioElement.crossOrigin = "anonymous";
+            
+            // Use streamUrl for cloud tracks, otherwise use local file
+            let objectUrl = null;
+            if (track.streamUrl) {
+                audioElement.src = track.streamUrl;
+                console.log('[PLAYER] Using cloud stream URL for track:', track.name);
+                console.log('[PLAYER] Stream URL:', track.streamUrl);
+                console.log('[PLAYER] Stream URL domain:', new URL(track.streamUrl).hostname);
+            } else {
+                objectUrl = URL.createObjectURL(track.file);
+                audioElement.src = objectUrl;
+                console.log('[PLAYER] Using local file for track:', track.name, 'URL:', objectUrl);
+            }
+            
+            console.log('[PLAYER] Created audio element for track:', track.name, 'URL:', audioElement.src);
             console.log('[PLAYER] Audio element properties:');
             console.log('[PLAYER] - src:', audioElement.src);
             console.log('[PLAYER] - crossOrigin:', audioElement.crossOrigin);
@@ -351,6 +366,8 @@ class MultitrackPlayer {
             console.log('[PLAYER] Audio element channel info:');
             console.log('[PLAYER] - channels:', audioElement.mozChannels || audioElement.webkitAudioDecodedByteCount || 'unknown');
             console.log('[PLAYER] - sampleRate:', audioElement.mozSampleRate || 'unknown');
+            console.log('[PLAYER] Stream loaded successfully for track:', track.name);
+            console.log('[PLAYER] Stream URL was handled by:', track.streamUrl ? 'Cloudflare Worker (direct network, no SW interception)' : 'Local file');
             
             // Wait for enough data to be loaded for playback (readyState >= 3 = HAVE_FUTURE_DATA)
             await new Promise((resolve, reject) => {
@@ -414,9 +431,73 @@ class MultitrackPlayer {
             this.trackEndedHandlers.set(track.id, endedHandler);
             console.log('[PLAYER] Added ended event listener for track:', track.name);
             
+            // Add error handler for URL expiration (403/410 errors)
+            const errorHandler = async (event) => {
+                console.error('[PLAYER] =======================================');
+                console.error('[PLAYER] Audio element error for track:', track.name);
+                console.error('[PLAYER] Error event:', event);
+                console.error('[PLAYER] Error code:', audioElement.error?.code, 'Message:', audioElement.error?.message);
+                console.error('[PLAYER] Audio element state:');
+                console.error('[PLAYER] - readyState:', audioElement.readyState, '(0=HAVE_NOTHING, 1=HAVE_METADATA, 2=HAVE_CURRENT_DATA, 3=HAVE_FUTURE_DATA, 4=HAVE_ENOUGH_DATA)');
+                console.error('[PLAYER] - networkState:', audioElement.networkState, '(0=NETWORK_EMPTY, 1=NETWORK_IDLE, 2=NETWORK_LOADING, 3=NETWORK_NO_SOURCE)');
+                console.error('[PLAYER] - currentSrc:', audioElement.currentSrc);
+                console.error('[PLAYER] - currentTime:', audioElement.currentTime);
+                console.error('[PLAYER] =======================================');
+                
+                // Check if error is due to expired URL (403 Forbidden or 410 Gone)
+                if (audioElement.error?.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
+                    console.warn('[PLAYER] URL may be expired, attempting to renew for track:', track.name);
+                    
+                    try {
+                        // Renew the URL by getting a fresh streaming URL
+                        // Use audioFileId for both cloud and local storage
+                        const trackId = track.audioFileId;
+                        if (trackId && window.httpAudioStorage) {
+                            const newUrl = await window.httpAudioStorage.loadTrackForPlayback(trackId);
+                            if (newUrl) {
+                                console.log('[PLAYER] Renewed URL for track:', track.name);
+                                
+                                // Store current playback position
+                                const currentTime = audioElement.currentTime;
+                                const wasPlaying = !audioElement.paused;
+                                
+                                // Update audio element with new URL
+                                audioElement.src = newUrl;
+                                
+                                // Update track's streamUrl for cloud tracks
+                                if (track.isHttpStored) {
+                                    track.streamUrl = newUrl;
+                                    // Update objectUrl reference in trackNodes for cleanup
+                                    const trackNodes = this.trackNodes.get(track.id);
+                                    if (trackNodes) {
+                                        trackNodes.objectUrl = null; // Cloud tracks don't have objectUrl
+                                    }
+                                }
+                                
+                                // Restore playback position
+                                audioElement.currentTime = currentTime;
+                                
+                                // Resume playback if it was playing
+                                if (wasPlaying) {
+                                    audioElement.play().catch(err => {
+                                        console.error('[PLAYER] Error resuming playback after URL renewal:', err);
+                                    });
+                                }
+                                
+                                console.log('[PLAYER] Successfully renewed and resumed track:', track.name);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('[PLAYER] Failed to renew URL for track:', track.name, error);
+                    }
+                }
+            };
+            audioElement.addEventListener('error', errorHandler);
+            console.log('[PLAYER] Added error handler for URL expiration for track:', track.name);
+            
             this.trackNodes.set(track.id, {
                 audioElement: audioElement,
-                objectUrl: objectUrl,
+                objectUrl: objectUrl || null, // Will be null for cloud tracks
                 mediaSource: mediaSource,
                 gain: trackGain,
                 panner: panner,

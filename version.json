@@ -1,0 +1,50 @@
+{
+  "version": "mt3o33y4",
+  "buildDate": "2026-08-22T00:55:52.257Z",
+  "files": {
+    "styles.css": {
+      "hash": "e574fe83",
+      "versionedName": "styles.css?v=e574fe83"
+    },
+    "mobile.css": {
+      "hash": "3d1e4d7b",
+      "versionedName": "mobile.css?v=3d1e4d7b"
+    },
+    "communityTracks.js": {
+      "hash": "9dd2fab1",
+      "versionedName": "communityTracks.js?v=9dd2fab1"
+    },
+    "audiostorage.js": {
+      "hash": "1c176e5f",
+      "versionedName": "audiostorage.js?v=1c176e5f"
+    },
+    "setlists.js": {
+      "hash": "4a6c37c0",
+      "versionedName": "setlists.js?v=4a6c37c0"
+    },
+    "storage.js": {
+      "hash": "eb7c7bfc",
+      "versionedName": "storage.js?v=eb7c7bfc"
+    },
+    "player.js": {
+      "hash": "173ced15",
+      "versionedName": "player.js?v=173ced15"
+    },
+    "app.js": {
+      "hash": "ad2be697",
+      "versionedName": "app.js?v=ad2be697"
+    },
+    "drive.js": {
+      "hash": "931e89ab",
+      "versionedName": "drive.js?v=931e89ab"
+    },
+    "api-client.js": {
+      "hash": "27fd5f75",
+      "versionedName": "api-client.js?v=27fd5f75"
+    },
+    "manifest.json": {
+      "hash": "b5b9fd05",
+      "versionedName": "manifest.json?v=b5b9fd05"
+    }
+  }
+}

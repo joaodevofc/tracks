@@ -1455,7 +1455,7 @@ class MultracksApp {
         
         // Filter out tracks without audio files to prevent playback failures
         const originalTrackCount = project.tracks.length;
-        project.tracks = project.tracks.filter(track => track.file !== null);
+        project.tracks = project.tracks.filter(track => track.file !== null || track.streamUrl !== null);
         const filteredTrackCount = project.tracks.length;
         
         if (filteredTrackCount === 0) {
@@ -1846,7 +1846,7 @@ class MultracksApp {
             
             // Filter out tracks without audio files
             const originalTrackCount = project.tracks.length;
-            project.tracks = project.tracks.filter(track => track.file !== null);
+            project.tracks = project.tracks.filter(track => track.file !== null || track.streamUrl !== null);
             const filteredTrackCount = project.tracks.length;
             
             if (filteredTrackCount === 0) {
@@ -2665,21 +2665,63 @@ class MultracksApp {
         let missingCount = 0;
         let alreadyHadFileCount = 0;
         let invalidIdCount = 0;
+        let cloudHydratedCount = 0;
         
         for (const track of project.tracks) {
             console.log('[APP] Checking track:', track.name);
             console.log('[APP] Track has file:', !!track.file);
             console.log('[APP] Track has audioFileId:', track.audioFileId);
+            console.log('[APP] Track isHttpStored:', track.isHttpStored);
             
-            if (!track.file && track.audioFileId) {
-                console.log('[APP] Track needs hydration - fetching from IndexedDB...');
+            if (track.file) {
+                alreadyHadFileCount++;
+                console.log('[APP] Track already has file, skipping hydration:', track.name);
+                continue;
+            }
+            
+            if (!track.audioFileId) {
+                missingCount++;
+                invalidIdCount++;
+                console.warn('[APP] Track has no file and no audioFileId:', track.name);
+                continue;
+            }
+            
+            // Check if track is stored in cloud (R2)
+            if (track.isHttpStored) {
+                console.log('[APP] Track is cloud-stored - fetching streaming URL from API...');
+                try {
+                    if (typeof apiClient !== 'undefined') {
+                        const streamUrl = await apiClient.getTrackStreamUrl(track.audioFileId);
+                        
+                        if (streamUrl) {
+                            // Create a Response object to simulate a file-like interface
+                            // The audio player can handle URLs directly
+                            track.streamUrl = streamUrl;
+                            hydratedCount++;
+                            cloudHydratedCount++;
+                            console.log('[APP] ✅ Cloud-hydrated track:', track.name, 'Stream URL:', streamUrl.substring(0, 50) + '...');
+                        } else {
+                            missingCount++;
+                            console.error('[APP] ❌ Failed to get stream URL for track:', track.name, 'audioFileId:', track.audioFileId);
+                        }
+                    } else {
+                        console.error('[APP] apiClient not available for cloud hydration');
+                        missingCount++;
+                    }
+                } catch (error) {
+                    missingCount++;
+                    console.error('[APP] ❌ Error fetching stream URL for track:', track.name, error);
+                }
+            } else {
+                // Track is stored locally in IndexedDB
+                console.log('[APP] Track is locally stored - fetching from IndexedDB...');
                 try {
                     const file = await this.audioStorage.getAudioFile(track.audioFileId);
                     
                     if (file) {
                         track.file = file;
                         hydratedCount++;
-                        console.log('[APP] ✅ Hydrated track:', track.name, 'File size:', file.size);
+                        console.log('[APP] ✅ Hydrated track from IndexedDB:', track.name, 'File size:', file.size);
                     } else {
                         missingCount++;
                         console.error('[APP] ❌ File not found in IndexedDB for track:', track.name, 'audioFileId:', track.audioFileId);
@@ -2688,20 +2730,13 @@ class MultracksApp {
                     missingCount++;
                     console.error('[APP] ❌ Error fetching file from IndexedDB for track:', track.name, error);
                 }
-            } else if (track.file) {
-                alreadyHadFileCount++;
-                console.log('[APP] Track already has file, skipping hydration:', track.name);
-            } else {
-                missingCount++;
-                invalidIdCount++;
-                console.warn('[APP] Track has no file and no audioFileId:', track.name);
             }
         }
         
-        console.log('[APP] Hydration summary - Hydrated:', hydratedCount, 'Already had file:', alreadyHadFileCount, 'Missing:', missingCount, 'Invalid IDs:', invalidIdCount);
+        console.log('[APP] Hydration summary - Hydrated:', hydratedCount, 'Cloud-hydrated:', cloudHydratedCount, 'Already had file:', alreadyHadFileCount, 'Missing:', missingCount, 'Invalid IDs:', invalidIdCount);
         console.log('[APP] =======================================');
         
-        return { hydratedCount, missingCount, alreadyHadFileCount, invalidIdCount };
+        return { hydratedCount, missingCount, alreadyHadFileCount, invalidIdCount, cloudHydratedCount };
     }
 
     /**
@@ -5395,9 +5430,9 @@ class MultracksApp {
         }
     }
     
-    deleteProject(projectId) {
+    async deleteProject(projectId) {
         if (confirm('Tem certeza que deseja excluir este projeto?')) {
-            storage.deleteProject(projectId);
+            await storage.deleteProject(projectId);
             this.renderLibrary(this.currentFilter);
         }
     }
@@ -7366,6 +7401,35 @@ class MultracksApp {
                         this.updateUserProfile(user);
                         this.updateProfileButtonForLoggedIn(user);
                         
+                        // Set Firebase ID token for API client
+                        try {
+                            const idToken = await user.getIdToken();
+                            if (typeof apiClient !== 'undefined') {
+                                apiClient.setAuthToken(idToken);
+                                const tokenPreview = idToken.substring(0, 20) + '...';
+                                console.log('[AUTH] Firebase ID token set in apiClient (first 20 chars):', tokenPreview);
+                                console.log('[AUTH] Firebase Project ID from frontend:', window.firebaseConfig?.projectId || 'not available');
+                            }
+                            
+                            // Set up periodic token refresh (every 30 minutes)
+                            if (this.tokenRefreshInterval) {
+                                clearInterval(this.tokenRefreshInterval);
+                            }
+                            this.tokenRefreshInterval = setInterval(async () => {
+                                try {
+                                    const refreshedToken = await user.getIdToken(true);
+                                    if (typeof apiClient !== 'undefined') {
+                                        apiClient.setAuthToken(refreshedToken);
+                                        console.log('[AUTH] Firebase ID token refreshed in apiClient');
+                                    }
+                                } catch (error) {
+                                    console.error('[AUTH] Error refreshing ID token:', error);
+                                }
+                            }, 30 * 60 * 1000); // 30 minutes
+                        } catch (error) {
+                            console.error('[AUTH] Error getting ID token:', error);
+                        }
+                        
                         // Load community favorites for this user (async from Firestore)
                         await this.loadCommunityFavorites();
                         
@@ -7383,6 +7447,12 @@ class MultracksApp {
                         console.log('[AUTH] User is logged out');
                         this.updateProfileButtonForLoggedOut();
                         localStorage.removeItem('currentUser');
+                        
+                        // Clear API client token on logout
+                        if (typeof apiClient !== 'undefined') {
+                            apiClient.setAuthToken(null);
+                            console.log('[AUTH] Firebase ID token cleared from apiClient');
+                        }
                         
                         // Clear community favorites on logout
                         this.communityFavorites = [];
@@ -7543,6 +7613,12 @@ class MultracksApp {
         if (!window.firebaseAuth) {
             console.error('Firebase não está disponível. Verifique se os scripts foram carregados.');
             return;
+        }
+
+        // Clear token refresh interval
+        if (this.tokenRefreshInterval) {
+            clearInterval(this.tokenRefreshInterval);
+            this.tokenRefreshInterval = null;
         }
 
         const { auth, signOut } = window.firebaseAuth;
@@ -7727,10 +7803,12 @@ class MultracksApp {
                     errorText = 'Usuário não encontrado. Verifique seu email.';
                 } else if (errorCode === 'auth/wrong-password') {
                     errorText = 'Senha incorreta.';
+                } else if (errorCode === 'auth/invalid-credential') {
+                    errorText = 'Email ou senha incorretos. Verifique suas credenciais.';
                 } else if (errorCode === 'auth/invalid-email') {
                     errorText = 'Email inválido.';
                 } else {
-                    errorText = 'Erro ao fazer login: ' + errorMessage;
+                    errorText = 'Erro ao fazer login. Tente novamente.';
                 }
 
                 // Show error in the modal
@@ -7882,7 +7960,7 @@ class MultracksApp {
                 } else if (errorCode === 'auth/weak-password') {
                     errorText = 'A senha é muito fraca. Use pelo menos 6 caracteres.';
                 } else {
-                    errorText = 'Erro ao criar conta: ' + errorMessage;
+                    errorText = 'Erro ao criar conta. Tente novamente.';
                 }
 
                 // Show error in the modal

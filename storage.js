@@ -17,6 +17,51 @@ function getCurrentUserId() {
     return 'guest';
 }
 
+/**
+ * Get current user plan from Firestore
+ * Returns 'Studio', 'Pro', 'Home', or null if not found
+ */
+async function getUserPlan() {
+    try {
+        if (!window.firebaseDB || !window.firebaseAuth) {
+            console.log('[STORAGE] Firebase not available, defaulting to Home plan');
+            return 'Home';
+        }
+
+        const user = window.firebaseAuth.auth.currentUser;
+        if (!user) {
+            console.log('[STORAGE] No authenticated user, defaulting to Home plan');
+            return 'Home';
+        }
+
+        const userDoc = await window.firebaseDB.getDoc(
+            window.firebaseDB.doc(window.firebaseDB.db, 'users', user.uid)
+        );
+
+        if (userDoc.exists()) {
+            const userData = userDoc.data();
+            console.log('[STORAGE] Raw Firestore user data:', JSON.stringify(userData, null, 2));
+            console.log('[STORAGE] Raw plano field value:', userData.plano, 'Type:', typeof userData.plano);
+            console.log('[STORAGE] Plano field exists:', 'plano' in userData);
+            
+            const plano = userData.plano || 'home';
+            console.log('[STORAGE] Final plano value after conversion:', plano, 'Type:', typeof plano);
+            console.log('[STORAGE] Plano comparison checks:');
+            console.log('[STORAGE] - plano === "studio":', plano === 'studio');
+            console.log('[STORAGE] - plano === "pro":', plano === 'pro');
+            console.log('[STORAGE] - plano === "home":', plano === 'home');
+            
+            return plano;
+        }
+
+        console.log('[STORAGE] User document not found, defaulting to home plano');
+        return 'home';
+    } catch (error) {
+        console.error('[STORAGE] Error getting user plan:', error);
+        return 'Home'; // Default to Home on error
+    }
+}
+
 // Get dynamic storage keys based on current user
 function getStorageKey() {
     const userId = getCurrentUserId();
@@ -93,8 +138,11 @@ class Track {
         this.originalFileName = data.originalFileName || '';
         this.fileSize = data.fileSize || 0;
         this.file = data.file || null;
-        this.audioFileId = data.audioFileId || null; // ID for IndexedDB storage
+        this.audioFileId = data.audioFileId || null; // ID for storage (IndexedDB or cloud)
         this.objectUrl = data.objectUrl || null; // Object URL for guest mode (in-memory only)
+        this.streamUrl = data.streamUrl || null; // Streaming URL for cloud-stored tracks
+        this.isHttpStored = data.isHttpStored || false; // Flag for cloud storage
+        this.projectName = data.projectName || null; // Project name for upload metadata
         this.volume = data.volume !== undefined ? data.volume : 1;
         this.pan = data.pan !== undefined ? data.pan : 0;
         this.mute = data.mute || false;
@@ -116,9 +164,46 @@ class Track {
         // Check if user is authenticated
         const isUserLoggedIn = window.firebaseAuth && window.firebaseAuth.auth && window.firebaseAuth.auth.currentUser;
         
-        // Save file to IndexedDB only if user is logged in and file exists and we don't have an audioFileId yet
-        if (isUserLoggedIn && this.file && !this.audioFileId && typeof audioStorage !== 'undefined') {
-            console.log('[STORAGE] Saving file to IndexedDB...');
+        // Check user plan for cloud storage decision
+        const userPlan = await getUserPlan();
+        console.log('[STORAGE] User plano:', userPlan, 'for track:', this.name);
+        
+        // Studio/Pro users: Upload to cloud storage
+        if (isUserLoggedIn && this.file && !this.isHttpStored && (userPlan === 'studio' || userPlan === 'pro')) {
+            console.log('[API] User is studio/pro - uploading track to cloud storage:', this.name);
+            
+            try {
+                if (typeof apiClient !== 'undefined') {
+                    const userId = getCurrentUserId();
+                    const projectName = this.projectName || 'Untitled Project';
+                    console.log('[API] Calling apiClient.uploadTrack for:', this.name, 'Size:', this.file.size, 'Project:', projectName);
+                    
+                    const result = await apiClient.uploadTrack(this.file, {
+                        userId: userId,
+                        projectName: projectName,
+                        trackName: this.name,
+                        trackId: this.id
+                    });
+                    
+                    console.log('[API] Upload successful for track:', this.name, 'Result:', result);
+                    this.isHttpStored = true;
+                    this.audioFileId = result.id; // Use the returned ID from cloud storage
+                    this.file = null; // Clear file to save memory since it's now in cloud
+                    
+                    console.log('[STORAGE] Track marked as cloud stored with ID:', this.audioFileId);
+                } else {
+                    console.warn('[STORAGE] apiClient not available, falling back to IndexedDB');
+                }
+            } catch (error) {
+                console.error('[API] Upload failed for track:', this.name, error);
+                console.log('[STORAGE] Falling back to IndexedDB due to upload failure');
+                // Continue with IndexedDB fallback
+            }
+        }
+        
+        // Home users or fallback: Save to IndexedDB
+        if (isUserLoggedIn && this.file && !this.audioFileId && !this.isHttpStored && typeof audioStorage !== 'undefined') {
+            console.log('[STORAGE] Saving file to IndexedDB (Home plan or fallback)...');
             this.audioFileId = this.id; // Use track ID as audio file ID
             await audioStorage.saveAudioFile(this.audioFileId, this.file);
             console.log('[STORAGE] File saved to IndexedDB with ID:', this.audioFileId);
@@ -137,6 +222,8 @@ class Track {
             fileSize: this.fileSize,
             audioFileId: this.audioFileId,
             objectUrl: this.objectUrl, // Include object URL for guest mode
+            streamUrl: this.streamUrl, // Include streaming URL for cloud tracks
+            isHttpStored: this.isHttpStored, // Include cloud storage flag
             volume: this.volume,
             pan: this.pan,
             mute: this.mute,
@@ -147,13 +234,14 @@ class Track {
             offset: this.offset
         };
         
-        console.log('[STORAGE] Track.toJSON result has audioFileId:', !!json.audioFileId);
+        console.log('[STORAGE] Track.toJSON result - isHttpStored:', json.isHttpStored, 'audioFileId:', !!json.audioFileId);
         return json;
     }
     
     static async fromJSON(json) {
         console.log('[STORAGE] Track.fromJSON called for:', json.name);
         console.log('[STORAGE] JSON has audioFileId:', !!json.audioFileId);
+        console.log('[STORAGE] JSON isHttpStored:', json.isHttpStored);
         
         const track = new Track(json);
         
@@ -163,16 +251,24 @@ class Track {
             console.log('[STORAGE] Restored objectUrl for guest mode');
         }
         
-        // Retrieve file from IndexedDB if audioFileId exists and user is logged in
-        const isUserLoggedIn = window.firebaseAuth && window.firebaseAuth.auth && window.firebaseAuth.auth.currentUser;
-        
-        if (isUserLoggedIn && json.audioFileId && !track.file && typeof audioStorage !== 'undefined') {
-            console.log('[STORAGE] Retrieving file from IndexedDB with ID:', json.audioFileId);
-            track.file = await audioStorage.getAudioFile(json.audioFileId);
-            console.log('[STORAGE] File retrieved from IndexedDB:', !!track.file);
+        // Restore streamUrl if it exists (cloud-stored tracks)
+        if (json.streamUrl) {
+            track.streamUrl = json.streamUrl;
+            console.log('[STORAGE] Restored streamUrl for cloud-stored track');
         }
         
-        console.log('[STORAGE] Track.fromJSON result has file:', !!track.file);
+        // Retrieve file from IndexedDB only if NOT cloud-stored and user is logged in
+        const isUserLoggedIn = window.firebaseAuth && window.firebaseAuth.auth && window.firebaseAuth.auth.currentUser;
+        
+        if (isUserLoggedIn && json.audioFileId && !track.file && !json.isHttpStored && typeof audioStorage !== 'undefined') {
+            console.log('[STORAGE] Track is locally stored - retrieving file from IndexedDB with ID:', json.audioFileId);
+            track.file = await audioStorage.getAudioFile(json.audioFileId);
+            console.log('[STORAGE] File retrieved from IndexedDB:', !!track.file);
+        } else if (json.isHttpStored) {
+            console.log('[STORAGE] Track is cloud-stored - will be hydrated via API later, skipping IndexedDB');
+        }
+        
+        console.log('[STORAGE] Track.fromJSON result has file:', !!track.file, 'has streamUrl:', !!track.streamUrl);
         return track;
     }
 }
@@ -222,7 +318,21 @@ class Project {
         return track;
     }
     
-    removeTrack(trackId) {
+    async removeTrack(trackId) {
+        const track = this.tracks.find(t => t.id === trackId);
+        if (track && track.isHttpStored && track.audioFileId) {
+            // Delete cloud-stored track from R2
+            try {
+                if (typeof apiClient !== 'undefined') {
+                    await apiClient.deleteTrack(track.audioFileId);
+                    console.log('[STORAGE] Deleted cloud track from R2:', track.audioFileId);
+                }
+            } catch (error) {
+                console.error('[STORAGE] Failed to delete cloud track from R2:', track.audioFileId, error);
+                // Continue with track removal even if R2 deletion fails
+            }
+        }
+        
         this.tracks = this.tracks.filter(t => t.id !== trackId);
         this.updateTimestamp();
     }
@@ -265,6 +375,12 @@ class Project {
         for (let i = 0; i < this.tracks.length; i++) {
             // Ensure track is a Track instance
             const trackInstance = this.tracks[i] instanceof Track ? this.tracks[i] : new Track(this.tracks[i]);
+            
+            // Set project name for upload metadata
+            if (trackInstance.file && !trackInstance.isHttpStored) {
+                trackInstance.projectName = this.name;
+            }
+            
             const trackJSON = await trackInstance.toJSON();
             tracksData.push(trackJSON);
             
@@ -485,6 +601,22 @@ class StorageManager {
         const index = this.projects.findIndex(p => p.id === id);
         if (index !== -1) {
             const project = this.projects[index];
+            
+            // Delete cloud-stored tracks from R2 before removing project
+            for (const track of project.tracks) {
+                if (track.isHttpStored && track.audioFileId) {
+                    try {
+                        if (typeof apiClient !== 'undefined') {
+                            await apiClient.deleteTrack(track.audioFileId);
+                            console.log('[STORAGE] Deleted cloud track from R2:', track.audioFileId);
+                        }
+                    } catch (error) {
+                        console.error('[STORAGE] Failed to delete cloud track from R2:', track.audioFileId, error);
+                        // Continue with project deletion even if R2 deletion fails
+                    }
+                }
+            }
+            
             this.projects.splice(index, 1);
             await this.save();
             console.log('[STORAGE] Project deleted:', id);
@@ -496,6 +628,23 @@ class StorageManager {
     async clearAll() {
         const storageKey = getStorageKey();
         const playlistsStorageKey = getPlaylistsStorageKey();
+        
+        // Delete all cloud-stored tracks from R2 before clearing
+        for (const project of this.projects) {
+            for (const track of project.tracks) {
+                if (track.isHttpStored && track.audioFileId) {
+                    try {
+                        if (typeof apiClient !== 'undefined') {
+                            await apiClient.deleteTrack(track.audioFileId);
+                            console.log('[STORAGE] Deleted cloud track from R2 during clearAll:', track.audioFileId);
+                        }
+                    } catch (error) {
+                        console.error('[STORAGE] Failed to delete cloud track from R2 during clearAll:', track.audioFileId, error);
+                        // Continue with clearing even if R2 deletion fails
+                    }
+                }
+            }
+        }
         
         this.projects = [];
         this.playlists = [];

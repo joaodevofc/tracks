@@ -22,7 +22,11 @@
       "purpose": "any"
     }
   ],
-  "categories": ["music", "audio", "productivity"],
+  "categories": [
+    "music",
+    "audio",
+    "productivity"
+  ],
   "screenshots": [],
   "shortcuts": [
     {
@@ -38,5 +42,6 @@
         }
       ]
     }
-  ]
+  ],
+  "version": "mt3o33y4"
 }
