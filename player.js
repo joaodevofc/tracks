@@ -340,9 +340,9 @@ class MultitrackPlayer {
             // Use streamUrl for cloud tracks, otherwise use local file
             let objectUrl = null;
             if (track.streamUrl) {
-                // For small projects (≤8 tracks), load as blob to avoid connection limit
+                // For typical backing track projects (≤16 tracks), load as blob to avoid connection limit
                 const totalTracks = this.currentProject?.tracks?.length || 0;
-                if (totalTracks <= 8) {
+                if (totalTracks <= 16) {
                     console.log('[PLAYER] Small project (≤8 tracks), loading as blob to avoid connection limit');
                     try {
                         const response = await fetch(track.streamUrl);
