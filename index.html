@@ -61,6 +61,11 @@
       };
 
       console.log('[FIREBASE] Firebase initialized (Firestore + Auth)');
+      
+      // Re-initialize storage Firebase connection after Firebase is ready
+      if (window.storage && typeof window.storage.reinitializeFirebase === 'function') {
+        window.storage.reinitializeFirebase();
+      }
     </script>
 
     <script src="communityTracks.js"></script>

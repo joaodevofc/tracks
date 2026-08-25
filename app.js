@@ -7401,6 +7401,12 @@ class MultracksApp {
                         this.updateUserProfile(user);
                         this.updateProfileButtonForLoggedIn(user);
                         
+                        // Re-initialize storage Firebase connection
+                        if (typeof storage !== 'undefined' && typeof storage.reinitializeFirebase === 'function') {
+                            console.log('[AUTH] Re-initializing storage Firebase connection...');
+                            await storage.reinitializeFirebase();
+                        }
+                        
                         // Set Firebase ID token for API client
                         try {
                             const idToken = await user.getIdToken();
