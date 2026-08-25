@@ -90,6 +90,15 @@
                             });
                         });
                         
+                        // Listen for messages from service worker
+                        navigator.serviceWorker.addEventListener('message', (event) => {
+                            if (event.data && event.data.type === 'SW_UPDATE_AVAILABLE') {
+                                console.log('[SW] Update message received:', event.data.message);
+                                console.log('[SW] Reloading page to get new version...');
+                                window.location.reload();
+                            }
+                        });
+                        
                         // Also check for updates periodically
                         setInterval(() => {
                             registration.update();
