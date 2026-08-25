@@ -79,9 +79,12 @@ class MultitrackPlayer {
             // Create master gain node
             this.masterGain = this.audioContext.createGain();
             this.masterGain.gain.value = 1;
+            console.log('[PLAYER] Master gain created with value:', this.masterGain.gain.value);
             
             // Use standard StereoPannerNode for master
             this.masterPanner = this.audioContext.createStereoPanner();
+            this.masterPanner.pan.value = 0;
+            console.log('[PLAYER] Master panner created with pan value:', this.masterPanner.pan.value);
             
             // Create analyser for visualization
             this.analyser = this.audioContext.createAnalyser();
@@ -99,6 +102,7 @@ class MultitrackPlayer {
             this.analyser.connect(this.audioContext.destination);
             
             console.log('[PLAYER] Audio graph initialized (using standard StereoPannerNode)');
+            console.log('[PLAYER] Audio graph connections: masterGain -> masterPanner -> masterAnalyser -> analyser -> destination');
             
             // Initialize metronome
             this.metronome = new Metronome(this.audioContext, this.masterGain);
@@ -328,41 +332,25 @@ class MultitrackPlayer {
                 return false;
             }
             
-            // Create HTMLAudioElement for streaming
+            // Create audio element
             const audioElement = new Audio();
+            audioElement.crossOrigin = 'anonymous';
+            audioElement.preload = 'auto'; // Preload entire audio to prevent buffer loss
+            audioElement.muted = false;
+            audioElement.volume = 1;
             
-            // Set crossOrigin for CORS with Web Audio API
-            audioElement.crossOrigin = "anonymous";
-            
-            // Enable aggressive preloading to reduce buffering issues
-            audioElement.preload = "auto";
+            // Set a small initial position to trigger buffering
+            audioElement.currentTime = 0.001;
             
             // Use streamUrl for cloud tracks, otherwise use local file
             let objectUrl = null;
             if (track.streamUrl) {
-                // For typical backing track projects (≤16 tracks), load as blob to avoid connection limit
-                const totalTracks = this.currentProject?.tracks?.length || 0;
-                if (totalTracks <= 16) {
-                    console.log('[PLAYER] Small project (≤8 tracks), loading as blob to avoid connection limit');
-                    try {
-                        const response = await fetch(track.streamUrl);
-                        if (!response.ok) {
-                            throw new Error(`Failed to fetch audio: ${response.status}`);
-                        }
-                        const blob = await response.blob();
-                        objectUrl = URL.createObjectURL(blob);
-                        audioElement.src = objectUrl;
-                        console.log('[PLAYER] Loaded audio as blob for track:', track.name, 'Size:', blob.size);
-                    } catch (error) {
-                        console.error('[PLAYER] Failed to load as blob, falling back to streaming:', error);
-                        audioElement.src = track.streamUrl;
-                    }
-                } else {
-                    audioElement.src = track.streamUrl;
-                    console.log('[PLAYER] Using cloud stream URL for track:', track.name);
-                    console.log('[PLAYER] Stream URL:', track.streamUrl);
-                    console.log('[PLAYER] Stream URL domain:', new URL(track.streamUrl).hostname);
-                }
+                // Always use streaming directly to avoid blob loading issues
+                // Blob loading can cause problems with large files or connection limits
+                audioElement.src = track.streamUrl;
+                console.log('[PLAYER] Using cloud stream URL for track:', track.name);
+                console.log('[PLAYER] Stream URL:', track.streamUrl);
+                console.log('[PLAYER] Stream URL domain:', new URL(track.streamUrl).hostname);
             } else {
                 objectUrl = URL.createObjectURL(track.file);
                 audioElement.src = objectUrl;
@@ -379,9 +367,15 @@ class MultitrackPlayer {
             
             // Wait for metadata to load to get duration
             await new Promise((resolve, reject) => {
-                audioElement.addEventListener('loadedmetadata', resolve);
-                audioElement.addEventListener('error', reject);
-                setTimeout(() => reject(new Error('Timeout loading audio metadata')), 10000);
+                audioElement.addEventListener('loadedmetadata', () => {
+                    console.log('[PLAYER] Metadata loaded for track:', track.name, 'Duration:', audioElement.duration);
+                    resolve();
+                });
+                audioElement.addEventListener('error', (e) => {
+                    console.error('[PLAYER] Error loading metadata for track:', track.name, 'Error:', audioElement.error);
+                    reject(e);
+                });
+                setTimeout(() => reject(new Error('Timeout loading audio metadata')), 15000);
             });
             
             console.log('[PLAYER] Audio element metadata loaded, duration:', audioElement.duration, 'seconds');
@@ -399,14 +393,41 @@ class MultitrackPlayer {
                     return;
                 }
                 
-                console.log('[PLAYER] Waiting for audio element to have enough data for playback...');
-                audioElement.addEventListener('canplay', () => {
-                    console.log('[PLAYER] Audio element can play now (readyState:', audioElement.readyState, ')');
-                    resolve();
-                }, { once: true });
+                console.log('[PLAYER] Waiting for audio element to have enough data for playback (current readyState:', audioElement.readyState, ')');
                 
-                audioElement.addEventListener('error', reject);
-                setTimeout(() => reject(new Error('Timeout waiting for audio to be ready to play')), 15000);
+                // Use canplaythrough for better buffering - ensures enough data to play without interruption
+                const canPlayHandler = () => {
+                    console.log('[PLAYER] Audio element can play through (readyState:', audioElement.readyState, ')');
+                    resolve();
+                };
+                
+                audioElement.addEventListener('canplaythrough', canPlayHandler, { once: true });
+                
+                // Fallback to canplay if canplaythrough doesn't fire (for some browsers)
+                const canPlayFallback = setTimeout(() => {
+                    if (audioElement.readyState >= 2) {
+                        console.log('[PLAYER] Using canplay fallback (readyState:', audioElement.readyState, ')');
+                        audioElement.removeEventListener('canplaythrough', canPlayHandler);
+                        resolve();
+                    }
+                }, 5000); // Wait 5 seconds for canplaythrough before falling back
+                
+                audioElement.addEventListener('error', (e) => {
+                    clearTimeout(canPlayFallback);
+                    console.error('[PLAYER] Error waiting for audio to be ready:', e);
+                    reject(e);
+                });
+                
+                // Increase timeout to 30 seconds for streaming tracks
+                setTimeout(() => {
+                    clearTimeout(canPlayFallback);
+                    if (audioElement.readyState >= 2) {
+                        console.log('[PLAYER] Timeout reached but accepting current state (readyState:', audioElement.readyState, ')');
+                        resolve();
+                    } else {
+                        reject(new Error('Timeout waiting for audio to be ready to play'));
+                    }
+                }, 30000);
             });
             
             console.log('[PLAYER] Audio element ready for playback, readyState:', audioElement.readyState);
@@ -416,8 +437,10 @@ class MultitrackPlayer {
             // Ensure track.volume is defined and not zero, default to 1 if not set
             // Note: track.volume is the final gain value from app.js (already converted via positionToDb/dbToGain)
             const trackVolume = track.volume !== undefined && track.volume !== null ? track.volume : 1;
-            trackGain.gain.value = trackVolume;
-            console.log('[PLAYER] Track gain set to:', trackVolume.toFixed(4), '(final gain from app.js, original track.volume:', track.volume, ')');
+            // Prevent zero gain - use minimum value if track.volume is zero or very small
+            const safeTrackVolume = (trackVolume > 0.0001) ? trackVolume : 0.5;
+            trackGain.gain.value = safeTrackVolume;
+            console.log('[PLAYER] Track gain set to:', safeTrackVolume.toFixed(4), '(final gain from app.js, original track.volume:', track.volume, ')');
             
             // Use standard StereoPannerNode from browser
             const panner = this.audioContext.createStereoPanner();
@@ -698,9 +721,15 @@ class MultitrackPlayer {
             const track = this.currentProject.tracks.find(t => t.id === trackId);
             
             // Check if audio element is ready to play
-            if (nodes.audioElement.readyState < 3) {
+            if (nodes.audioElement.readyState < 2) {
                 console.warn('[PLAYER] Track not ready to play yet:', track.name, 'readyState:', nodes.audioElement.readyState);
-                return;
+                // Don't skip - try to play anyway, the browser may buffer during playback
+                // return;
+            }
+            
+            // If readyState is 2 (HAVE_CURRENT_DATA), log warning but allow playback
+            if (nodes.audioElement.readyState === 2) {
+                console.warn('[PLAYER] Track has minimal data (readyState: 2), may buffer during playback:', track.name);
             }
             
             // Set ALL audio elements to the SAME current position
@@ -755,10 +784,27 @@ class MultitrackPlayer {
             const track = this.currentProject.tracks.find(t => t.id === trackId);
             
             // Check if audio element is ready to play
-            if (nodes.audioElement.readyState < 3) {
+            if (nodes.audioElement.readyState < 2) {
                 console.warn('[PLAYER] Track not ready to play yet:', track.name, 'readyState:', nodes.audioElement.readyState);
-                tracksSkipped++;
-                return;
+                // Re-hydrate stream URL if track is cloud-stored and lost buffer
+                if (track.audioFileId && track.isHttpStored && window.httpAudioStorage) {
+                    console.log('[PLAYER] Re-hydrating stream URL for track:', track.name);
+                    window.httpAudioStorage.loadTrackForPlayback(track.audioFileId)
+                        .then(newStreamUrl => {
+                            if (newStreamUrl) {
+                                nodes.audioElement.src = newStreamUrl;
+                                console.log('[PLAYER] Re-hydrated stream URL for track:', track.name);
+                            }
+                        })
+                        .catch(err => {
+                            console.error('[PLAYER] Failed to re-hydrate stream URL:', track.name, err);
+                        });
+                }
+            }
+            
+            // If readyState is 2 (HAVE_CURRENT_DATA), log warning but allow playback
+            if (nodes.audioElement.readyState === 2) {
+                console.warn('[PLAYER] Track has minimal data (readyState: 2), may buffer during playback:', track.name);
             }
             
             // Check if current position is valid
