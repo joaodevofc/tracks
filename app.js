@@ -7402,9 +7402,15 @@ class MultracksApp {
                         this.updateProfileButtonForLoggedIn(user);
                         
                         // Re-initialize storage Firebase connection
+                        console.log('[AUTH] Checking if storage is available for Firebase re-initialization...');
+                        console.log('[AUTH] storage available:', typeof storage !== 'undefined');
+                        console.log('[AUTH] storage.reinitializeFirebase available:', typeof storage?.reinitializeFirebase === 'function');
+                        
                         if (typeof storage !== 'undefined' && typeof storage.reinitializeFirebase === 'function') {
                             console.log('[AUTH] Re-initializing storage Firebase connection...');
                             await storage.reinitializeFirebase();
+                        } else {
+                            console.log('[AUTH] Storage or reinitializeFirebase not available, skipping');
                         }
                         
                         // Set Firebase ID token for API client
@@ -7439,16 +7445,11 @@ class MultracksApp {
                         // Load community favorites for this user (async from Firestore)
                         await this.loadCommunityFavorites();
                         
-                        // Reload storage with new user's data
-                        if (typeof storage !== 'undefined') {
-                            console.log('[AUTH] Reloading storage for user:', user.uid);
-                            storage.load().then(() => {
-                                console.log('[AUTH] Storage reloaded, refreshing UI');
-                                this.renderLibrary();
-                            }).catch(error => {
-                                console.error('[AUTH] Error reloading storage:', error);
-                            });
-                        }
+                        // Note: storage.reinitializeFirebase() already called above and loaded from Firestore
+                        // No need to call storage.load() again here
+                        
+                        // Refresh UI after Firebase re-initialization
+                        this.renderLibrary();
                     } else {
                         console.log('[AUTH] User is logged out');
                         this.updateProfileButtonForLoggedOut();

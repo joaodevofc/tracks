@@ -63,8 +63,15 @@
       console.log('[FIREBASE] Firebase initialized (Firestore + Auth)');
       
       // Re-initialize storage Firebase connection after Firebase is ready
+      console.log('[FIREBASE] Checking if storage is available for re-initialization...');
+      console.log('[FIREBASE] window.storage available:', !!window.storage);
+      console.log('[FIREBASE] window.storage.reinitializeFirebase available:', typeof window.storage?.reinitializeFirebase === 'function');
+      
       if (window.storage && typeof window.storage.reinitializeFirebase === 'function') {
+        console.log('[FIREBASE] Calling storage.reinitializeFirebase()...');
         window.storage.reinitializeFirebase();
+      } else {
+        console.log('[FIREBASE] Storage not ready yet, will try again on login');
       }
     </script>
 

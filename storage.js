@@ -478,10 +478,12 @@ class StorageManager {
     // Method to re-initialize Firebase when it becomes available
     // Call this from app.js when Firebase is ready
     async reinitializeFirebase() {
-        console.log('[STORAGE] reinitializeFirebase() called');
+        console.log('[STORAGE] ===== REINITIALIZE FIREBASE START =====');
+        console.log('[STORAGE] window.firebaseDB available:', !!window.firebaseDB);
+        console.log('[STORAGE] Current firebaseInitialized:', this.firebaseInitialized);
         
         if (!window.firebaseDB) {
-            console.log('[STORAGE] Firebase still not available, will retry...');
+            console.log('[STORAGE] Firebase still not available, cannot re-initialize');
             return false;
         }
         
@@ -491,20 +493,29 @@ class StorageManager {
             console.log('[STORAGE] Firebase re-initialized successfully!');
             // Reload projects from Firestore if user is authenticated
             const userId = getCurrentUserId();
+            console.log('[STORAGE] Current userId for reload:', userId);
+            
             if (userId !== 'guest') {
                 console.log('[STORAGE] User is authenticated, reloading projects from Firestore...');
                 try {
                     await this.loadProjectsFromFirestore(userId);
                     console.log('[STORAGE] Projects reloaded from Firestore successfully');
+                    console.log('[STORAGE] ===== REINITIALIZE FIREBASE SUCCESS =====');
                     return true;
                 } catch (error) {
                     console.error('[STORAGE] Error reloading projects from Firestore:', error);
+                    console.log('[STORAGE] ===== REINITIALIZE FIREBASE FAILED =====');
                     return false;
                 }
+            } else {
+                console.log('[STORAGE] User is guest, no Firestore reload needed');
+                console.log('[STORAGE] ===== REINITIALIZE FIREBASE COMPLETE (GUEST) =====');
+                return true;
             }
-            return true;
         }
         
+        console.log('[STORAGE] Firebase re-initialization failed');
+        console.log('[STORAGE] ===== REINITIALIZE FIREBASE FAILED =====');
         return false;
     }
     
