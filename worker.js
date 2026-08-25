@@ -311,9 +311,12 @@ async function handleStreamTrack(trackId, request, env, corsHeaders) {
       const contentType = object.httpMetadata?.contentType || 'audio/mpeg';
       headers.set('Content-Type', contentType);
       headers.set('Accept-Ranges', 'bytes');
-      headers.set('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+      headers.set('Cache-Control', 'public, max-age=3600, must-revalidate'); // Cache for 1 hour
       headers.set('Content-Length', rangeLength.toString());
       headers.set('Content-Range', `bytes ${start}-${actualEnd}/${fullObject.size}`);
+      // HTTP/2 friendly headers for connection multiplexing
+      headers.set('Connection', 'keep-alive');
+      headers.set('Keep-Alive', 'timeout=5, max=100');
 
       return new Response(object.body, {
         status: 206, // Partial Content
@@ -336,8 +339,11 @@ async function handleStreamTrack(trackId, request, env, corsHeaders) {
     const contentType = object.httpMetadata?.contentType || 'audio/mpeg';
     headers.set('Content-Type', contentType);
     headers.set('Accept-Ranges', 'bytes');
-    headers.set('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+    headers.set('Cache-Control', 'public, max-age=3600, must-revalidate'); // Cache for 1 hour
     headers.set('Content-Length', object.size.toString());
+    // HTTP/2 friendly headers for connection multiplexing
+    headers.set('Connection', 'keep-alive');
+    headers.set('Keep-Alive', 'timeout=5, max=100');
 
     return new Response(object.body, {
       status: 200,

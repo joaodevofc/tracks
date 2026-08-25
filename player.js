@@ -334,13 +334,35 @@ class MultitrackPlayer {
             // Set crossOrigin for CORS with Web Audio API
             audioElement.crossOrigin = "anonymous";
             
+            // Enable aggressive preloading to reduce buffering issues
+            audioElement.preload = "auto";
+            
             // Use streamUrl for cloud tracks, otherwise use local file
             let objectUrl = null;
             if (track.streamUrl) {
-                audioElement.src = track.streamUrl;
-                console.log('[PLAYER] Using cloud stream URL for track:', track.name);
-                console.log('[PLAYER] Stream URL:', track.streamUrl);
-                console.log('[PLAYER] Stream URL domain:', new URL(track.streamUrl).hostname);
+                // For small projects (≤8 tracks), load as blob to avoid connection limit
+                const totalTracks = this.currentProject?.tracks?.length || 0;
+                if (totalTracks <= 8) {
+                    console.log('[PLAYER] Small project (≤8 tracks), loading as blob to avoid connection limit');
+                    try {
+                        const response = await fetch(track.streamUrl);
+                        if (!response.ok) {
+                            throw new Error(`Failed to fetch audio: ${response.status}`);
+                        }
+                        const blob = await response.blob();
+                        objectUrl = URL.createObjectURL(blob);
+                        audioElement.src = objectUrl;
+                        console.log('[PLAYER] Loaded audio as blob for track:', track.name, 'Size:', blob.size);
+                    } catch (error) {
+                        console.error('[PLAYER] Failed to load as blob, falling back to streaming:', error);
+                        audioElement.src = track.streamUrl;
+                    }
+                } else {
+                    audioElement.src = track.streamUrl;
+                    console.log('[PLAYER] Using cloud stream URL for track:', track.name);
+                    console.log('[PLAYER] Stream URL:', track.streamUrl);
+                    console.log('[PLAYER] Stream URL domain:', new URL(track.streamUrl).hostname);
+                }
             } else {
                 objectUrl = URL.createObjectURL(track.file);
                 audioElement.src = objectUrl;
