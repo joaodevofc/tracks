@@ -43,11 +43,6 @@ export default {
         return handleStreamTrack(trackId, request, env, corsHeaders);
       }
 
-      if (url.pathname.match(/^\/api\/tracks\/[^/]+$/) && request.method === 'GET') {
-        const userId = url.pathname.split('/')[3];
-        return handleListTracks(userId, request, env, corsHeaders);
-      }
-
       if (url.pathname.match(/^\/track\/[^/]+$/) && request.method === 'DELETE') {
         const trackId = url.pathname.split('/')[2];
         return handleDeleteTrack(trackId, request, env, corsHeaders);
@@ -353,85 +348,6 @@ async function handleStreamTrack(trackId, request, env, corsHeaders) {
     console.error('[WORKER] Stream track error:', error);
     
     return new Response(JSON.stringify({ error: 'Failed to stream track' }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  }
-}
-
-/**
- * Handle listing all tracks for a user
- */
-async function handleListTracks(userId, request, env, corsHeaders) {
-  try {
-    // Verify Firebase token
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Missing authorization token' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    const token = authHeader.substring(7);
-    const decodedToken = await verifyFirebaseToken(token, env);
-    
-    if (!decodedToken) {
-      return new Response(JSON.stringify({ error: 'Invalid or expired token' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    // Verify the requested userId matches the authenticated user
-    if (decodedToken.uid !== userId) {
-      console.log('[WORKER] User ID mismatch:', decodedToken.uid, 'vs', userId);
-      return new Response(JSON.stringify({ error: 'Unauthorized: can only list own tracks' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    console.log('[WORKER] Listing tracks for user:', userId);
-
-    // List all objects in R2 with the user's prefix
-    const prefix = `${userId}/`;
-    const listed = await env.wtracks_audio.list({ prefix: prefix });
-
-    console.log('[WORKER] Found', listed.objects.length, 'objects in R2 for user:', userId);
-
-    // Extract metadata from each object
-    const tracks = [];
-    for (const object of listed.objects) {
-      // Extract trackId from key (format: userId/trackId)
-      const trackId = object.key.substring(prefix.length);
-      
-      // Get custom metadata from the object
-      const metadata = object.customMetadata || {};
-      
-      tracks.push({
-        id: trackId,
-        userId: metadata.userId || userId,
-        trackName: metadata.trackName || 'Unknown Track',
-        projectName: metadata.projectName || 'Untitled Project',
-        originalFileName: metadata.originalFileName || object.key,
-        fileSize: object.size,
-        mimeType: object.httpMetadata?.contentType || 'audio/mpeg',
-        uploadedAt: metadata.uploadedAt || object.uploaded,
-        createdAt: metadata.uploadedAt || object.uploaded
-      });
-    }
-
-    console.log('[WORKER] Returning', tracks.length, 'tracks for user:', userId);
-
-    return new Response(JSON.stringify(tracks), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-
-  } catch (error) {
-    console.error('[WORKER] List tracks error:', error);
-    return new Response(JSON.stringify({ error: 'Failed to list tracks' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

@@ -442,19 +442,55 @@ class StorageManager {
         this.projects = [];
         this.playlists = [];
         this.loaded = false;
+        this.db = null;
+        this.initFirebase();
         this.load();
+    }
+    
+    initFirebase() {
+        // Initialize Firebase collections for project sync
+        if (window.firebaseDB) {
+            this.db = window.firebaseDB.db;
+            this.collection = window.firebaseDB.collection;
+            this.getDocs = window.firebaseDB.getDocs;
+            this.query = window.firebaseDB.query;
+            this.where = window.firebaseDB.where;
+            this.orderBy = window.firebaseDB.orderBy;
+            this.addDoc = window.firebaseDB.addDoc;
+            this.updateDoc = window.firebaseDB.updateDoc;
+            this.deleteDoc = window.firebaseDB.deleteDoc;
+            this.doc = window.firebaseDB.doc;
+            this.getDoc = window.firebaseDB.getDoc;
+            this.setDoc = window.firebaseDB.setDoc;
+            this.serverTimestamp = window.firebaseDB.serverTimestamp;
+            console.log('[STORAGE] Firebase initialized for project sync');
+        } else {
+            console.log('[STORAGE] Firebase not available - projects will be local only');
+        }
     }
     
     async load() {
         try {
             const storageKey = getStorageKey();
             const playlistsStorageKey = getPlaylistsStorageKey();
+            const userId = getCurrentUserId();
             
-            console.log('[STORAGE] Loading projects for user:', getCurrentUserId());
+            console.log('[STORAGE] Loading projects for user:', userId);
             
-            // Load projects
+            // First, try to load from Firestore for authenticated users
+            if (this.db && userId !== 'guest') {
+                try {
+                    await this.loadProjectsFromFirestore(userId);
+                } catch (error) {
+                    console.error('[STORAGE] Error loading from Firestore, falling back to localStorage:', error);
+                    // Continue with localStorage fallback
+                }
+            }
+            
+            // Load from localStorage (fallback or cache)
             const data = localStorage.getItem(storageKey);
-            if (data) {
+            if (data && this.projects.length === 0) {
+                // Only load from localStorage if Firestore didn't return any projects
                 const parsed = JSON.parse(data);
                 if (parsed.version === STORAGE_VERSION) {
                     this.projects = [];
@@ -462,13 +498,16 @@ class StorageManager {
                         const project = await Project.fromJSON(p);
                         this.projects.push(project);
                     }
+                    console.log('[STORAGE] Loaded projects from localStorage fallback:', this.projects.length);
                 } else {
                     // Handle version migration if needed
                     this.projects = [];
                 }
+            } else if (data && this.projects.length > 0) {
+                console.log('[STORAGE] Using Firestore projects, localStorage as cache');
             }
             
-            // Load playlists
+            // Load playlists (still local only for now)
             const playlistsData = localStorage.getItem(playlistsStorageKey);
             if (playlistsData) {
                 const parsedPlaylists = JSON.parse(playlistsData);
@@ -476,11 +515,48 @@ class StorageManager {
             }
             
             this.loaded = true;
+            console.log('[STORAGE] Load completed, total projects:', this.projects.length);
         } catch (error) {
             console.error('Error loading projects:', error);
             this.projects = [];
             this.playlists = [];
             this.loaded = true;
+        }
+    }
+    
+    async loadProjectsFromFirestore(userId) {
+        console.log('[STORAGE] Loading projects from Firestore for user:', userId);
+        
+        try {
+            const q = this.query(
+                this.collection(this.db, 'projects'),
+                this.where('userId', '==', userId)
+            );
+            
+            const querySnapshot = await this.getDocs(q);
+            this.projects = [];
+            
+            console.log('[STORAGE] Firestore query returned', querySnapshot.size, 'projects');
+            
+            for (const doc of querySnapshot.docs) {
+                const data = doc.data();
+                const projectData = {
+                    id: doc.id,
+                    ...data.projectData // The actual project metadata is stored in projectData field
+                };
+                
+                const project = await Project.fromJSON(projectData);
+                this.projects.push(project);
+                console.log('[STORAGE] Loaded project from Firestore:', project.name);
+            }
+            
+            // Sort by updatedAt
+            this.projects.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+            
+            console.log('[STORAGE] Successfully loaded', this.projects.length, 'projects from Firestore');
+        } catch (error) {
+            console.error('[STORAGE] Error loading projects from Firestore:', error);
+            throw error;
         }
     }
     
@@ -491,6 +567,8 @@ class StorageManager {
             const userId = getCurrentUserId();
             
             console.log('[STORAGE] save() called for user:', userId, 'projects:', this.projects.length);
+            
+            // Convert projects to JSON
             const projectsData = [];
             for (const project of this.projects) {
                 console.log('[STORAGE] Converting project to JSON:', project.name);
@@ -498,19 +576,81 @@ class StorageManager {
                 projectsData.push(projectJSON);
             }
             
+            // Save to localStorage (as cache)
             const data = {
                 version: STORAGE_VERSION,
                 projects: projectsData
             };
             localStorage.setItem(storageKey, JSON.stringify(data));
             
-            // Save playlists
+            // Save to Firestore for authenticated users
+            if (this.db && userId !== 'guest') {
+                await this.saveProjectsToFirestore(userId, projectsData);
+            }
+            
+            // Save playlists (still local only for now)
             const playlistsData = this.playlists.map(p => p.toJSON());
             localStorage.setItem(playlistsStorageKey, JSON.stringify(playlistsData));
             
             console.log('[STORAGE] save() completed successfully');
         } catch (error) {
             console.error('[STORAGE] Error saving projects:', error);
+            throw error;
+        }
+    }
+    
+    async saveProjectsToFirestore(userId, projectsData) {
+        console.log('[STORAGE] Saving projects to Firestore for user:', userId);
+        
+        try {
+            // Get existing projects from Firestore to determine which to update/delete
+            const q = this.query(
+                this.collection(this.db, 'projects'),
+                this.where('userId', '==', userId)
+            );
+            
+            const querySnapshot = await this.getDocs(q);
+            const existingProjectIds = new Set(querySnapshot.docs.map(doc => doc.id));
+            const currentProjectIds = new Set(this.projects.map(p => p.id));
+            
+            // Update or create projects
+            for (const project of this.projects) {
+                const projectJSON = projectsData.find(p => p.id === project.id);
+                if (!projectJSON) continue;
+                
+                const projectRef = this.doc(this.db, 'projects', project.id);
+                
+                const firestoreData = {
+                    userId: userId,
+                    projectData: projectJSON,
+                    updatedAt: this.serverTimestamp()
+                };
+                
+                if (existingProjectIds.has(project.id)) {
+                    // Update existing project
+                    await this.updateDoc(projectRef, firestoreData);
+                    console.log('[STORAGE] Updated project in Firestore:', project.name);
+                } else {
+                    // Create new project
+                    await this.setDoc(projectRef, {
+                        ...firestoreData,
+                        createdAt: this.serverTimestamp()
+                    });
+                    console.log('[STORAGE] Created project in Firestore:', project.name);
+                }
+                
+                existingProjectIds.delete(project.id);
+            }
+            
+            // Delete projects that no longer exist locally
+            for (const projectId of existingProjectIds) {
+                await this.deleteDoc(this.doc(this.db, 'projects', projectId));
+                console.log('[STORAGE] Deleted project from Firestore:', projectId);
+            }
+            
+            console.log('[STORAGE] Successfully synced projects to Firestore');
+        } catch (error) {
+            console.error('[STORAGE] Error saving projects to Firestore:', error);
             throw error;
         }
     }
@@ -536,7 +676,7 @@ class StorageManager {
         const isUserLoggedIn = window.firebaseAuth && window.firebaseAuth.auth && window.firebaseAuth.auth.currentUser;
         
         if (isUserLoggedIn) {
-            // User is logged in - save to storage
+            // User is logged in - save to storage and Firestore
             this.projects.unshift(project);
             await this.save(onProgress);
             console.log('[STORAGE] Project saved and added to storage');
@@ -617,6 +757,17 @@ class StorageManager {
                 }
             }
             
+            // Delete from Firestore if available
+            if (this.db && getCurrentUserId() !== 'guest') {
+                try {
+                    await this.deleteDoc(this.doc(this.db, 'projects', id));
+                    console.log('[STORAGE] Deleted project from Firestore:', id);
+                } catch (error) {
+                    console.error('[STORAGE] Failed to delete project from Firestore:', id, error);
+                    // Continue with local deletion even if Firestore deletion fails
+                }
+            }
+            
             this.projects.splice(index, 1);
             await this.save();
             console.log('[STORAGE] Project deleted:', id);
@@ -628,6 +779,7 @@ class StorageManager {
     async clearAll() {
         const storageKey = getStorageKey();
         const playlistsStorageKey = getPlaylistsStorageKey();
+        const userId = getCurrentUserId();
         
         // Delete all cloud-stored tracks from R2 before clearing
         for (const project of this.projects) {
@@ -646,11 +798,31 @@ class StorageManager {
             }
         }
         
+        // Delete all projects from Firestore if available
+        if (this.db && userId !== 'guest') {
+            try {
+                const q = this.query(
+                    this.collection(this.db, 'projects'),
+                    this.where('userId', '==', userId)
+                );
+                
+                const querySnapshot = await this.getDocs(q);
+                
+                for (const doc of querySnapshot.docs) {
+                    await this.deleteDoc(this.doc(this.db, 'projects', doc.id));
+                    console.log('[STORAGE] Deleted project from Firestore during clearAll:', doc.id);
+                }
+            } catch (error) {
+                console.error('[STORAGE] Failed to delete projects from Firestore during clearAll:', error);
+                // Continue with local clearing even if Firestore deletion fails
+            }
+        }
+        
         this.projects = [];
         this.playlists = [];
         localStorage.removeItem(storageKey);
         localStorage.removeItem(playlistsStorageKey);
-        console.log('[STORAGE] All projects and playlists cleared for user:', getCurrentUserId());
+        console.log('[STORAGE] All projects and playlists cleared for user:', userId);
     }
     
     getProjectsByFilter(filter) {
@@ -760,8 +932,7 @@ class StorageManager {
 }
 
 // Initialize global storage instance
-// Will be overridden in app.js based on user plan (studio/pro use HttpStorageManager, home uses StorageManager)
-let storage = new StorageManager();
+const storage = new StorageManager();
 
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
