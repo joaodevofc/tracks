@@ -3,9 +3,9 @@
  * Provides offline functionality and caching for PWA
  */
 
-const CACHE_NAME = 'wmult-v3'; // Incremented version to force cache update
-const STATIC_CACHE = 'wmult-static-v3'; // Incremented version to force cache update
-const DYNAMIC_CACHE = 'multracks-dynamic-v3'; // Incremented version to force cache update
+const CACHE_NAME = 'wmult-v4'; // Incremented version to force cache update
+const STATIC_CACHE = 'wmult-static-v4'; // Incremented version to force cache update
+const DYNAMIC_CACHE = 'multracks-dynamic-v4'; // Incremented version to force cache update
 
 // Assets to cache on install
 const STATIC_ASSETS = [

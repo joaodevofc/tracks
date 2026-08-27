@@ -79,20 +79,6 @@ class SetlistsManager {
         const floatingCreateSetlistBtn = document.getElementById('floatingCreateSetlistBtn');
         if (floatingCreateSetlistBtn) {
             floatingCreateSetlistBtn.addEventListener('click', async () => {
-                // Check plan restrictions for Home users
-                const userPlan = await this.getUserPlan();
-                console.log('[SETLISTS] Create button clicked - User plan:', userPlan, 'Current setlists:', this.setlists.length);
-
-                if (userPlan === 'home' && this.setlists.length >= 1) {
-                    console.log('[SETLISTS] Home user already has 1 setlist, showing upgrade modal');
-                    if (this.app && this.app.showUpgradeModal) {
-                        this.app.showUpgradeModal('Setlists');
-                    } else {
-                        alert('No plano Home, você pode criar apenas 1 setlist. Faça upgrade para o plano Studio para criar setlists ilimitadas.');
-                    }
-                    return;
-                }
-
                 this.showCreateSetlistModal();
             });
         }
@@ -470,21 +456,6 @@ class SetlistsManager {
             
             // Create new setlist button
             createNewBtn.addEventListener('click', async () => {
-                // Check plan restrictions for Home users
-                const userPlan = await this.getUserPlan();
-                console.log('[SETLISTS] Create new setlist from selection - User plan:', userPlan, 'Current setlists:', this.setlists.length);
-
-                if (userPlan === 'home' && this.setlists.length >= 1) {
-                    console.log('[SETLISTS] Home user already has 1 setlist, showing upgrade modal');
-                    overlay.remove();
-                    if (this.app && this.app.showUpgradeModal) {
-                        this.app.showUpgradeModal('Setlists');
-                    } else {
-                        alert('No plano Home, você pode criar apenas 1 setlist. Faça upgrade para o plano Studio para criar setlists ilimitadas.');
-                    }
-                    return;
-                }
-
                 overlay.remove();
                 this.showCreateSetlistModalForSong(songData);
             });
@@ -592,17 +563,6 @@ class SetlistsManager {
             setlist.songs = [];
         }
 
-        // Check plan restrictions for Home users (max 5 songs per setlist)
-        const userPlan = await this.getUserPlan();
-        if (userPlan === 'home' && setlist.songs.length >= 5) {
-            if (this.app && this.app.showUpgradeModal) {
-                this.app.showUpgradeModal('Setlists');
-            } else {
-                alert('No plano Home, você pode adicionar no máximo 5 músicas por setlist. Faça upgrade para o plano Studio para adicionar músicas ilimitadas.');
-            }
-            return;
-        }
-
         setlist.songs.push(songData);
 
         // Save to Firebase
@@ -689,22 +649,6 @@ class SetlistsManager {
         if (!this.db) {
             alert('Erro: Firebase não disponível');
             return;
-        }
-
-        // Check plan restrictions for Home users (backup check)
-        const userPlan = await this.getUserPlan();
-        console.log('[SETLISTS] Creating setlist - User plan:', userPlan, 'Current setlists count:', this.setlists.length);
-
-        if (userPlan === 'home') {
-            // Check if user already has a setlist
-            if (this.setlists.length >= 1) {
-                console.log('[SETLISTS] Home user already has 1 setlist, blocking creation (backup check)');
-                // This should normally be caught by the button click handler, but keeping as backup
-                if (this.app && this.app.showUpgradeModal) {
-                    this.app.showUpgradeModal('Setlists');
-                }
-                return;
-            }
         }
 
         try {

@@ -791,34 +791,14 @@ class MultracksApp {
     }
 
     async requireStudioPlan(featureName = 'este recurso') {
-        const isStudio = await this.isStudioPlan();
-        if (!isStudio) {
-            // Show upgrade modal for all features (including setlists and minhas tracks)
-            this.showUpgradeModal(featureName);
-            return false;
-        }
+        // Allow all features for Home users - no restrictions
         return true;
     }
 
     showUpgradeModal(featureName) {
-        const upgradeModal = document.getElementById('upgradeModal');
-        const upgradeTitle = document.getElementById('upgradeTitle');
-        const upgradeMessage = document.getElementById('upgradeMessage');
-
-        if (upgradeModal && upgradeTitle && upgradeMessage) {
-            // Customize message based on feature
-            const messages = {
-                'Setlists': 'No plano Home, você pode criar apenas 1 setlist com até 5 músicas.',
-                'Minhas Tracks': 'A criação de conta de criador está disponível apenas para usuários do plano Studio.',
-                'Adicionar músicas': 'A adição de músicas personalizadas está disponível apenas para usuários do plano Studio.',
-                'default': `${featureName} está disponível apenas para usuários do plano Studio.`
-            };
-
-            upgradeTitle.textContent = 'Recurso Exclusivo Studio';
-            upgradeMessage.textContent = messages[featureName] || messages['default'];
-
-            upgradeModal.classList.add('active');
-        }
+        // Upgrade modal is no longer needed since all features are available for Home users
+        // This function is kept for compatibility but does nothing
+        console.log('[APP] Upgrade modal called for:', featureName, '- but all features are now available for Home users');
     }
 
     hideUpgradeModal() {
@@ -830,6 +810,11 @@ class MultracksApp {
 
     navigateToPlans() {
         window.location.href = 'planos.html';
+    }
+
+    navigateToOurProjects() {
+        this.closeSettingsModal();
+        window.location.href = 'projetos.html';
     }
 
     async switchView(viewName) {
@@ -3200,13 +3185,6 @@ class MultracksApp {
     // EFFECTS MANAGEMENT
     // ========================================
     async showEffectPopover(clientX, clientY, timeInSeconds, clickX, canvasWidth) {
-        // Check plan restriction - Home users cannot add effects
-        const isStudio = await this.isStudioPlan();
-        if (!isStudio) {
-            this.showUpgradeModal('Efeitos no canvas');
-            return;
-        }
-
         // Store current click time
         this.currentClickTime = timeInSeconds;
 
@@ -5480,6 +5458,10 @@ class MultracksApp {
 
         // Save profile button
         this.saveProfileBtn?.addEventListener('click', () => this.saveUserProfile());
+
+        // Our projects button
+        this.ourProjectsBtn = document.getElementById('ourProjectsBtn');
+        this.ourProjectsBtn?.addEventListener('click', () => this.navigateToOurProjects());
     }
 
     initProfilePhotoUpload() {
@@ -5851,53 +5833,11 @@ class MultracksApp {
         this.repeatMode.checked = localStorage.getItem('repeatMode') === 'true';
         this.autoAdvanceMode.checked = localStorage.getItem('autoAdvanceMode') === 'true';
         this.transitionMode.checked = localStorage.getItem('transitionMode') === 'true';
-
-        // Load storage info
-        this.updateStorageInfo();
     }
-    
-    async updateStorageInfo() {
-        try {
-            const storageUsed = document.getElementById('storageUsed');
-            const storageProgressFill = document.getElementById('storageProgressFill');
-            
-            if (storageUsed && storageProgressFill) {
-                // Check if backend API is available
-                let backendAvailable = false;
-                try {
-                    await apiClient.healthCheck();
-                    backendAvailable = true;
-                } catch (error) {
-                    console.log('[SETTINGS] Backend not available, using local storage info');
-                }
 
-                if (backendAvailable) {
-                    // TODO: Implement backend endpoint for user storage info
-                    // For now, show 0 since backend storage tracking needs implementation
-                    storageUsed.textContent = '0 MB';
-                    storageProgressFill.style.width = '0%';
-                } else {
-                    // Fallback to local IndexedDB storage
-                    const totalSize = await this.audioStorage.getTotalSize();
-                    const formattedSize = this.audioStorage.formatBytes(totalSize);
-                    storageUsed.textContent = formattedSize;
-                    
-                    // Calculate percentage (assuming 10GB limit)
-                    const totalLimit = 10 * 1024 * 1024 * 1024; // 10GB in bytes
-                    const percentage = Math.min(100, (totalSize / totalLimit) * 100);
-                    storageProgressFill.style.width = `${percentage}%`;
-                }
-            }
-        } catch (error) {
-            console.error('[SETTINGS] Error loading storage info:', error);
-            // Show 0 on error
-            const storageUsed = document.getElementById('storageUsed');
-            const storageProgressFill = document.getElementById('storageProgressFill');
-            if (storageUsed && storageProgressFill) {
-                storageUsed.textContent = '0 MB';
-                storageProgressFill.style.width = '0%';
-            }
-        }
+    async updateStorageInfo() {
+        // Storage info display removed - function kept for compatibility but does nothing
+        console.log('[SETTINGS] updateStorageInfo called - storage display removed');
     }
     
     closeSettingsModal() {
@@ -5911,7 +5851,6 @@ class MultracksApp {
                 this.audioStorage.clearAllAudioFiles().then(() => {
                     console.log('[SETTINGS] Local storage cleared');
                     alert('Armazenamento local limpo com sucesso!');
-                    this.updateStorageInfo(); // Refresh storage display
                 }).catch(error => {
                     console.error('[SETTINGS] Error clearing local storage:', error);
                     alert('Erro ao limpar armazenamento local: ' + error.message);
@@ -6691,12 +6630,6 @@ class MultracksApp {
         const myTracksBtn = document.getElementById('myTracksBtn');
         myTracksBtn?.addEventListener('click', async () => {
             profileDropdown?.classList.remove('active');
-            // Check plan restriction
-            const isStudio = await this.isStudioPlan();
-            if (!isStudio) {
-                this.showUpgradeModal('Minhas Tracks');
-                return;
-            }
             this.switchToMyTracks();
         });
 
@@ -8804,13 +8737,6 @@ class MultracksApp {
     }
 
     async openCreatorSignupModal() {
-        // Check plan restriction - Home users cannot create creator accounts
-        const isStudio = await this.isStudioPlan();
-        if (!isStudio) {
-            this.showUpgradeModal('Minhas Tracks');
-            return;
-        }
-
         if (this.creatorSignupModal) {
             this.creatorSignupModal.classList.add('active');
             // Reset form
@@ -8952,13 +8878,6 @@ class MultracksApp {
 
         if (!isUserLoggedIn) {
             this.openAuthModal();
-            return;
-        }
-
-        // Check plan restriction - Home users cannot access Minhas Tracks
-        const isStudio = await this.isStudioPlan();
-        if (!isStudio) {
-            this.showUpgradeModal('Minhas Tracks');
             return;
         }
 

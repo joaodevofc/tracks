@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>W.Tracks — Projetos Futuros</title>
+    <meta name="description" content="Roadmap e projetos futuros do W.Tracks.">
+    <meta name="theme-color" content="#080808">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="icon-black-transparent.png">
+
+    <style>
+        :root {
+            --bg: #080808;
+            --surface: #111111;
+            --surface-2: #171717;
+            --border: rgba(255,255,255,.09);
+            --text: #f5f5f5;
+            --muted: #9b9b9b;
+            --soft: #cfcfcf;
+            --accent: #ffffff;
+            --max: 1180px;
+        }
+
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            margin: 0;
+            background:
+                radial-gradient(circle at 80% 0%, rgba(255,255,255,.07), transparent 28%),
+                radial-gradient(circle at 15% 35%, rgba(255,255,255,.035), transparent 25%),
+                var(--bg);
+            color: var(--text);
+            font-family: "Poppins", sans-serif;
+            min-height: 100vh;
+        }
+
+        a { color: inherit; text-decoration: none; }
+
+        .header {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            background: rgba(8,8,8,.78);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .header-container {
+            width: min(var(--max), calc(100% - 40px));
+            height: 76px;
+            margin: auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 30px;
+        }
+
+        .logo { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+        .logo-icon { width: 31px; height: 31px; object-fit: contain; }
+        .logo-text { font-size: 19px; letter-spacing: -.4px; }
+
+        .nav { display: flex; align-items: center; gap: 28px; margin-left: auto; }
+        .nav a {
+            color: #9c9c9c;
+            font-size: 13px;
+            transition: .2s ease;
+        }
+        .nav a:hover, .nav a.active { color: #fff; }
+
+        .header-link {
+            border: 1px solid var(--border);
+            padding: 9px 15px;
+            border-radius: 10px;
+            font-size: 12px;
+            color: #ddd;
+            transition: .2s ease;
+        }
+        .header-link:hover { background: #fff; color: #000; }
+
+        .hero {
+            width: min(var(--max), calc(100% - 40px));
+            margin: auto;
+            padding: 110px 0 78px;
+            position: relative;
+        }
+
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            color: #aaa;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1.7px;
+            text-transform: uppercase;
+        }
+        .eyebrow::before {
+            content: "";
+            width: 25px;
+            height: 1px;
+            background: #777;
+        }
+
+        h1 {
+            max-width: 850px;
+            font-size: clamp(42px, 7vw, 82px);
+            line-height: .98;
+            letter-spacing: -4px;
+            margin: 18px 0 25px;
+            font-weight: 600;
+        }
+
+        .hero p {
+            max-width: 670px;
+            color: var(--muted);
+            font-size: 16px;
+            line-height: 1.85;
+            margin: 0;
+        }
+
+        .hero-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 32px;
+        }
+
+        .pill {
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,.025);
+            border-radius: 999px;
+            padding: 8px 13px;
+            color: #bdbdbd;
+            font-size: 11px;
+        }
+
+        main {
+            width: min(var(--max), calc(100% - 40px));
+            margin: auto;
+        }
+
+        .section-head {
+            display: flex;
+            align-items: end;
+            justify-content: space-between;
+            gap: 30px;
+            margin: 20px 0 24px;
+        }
+        .section-head h2 {
+            margin: 0;
+            font-size: 25px;
+            letter-spacing: -.8px;
+        }
+        .section-head span {
+            color: #777;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+        }
+
+        .roadmap {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 14px;
+        }
+
+        .card {
+            grid-column: span 4;
+            position: relative;
+            overflow: hidden;
+            min-height: 270px;
+            padding: 27px;
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            background:
+                linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.012) 55%),
+                var(--surface);
+            transition: transform .25s ease, border-color .25s ease, background .25s ease;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(255,255,255,.18);
+            background:
+                linear-gradient(145deg, rgba(255,255,255,.075), rgba(255,255,255,.015) 55%),
+                var(--surface);
+        }
+
+        .card.featured { grid-column: span 8; min-height: 300px; }
+
+        .number {
+            color: #555;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+        }
+
+        .status {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            color: #aaa;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .status::before {
+            content: "";
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #777;
+        }
+        .status.priority::before { background: #fff; }
+
+        .icon {
+            width: 48px;
+            height: 48px;
+            margin: 34px 0 24px;
+            border: 1px solid var(--border);
+            border-radius: 13px;
+            display: grid;
+            place-items: center;
+            color: #eee;
+            background: rgba(255,255,255,.025);
+        }
+        .icon svg { width: 22px; height: 22px; }
+
+        .card h3 {
+            margin: 0 0 10px;
+            font-size: 20px;
+            letter-spacing: -.5px;
+        }
+        .card p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.75;
+        }
+
+        .card .tagline {
+            color: #ddd;
+            font-size: 12px;
+            margin-top: 18px;
+        }
+
+        .timeline {
+            margin: 70px 0 90px;
+            padding: 32px;
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            background: rgba(255,255,255,.018);
+        }
+
+        .timeline-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0;
+        }
+
+        .phase {
+            padding: 8px 28px 8px 0;
+            position: relative;
+        }
+        .phase + .phase {
+            border-left: 1px solid var(--border);
+            padding-left: 28px;
+        }
+        .phase-label {
+            color: #666;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+        .phase h3 { margin: 10px 0 8px; font-size: 16px; }
+        .phase p { margin: 0; color: #888; font-size: 12px; line-height: 1.7; }
+
+        .principles {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 100px;
+        }
+        .principle {
+            padding: 22px;
+            border-top: 1px solid var(--border);
+        }
+        .principle strong { display: block; font-size: 13px; margin-bottom: 8px; }
+        .principle span { color: #7e7e7e; font-size: 11px; line-height: 1.7; }
+
+        footer {
+            border-top: 1px solid var(--border);
+            padding: 30px 0 45px;
+            color: #666;
+            font-size: 11px;
+        }
+        .footer-inner {
+            width: min(var(--max), calc(100% - 40px));
+            margin: auto;
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        @media (max-width: 850px) {
+            .nav { display: none; }
+            .card, .card.featured { grid-column: span 6; }
+            .timeline-grid { grid-template-columns: 1fr; }
+            .phase + .phase { border-left: 0; border-top: 1px solid var(--border); padding: 22px 0 0; margin-top: 22px; }
+            .principles { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 560px) {
+            .header-container, main, .hero, .footer-inner { width: min(100% - 28px, var(--max)); }
+            .header-container { height: 66px; }
+            .header-link { padding: 8px 11px; }
+            .hero { padding: 72px 0 55px; }
+            h1 { font-size: 48px; letter-spacing: -2.5px; }
+            .hero p { font-size: 14px; }
+            .card, .card.featured { grid-column: span 12; min-height: 240px; }
+            .timeline { padding: 22px; margin-top: 55px; }
+            .principles { grid-template-columns: 1fr; margin-bottom: 65px; }
+            .section-head { align-items: start; flex-direction: column; gap: 8px; }
+            .footer-inner { flex-direction: column; }
+        }
+    </style>
+</head>
+
+<body>
+<header class="header">
+    <div class="header-container">
+        <a class="logo" href="index.html" aria-label="W.Tracks">
+            <img src="icon-white-transparent.png" alt="" class="logo-icon">
+            <span class="logo-text">W.Tracks</span>
+        </a>
+
+        <nav class="nav" aria-label="Navegação principal">
+            <a href="index.html">Biblioteca</a>
+            <a href="index.html">Setlists</a>
+            <a href="index.html">Comunidade</a>
+            <a href="projetos.html" class="active">Projetos</a>
+        </nav>
+
+        <a class="header-link" href="index.html">Voltar ao W.Tracks</a>
+    </div>
+</header>
+
+<section class="hero">
+    <span class="eyebrow">Visão de produto</span>
+    <h1>O que vem<br>depois.</h1>
+    <p>
+        Uma visão dos próximos projetos do W.Tracks — construídos para transformar
+        a plataforma em um ambiente cada vez mais completo para músicos, bandas e
+        equipes que trabalham com áudio multitrack.
+    </p>
+    <div class="hero-meta">
+        <span class="pill">Roadmap em evolução</span>
+        <span class="pill">Experiência Web + App</span>
+        <span class="pill">Cloud & Sync</span>
+        <span class="pill">Áudio profissional</span>
+    </div>
+</section>
+
+<main>
+    <div class="section-head">
+        <h2>Projetos em visão</h2>
+        <span>Roadmap · 2026+</span>
+    </div>
+
+    <section class="roadmap">
+        <article class="card featured">
+            <span class="number">01 / CLOUD</span>
+            <span class="status priority">Prioridade</span>
+            <div class="icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                    <path d="M7 18h10a4 4 0 0 0 .5-7.97A6 6 0 0 0 6.2 8.5 4.75 4.75 0 0 0 7 18Z"/>
+                    <path d="M12 10v7m0 0-2.5-2.5M12 17l2.5-2.5"/>
+                </svg>
+            </div>
+            <h3>W.Tracks Cloud</h3>
+            <p>
+                Uma camada de nuvem para sincronizar projetos, configurações e
+                biblioteca entre dispositivos. A ideia é manter a experiência rápida
+                e local-first, enquanto a nuvem cuida da continuidade e do backup.
+            </p>
+            <div class="tagline">Seus projetos onde você estiver.</div>
+        </article>
+
+        <article class="card">
+            <span class="number">02 / APP</span>
+            <span class="status">Planejado</span>
+            <div class="icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                    <rect x="7" y="3" width="10" height="18" rx="2"/>
+                    <path d="M10 6h4M11 18h2"/>
+                </svg>
+            </div>
+            <h3>W.Tracks App</h3>
+            <p>
+                Levar o player, biblioteca, setlists e projetos para uma experiência
+                dedicada no celular, usando a mesma conta e a mesma infraestrutura.
+            </p>
+        </article>
+
+        <article class="card">
+            <span class="number">03 / SYNC</span>
+            <span class="status">Em conceito</span>
+            <div class="icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                    <path d="M20 7v5h-5"/>
+                    <path d="M4 17v-5h5"/>
+                    <path d="M6.2 9A7 7 0 0 1 20 12"/>
+                    <path d="M17.8 15A7 7 0 0 1 4 12"/>
+                </svg>
+            </div>
+            <h3>Sync inteligente</h3>
+            <p>
+                Sincronização em segundo plano, com resolução de alterações e
+                prioridade para a experiência local.
+            </p>
+        </article>
+
+        <article class="card">
+            <span class="number">04 / SETLISTS</span>
+            <span class="status">Evolução</span>
+            <div class="icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                    <path d="M5 6h14M5 12h14M5 18h9"/>
+                    <circle cx="18" cy="18" r="2"/>
+                </svg>
+            </div>
+            <h3>Setlists conectadas</h3>
+            <p>
+                Setlists mais inteligentes, com acesso rápido aos projetos e uma
+                transição natural entre músicas durante apresentações.
+            </p>
+        </article>
+
+        <article class="card">
+            <span class="number">05 / PLAYER</span>
+            <span class="status priority">Em desenvolvimento</span>
+            <div class="icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                    <path d="M7 5v14l11-7L7 5Z"/>
+                </svg>
+            </div>
+            <h3>Player mais rápido</h3>
+            <p>
+                Preparação antecipada das próximas músicas, carregamento em segundo
+                plano e troca rápida entre projetos sem interromper a reprodução.
+            </p>
+        </article>
+
+        <article class="card">
+            <span class="number">06 / COLLAB</span>
+            <span class="status">Futuro</span>
+            <div class="icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                    <circle cx="9" cy="8" r="3"/>
+                    <circle cx="17" cy="10" r="2.5"/>
+                    <path d="M3.5 19a5.5 5.5 0 0 1 11 0M15 16a4.5 4.5 0 0 1 5 3"/>
+                </svg>
+            </div>
+            <h3>Colaboração</h3>
+            <p>
+                Compartilhar projetos e trabalhar em conjunto, com permissões e
+                sincronização pensadas para bandas e equipes.
+            </p>
+        </article>
+
+        <article class="card">
+            <span class="number">07 / OFFLINE</span>
+            <span class="status">Pesquisa</span>
+            <div class="icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                    <path d="M3 8.5A13 13 0 0 1 21 8.5M6 12a9 9 0 0 1 12 0M9.5 15.5a4 4 0 0 1 5 0"/>
+                    <path d="M12 19h.01"/>
+                    <path d="M4 4l16 16"/>
+                </svg>
+            </div>
+            <h3>Modo offline</h3>
+            <p>
+                Acesso confiável aos projetos importantes mesmo sem conexão,
+                mantendo a nuvem como sincronização e não como dependência constante.
+            </p>
+        </article>
+
+        <article class="card">
+            <span class="number">08 / COMMUNITY</span>
+            <span class="status">Futuro</span>
+            <div class="icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                    <path d="M4 5h16v11H8l-4 4V5Z"/>
+                    <path d="M8 9h8M8 12h5"/>
+                </svg>
+            </div>
+            <h3>Comunidade</h3>
+            <p>
+                Um espaço para descobrir, compartilhar e organizar recursos musicais
+                dentro do ecossistema W.Tracks.
+            </p>
+        </article>
+    </section>
+
+    <section class="timeline">
+        <div class="section-head" style="margin-top:0">
+            <h2>Direção do produto</h2>
+            <span>Como as peças se conectam</span>
+        </div>
+
+        <div class="timeline-grid">
+            <div class="phase">
+                <span class="phase-label">Agora</span>
+                <h3>Experiência local</h3>
+                <p>
+                    Player, biblioteca, projetos multitrack e preparação rápida
+                    precisam ser sólidos antes de ampliar o ecossistema.
+                </p>
+            </div>
+            <div class="phase">
+                <span class="phase-label">Próximo</span>
+                <h3>Cloud + sincronização</h3>
+                <p>
+                    A mesma conta passa a conectar Web e App, com backup e
+                    continuidade sem transformar a nuvem em uma etapa manual.
+                </p>
+            </div>
+            <div class="phase">
+                <span class="phase-label">Depois</span>
+                <h3>Ecossistema</h3>
+                <p>
+                    Colaboração, comunidade, offline avançado e novas ferramentas
+                    passam a compartilhar a mesma base.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-head">
+        <h2>Princípios</h2>
+        <span>O que guia as decisões</span>
+    </div>
+
+    <section class="principles">
+        <div class="principle">
+            <strong>Local-first</strong>
+            <span>O produto deve continuar rápido e útil mesmo quando a conexão não é perfeita.</span>
+        </div>
+        <div class="principle">
+            <strong>Uma conta, tudo conectado</strong>
+            <span>Web, app e nuvem devem compartilhar a mesma experiência e os mesmos projetos.</span>
+        </div>
+        <div class="principle">
+            <strong>Áudio em primeiro lugar</strong>
+            <span>Performance, sincronização e estabilidade do player vêm antes de complexidade.</span>
+        </div>
+        <div class="principle">
+            <strong>Sem atrito</strong>
+            <span>A tecnologia deve trabalhar em segundo plano para que o músico não precise pensar nela.</span>
+        </div>
+    </section>
+</main>
+
+<footer>
+    <div class="footer-inner">
+        <span>W.Tracks · Projetos futuros</span>
+        <span>Construindo o próximo passo.</span>
+    </div>
+</footer>
+</body>
+</html>
