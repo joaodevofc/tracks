@@ -33,9 +33,6 @@
       const db = getFirestore(app);
       const auth = getAuth(app);
 
-      // Expose Firebase config for debugging
-      window.firebaseConfig = firebaseConfig;
-
       window.firebaseDB = {
         db,
         collection,
@@ -61,24 +58,11 @@
       };
 
       console.log('[FIREBASE] Firebase initialized (Firestore + Auth)');
-      
-      // Re-initialize storage Firebase connection after Firebase is ready
-      console.log('[FIREBASE] Checking if storage is available for re-initialization...');
-      console.log('[FIREBASE] window.storage available:', !!window.storage);
-      console.log('[FIREBASE] window.storage.reinitializeFirebase available:', typeof window.storage?.reinitializeFirebase === 'function');
-      
-      if (window.storage && typeof window.storage.reinitializeFirebase === 'function') {
-        console.log('[FIREBASE] Calling storage.reinitializeFirebase()...');
-        window.storage.reinitializeFirebase();
-      } else {
-        console.log('[FIREBASE] Storage not ready yet, will try again on login');
-      }
     </script>
 
     <script src="communityTracks.js"></script>
     <script src="audiostorage.js"></script>
     <script src="setlists.js"></script>
-    <script src="api-client.js"></script>
     <script>
         // Register Service Worker for PWA with immediate updates
         if ('serviceWorker' in navigator) {
@@ -100,15 +84,6 @@
                                     window.location.reload();
                                 }
                             });
-                        });
-                        
-                        // Listen for messages from service worker
-                        navigator.serviceWorker.addEventListener('message', (event) => {
-                            if (event.data && event.data.type === 'SW_UPDATE_AVAILABLE') {
-                                console.log('[SW] Update message received:', event.data.message);
-                                console.log('[SW] Reloading page to get new version...');
-                                window.location.reload();
-                            }
                         });
                         
                         // Also check for updates periodically

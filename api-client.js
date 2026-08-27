@@ -5,8 +5,8 @@
 
 class ApiClient {
     constructor() {
-        // Default to Cloudflare Worker for production
-        this.baseUrl = localStorage.getItem('wtracks_api_url') || 'https://wtracks.wtracks.workers.dev';
+        // Default to localhost:3000 for development
+        this.baseUrl = localStorage.getItem('wtracks_api_url') || 'http://localhost:3000';
         this.authToken = null;
     }
 
@@ -88,20 +88,14 @@ class ApiClient {
         formData.append('trackName', metadata.trackName);
         formData.append('trackId', metadata.trackId || '');
 
-        const url = `${this.baseUrl}/upload`;
+        const url = `${this.baseUrl}/api/tracks`;
         const headers = {};
 
         if (this.authToken) {
             headers['Authorization'] = `Bearer ${this.authToken}`;
-            // Log first 20 chars of token for debugging (security)
-            const tokenPreview = this.authToken.substring(0, 20) + '...';
-            console.log('[API] Auth token present (first 20 chars):', tokenPreview);
-            console.log('[API] Token length:', this.authToken.length);
-        } else {
-            console.warn('[API] No auth token available for upload!');
         }
 
-        console.log('[API] Uploading track:', metadata.trackName, 'Size:', file.size, 'to:', url);
+        console.log('[API] Uploading track:', metadata.trackName, 'Size:', file.size);
 
         try {
             const response = await fetch(url, {
@@ -112,12 +106,11 @@ class ApiClient {
 
             if (!response.ok) {
                 const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-                console.error('[API] Upload failed with status:', response.status, 'Error:', error);
                 throw new Error(error.error || `HTTP ${response.status}: ${response.statusText}`);
             }
 
             const result = await response.json();
-            console.log('[API] Track uploaded successfully:', result.id, 'Key:', result.key);
+            console.log('[API] Track uploaded successfully:', result.id);
             return result;
         } catch (error) {
             console.error('[API] Upload failed:', error);
@@ -142,69 +135,17 @@ class ApiClient {
     /**
      * Get the streaming URL for a track
      */
-    async getTrackStreamUrl(trackId) {
-        try {
-            const url = `${this.baseUrl}/track/${trackId}/url`;
-            const headers = {};
-
-            if (this.authToken) {
-                headers['Authorization'] = `Bearer ${this.authToken}`;
-            }
-
-            console.log('[API] Getting stream URL for track:', trackId);
-
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: headers
-            });
-
-            if (!response.ok) {
-                const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-                console.error('[API] Get stream URL failed:', error);
-                throw new Error(error.error || `HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            const result = await response.json();
-            console.log('[API] Stream URL obtained:', result.url);
-            return result.url;
-        } catch (error) {
-            console.error('[API] Get stream URL failed:', error);
-            throw error;
-        }
+    getTrackStreamUrl(trackId) {
+        return `${this.baseUrl}/api/tracks/${trackId}/file`;
     }
 
     /**
      * Delete a track
      */
     async deleteTrack(trackId) {
-        try {
-            const url = `${this.baseUrl}/track/${trackId}`;
-            const headers = {};
-
-            if (this.authToken) {
-                headers['Authorization'] = `Bearer ${this.authToken}`;
-            }
-
-            console.log('[API] Deleting track:', trackId);
-
-            const response = await fetch(url, {
-                method: 'DELETE',
-                headers: headers
-            });
-
-            if (!response.ok) {
-                const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-                console.error('[API] Delete track failed:', error);
-                throw new Error(error.error || `HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            const result = await response.json();
-            console.log('[API] Track deleted successfully:', trackId);
-            return result;
-        } catch (error) {
-            console.error('[API] Delete track failed:', error);
-            throw error;
-        }
+        return this.request(`/api/tracks/${trackId}`, {
+            method: 'DELETE'
+        });
     }
 
     /**

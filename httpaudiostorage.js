@@ -114,20 +114,10 @@ class HttpAudioStorage {
         const apiAvailable = await this.isApiAvailable();
 
         if (apiAvailable) {
-            // Return streaming URL (now async)
-            try {
-                const streamUrl = await apiClient.getTrackStreamUrl(id);
-                console.log('[HTTP AUDIO STORAGE] Returning stream URL for:', id);
-                return streamUrl;
-            } catch (error) {
-                console.error('[HTTP AUDIO STORAGE] Failed to get stream URL:', error);
-                // Fallback to IndexedDB on error
-                if (this.audioStorage) {
-                    console.log('[HTTP AUDIO STORAGE] Falling back to IndexedDB for:', id);
-                    return await this.audioStorage.getAudioFile(id);
-                }
-                return null;
-            }
+            // Return streaming URL
+            const streamUrl = apiClient.getTrackStreamUrl(id);
+            console.log('[HTTP AUDIO STORAGE] Returning stream URL for:', id);
+            return streamUrl;
         } else if (this.audioStorage) {
             // Fallback to IndexedDB
             console.log('[HTTP AUDIO STORAGE] Falling back to IndexedDB for:', id);
@@ -193,20 +183,8 @@ class HttpAudioStorage {
         const apiAvailable = await this.isApiAvailable();
 
         if (apiAvailable) {
-            // Return streaming URL (now async)
-            try {
-                return await apiClient.getTrackStreamUrl(trackId);
-            } catch (error) {
-                console.error('[HTTP AUDIO STORAGE] Failed to get stream URL for playback:', error);
-                // Fallback to IndexedDB on error
-                if (this.audioStorage) {
-                    const file = await this.audioStorage.getAudioFile(trackId);
-                    if (file) {
-                        return URL.createObjectURL(file);
-                    }
-                }
-                return null;
-            }
+            // Return streaming URL
+            return apiClient.getTrackStreamUrl(trackId);
         } else if (this.audioStorage) {
             // Fallback: load from IndexedDB and create object URL
             const file = await this.audioStorage.getAudioFile(trackId);
