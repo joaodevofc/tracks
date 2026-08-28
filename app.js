@@ -22,12 +22,7 @@ class MultracksApp {
         
         // Player session (songs loaded in player, separate from library)
         this.playerSession = [];
-        
-        // Playlist playback state
-        this.currentPlaylistId = null;
-        this.playlistQueue = [];
-        this.currentPlaylistIndex = 0;
-        this.currentPlaylistCover = null;
+
         this.callbacksSetup = false; // Prevent duplicate callback setup
         this.waveformLoading = false; // Track waveform loading state
         
@@ -194,38 +189,8 @@ class MultracksApp {
         // Check auth state
         this.checkAuthState();
 
-        // Expose storage for debugging
-        window.storage = storage;
-        window.clearStorage = () => storage.clearAll();
-        window.audioStorage = this.audioStorage;
-
-        // Expose IndexedDB cleanup functions
-        window.clearAudioStorage = () => this.audioStorage.clearAllAudioFiles();
-        window.getAudioStorageInfo = () => this.audioStorage.getStorageInfo();
-        window.getAudioStorageIds = () => this.audioStorage.getAllAudioFileIds();
-
-        // Expose hydration function for debugging
-        window.hydrateCurrentProject = () => this.hydrateProjectFiles(this.currentProject);
+        // Expose current app instance for cross-module communication
         window.currentApp = this;
-        
-        // Expose favorites debug functions
-        window.refreshFavorites = () => this.refreshFavoritesFromFirestore();
-        window.showFavorites = () => {
-            console.log('[APP] Current favorites:', this.communityFavorites);
-            console.log('[APP] User ID:', this.getCurrentUserId());
-        };
-
-        // Log storage info on startup
-        console.log('[APP] =======================================');
-        console.log('[APP] 🛠️ DEBUG FUNCTIONS AVAILABLE:');
-        console.log('[APP] window.storage - Access project storage');
-        console.log('[APP] window.clearStorage() - Clear all projects');
-        console.log('[APP] window.audioStorage - Access audio storage');
-        console.log('[APP] window.clearAudioStorage() - Clear all audio files');
-        console.log('[APP] window.getAudioStorageInfo() - Get storage usage info');
-        console.log('[APP] window.getAudioStorageIds() - Get all audio file IDs');
-        console.log('[APP] window.hydrateCurrentProject() - Hydrate current project files');
-        console.log('[APP] =======================================');
 
         // Hide splash screen after all initialization is complete
         hideSplashScreen();
@@ -1050,12 +1015,6 @@ class MultracksApp {
     }
     
     renderLibrary(filter = 'all', searchTerm = '') {
-        // Handle playlists filter
-        if (filter === 'playlists') {
-            this.renderPlaylists(searchTerm);
-            return;
-        }
-        
         let projects = storage.getProjectsByFilter(filter);
 
         // Apply search filter if search term is provided

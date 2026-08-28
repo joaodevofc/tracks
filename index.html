@@ -212,7 +212,6 @@
                 <button class="filter-btn active" data-filter="all">Todos</button>
                 <button class="filter-btn" data-filter="recent">Recentes</button>
                 <button class="filter-btn" data-filter="favorites">Favoritos</button>
-                <button class="filter-btn" data-filter="playlists">Playlists</button>
             </div>
             <div class="library-actions">
                 <button class="sort-btn" aria-label="Ordenar">
@@ -946,7 +945,7 @@
                                 <span class="account-type-label">Tipo de conta:</span>
                                 <span class="account-type-value" id="settingsAccountType"></span>
                             </div>
-                            <div class="profile-account-plan">
+                            <div class="profile-account-plan" style="display: none;">
                                 <span class="account-plan-label">Plano atual:</span>
                                 <span class="account-plan-value" id="settingsAccountPlan"></span>
                             </div>
@@ -1573,67 +1572,6 @@
                         <p class="empty-description">Este criador ainda não publicou nenhuma track</p>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- PLAYLIST MODAL -->
-    <div class="modal-overlay" id="playlistModal">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 class="modal-title">Criar Nova Playlist</h3>
-                <button class="modal-close" id="playlistModalClose" aria-label="Fechar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                </button>
-            </div>
-
-            <div class="modal-body">
-                <div class="form-group">
-                    <label for="playlistName">Nome da Playlist</label>
-                    <input type="text" class="form-input" id="playlistName" placeholder="Ex: Minhas Favoritas, Workout, etc." required>
-                </div>
-
-                <div class="form-group">
-                    <label for="playlistCover">Capa da Playlist</label>
-                    <div class="cover-upload-area" id="playlistCoverUpload">
-                        <input type="file" id="playlistCoverInput" accept="image/*" style="display: none;">
-                        <div class="cover-upload-placeholder" id="coverUploadPlaceholder">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                                <polyline points="21 15 16 10 5 21"></polyline>
-                            </svg>
-                            <span>Clique para enviar imagem</span>
-                        </div>
-                        <div class="cover-preview" id="coverPreview" style="display: none;">
-                            <img id="coverPreviewImage" src="" alt="Preview da capa">
-                            <button class="cover-remove-btn" id="coverRemoveBtn" aria-label="Remover capa">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Selecione as Músicas</label>
-                    <div class="form-group">
-                        <input type="text" class="form-input" id="playlistSongSearch" placeholder="Pesquisar músicas...">
-                    </div>
-                    <div class="playlist-song-selection" id="playlistSongsSelector">
-                        <!-- Songs will be rendered here with checkboxes -->
-                    </div>
-                </div>
-            </div>
-
-            <div class="modal-footer">
-                <button class="btn btn-secondary" id="playlistModalCancel">Cancelar</button>
-                <button class="btn btn-primary" id="playlistModalSave">Criar Playlist</button>
             </div>
         </div>
     </div>
