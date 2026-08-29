@@ -1,0 +1,10 @@
+nas configuraçoes do player eu nao quero q seja 
+igual é as configuraçoes no index. q mostra nome de usuario e 
+etc. 
+quero q seja diferente.
+quero q apareça oq ja aparece atualemnte
+Preferências do App.
+vai continua as opçoes.
+abaixo quero mais opçoes
+ativar ou desativar animaçoes nos faders.
+por quanto so esses.oi

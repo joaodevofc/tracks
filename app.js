@@ -32,6 +32,9 @@ class MultracksApp {
         // Initialize audio storage
         this.audioStorage = new AudioStorage();
         
+        // Make audioStorage globally accessible for storage.js
+        window.audioStorage = this.audioStorage;
+        
         // Pad system
         this.availablePads = [
             {
@@ -194,6 +197,10 @@ class MultracksApp {
 
         // Hide splash screen after all initialization is complete
         hideSplashScreen();
+
+        // Load player settings at startup
+        const playerSettings = JSON.parse(localStorage.getItem('playerSettings') || '{}');
+        this.applyPlayerSettings(playerSettings);
 
         // Check storage status
         setTimeout(async () => {
@@ -807,18 +814,19 @@ class MultracksApp {
             }
         });
         
-        // Handle hero banner and FAB button
+        // Handle hero banner, FAB button, and search button
         const heroBanner = document.getElementById('heroBanner');
         const fabAdd = document.getElementById('fabAdd');
+        const searchContainer = document.querySelector('.search-container');
         
-        if (viewName === 'myTracks') {
-            // Hide hero and FAB for my tracks
-            if (heroBanner) heroBanner.style.display = 'none';
-            if (fabAdd) fabAdd.style.display = 'none';
-        } else {
-            // Show hero and FAB for other views
-            if (heroBanner) heroBanner.style.display = 'block';
-            if (fabAdd) fabAdd.style.display = 'flex';
+        // Handle FAB button visibility - only show in library view
+        if (fabAdd) {
+            fabAdd.style.display = viewName === 'library' ? 'flex' : 'none';
+        }
+        
+        // Handle search button visibility - only show in library view
+        if (searchContainer) {
+            searchContainer.style.display = viewName === 'library' ? 'block' : 'none';
         }
 
         // Update banner image based on view
@@ -837,10 +845,6 @@ class MultracksApp {
             } else {
                 heroBanner.style.display = 'none';
             }
-        }
-        
-        if (fabAdd) {
-            fabAdd.style.display = viewName === 'library' ? 'flex' : 'none';
         }
     }
 
@@ -1788,10 +1792,10 @@ class MultracksApp {
                 alert(`Aviso: ${hydrationResult.missingCount} faixas não têm arquivos de áudio disponíveis.`);
             }
             
-            // Filter out tracks without audio files
+            // Filter out tracks without audio files (use local copy to avoid mutating original project)
             const originalTrackCount = project.tracks.length;
-            project.tracks = project.tracks.filter(track => track.file !== null);
-            const filteredTrackCount = project.tracks.length;
+            const playableTracks = project.tracks.filter(track => track.file !== null);
+            const filteredTrackCount = playableTracks.length;
             
             if (filteredTrackCount === 0) {
                 console.error('[APP] No tracks with valid audio files after filtering');
@@ -1803,13 +1807,9 @@ class MultracksApp {
                 console.warn('[APP] Filtered out', originalTrackCount - filteredTrackCount, 'tracks without audio files');
             }
             
-            // Add to player session if not already there
-            if (!this.playerSession.find(p => p.id === projectId)) {
-                console.log('[APP] Adding project to player session');
-                this.playerSession.push(project);
-            } else {
-                console.log('[APP] Project already in player session');
-            }
+            // Reset player session to contain only the current project when opened via direct card click
+            this.playerSession = [project];
+            console.log('[APP] Reset player session to current project:', project.name);
             
             this.currentProject = project;
             this.switchToPlayer();
@@ -2596,12 +2596,12 @@ class MultracksApp {
      * Can be called independently or is automatically called in loadProjectAudio()
      */
     async hydrateProjectFiles(project) {
-        console.log('[APP] =======================================');
-        console.log('[APP] hydrateProjectFiles() called for:', project.name);
-        console.log('[APP] Total tracks to hydrate:', project.tracks.length);
+        console.log('[HYDRATE] =======================================');
+        console.log('[HYDRATE] hydrateProjectFiles() called for:', project.name);
+        console.log('[HYDRATE] Total tracks to hydrate:', project.tracks.length);
         
         if (!this.audioStorage) {
-            console.error('[APP] audioStorage not available, cannot hydrate files');
+            console.error('[HYDRATE] audioStorage not available, cannot hydrate files');
             return { hydratedCount: 0, missingCount: project.tracks.length, alreadyHadFileCount: 0 };
         }
         
@@ -2611,39 +2611,39 @@ class MultracksApp {
         let invalidIdCount = 0;
         
         for (const track of project.tracks) {
-            console.log('[APP] Checking track:', track.name);
-            console.log('[APP] Track has file:', !!track.file);
-            console.log('[APP] Track has audioFileId:', track.audioFileId);
+            console.log('[HYDRATE] Checking track:', track.name);
+            console.log('[HYDRATE] Track has file:', !!track.file);
+            console.log('[HYDRATE] Track has audioFileId:', track.audioFileId);
             
             if (!track.file && track.audioFileId) {
-                console.log('[APP] Track needs hydration - fetching from IndexedDB...');
+                console.log('[HYDRATE] Track needs hydration - fetching from IndexedDB with ID:', track.audioFileId);
                 try {
                     const file = await this.audioStorage.getAudioFile(track.audioFileId);
                     
                     if (file) {
                         track.file = file;
                         hydratedCount++;
-                        console.log('[APP] ✅ Hydrated track:', track.name, 'File size:', file.size);
+                        console.log('[HYDRATE] ✅ Loaded audio for track:', track.name, 'File size:', file.size);
                     } else {
                         missingCount++;
-                        console.error('[APP] ❌ File not found in IndexedDB for track:', track.name, 'audioFileId:', track.audioFileId);
+                        console.error('[HYDRATE] ❌ File not found in IndexedDB for track:', track.name, 'audioFileId:', track.audioFileId);
                     }
                 } catch (error) {
                     missingCount++;
-                    console.error('[APP] ❌ Error fetching file from IndexedDB for track:', track.name, error);
+                    console.error('[HYDRATE] ❌ Error fetching file from IndexedDB for track:', track.name, error);
                 }
             } else if (track.file) {
                 alreadyHadFileCount++;
-                console.log('[APP] Track already has file, skipping hydration:', track.name);
+                console.log('[HYDRATE] Track already has file, skipping hydration:', track.name);
             } else {
                 missingCount++;
                 invalidIdCount++;
-                console.warn('[APP] Track has no file and no audioFileId:', track.name);
+                console.warn('[HYDRATE] Track has no file and no audioFileId:', track.name);
             }
         }
         
-        console.log('[APP] Hydration summary - Hydrated:', hydratedCount, 'Already had file:', alreadyHadFileCount, 'Missing:', missingCount, 'Invalid IDs:', invalidIdCount);
-        console.log('[APP] =======================================');
+        console.log('[HYDRATE] Hydration summary - Hydrated:', hydratedCount, 'Already had file:', alreadyHadFileCount, 'Missing:', missingCount, 'Invalid IDs:', invalidIdCount);
+        console.log('[HYDRATE] =======================================');
         
         return { hydratedCount, missingCount, alreadyHadFileCount, invalidIdCount };
     }
@@ -5366,6 +5366,8 @@ class MultracksApp {
         this.repeatMode = document.getElementById('repeatMode');
         this.autoAdvanceMode = document.getElementById('autoAdvanceMode');
         this.transitionMode = document.getElementById('transitionMode');
+        
+        console.log('[SETTINGS] Settings modal initialized:', !!this.settingsModal);
 
         // Profile edit fields
         this.saveProfileBtn = document.getElementById('saveProfileBtn');
@@ -5405,7 +5407,7 @@ class MultracksApp {
 
         upgradeModalClose?.addEventListener('click', () => this.hideUpgradeModal());
         upgradeCancelBtn?.addEventListener('click', () => this.hideUpgradeModal());
-        upgradeBtn?.addEventListener('click', () => this.navigateToPlans());
+        upgradeBtn?.addEventListener('click', () => this.navigateToOurProjects());
 
         // Close upgrade modal when clicking outside
         const upgradeModal = document.getElementById('upgradeModal');
@@ -5801,6 +5803,81 @@ class MultracksApp {
     
     closeSettingsModal() {
         this.settingsModal.classList.remove('active');
+    }
+    
+    openPlayerSettingsModal() {
+        console.log('[PLAYER SETTINGS] Opening player settings modal');
+        console.log('[PLAYER SETTINGS] Modal element:', this.playerSettingsModal);
+        
+        if (!this.playerSettingsModal) {
+            console.error('[PLAYER SETTINGS] Modal element not found!');
+            return;
+        }
+        
+        this.playerSettingsModal.style.display = 'flex';
+        console.log('[PLAYER SETTINGS] Modal display set to flex');
+        console.log('[PLAYER SETTINGS] Modal computed display after set:', window.getComputedStyle(this.playerSettingsModal).display);
+        
+        this.loadPlayerSettings();
+        
+        // Close modal when clicking outside - use mousedown to catch it before click
+        const closeOnClickOutside = (e) => {
+            if (e.target === this.playerSettingsModal) {
+                this.closePlayerSettingsModal();
+                document.removeEventListener('mousedown', closeOnClickOutside);
+            }
+        };
+        
+        // Add listener with a small delay to avoid immediate closing
+        setTimeout(() => {
+            document.addEventListener('mousedown', closeOnClickOutside);
+        }, 200);
+    }
+    
+    closePlayerSettingsModal() {
+        this.playerSettingsModal.style.display = 'none';
+    }
+    
+    loadPlayerSettings() {
+        // Load player settings from localStorage
+        const playerSettings = JSON.parse(localStorage.getItem('playerSettings') || '{}');
+        
+        this.playerRepeatMode.checked = playerSettings.repeatMode || false;
+        this.playerAutoAdvanceMode.checked = playerSettings.autoAdvanceMode || false;
+        this.playerTransitionMode.checked = playerSettings.transitionMode || false;
+        this.playerFaderAnimations.checked = playerSettings.faderAnimations !== false; // Default to true
+    }
+    
+    savePlayerSettings() {
+        // Save player settings to localStorage
+        const playerSettings = {
+            repeatMode: this.playerRepeatMode.checked,
+            autoAdvanceMode: this.playerAutoAdvanceMode.checked,
+            transitionMode: this.playerTransitionMode.checked,
+            faderAnimations: this.playerFaderAnimations.checked
+        };
+        
+        localStorage.setItem('playerSettings', JSON.stringify(playerSettings));
+        
+        // Apply settings to player
+        this.applyPlayerSettings(playerSettings);
+        
+        console.log('[PLAYER SETTINGS] Settings saved:', playerSettings);
+    }
+    
+    applyPlayerSettings(settings) {
+        // Apply fader animations setting
+        if (settings.faderAnimations !== undefined) {
+            document.body.classList.toggle('fader-animations-disabled', !settings.faderAnimations);
+            console.log('[PLAYER SETTINGS] Fader animations:', settings.faderAnimations ? 'enabled' : 'disabled');
+        }
+        
+        // Apply other player settings as needed
+        this.repeatModeEnabled = settings.repeatMode || false;
+        this.autoAdvanceEnabled = settings.autoAdvanceMode || false;
+        this.transitionEnabled = settings.transitionMode || false;
+        
+        console.log('[PLAYER SETTINGS] Settings applied:', settings);
     }
 
     clearLocalStorage() {
@@ -6400,6 +6477,17 @@ class MultracksApp {
         this.settingsModalClose?.addEventListener('click', () => {
             this.closeSettingsModal();
         });
+        
+        // Player settings modal close
+        this.playerSettingsModalClose?.addEventListener('click', () => {
+            this.closePlayerSettingsModal();
+        });
+        
+        // Player settings auto-save on change
+        this.playerRepeatMode?.addEventListener('change', () => this.savePlayerSettings());
+        this.playerAutoAdvanceMode?.addEventListener('change', () => this.savePlayerSettings());
+        this.playerTransitionMode?.addEventListener('change', () => this.savePlayerSettings());
+        this.playerFaderAnimations?.addEventListener('change', () => this.savePlayerSettings());
 
         // Search functionality (library header)
         const searchBtn = document.getElementById('searchBtn');
@@ -6560,12 +6648,13 @@ class MultracksApp {
             profileDropdown.classList.remove('active');
             this.openSettingsModal();
         });
-        
-        // Settings button (player)
+
+        // Settings button in player view (next to logo)
         const playerSettingsBtn = document.getElementById('playerSettingsBtn');
         playerSettingsBtn?.addEventListener('click', () => {
             this.openSettingsModal();
         });
+        
 
         // Clear storage button
         const clearStorageBtn = document.getElementById('clearStorageBtn');

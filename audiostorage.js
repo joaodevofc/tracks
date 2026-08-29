@@ -168,8 +168,8 @@ class AudioStorage {
         const isUserLoggedIn = window.firebaseAuth && window.firebaseAuth.auth && window.firebaseAuth.auth.currentUser;
         
         if (!isUserLoggedIn) {
-            console.log('[AUDIO STORAGE] User not logged in - skipping IndexedDB save (guest mode)');
-            return; // Don't save to IndexedDB for guests
+            console.log('[AUDIO STORAGE] User not logged in - using IndexedDB for guest mode to persist files across refresh');
+            // Continue with IndexedDB save even for guests to enable persistence across refresh
         }
         
         if (!this.db) await this.init();
@@ -201,7 +201,7 @@ class AudioStorage {
             const request = store.put(record);
             
             request.onsuccess = () => {
-                console.log('[AUDIO STORAGE] Audio file saved:', id, 'for user:', userId, '(' + this.formatBytes(file.size) + ')');
+                console.log('[AUDIO STORAGE] Saved audio with ID:', id, 'for user:', userId, '(' + this.formatBytes(file.size) + ')');
                 resolve();
             };
             
@@ -235,8 +235,9 @@ class AudioStorage {
             request.onsuccess = () => {
                 const record = request.result;
                 if (record) {
-                    // Verify that the file belongs to the current user
-                    if (record.userId === userId) {
+                    // For guest mode, allow access to files without userId verification
+                    // For logged in users, verify userId matches
+                    if (userId === 'guest' || record.userId === userId) {
                         console.log('[AUDIO STORAGE] Audio file retrieved:', id, 'for user:', userId);
                         resolve(record.file);
                     } else {

@@ -1101,8 +1101,8 @@ input, select, textarea {
         padding-bottom: env(safe-area-inset-bottom);
     }
     
-    /* Ensure player header respects safe area */
-    .player-view .header {
+    /* Ensure player logo respects safe area */
+    .player-logo {
         padding-top: max(env(safe-area-inset-top), var(--spacing-sm));
     }
     
@@ -1377,6 +1377,7 @@ a {
     display: flex;
     align-items: center;
     gap: var(--spacing-xs);
+    height: 40px;
 }
 
 .search-input {
@@ -2589,9 +2590,10 @@ a {
     transition: opacity var(--transition-normal), visibility var(--transition-normal);
 }
 
-.modal-overlay.active {
-    opacity: 1;
-    visibility: visible;
+.modal-overlay.active,
+#playerSettingsModal.active {
+    opacity: 1 !important;
+    visibility: visible !important;
 }
 
 .modal {
@@ -2608,8 +2610,9 @@ a {
     transition: transform var(--transition-normal);
 }
 
-.modal-overlay.active .modal {
-    transform: scale(1) translateY(0);
+.modal-overlay.active .modal,
+#playerSettingsModal.active .modal {
+    transform: scale(1) translateY(0) !important;
 }
 
 .modal-header {
@@ -3080,6 +3083,21 @@ a {
     border-color: var(--border-medium);
 }
 
+/* Fader animations control */
+body.fader-animations-disabled .track-fader,
+body.fader-animations-disabled .master-fader {
+    transition: none !important;
+}
+
+body.fader-animations-disabled .led-pointer {
+    transition: none !important;
+}
+
+/* Player Settings Modal - higher z-index for player view */
+#playerSettingsModal {
+    z-index: 3000 !important;
+}
+
 /* ========================================
    PLAYER VIEW
    ======================================== */
@@ -3091,7 +3109,7 @@ a {
     right: 0;
     bottom: 0;
     background: var(--color-black);
-    z-index: 200;
+    z-index: 100;
     flex-direction: column;
     overflow: hidden;
     padding-top: 0;
@@ -3101,13 +3119,60 @@ a {
     display: flex;
 }
 
-/* Ensure header inside player-view is on top */
-.player-view .header {
+/* Player Logo - replaces header in player view */
+.player-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 24px;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border-medium);
     position: relative;
     z-index: 10;
 }
 
-/* Hide header actions in player view since search and profile are removed */
+.player-logo-icon {
+    width: 32px;
+    height: 32px;
+}
+
+.player-logo-text {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--color-white);
+}
+
+.player-settings-btn {
+    background: none;
+    border: none;
+    color: var(--color-white-muted);
+    cursor: pointer;
+    padding: 8px;
+    margin-left: 8px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.player-settings-btn:hover {
+    color: var(--color-white);
+    background: var(--color-black-hover);
+    transform: rotate(90deg);
+}
+
+.player-settings-btn svg {
+    width: 20px;
+    height: 20px;
+}
+
+/* Hide header elements in player view */
+.player-view .header {
+    display: none;
+}
+
 .player-view .header-actions {
     display: none;
 }
@@ -6053,7 +6118,7 @@ a {
     gap: 16px;
 }
 
-.back-btn {
+.setlist-back-btn {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -6067,13 +6132,13 @@ a {
     font-weight: 500;
 }
 
-.back-btn:hover {
+.setlist-back-btn:hover {
     background: var(--color-accent);
     color: var(--color-black);
     border-color: var(--color-accent);
 }
 
-.back-btn svg {
+.setlist-back-btn svg {
     width: 18px;
     height: 18px;
 }

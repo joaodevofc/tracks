@@ -327,7 +327,7 @@
     <!-- SETLIST EDITOR -->
     <main class="setlist-editor" id="setlistEditorView" style="display: none;">
         <div class="setlist-editor-header">
-            <button class="back-btn" id="backToSetlists">
+            <button class="setlist-back-btn" id="backToSetlists">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="15 18 9 12 15 6"></polyline>
                 </svg>
@@ -551,24 +551,17 @@
 
     <!-- MULTITRACK PLAYER VIEW -->
     <section class="player-view" id="playerView">
-        <!-- HEADER -->
-        <header class="header">
-            <div class="header-container">
-                <div class="logo">
-                    <img src="icon-white-transparent.png" alt="W.Tracks" class="logo-icon">
-                    <span class="logo-text">W.Tracks</span>
-                </div>
-                
-                <nav class="nav">
-                    <a href="#" class="nav-link active">Biblioteca</a>
-                    <a href="#" class="nav-link" style="opacity: 0.4; pointer-events: none;" title="Em breve">Comunidade</a>
-                </nav>
-                
-                <div class="header-actions">
-                    <!-- Removed search and profile from player view -->
-                </div>
-            </div>
-        </header>
+        <!-- LOGO -->
+        <div class="player-logo">
+            <img src="icon-white-transparent.png" alt="W.Tracks" class="player-logo-icon">
+            <span class="player-logo-text">W.Tracks</span>
+            <button class="player-settings-btn" id="playerSettingsBtn" aria-label="Configurações">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+            </button>
+        </div>
         
         <!-- Loading Screen -->
         <div class="player-loading" id="playerLoading">
@@ -671,13 +664,6 @@
                 <button class="reset-square-btn reset-normal-btn" id="resetNormalVolumes" title="Resetar volumes ao normal">
                     <span class="btn-label">R</span>
                     <span class="btn-indicator"></span>
-                </button>
-                
-                <button class="control-btn" id="playerSettingsBtn" aria-label="Configurações">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="3"></circle>
-                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                    </svg>
                 </button>
             </div>
         </div>
@@ -1014,8 +1000,18 @@
                         </label>
                     </div>
                 </div>
+
+                <div class="settings-divider"></div>
+
+                <!-- Version Info -->
+                <div class="settings-section">
+                    <h4 class="settings-section-title">Sobre</h4>
+                    <div class="settings-description" style="color: #888; font-size: 14px;">
+                        Versão: <span style="color: #fff; font-weight: 500;">1.0.0</span>
+                    </div>
+                </div>
             </div>
-        </div>
+    </div>
     </div>
 
     <!-- UPGRADE MODAL -->

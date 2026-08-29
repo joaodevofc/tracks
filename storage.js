@@ -94,7 +94,6 @@ class Track {
         this.fileSize = data.fileSize || 0;
         this.file = data.file || null;
         this.audioFileId = data.audioFileId || null; // ID for IndexedDB storage
-        this.objectUrl = data.objectUrl || null; // Object URL for guest mode (in-memory only)
         this.volume = data.volume !== undefined ? data.volume : 1;
         this.pan = data.pan !== undefined ? data.pan : 0;
         this.mute = data.mute || false;
@@ -112,22 +111,15 @@ class Track {
     async toJSON() {
         console.log('[STORAGE] Track.toJSON called for:', this.name);
         console.log('[STORAGE] Track has file:', !!this.file);
+        console.log('[STORAGE] Track current audioFileId:', this.audioFileId);
         
-        // Check if user is authenticated
-        const isUserLoggedIn = window.firebaseAuth && window.firebaseAuth.auth && window.firebaseAuth.auth.currentUser;
-        
-        // Save file to IndexedDB only if user is logged in and file exists and we don't have an audioFileId yet
-        if (isUserLoggedIn && this.file && !this.audioFileId && typeof audioStorage !== 'undefined') {
+        // Save file to IndexedDB if file exists and we don't have an audioFileId yet
+        // This now works for both logged in users and guests to enable persistence across refresh
+        if (this.file && !this.audioFileId && typeof audioStorage !== 'undefined') {
             console.log('[STORAGE] Saving file to IndexedDB...');
             this.audioFileId = this.id; // Use track ID as audio file ID
             await audioStorage.saveAudioFile(this.audioFileId, this.file);
             console.log('[STORAGE] File saved to IndexedDB with ID:', this.audioFileId);
-        } else if (!isUserLoggedIn && this.file) {
-            console.log('[STORAGE] User not logged in - keeping file in memory only (guest mode)');
-            // Create object URL for in-memory playback
-            if (!this.objectUrl) {
-                this.objectUrl = URL.createObjectURL(this.file);
-            }
         }
         
         const json = {
@@ -136,7 +128,6 @@ class Track {
             originalFileName: this.originalFileName,
             fileSize: this.fileSize,
             audioFileId: this.audioFileId,
-            objectUrl: this.objectUrl, // Include object URL for guest mode
             volume: this.volume,
             pan: this.pan,
             mute: this.mute,
@@ -147,26 +138,19 @@ class Track {
             offset: this.offset
         };
         
-        console.log('[STORAGE] Track.toJSON result has audioFileId:', !!json.audioFileId);
+        console.log('[STORAGE] Track.toJSON result has audioFileId:', !!json.audioFileId, 'Value:', json.audioFileId);
         return json;
     }
     
     static async fromJSON(json) {
         console.log('[STORAGE] Track.fromJSON called for:', json.name);
-        console.log('[STORAGE] JSON has audioFileId:', !!json.audioFileId);
+        console.log('[STORAGE] JSON has audioFileId:', !!json.audioFileId, 'Value:', json.audioFileId);
         
         const track = new Track(json);
         
-        // Restore objectUrl if it exists (guest mode)
-        if (json.objectUrl) {
-            track.objectUrl = json.objectUrl;
-            console.log('[STORAGE] Restored objectUrl for guest mode');
-        }
-        
-        // Retrieve file from IndexedDB if audioFileId exists and user is logged in
-        const isUserLoggedIn = window.firebaseAuth && window.firebaseAuth.auth && window.firebaseAuth.auth.currentUser;
-        
-        if (isUserLoggedIn && json.audioFileId && !track.file && typeof audioStorage !== 'undefined') {
+        // Retrieve file from IndexedDB if audioFileId exists
+        // This now works for both logged in users and guests
+        if (json.audioFileId && !track.file && typeof audioStorage !== 'undefined') {
             console.log('[STORAGE] Retrieving file from IndexedDB with ID:', json.audioFileId);
             track.file = await audioStorage.getAudioFile(json.audioFileId);
             console.log('[STORAGE] File retrieved from IndexedDB:', !!track.file);
@@ -261,6 +245,7 @@ class Project {
     }
     
     async toJSON(onProgress) {
+        console.log('[STORAGE] Project.toJSON called for:', this.name);
         const tracksData = [];
         for (let i = 0; i < this.tracks.length; i++) {
             // Ensure track is a Track instance
@@ -273,6 +258,8 @@ class Project {
                 onProgress(i + 1, this.tracks.length);
             }
         }
+        
+        console.log('[STORAGE] Project.toJSON completed, tracks with audioFileId:', tracksData.filter(t => t.audioFileId).length, '/', tracksData.length);
         
         return {
             id: this.id,
@@ -416,19 +403,16 @@ class StorageManager {
         console.log('[STORAGE] Project created, tracks:', project.tracks.length);
         console.log('[STORAGE] First track after Project constructor:', project.tracks[0]);
         
-        // Check if user is authenticated
-        const isUserLoggedIn = window.firebaseAuth && window.firebaseAuth.auth && window.firebaseAuth.auth.currentUser;
+        // Always save to localStorage for both logged in users and guests
+        // This ensures audioFileId is persisted across page refreshes
+        this.projects.unshift(project);
+        await this.save(onProgress);
+        console.log('[STORAGE] Project saved and added to storage');
         
-        if (isUserLoggedIn) {
-            // User is logged in - save to storage
-            this.projects.unshift(project);
-            await this.save(onProgress);
-            console.log('[STORAGE] Project saved and added to storage');
-        } else {
-            // User is not logged in - keep in memory only
-            this.projects.unshift(project);
-            console.log('[STORAGE] Project added to memory only (guest mode)');
-        }
+        // Log audioFileId for each track
+        project.tracks.forEach(track => {
+            console.log('[STORAGE] Track audioFileId:', track.name, ':', track.audioFileId);
+        });
         
         console.log('[STORAGE] Returning project:', project.name);
         return project;
