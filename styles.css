@@ -3472,6 +3472,52 @@ body.fader-animations-disabled .led-pointer {
     letter-spacing: 0.05em;
 }
 
+/* TAP TEMPO Button */
+.tap-tempo-btn {
+    min-width: 50px;
+    height: 40px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--color-white-muted);
+    background: var(--color-black-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+    position: relative;
+    overflow: hidden;
+}
+
+.tap-tempo-btn:hover {
+    border-color: var(--border-medium);
+    background: var(--color-black-hover);
+    color: var(--color-white);
+}
+
+.tap-tempo-btn:active {
+    transform: scale(0.95);
+}
+
+.tap-tempo-btn.tap-active {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: var(--color-black);
+    animation: tapPulse 0.1s ease-out;
+}
+
+@keyframes tapPulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(0.9);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
 /* Play Button */
 .play-btn {
     width: 48px;
@@ -3868,7 +3914,7 @@ body.fader-animations-disabled .led-pointer {
     flex: 1;
     display: flex;
     align-items: flex-end;
-    gap: var(--spacing-md);
+    gap: 0;
     padding: var(--spacing-sm);
     background: var(--color-black);
     overflow-x: auto;
@@ -3884,7 +3930,7 @@ body.fader-animations-disabled .led-pointer {
 .mixer-tracks {
     flex: 1;
     display: flex;
-    gap: var(--spacing-md);
+    gap: 0;
     overflow-x: auto;
     overflow-y: hidden;
     padding-bottom: var(--spacing-sm);
@@ -3895,17 +3941,18 @@ body.fader-animations-disabled .led-pointer {
 /* Track Channel */
 .track-channel {
     width: 110px;
-    min-width: 75px;
+    min-width: 65px;
     display: flex;
-    flex-direction: column;
+    flex-direction: column-reverse;
     align-items: center;
     gap: 4px;
     flex-shrink: 0;
-    padding: 4px;
-    background: var(--color-black-card);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-lg);
-    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    padding: 2px 6px;
+    background: transparent;
+    border: none;
+    border-right: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 0;
+    transition: background var(--transition-fast);
     scroll-snap-align: start;
     user-select: none;
     -webkit-user-select: none;
@@ -3914,8 +3961,11 @@ body.fader-animations-disabled .led-pointer {
 }
 
 .track-channel:hover {
-    border-color: var(--border-medium);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.track-channel:last-child {
+    border-right: none;
 }
 
 .track-header {
@@ -3929,9 +3979,9 @@ body.fader-animations-disabled .led-pointer {
 }
 
 .track-name {
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    color: var(--color-white);
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--color-white-muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -4010,12 +4060,12 @@ body.fader-animations-disabled .led-pointer {
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
-    width: 10px;
+    width: 5px;
     height: 100%;
-    background: linear-gradient(to bottom, var(--color-black-elevated), var(--color-black));
+    background: #0a0a0a;
     border-radius: var(--radius-full);
     overflow: hidden;
-    border: 1px solid var(--border-subtle);
+    border: 1px solid #2b2b2b;
     box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
@@ -4024,19 +4074,19 @@ body.fader-animations-disabled .led-pointer {
     bottom: 0;
     left: 0;
     right: 0;
-    background: linear-gradient(to top, var(--color-white-muted), var(--color-white));
+    background: rgba(255, 255, 255, 0.06);
     transition: height var(--transition-normal);
     transform-origin: bottom;
-    box-shadow: 0 0 8px rgba(255, 255, 255, 0.2);
 }
 
 .fader-thumb {
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
-    width: 55px;
-    height: 26px;
-    background: linear-gradient(135deg, var(--color-white) 0%, var(--color-white-dim) 100%);
+    width: 40px;
+    height: 10px;
+    background: #e8e6e0;
+    border: 1px solid #b8b6b0;
     border-radius: var(--radius-md);
     cursor: grab;
     transition: all var(--transition-fast);
@@ -4045,10 +4095,11 @@ body.fader-animations-disabled .led-pointer {
     touch-action: none;
     user-select: none;
     -webkit-user-select: none;
+    color: #141414;
 }
 
 .fader-thumb:hover {
-    background: linear-gradient(135deg, var(--color-white-dim) 0%, var(--color-white) 100%);
+    background: #e8e6e0;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.2);
     transform: translateX(-50%) scale(1.05);
 }
@@ -4087,12 +4138,12 @@ body.fader-animations-disabled .led-pointer {
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
-    width: 12px;
+    width: 6px;
     height: 100%;
-    background: linear-gradient(to bottom, #1a1a1a, #0a0a0a);
+    background: #0a0a0a;
     border-radius: var(--radius-full);
     overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid #2b2b2b;
     box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 0, 0, 0.3);
 }
 
@@ -4101,19 +4152,19 @@ body.fader-animations-disabled .led-pointer {
     bottom: 0;
     left: 0;
     right: 0;
-    background: linear-gradient(to top, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.9));
+    background: rgba(255, 255, 255, 0.06);
     transition: background var(--transition-normal);
     transform-origin: bottom;
-    box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
 }
 
 .master-fader-thumb {
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
-    width: 70px;
-    height: 35px;
-    background: linear-gradient(145deg, #ffffff 0%, #e8e8e8 50%, #d0d0d0 100%);
+    width: 55px;
+    height: 14px;
+    background: #e8e6e0;
+    border: 1px solid #b8b6b0;
     border-radius: 6px;
     cursor: grab;
     z-index: 2;
@@ -4122,6 +4173,7 @@ body.fader-animations-disabled .led-pointer {
     user-select: none;
     -webkit-user-select: none;
     transition: box-shadow var(--transition-fast);
+    color: #141414;
 }
 
 .master-fader-thumb:active {
@@ -4135,15 +4187,15 @@ body.fader-animations-disabled .led-pointer {
     left: 0;
     right: 0;
     background: linear-gradient(to top,
-        #22c55e 0%,     /* Green */
-        #22c55e 60%,    /* Green */
+        #2E9E45 0%,     /* Green */
+        #2E9E45 60%,    /* Green */
         #f59e0b 60%,    /* Yellow */
         #f59e0b 80%,    /* Yellow */
         #ef4444 80%,    /* Red */
         #ef4444 100%    /* Red */
     );
     min-height: 0;
-    opacity: 0.7;
+    opacity: 0.95;
     z-index: 1;
     pointer-events: none;
 }
@@ -4153,8 +4205,8 @@ body.fader-animations-disabled .led-pointer {
     bottom: 0;
     left: 0;
     right: 0;
-    background: linear-gradient(to top, #4ade80, #22c55e);
-    opacity: 0.9;
+    background: linear-gradient(to top, #7CE38B, #2E9E45);
+    opacity: 1;
     z-index: 2;
     width: 100%;
     transition: height 0.05s ease-out;

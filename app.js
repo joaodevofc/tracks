@@ -29,6 +29,17 @@ class MultracksApp {
         // Community favorites
         this.communityFavorites = [];
         
+        // Storage state management
+        this.storageReady = false; // Track when storage is fully loaded
+        this.storageLoadPromise = null; // Track the ongoing storage load
+        this.libraryStateVersion = 0; // Version counter to prevent race conditions
+        
+        // Deleted projects tracking - prevents deleted projects from reappearing
+        this.deletedProjectIds = new Set();
+        
+        // Active uploads tracking - centralizes loading card state
+        this.activeUploads = new Map(); // tempId -> { projectName, trackCount, saved, total }
+        
         // Initialize audio storage
         this.audioStorage = new AudioStorage();
         
@@ -186,7 +197,11 @@ class MultracksApp {
         this.initSetlists();
 
         // Wait for storage to load before rendering
-        await storage.load();
+        console.log('[APP] Starting initial storage load...');
+        this.storageLoadPromise = storage.load();
+        await this.storageLoadPromise;
+        this.storageReady = true;
+        console.log('[APP] Storage loaded, now rendering library');
         this.renderLibrary();
 
         // Check auth state
@@ -235,7 +250,8 @@ class MultracksApp {
         this.emptyState = document.getElementById('emptyState');
         this.libraryCount = document.getElementById('libraryCount');
         
-        this.renderLibrary();
+        // Don't render here - wait for storage to load first
+        // renderLibrary() will be called after storage.load() completes
     }
 
     // ========================================
@@ -1010,6 +1026,9 @@ class MultracksApp {
         try {
             const project = await storage.createProject(projectData);
             console.log('[APP] Explore music saved to library:', project.name);
+            // Increment version after successful creation
+            this.libraryStateVersion++;
+            console.log('[APP] Library state version incremented to:', this.libraryStateVersion);
             alert(`${musica.nome} salva em Minhas músicas!`);
             this.renderLibrary();
         } catch (error) {
@@ -1019,7 +1038,30 @@ class MultracksApp {
     }
     
     renderLibrary(filter = 'all', searchTerm = '') {
+        console.log('[LIBRARY] =======================================');
+        console.log('[LIBRARY] RENDER START');
+        console.log('[LIBRARY] RENDER VERSION:', this.libraryStateVersion);
+        console.log('[LIBRARY] Storage ready:', this.storageReady);
+        console.log('[LIBRARY] Filter:', filter);
+        console.log('[LIBRARY] Search term:', searchTerm);
+        console.log('[LIBRARY] DELETED IDS:', Array.from(this.deletedProjectIds));
+        console.log('[LIBRARY] ACTIVE UPLOADS:', Array.from(this.activeUploads.keys()));
+        
+        // Guard: don't render if storage is not ready
+        if (!this.storageReady) {
+            console.log('[LIBRARY] Storage not ready, skipping render');
+            return;
+        }
+        
         let projects = storage.getProjectsByFilter(filter);
+        console.log('[LIBRARY] PROJECT IDS FROM STORAGE:', projects.map(p => p.id));
+        console.log('[LIBRARY] Projects count from storage:', projects.length);
+        
+        // CRITICAL: Filter out deleted projects to prevent reappearance
+        const projectsBeforeDeleteFilter = projects;
+        projects = projects.filter(project => !this.deletedProjectIds.has(project.id));
+        console.log('[LIBRARY] PROJECT IDS AFTER DELETE FILTER:', projects.map(p => p.id));
+        console.log('[LIBRARY] Filtered out deleted projects:', projectsBeforeDeleteFilter.length - projects.length);
 
         // Apply search filter if search term is provided
         if (searchTerm) {
@@ -1032,6 +1074,9 @@ class MultracksApp {
                        album.includes(searchTerm);
             });
         }
+        
+        console.log('[LIBRARY] FINAL PROJECT IDS TO RENDER:', projects.map(p => p.id));
+        console.log('[LIBRARY] Final projects count:', projects.length);
 
         // Update title and count text based on filter
         const libraryTitle = document.querySelector('.library-title');
@@ -1046,7 +1091,19 @@ class MultracksApp {
             this.libraryCount.textContent = `${projects.length} projeto${projects.length !== 1 ? 's' : ''}`;
         }
 
-        if (projects.length === 0) {
+        // CRITICAL: Clear DOM completely before rendering
+        this.musicGrid.innerHTML = '';
+        console.log('[LIBRARY] DOM cleared');
+
+        // Combine persisted projects with active uploads
+        const hasActiveUploads = this.activeUploads.size > 0;
+        const hasProjects = projects.length > 0;
+        
+        console.log('[LIBRARY] Has active uploads:', hasActiveUploads);
+        console.log('[LIBRARY] Has persisted projects:', hasProjects);
+
+        if (!hasProjects && !hasActiveUploads) {
+            console.log('[LIBRARY] No projects and no uploads, showing empty state');
             this.musicGrid.style.display = 'none';
             this.emptyState.classList.add('visible');
             
@@ -1093,10 +1150,25 @@ class MultracksApp {
                 }
             }
         } else {
+            console.log('[LIBRARY] Projects or uploads found, showing music grid');
             this.musicGrid.style.display = 'grid';
             this.emptyState.classList.remove('visible');
+            
+            // Render active uploads first (loading cards)
+            this.activeUploads.forEach((uploadData, tempId) => {
+                const loadingCard = this.createLoadingCard(tempId, uploadData.projectName, uploadData.trackCount);
+                this.musicGrid.appendChild(loadingCard);
+                console.log('[LIBRARY] Rendered loading card for:', tempId);
+            });
+            
+            // Then render persisted projects
             this.renderMusicCards(projects);
         }
+        
+        console.log('[LIBRARY] FINAL DOM CARD IDS:', Array.from(this.musicGrid.children).map(child => 
+            child.dataset.tempId || child.dataset.projectId || 'unknown'
+        ));
+        console.log('[LIBRARY] RENDER COMPLETE');
     }
     
     renderPlaylists(searchTerm = '') {
@@ -1386,6 +1458,9 @@ class MultracksApp {
         // Set current project
         this.currentProject = project;
         
+        // Reset TAP TEMPO when loading new project
+        this.resetTapTempo();
+        
         // Initialize audio player if needed
         if (!this.audioPlayer) {
             this.audioPlayer = new MultitrackPlayer();
@@ -1607,15 +1682,19 @@ class MultracksApp {
     }
     
     renderMusicCards(projects) {
-        this.musicGrid.innerHTML = '';
+        console.log('[LIBRARY] Rendering music cards, count:', projects.length);
+        // Don't clear DOM here - renderLibrary() handles it
         
         projects.forEach(project => {
             const card = this.createMusicCard(project);
             this.musicGrid.appendChild(card);
         });
+        
+        console.log('[LIBRARY] Music cards rendered');
     }
     
     renderPlaylistCards(playlists) {
+        // Clear DOM before rendering (renderPlaylists handles this separately)
         this.musicGrid.innerHTML = '';
         
         playlists.forEach(playlist => {
@@ -1845,6 +1924,9 @@ class MultracksApp {
         // Hide main header when player is active
         document.body.classList.add('player-active');
         
+        // Reset TAP TEMPO when switching to player
+        this.resetTapTempo();
+        
         this.renderPlayer();
     }
     
@@ -1922,6 +2004,8 @@ class MultracksApp {
         this.musicSelectorScroll = document.getElementById('musicSelectorScroll');
         this.backToLibrary = document.getElementById('backToLibrary');
         this.playPauseBtn = document.getElementById('playPauseBtn');
+        this.rewindBtn = document.getElementById('rewindBtn');
+        this.forwardBtn = document.getElementById('forwardBtn');
         this.bpmValue = document.getElementById('bpmValue');
         this.timeSignature = document.getElementById('timeSignature');
         this.currentTimeDisplay = document.getElementById('currentTime');
@@ -2014,6 +2098,13 @@ class MultracksApp {
 
         // Master solo state
         this.masterSoloEnabled = false;
+
+        // TAP TEMPO state
+        this.tapTempoTimestamps = [];
+        this.tapTempoTimeout = null;
+        this.tapTempoResetDelay = 2000; // 2 seconds
+        this.tapTempoMinBpm = 30;
+        this.tapTempoMaxBpm = 300;
 
         // Initialize master fader to 0dB (position 0.5 = value 50)
         if (this.masterFader) {
@@ -3468,9 +3559,9 @@ class MultracksApp {
         // Update playhead position
         this.updatePlayheadPosition(x, canvasWidth);
         
-        // Seek audio player
+        // Seek audio player (preserve play state for timeline scrubbing)
         if (this.audioPlayer) {
-            this.audioPlayer.seek(seekTime);
+            this.audioPlayer.seek(seekTime, false);
         }
         
         console.log('[TIMELINE] Seek to:', seekTime, 'seconds');
@@ -4573,6 +4664,99 @@ class MultracksApp {
         }
     }
     
+    handleTapTempo() {
+        const now = Date.now();
+        
+        // Clear existing reset timeout
+        if (this.tapTempoTimeout) {
+            clearTimeout(this.tapTempoTimeout);
+            this.tapTempoTimeout = null;
+        }
+        
+        // Add timestamp
+        this.tapTempoTimestamps.push(now);
+        
+        // Provide visual feedback
+        const tapBtn = document.getElementById('tapTempoBtn');
+        if (tapBtn) {
+            tapBtn.classList.add('tap-active');
+            setTimeout(() => tapBtn.classList.remove('tap-active'), 100);
+        }
+        
+        // Calculate BPM if we have at least 2 taps
+        if (this.tapTempoTimestamps.length >= 2) {
+            const calculatedBpm = this.calculateTapTempoBpm();
+            if (calculatedBpm !== null) {
+                this.updateBpmFromTap(calculatedBpm);
+            }
+        }
+        
+        // Set timeout to reset after 2 seconds of inactivity
+        this.tapTempoTimeout = setTimeout(() => {
+            this.resetTapTempo();
+        }, this.tapTempoResetDelay);
+    }
+    
+    calculateTapTempoBpm() {
+        if (this.tapTempoTimestamps.length < 2) {
+            return null;
+        }
+        
+        // Keep only the last 5 timestamps
+        const recentTimestamps = this.tapTempoTimestamps.slice(-5);
+        
+        // Calculate intervals between consecutive taps
+        const intervals = [];
+        for (let i = 1; i < recentTimestamps.length; i++) {
+            const interval = recentTimestamps[i] - recentTimestamps[i - 1];
+            intervals.push(interval);
+        }
+        
+        // Calculate average interval
+        const averageInterval = intervals.reduce((sum, interval) => sum + interval, 0) / intervals.length;
+        
+        // Convert to BPM
+        let bpm = Math.round(60000 / averageInterval);
+        
+        // Limit to valid range
+        bpm = Math.max(this.tapTempoMinBpm, Math.min(this.tapTempoMaxBpm, bpm));
+        
+        return bpm;
+    }
+    
+    updateBpmFromTap(bpm) {
+        // Update BPM input field
+        if (this.bpmInput) {
+            this.bpmInput.value = bpm;
+        }
+        
+        // Update project BPM
+        if (this.currentProject) {
+            this.currentProject.bpm = bpm;
+        }
+        
+        // Update audio player
+        if (this.audioPlayer) {
+            this.audioPlayer.setMetronomeBpm(bpm);
+        }
+        
+        // Save project
+        if (this.currentProject) {
+            storage.updateProject(this.currentProject.id, this.currentProject);
+        }
+        
+        console.log('[TAP TEMPO] BPM updated to:', bpm);
+    }
+    
+    resetTapTempo() {
+        this.tapTempoTimestamps = [];
+        if (this.tapTempoTimeout) {
+            clearTimeout(this.tapTempoTimeout);
+            this.tapTempoTimeout = null;
+        }
+        console.log('[TAP TEMPO] Reset after inactivity');
+    }
+    
     setMetronomeVolume(gain) {
         this.metronomeVolume = gain;
         
@@ -4670,25 +4854,25 @@ class MultracksApp {
             
             // Add glow effect based on level intensity
             const glowIntensity = Math.min(1, level * 1.5);
-            levelBar.style.boxShadow = `0 0 ${8 + glowIntensity * 8}px rgba(34, 197, 94, ${0.3 + glowIntensity * 0.4})`;
+            levelBar.style.boxShadow = `0 0 ${10 + glowIntensity * 10}px rgba(46, 158, 69, ${0.3 + glowIntensity * 0.4})`;
             
             // Change color based on level intensity
             if (heightPercent > 85) {
                 // Red for clipping/peak levels
                 levelBar.style.background = 'linear-gradient(to top, #ef4444, #dc2626)';
-                levelBar.style.boxShadow = `0 0 ${12}px rgba(239, 68, 68, 0.8)`;
+                levelBar.style.boxShadow = `0 0 ${15}px rgba(239, 68, 68, 0.8)`;
             } else if (heightPercent > 65) {
                 // Yellow for high levels
                 levelBar.style.background = 'linear-gradient(to top, #f59e0b, #d97706)';
-                levelBar.style.boxShadow = `0 0 ${10}px rgba(245, 158, 11, 0.6)`;
+                levelBar.style.boxShadow = `0 0 ${13}px rgba(245, 158, 11, 0.6)`;
             } else if (heightPercent > 40) {
                 // Green for normal levels
-                levelBar.style.background = 'linear-gradient(to top, #22c55e, #16a34a)';
-                levelBar.style.boxShadow = `0 0 ${8}px rgba(34, 197, 94, 0.5)`;
+                levelBar.style.background = 'linear-gradient(to top, #2E9E45, #7CE38B)';
+                levelBar.style.boxShadow = `0 0 ${10}px rgba(46, 158, 69, 0.5)`;
             } else {
                 // Subtle green for low levels
-                levelBar.style.background = 'linear-gradient(to top, #4ade80, #22c55e)';
-                levelBar.style.boxShadow = `0 0 ${6}px rgba(74, 222, 128, 0.3)`;
+                levelBar.style.background = 'linear-gradient(to top, #7CE38B, #2E9E45)';
+                levelBar.style.boxShadow = `0 0 ${8}px rgba(124, 227, 139, 0.3)`;
             }
         }
         
@@ -4712,21 +4896,21 @@ class MultracksApp {
             
             // Add glow effect based on level intensity
             const glowIntensity = Math.min(1, level * 1.5);
-            levelBar.style.boxShadow = `0 0 ${8 + glowIntensity * 8}px rgba(34, 197, 94, ${0.3 + glowIntensity * 0.4})`;
+            levelBar.style.boxShadow = `0 0 ${10 + glowIntensity * 10}px rgba(46, 158, 69, ${0.3 + glowIntensity * 0.4})`;
             
             // Change color based on level intensity
             if (heightPercent > 85) {
                 levelBar.style.background = 'linear-gradient(to top, #ef4444, #dc2626)';
-                levelBar.style.boxShadow = `0 0 ${12}px rgba(239, 68, 68, 0.8)`;
+                levelBar.style.boxShadow = `0 0 ${15}px rgba(239, 68, 68, 0.8)`;
             } else if (heightPercent > 65) {
                 levelBar.style.background = 'linear-gradient(to top, #f59e0b, #d97706)';
-                levelBar.style.boxShadow = `0 0 ${10}px rgba(245, 158, 11, 0.6)`;
+                levelBar.style.boxShadow = `0 0 ${13}px rgba(245, 158, 11, 0.6)`;
             } else if (heightPercent > 40) {
-                levelBar.style.background = 'linear-gradient(to top, #22c55e, #16a34a)';
-                levelBar.style.boxShadow = `0 0 ${8}px rgba(34, 197, 94, 0.5)`;
+                levelBar.style.background = 'linear-gradient(to top, #2E9E45, #7CE38B)';
+                levelBar.style.boxShadow = `0 0 ${10}px rgba(46, 158, 69, 0.5)`;
             } else {
-                levelBar.style.background = 'linear-gradient(to top, #4ade80, #22c55e)';
-                levelBar.style.boxShadow = `0 0 ${6}px rgba(74, 222, 128, 0.3)`;
+                levelBar.style.background = 'linear-gradient(to top, #7CE38B, #2E9E45)';
+                levelBar.style.boxShadow = `0 0 ${8}px rgba(124, 227, 139, 0.3)`;
             }
         }
     }
@@ -4742,7 +4926,7 @@ class MultracksApp {
         if (repeatMode) {
             // Repeat current song
             console.log('[APP] Repeat mode enabled, restarting current song');
-            this.audioPlayer.seek(0);
+            this.audioPlayer.seek(0, false);
             this.audioPlayer.play();
         } else if (autoAdvanceMode && this.playerSession.length > 1) {
             // Auto-advance to next song
@@ -4818,21 +5002,21 @@ class MultracksApp {
             
             // Add glow effect based on level intensity
             const glowIntensity = Math.min(1, level * 1.5);
-            levelBar.style.boxShadow = `0 0 ${8 + glowIntensity * 8}px rgba(34, 197, 94, ${0.3 + glowIntensity * 0.4})`;
+            levelBar.style.boxShadow = `0 0 ${10 + glowIntensity * 10}px rgba(46, 158, 69, ${0.3 + glowIntensity * 0.4})`;
             
             // Change color based on level intensity
             if (heightPercent > 85) {
                 levelBar.style.background = 'linear-gradient(to top, #ef4444, #dc2626)';
-                levelBar.style.boxShadow = `0 0 ${12}px rgba(239, 68, 68, 0.8)`;
+                levelBar.style.boxShadow = `0 0 ${15}px rgba(239, 68, 68, 0.8)`;
             } else if (heightPercent > 65) {
                 levelBar.style.background = 'linear-gradient(to top, #f59e0b, #d97706)';
-                levelBar.style.boxShadow = `0 0 ${10}px rgba(245, 158, 11, 0.6)`;
+                levelBar.style.boxShadow = `0 0 ${13}px rgba(245, 158, 11, 0.6)`;
             } else if (heightPercent > 40) {
-                levelBar.style.background = 'linear-gradient(to top, #22c55e, #16a34a)';
-                levelBar.style.boxShadow = `0 0 ${8}px rgba(34, 197, 94, 0.5)`;
+                levelBar.style.background = 'linear-gradient(to top, #2E9E45, #7CE38B)';
+                levelBar.style.boxShadow = `0 0 ${10}px rgba(46, 158, 69, 0.5)`;
             } else {
-                levelBar.style.background = 'linear-gradient(to top, #4ade80, #22c55e)';
-                levelBar.style.boxShadow = `0 0 ${6}px rgba(74, 222, 128, 0.3)`;
+                levelBar.style.background = 'linear-gradient(to top, #7CE38B, #2E9E45)';
+                levelBar.style.boxShadow = `0 0 ${8}px rgba(124, 227, 139, 0.3)`;
             }
         }
     }
@@ -5119,11 +5303,14 @@ class MultracksApp {
             document.body.removeChild(modal);
         });
         
-        confirmBtn?.addEventListener('click', () => {
+        confirmBtn?.addEventListener('click', async () => {
             const newName = input.value.trim();
             if (newName && newName !== project.name) {
                 project.name = newName;
-                storage.updateProject(project.id, project);
+                await storage.updateProject(project.id, project);
+                // Increment version after successful update
+                this.libraryStateVersion++;
+                console.log('[LIBRARY] Library state version incremented to:', this.libraryStateVersion);
                 this.renderLibrary(this.currentFilter);
             }
             document.body.removeChild(modal);
@@ -5272,9 +5459,12 @@ class MultracksApp {
         });
         
         if (removeCoverBtn) {
-            removeCoverBtn?.addEventListener('click', () => {
+            removeCoverBtn?.addEventListener('click', async () => {
                 project.cover = null;
-                storage.updateProject(project.id, project);
+                await storage.updateProject(project.id, project);
+                // Increment version after successful update
+                this.libraryStateVersion++;
+                console.log('[LIBRARY] Library state version incremented to:', this.libraryStateVersion);
                 this.renderLibrary(this.currentFilter);
                 document.body.removeChild(modal);
             });
@@ -5284,9 +5474,12 @@ class MultracksApp {
             const file = e.target.files[0];
             if (file) {
                 const reader = new FileReader();
-                reader.onload = (event) => {
+                reader.onload = async (event) => {
                     project.cover = event.target.result;
-                    storage.updateProject(project.id, project);
+                    await storage.updateProject(project.id, project);
+                    // Increment version after successful update
+                    this.libraryStateVersion++;
+                    console.log('[LIBRARY] Library state version incremented to:', this.libraryStateVersion);
                     this.renderLibrary(this.currentFilter);
                     document.body.removeChild(modal);
                 };
@@ -5309,13 +5502,20 @@ class MultracksApp {
         return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
     }
     
-    toggleFavorite(projectId) {
-        storage.toggleFavorite(projectId);
+    async toggleFavorite(projectId) {
+        await storage.toggleFavorite(projectId);
+        // Increment version after successful toggle
+        this.libraryStateVersion++;
+        console.log('[LIBRARY] Library state version incremented to:', this.libraryStateVersion);
         this.renderLibrary(this.currentFilter);
     }
     
-    duplicateProject(projectId) {
-        storage.duplicateProject(projectId);
+    async duplicateProject(projectId) {
+        console.log('[LIBRARY] DUPLICATE START:', projectId);
+        await storage.duplicateProject(projectId);
+        // Increment version after successful duplication
+        this.libraryStateVersion++;
+        console.log('[LIBRARY] Library state version incremented to:', this.libraryStateVersion);
         this.renderLibrary(this.currentFilter);
     }
     
@@ -5332,9 +5532,35 @@ class MultracksApp {
         }
     }
     
-    deleteProject(projectId) {
+    async deleteProject(projectId) {
+        console.log('[LIBRARY] DELETE START:', projectId);
+        
         if (confirm('Tem certeza que deseja excluir este projeto?')) {
-            storage.deleteProject(projectId);
+            // Capture version at start of operation
+            const operationVersion = ++this.libraryStateVersion;
+            console.log('[LIBRARY] DELETE OPERATION VERSION:', operationVersion);
+            
+            // IMMEDIATELY mark as deleted to prevent reappearance
+            this.deletedProjectIds.add(projectId);
+            console.log('[LIBRARY] Project ID added to deleted set:', projectId);
+            console.log('[LIBRARY] Current deleted IDs:', Array.from(this.deletedProjectIds));
+            
+            // Re-render immediately to reflect deletion
+            this.renderLibrary(this.currentFilter);
+            
+            // Then perform the actual storage deletion
+            await storage.deleteProject(projectId);
+            
+            // Validate version before applying results
+            if (operationVersion !== this.libraryStateVersion) {
+                console.log('[LIBRARY] DELETE operation stale, ignoring result:', operationVersion, 'current:', this.libraryStateVersion);
+                return;
+            }
+            
+            console.log('[LIBRARY] DELETE COMPLETE:', projectId);
+            console.log('[LIBRARY] PROJECTS AFTER DELETE:', storage.getProjectsByFilter('all').map(p => p.id));
+            
+            // Final render to ensure consistency
             this.renderLibrary(this.currentFilter);
         }
     }
@@ -6241,6 +6467,9 @@ class MultracksApp {
     }
     
     async createProject() {
+        console.log('[UPLOAD] START');
+        console.log('[UPLOAD] Library state version at start:', this.libraryStateVersion);
+        
         // Guard against duplicate clicks
         if (this.isCreatingProject) {
             console.log('[IMPORT] Project creation already in progress, ignoring duplicate click');
@@ -6249,6 +6478,12 @@ class MultracksApp {
 
         this.isCreatingProject = true;
         
+        // Capture current version to detect if state changed during upload
+        const versionAtStart = this.libraryStateVersion;
+        console.log('[UPLOAD] Version captured at start:', versionAtStart);
+        
+        console.log('[IMPORT] Starting project creation process');
+        
         // Store original button text and state
         const originalButtonText = this.wizardCreate.textContent;
         const originalDisabled = this.wizardCreate.disabled;
@@ -6256,6 +6491,10 @@ class MultracksApp {
         // Generate temporary ID for loading card
         const tempId = 'loading-' + Date.now();
         const projectName = this.projectName.value.trim();
+        
+        // Capture version at start of upload operation
+        const uploadVersion = ++this.libraryStateVersion;
+        console.log('[UPLOAD] UPLOAD OPERATION VERSION:', uploadVersion);
         
         try {
             console.log('[IMPORT] Creating project with', this.selectedFiles.length, 'tracks');
@@ -6290,8 +6529,17 @@ class MultracksApp {
                 this.updateLoadingCardProgress(tempId, saved, total);
             };
             
-            // Add loading card to library immediately
-            this.addLoadingCardToLibrary(tempId, projectName, tracks.length);
+            // Add to active uploads state instead of direct DOM manipulation
+            this.activeUploads.set(tempId, {
+                projectName,
+                trackCount: tracks.length,
+                saved: 0,
+                total: tracks.length
+            });
+            console.log('[UPLOAD] Added to active uploads:', tempId);
+            
+            // Render library to show loading card
+            this.renderLibrary();
             
             // Close modal to show the loading card
             this.closeModal();
@@ -6302,6 +6550,15 @@ class MultracksApp {
                 tracks: tracks
             }, onProgress);
             
+            // Validate version before applying results
+            if (uploadVersion !== this.libraryStateVersion) {
+                console.log('[UPLOAD] Upload operation stale, ignoring result:', uploadVersion, 'current:', this.libraryStateVersion);
+                // Clean up stale upload state
+                this.activeUploads.delete(tempId);
+                return;
+            }
+            
+            console.log('[UPLOAD] CREATE COMPLETE:', project.id);
             console.log('[IMPORT] Project created:', project.name);
             console.log('[IMPORT] Project tracks after creation:', project.tracks.length);
             console.log('[IMPORT] First track in project:', project.tracks[0]);
@@ -6309,9 +6566,19 @@ class MultracksApp {
             // createProject already saves, no need to save again
             console.log('[IMPORT] Project saved to storage');
             
+            // Verify project is available in storage
+            const allProjects = storage.getProjectsByFilter('all');
+            console.log('[IMPORT] Total projects in storage after creation:', allProjects.length);
+            console.log('[IMPORT] New project is in storage:', allProjects.some(p => p.id === project.id));
+            console.log('[IMPORT] All project IDs in storage:', allProjects.map(p => p.id));
+            
+            // Increment version after successful creation
+            this.libraryStateVersion++;
+            console.log('[UPLOAD] Library state version incremented to:', this.libraryStateVersion);
+            
             // Remove loading card and render complete library
             this.removeLoadingCard(tempId);
-            this.renderLibrary();
+            console.log('[UPLOAD] Library will be rendered by removeLoadingCard');
             
         } catch (error) {
             console.error('[IMPORT] Error creating project:', error);
@@ -6327,7 +6594,9 @@ class MultracksApp {
         }
     }
 
-    addLoadingCardToLibrary(tempId, projectName, trackCount) {
+    createLoadingCard(tempId, projectName, trackCount) {
+        console.log('[UPLOAD] Creating loading card element:', tempId, projectName, trackCount);
+        
         const card = document.createElement('div');
         card.className = 'music-card loading-card';
         card.dataset.tempId = tempId;
@@ -6352,29 +6621,19 @@ class MultracksApp {
             </div>
         `;
         
-        // Ensure musicGrid exists
-        if (!this.musicGrid) {
-            this.musicGrid = document.getElementById('musicGrid');
-        }
-        
-        // Add card to beginning of grid
-        if (this.musicGrid.firstChild) {
-            this.musicGrid.insertBefore(card, this.musicGrid.firstChild);
-        } else {
-            this.musicGrid.appendChild(card);
-        }
-        
-        // Show empty state as hidden since we have a loading card
-        const emptyState = document.getElementById('emptyState');
-        if (emptyState) {
-            emptyState.style.display = 'none';
-        }
-        
-        // Show music grid
-        this.musicGrid.style.display = 'grid';
+        return card; // Return element instead of inserting into DOM
     }
 
     updateLoadingCardProgress(tempId, saved, total) {
+        // Update state instead of direct DOM manipulation
+        if (this.activeUploads.has(tempId)) {
+            const uploadData = this.activeUploads.get(tempId);
+            uploadData.saved = saved;
+            uploadData.total = total;
+            console.log('[UPLOAD] Updated progress for:', tempId, saved, total);
+        }
+        
+        // Also update DOM if element exists (for immediate feedback)
         const progressText = document.getElementById(`progress-${tempId}`);
         if (progressText) {
             const percentage = Math.round((saved / total) * 100);
@@ -6383,20 +6642,12 @@ class MultracksApp {
     }
 
     removeLoadingCard(tempId) {
-        const loadingCard = document.querySelector(`[data-temp-id="${tempId}"]`);
-        if (loadingCard) {
-            loadingCard.remove();
-        }
+        console.log('[UPLOAD] Removing loading card from state:', tempId);
+        this.activeUploads.delete(tempId);
+        console.log('[UPLOAD] Active uploads after removal:', Array.from(this.activeUploads.keys()));
         
-        // Check if library is now empty and show empty state if needed
-        const currentCards = this.musicGrid.querySelectorAll('.music-card:not(.loading-card)');
-        if (currentCards.length === 0) {
-            const emptyState = document.getElementById('emptyState');
-            if (emptyState) {
-                emptyState.style.display = 'block';
-                this.musicGrid.style.display = 'none';
-            }
-        }
+        // Render library to reflect the removal
+        this.renderLibrary();
     }
     
     // ========================================
@@ -6804,6 +7055,19 @@ class MultracksApp {
         
         this.playPauseBtn?.addEventListener('click', () => this.togglePlay());
         
+        // Rewind/Forward buttons for 5-second seek
+        this.rewindBtn?.addEventListener('click', () => {
+            if (this.audioPlayer) {
+                this.audioPlayer.seekRelative(-5);
+            }
+        });
+        
+        this.forwardBtn?.addEventListener('click', () => {
+            if (this.audioPlayer) {
+                this.audioPlayer.seekRelative(5);
+            }
+        });
+        
         // Timeline click for seeking
         // Timeline scrubbing with drag support
         this.waveformCanvas?.addEventListener('pointerdown', (e) => {
@@ -7025,11 +7289,41 @@ class MultracksApp {
             resetPanBtn.addEventListener('click', () => this.resetPanVolumes());
         }
         
+        // Keyboard shortcuts for seek (ArrowLeft/ArrowRight)
+        document.addEventListener('keydown', (e) => {
+            // Only handle keyboard shortcuts when player is active and not in input fields
+            if (this.currentView !== 'player') return;
+            
+            // Check if focus is in an editable element
+            const activeElement = document.activeElement;
+            const isEditable = activeElement && (
+                activeElement.tagName === 'INPUT' ||
+                activeElement.tagName === 'TEXTAREA' ||
+                activeElement.isContentEditable
+            );
+            
+            if (isEditable) return;
+            
+            // Handle ArrowLeft and ArrowRight for seek
+            if (e.key === 'ArrowLeft' && this.audioPlayer) {
+                e.preventDefault();
+                this.audioPlayer.seekRelative(-5);
+            } else if (e.key === 'ArrowRight' && this.audioPlayer) {
+                e.preventDefault();
+                this.audioPlayer.seekRelative(5);
+            }
+        });
+        
         // BPM and time signature controls
         this.bpmInput?.addEventListener('input', (e) => {
             const bpm = parseInt(e.target.value);
             if (this.audioPlayer && !isNaN(bpm) && bpm >= 40 && bpm <= 240) {
                 this.audioPlayer.setMetronomeBpm(bpm);
+                // Update project BPM when manually edited
+                if (this.currentProject) {
+                    this.currentProject.bpm = bpm;
+                    storage.updateProject(this.currentProject.id, this.currentProject);
+                }
             }
         });
         
@@ -7041,6 +7335,16 @@ class MultracksApp {
         });
         
         this.metronomeBtn?.addEventListener('click', () => this.toggleMetronome());
+        
+        // TAP TEMPO button
+        const tapTempoBtn = document.getElementById('tapTempoBtn');
+        if (tapTempoBtn) {
+            // Handle both click and touch events for mobile support
+            tapTempoBtn.addEventListener('pointerdown', (e) => {
+                e.preventDefault(); // Prevent double-tap zoom
+                this.handleTapTempo();
+            });
+        }
         
         // Add music to player button
         document.getElementById('addMusicToPlayer')?.addEventListener('click', () => {
@@ -7353,12 +7657,27 @@ class MultracksApp {
                         // Reload storage with new user's data
                         if (typeof storage !== 'undefined') {
                             console.log('[AUTH] Reloading storage for user:', user.uid);
-                            storage.load().then(() => {
-                                console.log('[AUTH] Storage reloaded, refreshing UI');
-                                this.renderLibrary();
-                            }).catch(error => {
-                                console.error('[AUTH] Error reloading storage:', error);
-                            });
+                            // Capture version before auth reload
+                            const authReloadVersion = ++this.libraryStateVersion;
+                            console.log('[AUTH] AUTH RELOAD VERSION:', authReloadVersion);
+                            
+                            // Wait for any existing storage load to complete before starting a new one
+                            if (this.storageLoadPromise) {
+                                await this.storageLoadPromise;
+                            }
+                            this.storageReady = false;
+                            this.storageLoadPromise = storage.load();
+                            await this.storageLoadPromise;
+                            this.storageReady = true;
+                            
+                            // Validate version before applying results
+                            if (authReloadVersion !== this.libraryStateVersion) {
+                                console.log('[AUTH] Auth reload stale, ignoring results:', authReloadVersion, 'current:', this.libraryStateVersion);
+                                return;
+                            }
+                            
+                            console.log('[AUTH] Storage reloaded, refreshing UI');
+                            this.renderLibrary();
                         }
                     } else {
                         console.log('[AUTH] User is logged out');
@@ -7371,13 +7690,28 @@ class MultracksApp {
                         // Reload storage with guest user's data
                         if (typeof storage !== 'undefined') {
                             console.log('[AUTH] Reloading storage for guest user');
-                            storage.load().then(() => {
-                                console.log('[AUTH] Storage reloaded, refreshing UI');
-                                this.renderLibrary();
-                                this.renderCommunity(); // Update community cards
-                            }).catch(error => {
-                                console.error('[AUTH] Error reloading storage:', error);
-                            });
+                            // Capture version before auth reload
+                            const authReloadVersion = ++this.libraryStateVersion;
+                            console.log('[AUTH] AUTH RELOAD VERSION:', authReloadVersion);
+                            
+                            // Wait for any existing storage load to complete before starting a new one
+                            if (this.storageLoadPromise) {
+                                await this.storageLoadPromise;
+                            }
+                            this.storageReady = false;
+                            this.storageLoadPromise = storage.load();
+                            await this.storageLoadPromise;
+                            this.storageReady = true;
+                            
+                            // Validate version before applying results
+                            if (authReloadVersion !== this.libraryStateVersion) {
+                                console.log('[AUTH] Auth reload stale, ignoring results:', authReloadVersion, 'current:', this.libraryStateVersion);
+                                return;
+                            }
+                            
+                            console.log('[AUTH] Storage reloaded, refreshing UI');
+                            this.renderLibrary();
+                            this.renderCommunity(); // Update community cards
                         }
                     }
                 });
