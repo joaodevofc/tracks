@@ -2504,14 +2504,35 @@ class MultracksApp {
         
         // Touch events for mobile with reduced sensitivity
         faderContainer.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            
-            // Immediately handle the initial touch position
-            handleFaderInteraction(e.touches[0].clientY);
+            const startX = e.touches[0].clientX;
+            const startY = e.touches[0].clientY;
+            let gestureDecided = false;
+            let isVerticalDrag = false;
+            const threshold = 6;
             
             const handleTouchMove = (moveEvent) => {
-                moveEvent.preventDefault();
-                handleFaderInteraction(moveEvent.touches[0].clientY);
+                if (!gestureDecided) {
+                    const deltaX = Math.abs(moveEvent.touches[0].clientX - startX);
+                    const deltaY = Math.abs(moveEvent.touches[0].clientY - startY);
+                    
+                    if (deltaX < threshold && deltaY < threshold) {
+                        return;
+                    }
+                    
+                    gestureDecided = true;
+                    isVerticalDrag = deltaY > deltaX;
+                    
+                    if (isVerticalDrag) {
+                        moveEvent.preventDefault();
+                        handleFaderInteraction(moveEvent.touches[0].clientY);
+                    } else {
+                        document.removeEventListener('touchmove', handleTouchMove);
+                        document.removeEventListener('touchend', handleTouchEnd);
+                    }
+                } else if (isVerticalDrag) {
+                    moveEvent.preventDefault();
+                    handleFaderInteraction(moveEvent.touches[0].clientY);
+                }
             };
             
             const handleTouchEnd = () => {
@@ -2615,6 +2636,7 @@ class MultracksApp {
             volumeInput.value = volumePercent;
         };
         
+        // Mouse events on entire fader container
         faderContainer?.addEventListener('mousedown', (e) => {
             handleFaderInteraction(e.clientY);
             
@@ -2633,35 +2655,35 @@ class MultracksApp {
         
         // Touch events for mobile
         faderContainer.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            
-            // Immediately handle the initial touch position
-            handleFaderInteraction(e.touches[0].clientY);
-            
-            const handleTouchMove = (moveEvent) => {
-                moveEvent.preventDefault();
-                handleFaderInteraction(moveEvent.touches[0].clientY);
-            };
-            
-            const handleTouchEnd = () => {
-                document.removeEventListener('touchmove', handleTouchMove);
-                document.removeEventListener('touchend', handleTouchEnd);
-            };
-            
-            document.addEventListener('touchmove', handleTouchMove);
-            document.addEventListener('touchend', handleTouchEnd);
-        });
-        
-        // Touch events for mobile with reduced sensitivity
-        faderContainer.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            
-            // Immediately handle the initial touch position
-            handleFaderInteraction(e.touches[0].clientY);
+            const startX = e.touches[0].clientX;
+            const startY = e.touches[0].clientY;
+            let gestureDecided = false;
+            let isVerticalDrag = false;
+            const threshold = 6;
             
             const handleTouchMove = (moveEvent) => {
-                moveEvent.preventDefault();
-                handleFaderInteraction(moveEvent.touches[0].clientY);
+                if (!gestureDecided) {
+                    const deltaX = Math.abs(moveEvent.touches[0].clientX - startX);
+                    const deltaY = Math.abs(moveEvent.touches[0].clientY - startY);
+                    
+                    if (deltaX < threshold && deltaY < threshold) {
+                        return;
+                    }
+                    
+                    gestureDecided = true;
+                    isVerticalDrag = deltaY > deltaX;
+                    
+                    if (isVerticalDrag) {
+                        moveEvent.preventDefault();
+                        handleFaderInteraction(moveEvent.touches[0].clientY);
+                    } else {
+                        document.removeEventListener('touchmove', handleTouchMove);
+                        document.removeEventListener('touchend', handleTouchEnd);
+                    }
+                } else if (isVerticalDrag) {
+                    moveEvent.preventDefault();
+                    handleFaderInteraction(moveEvent.touches[0].clientY);
+                }
             };
             
             const handleTouchEnd = () => {
@@ -7254,14 +7276,35 @@ class MultracksApp {
             
             // Touch events for mobile with reduced sensitivity
             masterFaderContainer.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                
-                // Immediately handle the initial touch position
-                handleMasterFaderInteraction(e.touches[0].clientY);
+                const startX = e.touches[0].clientX;
+                const startY = e.touches[0].clientY;
+                let gestureDecided = false;
+                let isVerticalDrag = false;
+                const threshold = 6;
                 
                 const handleTouchMove = (moveEvent) => {
-                    moveEvent.preventDefault();
-                    handleMasterFaderInteraction(moveEvent.touches[0].clientY);
+                    if (!gestureDecided) {
+                        const deltaX = Math.abs(moveEvent.touches[0].clientX - startX);
+                        const deltaY = Math.abs(moveEvent.touches[0].clientY - startY);
+                        
+                        if (deltaX < threshold && deltaY < threshold) {
+                            return;
+                        }
+                        
+                        gestureDecided = true;
+                        isVerticalDrag = deltaY > deltaX;
+                        
+                        if (isVerticalDrag) {
+                            moveEvent.preventDefault();
+                            handleMasterFaderInteraction(moveEvent.touches[0].clientY);
+                        } else {
+                            document.removeEventListener('touchmove', handleTouchMove);
+                            document.removeEventListener('touchend', handleTouchEnd);
+                        }
+                    } else if (isVerticalDrag) {
+                        moveEvent.preventDefault();
+                        handleMasterFaderInteraction(moveEvent.touches[0].clientY);
+                    }
                 };
                 
                 const handleTouchEnd = () => {

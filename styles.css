@@ -1074,11 +1074,18 @@ input, select, textarea {
 }
 
 /* Reduced touch sensitivity for slider controls */
-.fader-input, .track-pan-input, .fader-thumb {
+.fader-input, .track-pan-input {
     touch-action: none;
     -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
     /* Require more deliberate touch movement */
+    pointer-events: auto;
+}
+
+.fader-thumb {
+    touch-action: pan-x;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
     pointer-events: auto;
 }
 
@@ -4038,7 +4045,7 @@ body.fader-animations-disabled .led-pointer {
     width: 130px;
     cursor: pointer;
     display: flex;
-    touch-action: none;
+    touch-action: pan-x;
     user-select: none;
     -webkit-user-select: none;
     align-items: center;
@@ -4092,7 +4099,6 @@ body.fader-animations-disabled .led-pointer {
     transition: all var(--transition-fast);
     z-index: 2;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
-    touch-action: none;
     user-select: none;
     -webkit-user-select: none;
     color: #141414;
@@ -4117,7 +4123,6 @@ body.fader-animations-disabled .led-pointer {
     width: 90px;
     cursor: pointer;
     display: flex;
-    touch-action: none;
     user-select: none;
     -webkit-user-select: none;
     align-items: center;
@@ -4169,7 +4174,6 @@ body.fader-animations-disabled .led-pointer {
     cursor: grab;
     z-index: 2;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 0 2px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.8);
-    touch-action: none;
     user-select: none;
     -webkit-user-select: none;
     transition: box-shadow var(--transition-fast);
@@ -4627,64 +4631,64 @@ body.fader-animations-disabled .led-pointer {
 }
 
 /* Idle wave animation for faders when player is paused and idle */
-.mixer-container.idle-wave .track-fader {
+.mixer-container.idle-wave .fader-thumb {
     animation: faderWave 3s ease-in-out infinite;
 }
 
 /* Smooth transition when stopping idle wave */
-.mixer-container.idle-wave-stopping .track-fader {
+.mixer-container.idle-wave-stopping .fader-thumb {
     animation: none;
     transition: transform 0.5s ease-out;
-    transform: translateY(0);
+    transform: translateX(-50%) translateY(0);
 }
 
 @keyframes faderWave {
     0%, 100% {
-        transform: translateY(0);
+        transform: translateX(-50%) translateY(0);
     }
     50% {
-        transform: translateY(-35px);
+        transform: translateX(-50%) translateY(-35px);
     }
 }
 
 /* Staggered animation delays for wave effect across faders */
-.mixer-container.idle-wave .track-channel:nth-child(1) .track-fader {
+.mixer-container.idle-wave .track-channel:nth-child(1) .fader-thumb {
     animation-delay: 0s;
 }
 
-.mixer-container.idle-wave .track-channel:nth-child(2) .track-fader {
+.mixer-container.idle-wave .track-channel:nth-child(2) .fader-thumb {
     animation-delay: 0.15s;
 }
 
-.mixer-container.idle-wave .track-channel:nth-child(3) .track-fader {
+.mixer-container.idle-wave .track-channel:nth-child(3) .fader-thumb {
     animation-delay: 0.3s;
 }
 
-.mixer-container.idle-wave .track-channel:nth-child(4) .track-fader {
+.mixer-container.idle-wave .track-channel:nth-child(4) .fader-thumb {
     animation-delay: 0.45s;
 }
 
-.mixer-container.idle-wave .track-channel:nth-child(5) .track-fader {
+.mixer-container.idle-wave .track-channel:nth-child(5) .fader-thumb {
     animation-delay: 0.6s;
 }
 
-.mixer-container.idle-wave .track-channel:nth-child(6) .track-fader {
+.mixer-container.idle-wave .track-channel:nth-child(6) .fader-thumb {
     animation-delay: 0.75s;
 }
 
-.mixer-container.idle-wave .track-channel:nth-child(7) .track-fader {
+.mixer-container.idle-wave .track-channel:nth-child(7) .fader-thumb {
     animation-delay: 0.9s;
 }
 
-.mixer-container.idle-wave .track-channel:nth-child(8) .track-fader {
+.mixer-container.idle-wave .track-channel:nth-child(8) .fader-thumb {
     animation-delay: 1.05s;
 }
 
-.mixer-container.idle-wave .track-channel:nth-child(9) .track-fader {
+.mixer-container.idle-wave .track-channel:nth-child(9) .fader-thumb {
     animation-delay: 1.2s;
 }
 
-.mixer-container.idle-wave .track-channel:nth-child(10) .track-fader {
+.mixer-container.idle-wave .track-channel:nth-child(10) .fader-thumb {
     animation-delay: 1.35s;
 }
 

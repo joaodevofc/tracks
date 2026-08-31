@@ -86,6 +86,12 @@
                             });
                         });
                         
+                        // Listen for controller change (when new SW takes control)
+                        navigator.serviceWorker.addEventListener('controllerchange', () => {
+                            console.log('Service Worker controller changed, reloading...');
+                            window.location.reload();
+                        });
+                        
                         // Also check for updates periodically
                         setInterval(() => {
                             registration.update();
@@ -597,6 +603,10 @@
                     <input type="number" class="bpm-input" id="bpmInput" min="40" max="240" value="120">
                     <div class="bpm-label">BPM</div>
                 </div>
+                
+                <button class="control-btn tap-tempo-btn" id="tapTempoBtn" aria-label="Tap Tempo">
+                    <span>TAP</span>
+                </button>
                 
                 <div class="time-signature">
                     <select class="time-signature-select" id="timeSignatureSelect">
