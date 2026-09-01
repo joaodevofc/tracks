@@ -1589,10 +1589,17 @@ a {
 
 .hero-banner {
     width: 100%;
-    height: auto;
-    display: block;
+    height: 320px;
     object-fit: cover;
+    object-position: center;
+    display: block;
     animation: subtleZoom 20s ease-in-out infinite alternate;
+}
+
+@media (max-width: 768px) {
+    .hero-banner {
+        height: 200px;
+    }
 }
 
 @keyframes subtleZoom {
