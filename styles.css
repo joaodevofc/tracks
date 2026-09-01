@@ -4119,7 +4119,7 @@ body.fader-animations-disabled .led-pointer {
 /* Master Fader - larger, premium design for emergency control */
 .master-fader {
     position: relative;
-    height: 200px;
+    height: 280px;
     width: 90px;
     cursor: pointer;
     display: flex;
@@ -4135,7 +4135,7 @@ body.fader-animations-disabled .led-pointer {
 /* Desktop: Reduce master fader height for better fit */
 @media (min-width: 1024px) {
     .master-fader {
-        height: 200px;
+        height: 280px;
     }
 }
 
@@ -4454,7 +4454,7 @@ body.fader-animations-disabled .led-pointer {
     width: 52px;
     padding: var(--spacing-xs);
     align-self: flex-start;
-    margin-top: 200px; /* Align with dB line of other tracks */
+    margin-top: 190px; /* Align with dB line of other tracks */
 }
 
 .master-side-panel .pad-btn {
