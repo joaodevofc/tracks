@@ -4454,7 +4454,7 @@ body.fader-animations-disabled .led-pointer {
     width: 52px;
     padding: var(--spacing-xs);
     align-self: flex-start;
-    margin-top: 250px; /* Align with dB line of other tracks */
+    margin-top: 200px; /* Align with dB line of other tracks */
 }
 
 .master-side-panel .pad-btn {
