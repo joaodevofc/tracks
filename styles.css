@@ -1123,6 +1123,12 @@ input, select, textarea {
         padding-top: calc(56px + env(safe-area-inset-top));
         padding-bottom: env(safe-area-inset-bottom);
     }
+    
+    /* Ensure social links work properly in PWA mode */
+    .welcome-social-link {
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+    }
 }
 
 /* CSS CUSTOM PROPERTIES */
@@ -1567,7 +1573,7 @@ a {
     margin-top: 56px;
     width: 100%;
     background: var(--color-black-soft);
-    overflow: hidden;
+    overflow: visible;
 }
 
 .hero::before {
@@ -1587,12 +1593,29 @@ a {
     pointer-events: none;
 }
 
+/* Ambient LED Glow Effect (Ambilight) */
+.hero::after {
+    content: '';
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    bottom: -15px;
+    background: url('banners/baner index.png') center/cover;
+    filter: blur(35px) brightness(1.2);
+    opacity: 0.65;
+    z-index: 0;
+    pointer-events: none;
+}
+
 .hero-banner {
     width: 100%;
     height: 320px;
     object-fit: cover;
     object-position: center;
     display: block;
+    position: relative;
+    z-index: 1;
     animation: subtleZoom 20s ease-in-out infinite alternate;
 }
 
@@ -1697,6 +1720,40 @@ a {
     margin-top: var(--spacing-sm);
     text-align: center;
     max-width: 500px;
+}
+
+.welcome-social-links {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-md);
+}
+
+.welcome-social-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    background: var(--color-black-elevated);
+    border: 1px solid var(--border-medium);
+    color: var(--color-white-muted);
+    transition: all var(--transition-fast);
+    text-decoration: none;
+}
+
+.welcome-social-link:hover {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: var(--color-black);
+    transform: translateY(-2px);
+}
+
+.welcome-social-link svg {
+    width: 20px;
+    height: 20px;
 }
 
 @keyframes gradientShift {

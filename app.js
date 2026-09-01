@@ -203,6 +203,7 @@ class MultracksApp {
         this.initPadSystem();
         this.initMyTracks();
         this.initSetlists();
+        this.initPWAExternalLinks();
 
         // Wait for storage to load before rendering
         console.log('[APP] Starting initial storage load...');
@@ -10293,6 +10294,31 @@ class MultracksApp {
         }
         
         console.log('[PAD] Pad removed from mixer');
+    }
+
+    initPWAExternalLinks() {
+        // Handle external links in PWA mode
+        document.addEventListener('click', (e) => {
+            const link = e.target.closest('a');
+            if (!link) return;
+
+            const href = link.getAttribute('href');
+            if (!href) return;
+
+            // Check if it's an external link (not same origin)
+            const isExternal = href.startsWith('http') && !href.startsWith(window.location.origin);
+            const isMailto = href.startsWith('mailto:');
+
+            if (isExternal || isMailto) {
+                // In PWA standalone mode, open external links in system browser
+                if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+                    e.preventDefault();
+                    window.open(href, '_system');
+                }
+            }
+        });
+
+        console.log('[APP] PWA external links handler initialized');
     }
 }
 
