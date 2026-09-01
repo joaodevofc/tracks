@@ -216,6 +216,9 @@ class MultracksApp {
         // Check auth state
         this.checkAuthState();
 
+        // Load payment URL from Firestore for dynamic buttons
+        this.loadPaymentUrl();
+
         // Expose current app instance for cross-module communication
         window.currentApp = this;
 
@@ -6431,6 +6434,90 @@ class MultracksApp {
         } catch (error) {
             console.error('[SETTINGS] Error loading user data for expiration banner:', error);
         }
+
+        // Load payment URL for dynamic button updates
+        this.loadPaymentUrl();
+    }
+
+    async loadPaymentUrl() {
+        if (!window.firebaseDB) {
+            console.warn('[PAYMENT] Firebase not available, using default payment URLs');
+            window.linkMensal = 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
+            window.linkAnual = '';
+            window.precoMensal = 'R$ 9,90/mês';
+            window.precoAnual = 'R$ 99,00/ano';
+            this.updatePaymentLinks();
+            return;
+        }
+
+        try {
+            const { db, doc, getDoc, setDoc } = window.firebaseDB;
+            const configDocRef = doc(db, 'global_config', 'checkout');
+            const configDoc = await getDoc(configDocRef);
+
+            if (configDoc.exists()) {
+                const configData = configDoc.data();
+                window.linkMensal = configData.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
+                window.linkAnual = configData.linkAnual || '';
+                window.precoMensal = configData.precoMensal || 'R$ 9,90/mês';
+                window.precoAnual = configData.precoAnual || 'R$ 99,00/ano';
+                console.log('[PAYMENT] Checkout config loaded from Firestore:', { linkMensal: window.linkMensal, linkAnual: window.linkAnual, precoMensal: window.precoMensal, precoAnual: window.precoAnual });
+            } else {
+                // Create default config if it doesn't exist
+                const defaultConfig = {
+                    linkMensal: 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm',
+                    precoMensal: 'R$ 9,90/mês',
+                    linkAnual: '',
+                    precoAnual: 'R$ 99,00/ano',
+                    createdAt: new Date().toISOString()
+                };
+                await setDoc(configDocRef, defaultConfig);
+                window.linkMensal = defaultConfig.linkMensal;
+                window.linkAnual = defaultConfig.linkAnual;
+                window.precoMensal = defaultConfig.precoMensal;
+                window.precoAnual = defaultConfig.precoAnual;
+                console.log('[PAYMENT] Default config created:', defaultConfig);
+            }
+        } catch (error) {
+            console.error('[PAYMENT] Error loading checkout config:', error);
+            window.linkMensal = 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
+            window.linkAnual = '';
+            window.precoMensal = 'R$ 9,90/mês';
+            window.precoAnual = 'R$ 99,00/ano';
+        }
+
+        // Update all payment links in the DOM
+        this.updatePaymentLinks();
+    }
+
+    updatePaymentLinks() {
+        // Use linkMensal as default for banners and renewal notifications
+        const paymentUrl = window.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
+
+        // Get current user ID
+        const userId = window.firebaseAuth?.auth?.currentUser?.uid;
+        
+        // Add user ID to payment URL if available
+        const finalPaymentUrl = userId 
+            ? `${paymentUrl}${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}`
+            : paymentUrl;
+
+        // Update banner button in settings
+        const bannerBtn = document.getElementById('settingsExpirationBannerBtn');
+        if (bannerBtn && finalPaymentUrl) {
+            bannerBtn.href = finalPaymentUrl;
+            console.log('[PAYMENT] Updated settings banner button link with user ID');
+        }
+
+        // Update upgrade button in settings
+        const upgradeBtn = document.getElementById('settingsUpgradeBtn');
+        if (upgradeBtn && finalPaymentUrl) {
+            // Only update if it's a payment link (not planos.html)
+            if (upgradeBtn.href && !upgradeBtn.href.includes('planos.html')) {
+                upgradeBtn.href = finalPaymentUrl;
+                console.log('[PAYMENT] Updated settings upgrade button link with user ID');
+            }
+        }
     }
 
     async populateSettingsModal() {
@@ -6632,11 +6719,16 @@ class MultracksApp {
         // Calculate days remaining
         let daysRemaining = null;
         let expiryDate = null;
+        let planType = 'mensal'; // Default to monthly
 
         if (currentPlan === 'studio' && validadeAcesso && paymentOrigin === 'site') {
             expiryDate = new Date(validadeAcesso);
             const currentDate = new Date();
             daysRemaining = Math.ceil((expiryDate - currentDate) / (1000 * 60 * 60 * 24));
+            // Check if it's an annual plan (by checking planType field or expiry duration)
+            if (userData.planType === 'anual') {
+                planType = 'anual';
+            }
         } else if (currentPlan === 'studio' && trialExpiresAt) {
             expiryDate = new Date(trialExpiresAt);
             const currentDate = new Date();
@@ -6676,15 +6768,32 @@ class MultracksApp {
 
             if (bannerText) {
                 bannerText.querySelector('h4').textContent = 'Sua assinatura Studio venceu';
-                bannerText.querySelector('p').textContent = 'Renove para reativar faders ilimitados e loops.';
+                const planLabel = planType === 'anual' ? 'plano anual' : 'assinatura Studio';
+                bannerText.querySelector('p').textContent = `Renove ${planLabel} para reativar faders ilimitados e loops.`;
                 bannerText.querySelector('h4').style.color = '#ff3b2f';
             }
 
             if (bannerBtn) {
-                bannerBtn.textContent = 'Renovar Assinatura (R$ 9,90)';
+                const priceText = planType === 'anual' 
+                    ? (window.precoAnual ? window.precoAnual.split('/')[0] : 'R$ 99,00')
+                    : (window.precoMensal ? window.precoMensal.split('/')[0] : 'R$ 9,90');
+                bannerBtn.textContent = `Renovar (${priceText})`;
                 bannerBtn.style.background = 'var(--color-white)';
                 bannerBtn.style.color = '#ff3b2f';
-                bannerBtn.href = 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
+                
+                // Get current user ID and add to payment URL
+                const userId = window.firebaseAuth?.auth?.currentUser?.uid;
+                const paymentUrl = planType === 'anual' 
+                    ? (window.linkAnual || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm')
+                    : (window.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm');
+                const finalPaymentUrl = userId 
+                    ? `${paymentUrl}${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}`
+                    : paymentUrl;
+                // Add plan type parameter
+                const finalUrlWithPlan = finalPaymentUrl + 
+                    (finalPaymentUrl.includes('?') ? '&' : '?') + 
+                    `plan_type=${planType}`;
+                bannerBtn.href = finalUrlWithPlan;
             }
 
             if (bannerIcon) {
@@ -6701,15 +6810,32 @@ class MultracksApp {
 
             if (bannerText) {
                 bannerText.querySelector('h4').textContent = `Vence em ${daysRemaining} dia${daysRemaining > 1 ? 's' : ''}!`;
-                bannerText.querySelector('p').textContent = 'Renove agora para evitar o bloqueio dos faders e loops.';
+                const planLabel = planType === 'anual' ? 'plano anual' : 'sua assinatura';
+                bannerText.querySelector('p').textContent = `Renove ${planLabel} agora para evitar o bloqueio dos faders e loops.`;
                 bannerText.querySelector('h4').style.color = '#f59e0b';
             }
 
             if (bannerBtn) {
-                bannerBtn.textContent = 'Renovar Assinatura (R$ 9,90)';
+                const priceText = planType === 'anual' 
+                    ? (window.precoAnual ? window.precoAnual.split('/')[0] : 'R$ 99,00')
+                    : (window.precoMensal ? window.precoMensal.split('/')[0] : 'R$ 9,90');
+                bannerBtn.textContent = `Renovar (${priceText})`;
                 bannerBtn.style.background = 'var(--color-white)';
                 bannerBtn.style.color = '#f59e0b';
-                bannerBtn.href = 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
+                
+                // Get current user ID and add to payment URL
+                const userId = window.firebaseAuth?.auth?.currentUser?.uid;
+                const paymentUrl = planType === 'anual' 
+                    ? (window.linkAnual || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm')
+                    : (window.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm');
+                const finalPaymentUrl = userId 
+                    ? `${paymentUrl}${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}`
+                    : paymentUrl;
+                // Add plan type parameter
+                const finalUrlWithPlan = finalPaymentUrl + 
+                    (finalPaymentUrl.includes('?') ? '&' : '?') + 
+                    `plan_type=${planType}`;
+                bannerBtn.href = finalUrlWithPlan;
             }
 
             if (bannerIcon) {
@@ -6726,15 +6852,30 @@ class MultracksApp {
 
             if (bannerText) {
                 bannerText.querySelector('h4').textContent = `Faltam ${daysRemaining} dias`;
-                bannerText.querySelector('p').textContent = 'Prepare-se para renovar e continue aproveitando os recursos sem interrupção!';
+                const planLabel = planType === 'anual' ? 'plano anual' : 'sua assinatura';
+                bannerText.querySelector('p').textContent = `Prepare-se para renovar ${planLabel} e continue aproveitando os recursos sem interrupção!`;
                 bannerText.querySelector('h4').style.color = '#3b82f6';
             }
 
             if (bannerBtn) {
-                bannerBtn.textContent = 'Renovar Agora';
+                const buttonText = planType === 'anual' ? 'Renovar Plano Anual' : 'Renovar Agora';
+                bannerBtn.textContent = buttonText;
                 bannerBtn.style.background = 'var(--color-white)';
                 bannerBtn.style.color = '#3b82f6';
-                bannerBtn.href = 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
+                
+                // Get current user ID and add to payment URL
+                const userId = window.firebaseAuth?.auth?.currentUser?.uid;
+                const paymentUrl = planType === 'anual' 
+                    ? (window.linkAnual || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm')
+                    : (window.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm');
+                const finalPaymentUrl = userId 
+                    ? `${paymentUrl}${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}`
+                    : paymentUrl;
+                // Add plan type parameter
+                const finalUrlWithPlan = finalPaymentUrl + 
+                    (finalPaymentUrl.includes('?') ? '&' : '?') + 
+                    `plan_type=${planType}`;
+                bannerBtn.href = finalUrlWithPlan;
             }
 
             if (bannerIcon) {
@@ -6759,7 +6900,14 @@ class MultracksApp {
                 bannerBtn.textContent = 'Assinar Studio';
                 bannerBtn.style.background = 'var(--color-white)';
                 bannerBtn.style.color = '#8b5cf6';
-                bannerBtn.href = 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
+                
+                // Get current user ID and add to payment URL
+                const userId = window.firebaseAuth?.auth?.currentUser?.uid;
+                const paymentUrl = window.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
+                const finalPaymentUrl = userId 
+                    ? `${paymentUrl}${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}`
+                    : paymentUrl;
+                bannerBtn.href = finalPaymentUrl;
             }
 
             if (bannerIcon) {
@@ -9302,6 +9450,15 @@ class MultracksApp {
             animation: slideIn 0.3s ease;
         `;
 
+        const paymentUrl = window.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
+        const priceText = window.precoMensal ? window.precoMensal.split('/')[0] : 'R$ 9,90';
+        
+        // Get current user ID and add to payment URL
+        const userId = window.firebaseAuth?.auth?.currentUser?.uid;
+        const finalPaymentUrl = userId 
+            ? `${paymentUrl}${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}`
+            : paymentUrl;
+
         notification.innerHTML = `
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -9314,7 +9471,7 @@ class MultracksApp {
             <p style="margin: 0; font-size: 14px; line-height: 1.5; opacity: 0.9;">
                 Sua assinatura Studio de 30 dias venceu. Faça a renovação para reativar todos os recursos.
             </p>
-            <button onclick="window.location.href='https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm'" style="
+            <button onclick="window.location.href='${finalPaymentUrl}'" style="
                 margin-top: 16px;
                 padding: 10px 20px;
                 background: white;
@@ -9325,7 +9482,7 @@ class MultracksApp {
                 cursor: pointer;
                 transition: transform 0.2s ease;
             " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
-                Renovar Agora
+                Renovar Agora (${priceText})
             </button>
             <button onclick="this.parentElement.remove()" style="
                 margin-top: 8px;
@@ -9387,6 +9544,15 @@ class MultracksApp {
             animation: slideIn 0.3s ease;
         `;
 
+        const paymentUrl = window.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
+        const priceText = window.precoMensal ? window.precoMensal.split('/')[0] : 'R$ 9,90';
+        
+        // Get current user ID and add to payment URL
+        const userId = window.firebaseAuth?.auth?.currentUser?.uid;
+        const finalPaymentUrl = userId 
+            ? `${paymentUrl}${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}`
+            : paymentUrl;
+
         notification.innerHTML = `
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -9399,7 +9565,7 @@ class MultracksApp {
             <p style="margin: 0; font-size: 14px; line-height: 1.5; opacity: 0.9;">
                 Seu período de teste de 7 dias do Studio acabou. Assine o plano para continuar aproveitando todos os recursos.
             </p>
-            <button onclick="window.location.href='https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm'" style="
+            <button onclick="window.location.href='${finalPaymentUrl}'" style="
                 margin-top: 16px;
                 padding: 10px 20px;
                 background: white;
@@ -9410,7 +9576,7 @@ class MultracksApp {
                 cursor: pointer;
                 transition: transform 0.2s ease;
             " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
-                Assinar Studio
+                Assinar Studio (${priceText})
             </button>
             <button onclick="this.parentElement.remove()" style="
                 margin-top: 8px;
@@ -9472,6 +9638,15 @@ class MultracksApp {
             animation: slideIn 0.3s ease;
         `;
 
+        const paymentUrl = window.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
+        const priceText = window.precoMensal ? window.precoMensal.split('/')[0] : 'R$ 9,90';
+        
+        // Get current user ID and add to payment URL
+        const userId = window.firebaseAuth?.auth?.currentUser?.uid;
+        const finalPaymentUrl = userId 
+            ? `${paymentUrl}${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}`
+            : paymentUrl;
+
         notification.innerHTML = `
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -9483,7 +9658,7 @@ class MultracksApp {
             <p style="margin: 0; font-size: 14px; line-height: 1.5; opacity: 0.9;">
                 Faltam ${daysRemaining} dias para o vencimento da sua assinatura W.Tracks Studio. Prepare-se para renovar e continue aproveitando os recursos sem interrupção!
             </p>
-            <button onclick="window.location.href='https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm'" style="
+            <button onclick="window.location.href='${finalPaymentUrl}'" style="
                 margin-top: 16px;
                 padding: 10px 20px;
                 background: white;
@@ -9494,7 +9669,7 @@ class MultracksApp {
                 cursor: pointer;
                 transition: transform 0.2s ease;
             " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
-                Renovar Agora
+                Renovar Agora (${priceText})
             </button>
             <button onclick="this.parentElement.remove()" style="
                 margin-top: 8px;
@@ -9556,6 +9731,15 @@ class MultracksApp {
             animation: slideIn 0.3s ease;
         `;
 
+        const paymentUrl = window.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
+        const priceText = window.precoMensal ? window.precoMensal.split('/')[0] : 'R$ 9,90';
+        
+        // Get current user ID and add to payment URL
+        const userId = window.firebaseAuth?.auth?.currentUser?.uid;
+        const finalPaymentUrl = userId 
+            ? `${paymentUrl}${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}`
+            : paymentUrl;
+
         notification.innerHTML = `
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -9568,7 +9752,7 @@ class MultracksApp {
             <p style="margin: 0; font-size: 14px; line-height: 1.5; opacity: 0.9;">
                 Sua assinatura Studio vence em ${daysRemaining} dia${daysRemaining > 1 ? 's' : ''}! Renove agora para evitar o bloqueio dos faders e loops.
             </p>
-            <button onclick="window.location.href='https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm'" style="
+            <button onclick="window.location.href='${finalPaymentUrl}'" style="
                 margin-top: 16px;
                 padding: 10px 20px;
                 background: white;
@@ -9579,7 +9763,7 @@ class MultracksApp {
                 cursor: pointer;
                 transition: transform 0.2s ease;
             " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
-                Renovar Assinatura (R$ 9,90)
+                Renovar Assinatura (${priceText})
             </button>
             <button onclick="this.parentElement.remove()" style="
                 margin-top: 8px;

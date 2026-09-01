@@ -1,0 +1,290 @@
+rules_version = '2';
+
+service cloud.firestore {
+
+  match /databases/{database}/documents {
+
+    // ============================================================
+    // ADMIN
+    // ============================================================
+
+    function isAdmin() {
+      return request.auth != null
+             && request.auth.token.email == "jonvitor014@gmail.com";
+    }
+
+
+    // ============================================================
+    // USERS
+    // ============================================================
+
+    match /users/{userId} {
+
+      // Usuário pode ler o próprio perfil.
+      // Admin pode ler todos os usuários.
+      allow read: if request.auth != null
+                  && (
+                    isAdmin()
+                    || request.auth.uid == userId
+                  );
+
+      // Usuário pode alterar o próprio perfil.
+      // Admin pode alterar qualquer usuário.
+      allow write: if request.auth != null
+                   && (
+                     isAdmin()
+                     || request.auth.uid == userId
+                   );
+    }
+
+
+    // ============================================================
+    // USUARIOS
+    // ============================================================
+
+    match /usuarios/{userId} {
+
+      allow read: if request.auth != null;
+
+      allow write: if request.auth != null;
+
+      match /projetos/{projectId} {
+
+        allow read: if request.auth != null
+                    && request.auth.uid == userId;
+
+        allow write: if request.auth != null
+                     && request.auth.uid == userId;
+      }
+    }
+
+
+    // ============================================================
+    // CREATORS
+    // ============================================================
+
+    match /creators/{creatorId} {
+
+      // Público para leitura.
+      allow read: if true;
+
+      // Dono pode alterar o próprio creator.
+      // Admin pode alterar qualquer creator.
+      allow write: if request.auth != null
+                   && (
+                     isAdmin()
+                     || request.auth.uid == creatorId
+                   );
+    }
+
+
+    // ============================================================
+    // COMMUNITY TRACKS
+    // ============================================================
+
+    match /communityTracks/{trackId} {
+
+      // Qualquer pessoa pode visualizar tracks.
+      allow read: if true;
+
+      // Usuário autenticado pode criar.
+      allow create: if request.auth != null;
+
+      // Usuário autenticado pode editar.
+      allow update: if request.auth != null;
+
+      // Usuário autenticado pode excluir.
+      allow delete: if request.auth != null;
+    }
+
+
+    // ============================================================
+    // WAITLIST
+    // ============================================================
+
+    match /waitlist/{waitlistId} {
+
+      allow read: if request.auth != null;
+
+      allow write: if request.auth != null;
+    }
+
+
+    // ============================================================
+    // SUPPORT REQUESTS
+    // ============================================================
+
+    match /supportRequests/{supportId} {
+
+      // Usuário pode visualizar a própria solicitação.
+      // Admin pode visualizar todas as solicitações.
+      allow read: if request.auth != null
+                  && (
+                    isAdmin()
+                    || resource.data.userId == request.auth.uid
+                  );
+
+      // Usuário autenticado pode criar solicitação.
+      allow create: if request.auth != null;
+
+      // Usuário pode alterar/excluir a própria solicitação.
+      // Admin pode alterar/excluir qualquer solicitação.
+      allow update, delete: if request.auth != null
+                            && (
+                              isAdmin()
+                              || resource.data.userId == request.auth.uid
+                            );
+    }
+
+
+    // ============================================================
+    // COMPLAINTS
+    // ============================================================
+
+    match /complaints/{complaintId} {
+
+      // Usuário vê a própria reclamação.
+      // Admin vê todas.
+      allow read: if request.auth != null
+                  && (
+                    isAdmin()
+                    || resource.data.userId == request.auth.uid
+                  );
+
+      // Usuário autenticado pode criar reclamação.
+      allow create: if request.auth != null;
+
+      // Usuário pode alterar/excluir a própria reclamação.
+      // Admin pode alterar/excluir qualquer reclamação.
+      allow update, delete: if request.auth != null
+                            && (
+                              isAdmin()
+                              || resource.data.userId == request.auth.uid
+                            );
+    }
+
+
+    // ============================================================
+    // SUPPORT MESSAGES
+    // ============================================================
+
+    match /supportMessages/{messageId} {
+
+      // Usuário vê as próprias mensagens.
+      // Admin pode visualizar todas as mensagens.
+      allow read: if request.auth != null
+                  && (
+                    isAdmin()
+                    || resource.data.userId == request.auth.uid
+                  );
+
+      // Usuário autenticado pode enviar mensagem.
+      allow create: if request.auth != null;
+
+      // Usuário pode alterar/excluir a própria mensagem.
+      // Admin pode alterar/excluir qualquer mensagem.
+      allow update, delete: if request.auth != null
+                            && (
+                              isAdmin()
+                              || resource.data.userId == request.auth.uid
+                            );
+    }
+
+
+    // ============================================================
+    // USER FAVORITES
+    // ============================================================
+
+    match /userFavorites/{userId} {
+
+      // Usuário vê os próprios favoritos.
+      allow read: if request.auth != null
+                  && request.auth.uid == userId;
+
+      // Usuário altera os próprios favoritos.
+      allow write: if request.auth != null
+                   && request.auth.uid == userId;
+    }
+
+
+    // ============================================================
+    // GLOBAL CONFIG
+    // ============================================================
+
+    match /global_config/{configId} {
+
+      // Usuários autenticados podem ler.
+      allow read: if request.auth != null;
+
+      // Apenas admin pode escrever (para configurações de checkout, etc).
+      allow write: if isAdmin();
+    }
+
+
+    // ============================================================
+    // SETLISTS
+    // ============================================================
+
+    match /setlists/{setlistId} {
+
+      // Dono pode ler.
+      allow read: if request.auth != null
+                  && resource.data.userId == request.auth.uid;
+
+      // Usuário autenticado pode criar.
+      allow create: if request.auth != null;
+
+      // Dono pode alterar/excluir.
+      allow update, delete: if request.auth != null
+                            && resource.data.userId == request.auth.uid;
+    }
+
+
+    // ============================================================
+    // PROJECTS
+    // ============================================================
+
+    match /projects/{projectId} {
+
+      // Dono pode ler.
+      allow read: if request.auth != null
+                  && resource.data.userId == request.auth.uid;
+
+      // Usuário autenticado pode criar.
+      allow create: if request.auth != null;
+
+      // Dono pode alterar/excluir.
+      allow update, delete: if request.auth != null
+                            && resource.data.userId == request.auth.uid;
+    }
+
+
+    // ============================================================
+    // PUBLIC SETLISTS
+    // ============================================================
+
+    match /publicSetlists/{shareId} {
+
+      // Público para leitura.
+      allow read: if true;
+
+      // Apenas autenticados podem criar.
+      allow create: if request.auth != null;
+
+      // Dono pode editar/excluir.
+      allow update, delete: if request.auth != null
+                            && resource.data.userId == request.auth.uid;
+    }
+
+
+    // ============================================================
+    // BLOQUEIO PADRÃO
+    // ============================================================
+
+    // Qualquer coleção não especificada acima fica bloqueada.
+    match /{document=**} {
+
+      allow read, write: if false;
+    }
+  }
+}

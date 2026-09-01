@@ -14,7 +14,7 @@
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-  import { getFirestore, doc, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+  import { getFirestore, doc, getDoc, updateDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
   import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
   const firebaseConfig = {
@@ -43,6 +43,117 @@
   };
 
   console.log('[FIREBASE] Firebase initialized for plans page');
+
+  // Load checkout configuration from Firestore
+  async function loadCheckoutConfig() {
+    try {
+      const configDocRef = doc(db, 'global_config', 'checkout');
+      const configDoc = await getDoc(configDocRef);
+
+      if (configDoc.exists()) {
+        const configData = configDoc.data();
+        window.linkMensal = configData.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
+        window.precoMensal = configData.precoMensal || 'R$ 9,90/mês';
+        window.linkAnual = configData.linkAnual || '';
+        window.precoAnual = configData.precoAnual || 'R$ 99,00/ano';
+        console.log('[PLANS] Checkout config loaded:', { linkMensal: window.linkMensal, precoMensal: window.precoMensal, linkAnual: window.linkAnual, precoAnual: window.precoAnual });
+      } else {
+        // Set default values if config doesn't exist
+        window.linkMensal = 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
+        window.precoMensal = 'R$ 9,90/mês';
+        window.linkAnual = '';
+        window.precoAnual = 'R$ 99,00/ano';
+        console.log('[PLANS] No checkout config found, using defaults');
+      }
+    } catch (error) {
+      console.error('[PLANS] Error loading checkout config:', error);
+      window.linkMensal = 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
+      window.precoMensal = 'R$ 9,90/mês';
+      window.linkAnual = '';
+      window.precoAnual = 'R$ 99,00/ano';
+    }
+  }
+
+  // Update plan cards with dynamic prices and links
+  function updatePlanCards() {
+    // Update monthly plan price
+    const monthlyPriceAmount = document.querySelector('.plan-card.studio .plan-price .amount');
+    if (monthlyPriceAmount && window.precoMensal) {
+      const priceValue = window.precoMensal.split('/')[0].replace('R$', '').trim();
+      monthlyPriceAmount.innerHTML = priceValue;
+    }
+
+    // Update monthly plan button link and text
+    const monthlyBtn = document.getElementById('btnUpgradeStudio');
+    if (monthlyBtn && window.linkMensal) {
+      monthlyBtn.innerHTML = 'Fazer upgrade';
+      monthlyBtn.onclick = () => {
+        // Get current user ID and append to checkout URL
+        const userId = window.currentUserId || (window.firebaseAuth?.auth?.currentUser?.uid);
+        const checkoutUrl = userId 
+          ? `${window.linkMensal}${window.linkMensal.includes('?') ? '&' : '?'}custom_id=${userId}`
+          : window.linkMensal;
+        console.log('[PLANS] Opening checkout with URL:', checkoutUrl);
+        window.open(checkoutUrl, '_blank');
+      };
+    }
+
+    // Update annual plan price
+    const annualPriceAmount = document.querySelector('.plan-card.annual .plan-price .amount');
+    if (annualPriceAmount && window.precoAnual) {
+      const priceValue = window.precoAnual.split('/')[0].replace('R$', '').trim();
+      annualPriceAmount.innerHTML = priceValue;
+    }
+
+    // Update annual plan button link
+    const annualBtn = document.getElementById('btnUpgradeAnnual');
+    if (annualBtn) {
+      if (window.linkAnual && window.linkAnual.trim() !== '') {
+        annualBtn.innerHTML = 'Assinar plano anual';
+        annualBtn.onclick = () => {
+          // Get current user ID and append to checkout URL with plan type
+          const userId = window.currentUserId || (window.firebaseAuth?.auth?.currentUser?.uid);
+          let checkoutUrl = window.linkAnual;
+          
+          // Add user ID
+          if (userId) {
+            checkoutUrl += `${checkoutUrl.includes('?') ? '&' : '?'}custom_id=${userId}`;
+          }
+          
+          // Add plan type
+          checkoutUrl += `${checkoutUrl.includes('?') ? '&' : '?'}plan_type=anual`;
+          
+          console.log('[PLANS] Opening annual checkout with URL:', checkoutUrl);
+          window.open(checkoutUrl, '_blank');
+        };
+        annualBtn.disabled = false;
+        annualBtn.classList.remove('current');
+        annualBtn.classList.add('upgrade');
+        console.log('[PLANS] Annual plan button enabled with link:', window.linkAnual);
+      } else {
+        annualBtn.innerHTML = 'Em breve';
+        annualBtn.disabled = true;
+        annualBtn.classList.remove('upgrade');
+        annualBtn.classList.add('current');
+        console.log('[PLANS] Annual plan button disabled - no link configured');
+      }
+    }
+
+    console.log('[PLANS] Plan cards updated with dynamic data');
+  }
+
+  // Load checkout config on page load and then update plan cards
+  async function initCheckout() {
+    await loadCheckoutConfig();
+    updatePlanCards();
+  }
+
+  // Initialize when DOM is ready
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    initCheckout();
+  } else {
+    document.addEventListener('DOMContentLoaded', initCheckout);
+  }
 
   async function checkUserPlan(userId) {
     try {
@@ -581,6 +692,21 @@
   }
   .footer-link:hover{color:var(--text-dim);}
   .footer-separator{color:var(--text-faint);margin:0 12px;}
+
+  /* Loading Spinner */
+  .price-spinner {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-top-color: var(--white);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
 </style>
 </head>
 <body>
@@ -681,12 +807,14 @@
       <div class="plan-title">W.Tracks Studio</div>
       <div class="plan-price">
         <span class="currency">R$</span>
-        <span class="amount">9,90</span>
+        <span class="amount"><div class="price-spinner"></div></span>
         <span class="period">/mês</span>
       </div>
       <div class="plan-sub">Para quem toca com regularidade e em equipe, sem limitações</div>
 
-      <button class="plan-cta upgrade" id="btnUpgradeStudio">Fazer upgrade</button>
+      <button class="plan-cta upgrade" id="btnUpgradeStudio">
+        <div class="price-spinner" style="width: 16px; height: 16px; border-width: 2px;"></div>
+      </button>
 
       <ul class="features">
         <li><svg class="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg><span class="feature-text">Músicas salvas <strong>localmente</strong> no dispositivo</span></li>
@@ -709,12 +837,14 @@
       <div class="plan-title">W.Tracks Studio</div>
       <div class="plan-price">
         <span class="currency">R$</span>
-        <span class="amount">89,90</span>
+        <span class="amount"><div class="price-spinner"></div></span>
         <span class="period">/ano</span>
       </div>
       <div class="plan-sub">Equivalente a R$ 7,49/mês. Mesmos recursos do Studio, cobrança única anual</div>
 
-      <button class="plan-cta upgrade" id="btnUpgradeAnnual">Assinar plano anual (Em breve)</button>
+      <button class="plan-cta upgrade" id="btnUpgradeAnnual">
+        <div class="price-spinner" style="width: 16px; height: 16px; border-width: 2px;"></div>
+      </button>
 
       <ul class="features">
         <li><svg class="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg><span class="feature-text">Músicas salvas <strong>localmente</strong> no dispositivo</span></li>
@@ -840,32 +970,7 @@
       if (window.currentUserId) {
         window.checkUserPlan(window.currentUserId);
       }
-      // Redirecionar para página de sucesso ao clicar no botão de upgrade Studio
-      document.getElementById('btnUpgradeStudio').addEventListener('click', function () {
-      // Check if button is already disabled
-      if (this.disabled) {
-        return;
-      }
 
-      // Check if user is logged in
-      if (!window.firebaseAuth || !window.firebaseAuth.auth.currentUser) {
-        alert('Você precisa estar logado para fazer o upgrade');
-        window.location.href = 'index.html';
-        return;
-      }
-
-      const userId = window.firebaseAuth.auth.currentUser.uid;
-      
-      // Mark trial as used since user is upgrading to paid plan
-      window.firebaseDB.updateDoc(
-        window.firebaseDB.doc(window.firebaseDB.db, 'users', userId),
-        { trialUsed: true }
-      ).catch(error => {
-        console.error('[PLANS] Error marking trial as used:', error);
-      });
-
-      window.location.href = 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
-    });
 
     document.getElementById('btnStartTrial').addEventListener('click', async function () {
       // Check if button is already disabled
