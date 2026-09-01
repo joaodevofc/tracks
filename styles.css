@@ -4400,16 +4400,17 @@ body.fader-animations-disabled .led-pointer {
 .master-channel {
     width: 110px;
     min-width: 75px;
-    background: linear-gradient(135deg, var(--color-black-card) 0%, var(--color-black-elevated) 100%);
-    border: 1px solid var(--border-medium);
-    border-radius: var(--radius-lg);
+    background: transparent;
+    border: none;
+    border-radius: 0;
     padding: var(--spacing-sm);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    box-shadow: none;
 }
 
 .master-channel:hover {
-    border-color: var(--border-strong);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+    background: rgba(255, 255, 255, 0.02);
+    border: none;
+    box-shadow: none;
 }
 
 .master-channel .track-name {
@@ -4419,6 +4420,28 @@ body.fader-animations-disabled .led-pointer {
     color: var(--color-white);
     background: var(--color-black);
     border: 1px solid var(--border-medium);
+}
+
+/* Master auxiliary controls column */
+.master-aux-controls {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    justify-content: center;
+    align-items: center;
+    padding: var(--spacing-xs);
+}
+
+.master-aux-controls .pad-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.master-aux-controls .reset-square-btn {
+    width: 36px;
+    height: 36px;
 }
 
 /* Reset Buttons Container - Above Master Name */
@@ -5280,11 +5303,62 @@ body.fader-animations-disabled .led-pointer {
 
 @keyframes pad-pulse {
     0%, 100% {
-        box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4);
+        box-shadow: 0 0 0 0 rgba(46, 158, 69, 0.4);
     }
     50% {
-        box-shadow: 0 0 0 8px rgba(255, 255, 255, 0);
+        box-shadow: 0 0 0 8px rgba(46, 158, 69, 0);
     }
+}
+
+/* Pad View - replaces faders when PAD is active */
+.pad-view {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    gap: var(--spacing-md);
+}
+
+.pad-view-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.pad-view-title {
+    font-size: var(--font-size-md);
+    font-weight: 600;
+    color: var(--color-white);
+    margin: 0;
+}
+
+.pad-view-close {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-black-elevated);
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-sm);
+    color: var(--color-white-muted);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.pad-view-close:hover {
+    background: var(--color-black-hover);
+    border-color: var(--color-accent);
+    color: var(--color-white);
+}
+
+.pad-view .pad-grid {
+    flex: 1;
+    overflow-y: auto;
 }
 
 .pad-key {

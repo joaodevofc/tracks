@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Loop A-B</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #e8e6e0;
+        }
+        .test-section {
+            background: #2a2a2a;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .pass {
+            background: #2e7d32;
+            color: white;
+        }
+        .fail {
+            background: #c62828;
+            color: white;
+        }
+        .info {
+            background: #1565c0;
+            color: white;
+        }
+        button {
+            background: #e8e6e0;
+            color: #1a1a1a;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #d4d2cc;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Loop A-B Implementation</h1>
+    
+    <div class="test-section">
+        <h2>Test Results</h2>
+        <div id="testResults"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Manual Tests</h2>
+        <button onclick="runTests()">Run All Tests</button>
+        <button onclick="clearResults()">Clear Results</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test Instructions</h2>
+        <ol>
+            <li>Open the main application (index.html)</li>
+            <li>Load a project with multiple tracks</li>
+            <li>Pause the playback</li>
+            <li>Touch and hold on the waveform canvas for 450ms at position A</li>
+            <li>Verify that marker A appears with pulse animation</li>
+            <li>Touch and hold on the waveform canvas for 450ms at position B</li>
+            <li>Verify that marker B appears and loop region is shown</li>
+            <li>Verify that loop toggle button appears</li>
+            <li>Click the loop toggle button to enable loop</li>
+            <li>Start playback and verify it loops between A and B</li>
+            <li>Verify all tracks stay synchronized during loop</li>
+            <li>Test mute/solo during loop to verify states are preserved</li>
+            <li>Reload the page and verify loop state is persisted</li>
+        </ol>
+    </div>
+
+    <script>
+        function addResult(message, type) {
+            const resultsDiv = document.getElementById('testResults');
+            const result = document.createElement('div');
+            result.className = `test-result ${type}`;
+            result.textContent = message;
+            resultsDiv.appendChild(result);
+        }
+
+        function clearResults() {
+            document.getElementById('testResults').innerHTML = '';
+        }
+
+        function runTests() {
+            clearResults();
+            addResult('Starting Loop A-B Implementation Tests...', 'info');
+            
+            // Test 1: Check if loop state variables exist
+            setTimeout(() => {
+                if (typeof window.currentApp !== 'undefined') {
+                    const app = window.currentApp;
+                    
+                    if (app.loopPointA !== undefined && app.loopPointB !== undefined && app.loopEnabled !== undefined) {
+                        addResult('✓ Loop state variables exist (loopPointA, loopPointB, loopEnabled)', 'pass');
+                    } else {
+                        addResult('✗ Loop state variables missing', 'fail');
+                    }
+                    
+                    if (app.LOOP_HOLD_THRESHOLD !== undefined) {
+                        addResult('✓ Loop hold threshold defined (' + app.LOOP_HOLD_THRESHOLD + 'ms)', 'pass');
+                    } else {
+                        addResult('✗ Loop hold threshold missing', 'fail');
+                    }
+                    
+                    if (typeof app.handleLoopMarking === 'function') {
+                        addResult('✓ handleLoopMarking function exists', 'pass');
+                    } else {
+                        addResult('✗ handleLoopMarking function missing', 'fail');
+                    }
+                    
+                    if (typeof app.showLoopMarker === 'function') {
+                        addResult('✓ showLoopMarker function exists', 'pass');
+                    } else {
+                        addResult('✗ showLoopMarker function missing', 'fail');
+                    }
+                    
+                    if (typeof app.showLoopRegion === 'function') {
+                        addResult('✓ showLoopRegion function exists', 'pass');
+                    } else {
+                        addResult('✗ showLoopRegion function missing', 'fail');
+                    }
+                    
+                    if (typeof app.showLoopToggle === 'function') {
+                        addResult('✓ showLoopToggle function exists', 'pass');
+                    } else {
+                        addResult('✗ showLoopToggle function missing', 'fail');
+                    }
+                    
+                    if (typeof app.toggleLoopEnabled === 'function') {
+                        addResult('✓ toggleLoopEnabled function exists', 'pass');
+                    } else {
+                        addResult('✗ toggleLoopEnabled function missing', 'fail');
+                    }
+                    
+                    if (typeof app.saveLoopState === 'function') {
+                        addResult('✓ saveLoopState function exists', 'pass');
+                    } else {
+                        addResult('✗ saveLoopState function missing', 'fail');
+                    }
+                    
+                    if (typeof app.loadLoopState === 'function') {
+                        addResult('✓ loadLoopState function exists', 'pass');
+                    } else {
+                        addResult('✗ loadLoopState function missing', 'fail');
+                    }
+                    
+                    if (typeof app.clearLoopVisuals === 'function') {
+                        addResult('✓ clearLoopVisuals function exists', 'pass');
+                    } else {
+                        addResult('✗ clearLoopVisuals function missing', 'fail');
+                    }
+                    
+                    // Test audio player loop functions
+                    if (app.audioPlayer) {
+                        if (typeof app.audioPlayer.toggleLoop === 'function') {
+                            addResult('✓ audioPlayer.toggleLoop function exists', 'pass');
+                        } else {
+                            addResult('✗ audioPlayer.toggleLoop function missing', 'fail');
+                        }
+                        
+                        if (typeof app.audioPlayer.setLoopPoints === 'function') {
+                            addResult('✓ audioPlayer.setLoopPoints function exists', 'pass');
+                        } else {
+                            addResult('✗ audioPlayer.setLoopPoints function missing', 'fail');
+                        }
+                    } else {
+                        addResult('⚠ audioPlayer not initialized (need to load a project first)', 'info');
+                    }
+                    
+                    addResult('Automated tests completed. Please perform manual tests as instructed.', 'info');
+                } else {
+                    addResult('⚠ Application not loaded. Please open index.html first.', 'info');
+                }
+            }, 100);
+        }
+    </script>
+</body>
+</html>

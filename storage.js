@@ -6,6 +6,9 @@
 
 const STORAGE_VERSION = 1;
 
+// Storage operation versioning to prevent race conditions
+let storageOperationVersion = 0;
+
 // Get current user ID from Firebase Auth, fallback to 'guest'
 function getCurrentUserId() {
     if (window.firebaseAuth && window.firebaseAuth.auth) {
@@ -317,6 +320,10 @@ class StorageManager {
     }
     
     async load() {
+        // Capture version at start of load operation
+        const loadVersion = ++storageOperationVersion;
+        console.log('[STORAGE] LOAD OPERATION VERSION:', loadVersion);
+        
         try {
             const storageKey = getStorageKey();
             const playlistsStorageKey = getPlaylistsStorageKey();
@@ -346,7 +353,14 @@ class StorageManager {
                 this.playlists = parsedPlaylists.map(p => Playlist.fromJSON(p));
             }
             
+            // Validate version before applying results
+            if (loadVersion !== storageOperationVersion) {
+                console.log('[STORAGE] Load operation stale, discarding results:', loadVersion, 'current:', storageOperationVersion);
+                return;
+            }
+            
             this.loaded = true;
+            console.log('[STORAGE] Load completed, total projects:', this.projects.length);
         } catch (error) {
             console.error('Error loading projects:', error);
             this.projects = [];
@@ -406,6 +420,7 @@ class StorageManager {
         // Always save to localStorage for both logged in users and guests
         // This ensures audioFileId is persisted across page refreshes
         this.projects.unshift(project);
+        console.log('[STORAGE] Project added to memory, total projects:', this.projects.length);
         await this.save(onProgress);
         console.log('[STORAGE] Project saved and added to storage');
         
@@ -415,6 +430,7 @@ class StorageManager {
         });
         
         console.log('[STORAGE] Returning project:', project.name);
+        console.log('[STORAGE] Project is now available in getProjectsByFilter:', this.getProjectsByFilter('all').length);
         return project;
     }
     
@@ -466,11 +482,26 @@ class StorageManager {
     }
     
     async deleteProject(id) {
+        // Capture version at start of delete operation
+        const deleteVersion = ++storageOperationVersion;
+        console.log('[STORAGE] DELETE OPERATION VERSION:', deleteVersion, 'for project:', id);
+        
         const index = this.projects.findIndex(p => p.id === id);
         if (index !== -1) {
             const project = this.projects[index];
             this.projects.splice(index, 1);
+            
+            // Save and validate version
             await this.save();
+            
+            // Validate version before confirming deletion
+            if (deleteVersion !== storageOperationVersion) {
+                console.log('[STORAGE] Delete operation stale, may need to reload:', deleteVersion, 'current:', storageOperationVersion);
+                // Reload to ensure consistency
+                await this.load();
+                return false;
+            }
+            
             console.log('[STORAGE] Project deleted:', id);
             return true;
         }
@@ -534,12 +565,6 @@ class StorageManager {
     
     generateId() {
         return 'project_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    }
-    
-    clearAll() {
-        this.projects = [];
-        this.playlists = [];
-        this.save();
     }
     
     getStorageSize() {

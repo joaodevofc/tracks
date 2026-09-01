@@ -816,11 +816,14 @@ class MultitrackPlayer {
     
     /**
      * Seek to specific time with synchronized node recreation
+     * @param {number} time - Target time in seconds
+     * @param {boolean} pauseAfterSeek - If true, always pause after seek (for rewind/forward buttons)
      */
-    async seek(time) {
+    async seek(time, pauseAfterSeek = false) {
         const wasPlaying = this.isPlaying;
         
-        if (wasPlaying) {
+        // Always pause first to ensure synchronization
+        if (this.isPlaying) {
             this.pause();
         }
         
@@ -848,7 +851,8 @@ class MultitrackPlayer {
             this.onTimeUpdate(this.currentTime);
         }
         
-        if (wasPlaying) {
+        // Only resume if was playing AND pauseAfterSeek is false
+        if (wasPlaying && !pauseAfterSeek) {
             // Use requestAnimationFrame for synchronized restart
             await new Promise(resolve => {
                 requestAnimationFrame(() => {
@@ -869,7 +873,32 @@ class MultitrackPlayer {
                     });
                 });
             });
+            
+            // Ensure playback state is correct
+            this.isPlaying = true;
+            
+            // Restart playback timer to update playhead position
+            this.startPlaybackTimer();
+            
+            // Notify UI of play state change
+            if (this.onPlayStateChange) {
+                this.onPlayStateChange('playing');
+            }
         }
+        
+        console.log('[PLAYER] Seek complete - pauseAfterSeek:', pauseAfterSeek, 'final state:', this.isPlaying ? 'playing' : 'paused');
+    }
+    
+    /**
+     * Seek relative to current time (for rewind/forward buttons)
+     * Always pauses after seek to prevent desynchronization
+     * Maintains perfect multitrack synchronization
+     */
+    async seekRelative(seconds) {
+        const newTime = this.currentTime + seconds;
+        console.log('[PLAYER] seekRelative called:', seconds, 'seconds, new time:', newTime);
+        // Always pause after seek for rewind/forward buttons
+        await this.seek(newTime, true);
     }
     
     /**
@@ -1483,10 +1512,12 @@ class MultitrackPlayer {
                     }
                 });
 
-                // Handle loop with synchronized restart
-                if (this.loopEnabled && this.currentTime >= this.loopEnd) {
-                    // Use the ended handler logic for consistency
-                    this.handleTrackEnded(null); // null indicates timer-based loop
+                // Handle loop with synchronized restart using seek
+                if (this.loopEnabled && this.loopStart !== null && this.loopEnd !== null) {
+                    if (this.currentTime >= this.loopEnd - 0.05) {
+                        // Use seek for synchronized loop back
+                        this.seek(this.loopStart, false);
+                    }
                 }
 
                 // Stop at end (only if loop is not enabled)

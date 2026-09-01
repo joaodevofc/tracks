@@ -129,6 +129,14 @@ class MultracksApp {
         this.padFadeInTimer = null;
         this.padTransitionDuration = 500; // ms for smooth transitions
         
+        // Loop point marking state
+        this.loopPointA = null;
+        this.loopPointB = null;
+        this.loopEnabled = false;
+        this.loopMarkingStartTime = null;
+        this.loopHoldTimer = null;
+        this.LOOP_HOLD_THRESHOLD = 450; // ms to trigger loop marking mode
+        
         this.init();
     }
     
@@ -1439,6 +1447,12 @@ class MultracksApp {
     
     async loadProjectToPlayer(project) {
         console.log('[APP] Loading project to player:', project.name);
+        
+        // Reset loop state when loading new project
+        this.loopPointA = null;
+        this.loopPointB = null;
+        this.loopEnabled = false;
+        this.clearLoopVisuals();
         
         // Stop any current playback and cleanup
         if (this.audioPlayer) {
@@ -3054,6 +3068,9 @@ class MultracksApp {
             console.log('[APP] ✅ Project audio loaded successfully');
             this.hidePlayerLoading();
             this.renderWaveform();
+            
+            // Load loop state after project is loaded
+            this.loadLoopState();
         } catch (error) {
             console.error('[APP] ❌ Error loading project audio:', error);
             console.error('[APP] Error details:', error.name, error.message);
@@ -3222,11 +3239,32 @@ class MultracksApp {
         const centerY = height / 2;
         const maxAmplitude = height / 2 - 5; // Leave some padding
         
-        ctx.fillStyle = '#404040';
+        // Calculate playhead position in pixels
+        const playheadPercentage = this.currentTime / this.totalDuration;
+        const playheadX = playheadPercentage * width;
+        
+        // Create gradient for played section (ice color)
+        const playedGradient = ctx.createLinearGradient(0, centerY - maxAmplitude, 0, centerY + maxAmplitude);
+        playedGradient.addColorStop(0, 'rgba(232, 230, 224, 0.3)');
+        playedGradient.addColorStop(0.5, 'rgba(232, 230, 224, 0.8)');
+        playedGradient.addColorStop(1, 'rgba(232, 230, 224, 0.3)');
+        
+        // Create gradient for unplayed section (darker gray)
+        const unplayedGradient = ctx.createLinearGradient(0, centerY - maxAmplitude, 0, centerY + maxAmplitude);
+        unplayedGradient.addColorStop(0, 'rgba(100, 100, 100, 0.3)');
+        unplayedGradient.addColorStop(0.5, 'rgba(100, 100, 100, 0.6)');
+        unplayedGradient.addColorStop(1, 'rgba(100, 100, 100, 0.3)');
         
         for (let i = 0; i < peaks.length && i < width; i++) {
             const peak = peaks[i];
             const barHeight = peak * maxAmplitude;
+            
+            // Use different colors based on playhead position
+            if (i < playheadX) {
+                ctx.fillStyle = playedGradient;
+            } else {
+                ctx.fillStyle = unplayedGradient;
+            }
             
             // Draw symmetric waveform (above and below center)
             ctx.fillRect(i, centerY - barHeight, 1, barHeight * 2);
@@ -3234,7 +3272,7 @@ class MultracksApp {
     }
     
     drawPlaceholderWaveform(ctx, width, height) {
-        ctx.strokeStyle = '#404040';
+        ctx.strokeStyle = 'rgba(232, 230, 224, 0.6)';
         ctx.lineWidth = 1;
         ctx.beginPath();
         
@@ -3589,6 +3627,21 @@ class MultracksApp {
         console.log('[TIMELINE] Seek to:', seekTime, 'seconds');
     }
     
+    handleTimelineSeekSimple(x, canvasWidth) {
+        const percentage = x / canvasWidth;
+        const seekTime = percentage * this.totalDuration;
+        
+        // Update playhead position
+        this.updatePlayheadPosition(x, canvasWidth);
+        
+        // Seek audio player (preserve play state for timeline scrubbing)
+        if (this.audioPlayer) {
+            this.audioPlayer.seek(seekTime, false);
+        }
+        
+        console.log('[TIMELINE] Seek to:', seekTime, 'seconds');
+    }
+    
     updatePlayheadPosition(x, canvasWidth) {
         // Update playhead visual position using pixels for drag
         this.playhead.style.left = `${x}px`;
@@ -3634,6 +3687,311 @@ class MultracksApp {
             setTimeout(() => {
                 message.remove();
             }, 2000);
+        }
+    }
+    
+    // ========================================
+    // LOOP POINT MARKING
+    // ========================================
+    handleLoopMarking(x, canvasWidth) {
+        const percentage = x / canvasWidth;
+        const timeInSeconds = percentage * this.totalDuration;
+        
+        console.log('[LOOP] Loop marking triggered at time:', timeInSeconds, 'seconds');
+        
+        // If both points exist, reset and start new marking
+        if (this.loopPointA !== null && this.loopPointB !== null) {
+            console.log('[LOOP] Resetting loop points');
+            this.loopPointA = null;
+            this.loopPointB = null;
+            this.loopEnabled = false;
+            this.clearLoopVisuals();
+        }
+        
+        // Set point A if not exists
+        if (this.loopPointA === null) {
+            this.loopPointA = timeInSeconds;
+            console.log('[LOOP] Point A set to:', this.loopPointA, 'seconds');
+            this.showLoopMarker(x, 'A');
+        } 
+        // Set point B if A exists but B doesn't
+        else if (this.loopPointB === null) {
+            this.loopPointB = timeInSeconds;
+            console.log('[LOOP] Point B set to:', this.loopPointB, 'seconds');
+            
+            // Ensure A is always the smaller point
+            if (this.loopPointB < this.loopPointA) {
+                const temp = this.loopPointA;
+                this.loopPointA = this.loopPointB;
+                this.loopPointB = temp;
+                console.log('[LOOP] Swapped points - A:', this.loopPointA, 'B:', this.loopPointB);
+            }
+            
+            this.showLoopMarker(x, 'B');
+            this.showLoopRegion();
+            this.showLoopToggle();
+        }
+        
+        // Update audio player loop points
+        if (this.audioPlayer) {
+            this.audioPlayer.setLoopPoints(this.loopPointA, this.loopPointB);
+        }
+        
+        // Save loop state to project
+        this.saveLoopState();
+    }
+    
+    showLoopMarker(x, point) {
+        const timelineWaveform = document.getElementById('timelineWaveform');
+        if (!timelineWaveform) return;
+        
+        // Remove existing marker for this point
+        const existingMarker = document.getElementById(`loopMarker${point}`);
+        if (existingMarker) {
+            existingMarker.remove();
+        }
+        
+        // Create new marker
+        const marker = document.createElement('div');
+        marker.id = `loopMarker${point}`;
+        marker.className = 'loop-marker';
+        marker.style.cssText = `
+            position: absolute;
+            left: ${x}px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #e8e6e0;
+            z-index: 1000;
+            pointer-events: none;
+            animation: markerPulse 0.5s ease forwards;
+        `;
+        
+        // Add pulse animation if not exists
+        if (!document.getElementById('loop-marker-style')) {
+            const style = document.createElement('style');
+            style.id = 'loop-marker-style';
+            style.textContent = `
+                @keyframes markerPulse {
+                    0% { opacity: 0; transform: scaleX(0.5); }
+                    50% { opacity: 1; transform: scaleX(1.5); }
+                    100% { opacity: 1; transform: scaleX(1); }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        // Add label
+        const label = document.createElement('div');
+        label.className = 'loop-marker-label';
+        label.textContent = point;
+        label.style.cssText = `
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #e8e6e0;
+            color: #1a1a1a;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: bold;
+            white-space: nowrap;
+        `;
+        marker.appendChild(label);
+        
+        timelineWaveform.appendChild(marker);
+    }
+    
+    showLoopRegion() {
+        const timelineWaveform = document.getElementById('timelineWaveform');
+        if (!timelineWaveform || this.loopPointA === null || this.loopPointB === null) return;
+        
+        // Remove existing region
+        const existingRegion = document.getElementById('loopRegion');
+        if (existingRegion) {
+            existingRegion.remove();
+        }
+        
+        // Calculate positions
+        const canvasWidth = this.waveformCanvas.width;
+        const startX = (this.loopPointA / this.totalDuration) * canvasWidth;
+        const endX = (this.loopPointB / this.totalDuration) * canvasWidth;
+        const width = endX - startX;
+        
+        // Create region
+        const region = document.createElement('div');
+        region.id = 'loopRegion';
+        region.className = 'loop-region';
+        region.style.cssText = `
+            position: absolute;
+            left: ${startX}px;
+            top: 0;
+            bottom: 0;
+            width: ${width}px;
+            background: rgba(232, 230, 224, 0.15);
+            z-index: 999;
+            pointer-events: none;
+        `;
+        
+        timelineWaveform.appendChild(region);
+    }
+    
+    showLoopToggle() {
+        const timelineWaveform = document.getElementById('timelineWaveform');
+        if (!timelineWaveform) return;
+        
+        // Remove existing toggle
+        const existingToggle = document.getElementById('loopToggle');
+        if (existingToggle) {
+            existingToggle.remove();
+        }
+        
+        // Calculate center position
+        const canvasWidth = this.waveformCanvas.width;
+        const startX = (this.loopPointA / this.totalDuration) * canvasWidth;
+        const endX = (this.loopPointB / this.totalDuration) * canvasWidth;
+        const centerX = startX + (endX - startX) / 2;
+        
+        // Create toggle button
+        const toggle = document.createElement('button');
+        toggle.id = 'loopToggle';
+        toggle.className = 'loop-toggle';
+        toggle.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 1l4 4-4 4"></path>
+                <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                <path d="M7 23l-4-4 4-4"></path>
+                <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+            </svg>
+        `;
+        toggle.style.cssText = `
+            position: absolute;
+            left: ${centerX}px;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 32px;
+            height: 32px;
+            background: rgba(232, 230, 224, 0.9);
+            border: 2px solid #e8e6e0;
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 1001;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        `;
+        
+        toggle.addEventListener('mouseenter', () => {
+            toggle.style.background = '#e8e6e0';
+            toggle.style.transform = 'translate(-50%, -50%) scale(1.1)';
+        });
+        
+        toggle.addEventListener('mouseleave', () => {
+            toggle.style.background = 'rgba(232, 230, 224, 0.9)';
+            toggle.style.transform = 'translate(-50%, -50%) scale(1)';
+        });
+        
+        toggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.toggleLoopEnabled();
+        });
+        
+        timelineWaveform.appendChild(toggle);
+    }
+    
+    toggleLoopEnabled() {
+        this.loopEnabled = !this.loopEnabled;
+        console.log('[LOOP] Loop enabled:', this.loopEnabled);
+        
+        // Update audio player
+        if (this.audioPlayer) {
+            this.audioPlayer.toggleLoop(this.loopEnabled);
+        }
+        
+        // Update toggle button visual
+        const toggle = document.getElementById('loopToggle');
+        if (toggle) {
+            if (this.loopEnabled) {
+                toggle.style.background = '#e8e6e0';
+                toggle.style.borderColor = '#e8e6e0';
+            } else {
+                toggle.style.background = 'rgba(232, 230, 224, 0.5)';
+                toggle.style.borderColor = 'rgba(232, 230, 224, 0.5)';
+            }
+        }
+        
+        // Save loop state
+        this.saveLoopState();
+    }
+    
+    clearLoopVisuals() {
+        const elements = ['loopMarkerA', 'loopMarkerB', 'loopRegion', 'loopToggle'];
+        elements.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.remove();
+            }
+        });
+    }
+    
+    saveLoopState() {
+        if (!this.currentProject) return;
+        
+        // Update project loop state
+        this.currentProject.loopEnabled = this.loopEnabled;
+        this.currentProject.loopStart = this.loopPointA || 0;
+        this.currentProject.loopEnd = this.loopPointB || 0;
+        
+        // Save to storage
+        storage.updateProject(this.currentProject.id, {
+            loopEnabled: this.loopEnabled,
+            loopStart: this.loopPointA || 0,
+            loopEnd: this.loopPointB || 0
+        });
+    }
+    
+    loadLoopState() {
+        if (!this.currentProject) return;
+        
+        // Load loop state from project
+        this.loopEnabled = this.currentProject.loopEnabled || false;
+        this.loopPointA = this.currentProject.loopStart || null;
+        this.loopPointB = this.currentProject.loopEnd || null;
+        
+        console.log('[LOOP] Loaded loop state - enabled:', this.loopEnabled, 'A:', this.loopPointA, 'B:', this.loopPointB);
+        
+        // Update audio player
+        if (this.audioPlayer) {
+            this.audioPlayer.toggleLoop(this.loopEnabled);
+            if (this.loopPointA !== null && this.loopPointB !== null) {
+                this.audioPlayer.setLoopPoints(this.loopPointA, this.loopPointB);
+            }
+        }
+        
+        // Show visuals if loop points exist
+        if (this.loopPointA !== null && this.loopPointB !== null) {
+            const canvasWidth = this.waveformCanvas.width;
+            const startX = (this.loopPointA / this.totalDuration) * canvasWidth;
+            const endX = (this.loopPointB / this.totalDuration) * canvasWidth;
+            
+            this.showLoopMarker(startX, 'A');
+            this.showLoopMarker(endX, 'B');
+            this.showLoopRegion();
+            this.showLoopToggle();
+            
+            // Update toggle button state
+            const toggle = document.getElementById('loopToggle');
+            if (toggle) {
+                if (this.loopEnabled) {
+                    toggle.style.background = '#e8e6e0';
+                    toggle.style.borderColor = '#e8e6e0';
+                } else {
+                    toggle.style.background = 'rgba(232, 230, 224, 0.5)';
+                    toggle.style.borderColor = 'rgba(232, 230, 224, 0.5)';
+                }
+            }
         }
     }
     
@@ -7090,7 +7448,7 @@ class MultracksApp {
             }
         });
         
-        // Timeline click for seeking
+        // Timeline click for seeking and loop point marking
         // Timeline scrubbing with drag support
         this.waveformCanvas?.addEventListener('pointerdown', (e) => {
             if (!this.audioPlayer || this.totalDuration === 0) return;
@@ -7119,6 +7477,9 @@ class MultracksApp {
             this.dragStartTime = Date.now();
             this.dragStartX = x;
             
+            // Initialize loop marking state
+            this.loopMarkingStartTime = Date.now();
+            
             // Change cursor to grabbing
             this.waveformCanvas.style.cursor = 'grabbing';
             
@@ -7127,11 +7488,23 @@ class MultracksApp {
             
             // Initial seek
             this.handleTimelineSeek(x, rect.width, e.clientX, e.clientY);
+            
+            // Start hold timer for loop marking
+            this.loopHoldTimer = setTimeout(() => {
+                // This is a long press - enter loop marking mode
+                this.handleLoopMarking(x, rect.width);
+            }, this.LOOP_HOLD_THRESHOLD);
         });
         
         // Handle drag movement (bound to check isDragging)
         this.handleTimelineDrag = (e) => {
             if (!this.isDragging) return;
+            
+            // Clear loop hold timer if user moves cursor
+            if (this.loopHoldTimer) {
+                clearTimeout(this.loopHoldTimer);
+                this.loopHoldTimer = null;
+            }
             
             const rect = this.waveformCanvas.getBoundingClientRect();
             let x = e.clientX - rect.left;
@@ -7147,6 +7520,12 @@ class MultracksApp {
         this.handleTimelineDragEnd = async (e) => {
             if (!this.isDragging) return;
             
+            // Clear loop hold timer
+            if (this.loopHoldTimer) {
+                clearTimeout(this.loopHoldTimer);
+                this.loopHoldTimer = null;
+            }
+            
             const rect = this.waveformCanvas.getBoundingClientRect();
             let x = e.clientX - rect.left;
             
@@ -7157,12 +7536,23 @@ class MultracksApp {
             const dragDuration = Date.now() - this.dragStartTime;
             const dragDistance = Math.abs(x - this.dragStartX);
             
+            // Check if this was a long press for loop marking
+            const holdDuration = Date.now() - this.loopMarkingStartTime;
+            const isLongPress = holdDuration >= this.LOOP_HOLD_THRESHOLD;
+            
             // Reset drag state
             this.isDragging = false;
             this.waveformCanvas.style.cursor = 'crosshair';
             
             // Remove dragging class from playhead
             this.playhead.classList.remove('dragging');
+            
+            // If it was a long press, the loop marking was already handled
+            if (isLongPress) {
+                this.hideEffectPopover();
+                this.hideClickIndicator();
+                return;
+            }
             
             // If it was a quick click with minimal movement, show effect popover
             if (dragDuration < 200 && dragDistance < 5) {
@@ -7177,12 +7567,18 @@ class MultracksApp {
             }
             
             // Final seek
-            this.handleTimelineSeek(x, rect.width);
+            this.handleTimelineSeekSimple(x, rect.width);
         };
         
         // Handle drag cancellation (bound to check isDragging)
         this.handleTimelineDragCancel = (e) => {
             if (this.isDragging) {
+                // Clear loop hold timer
+                if (this.loopHoldTimer) {
+                    clearTimeout(this.loopHoldTimer);
+                    this.loopHoldTimer = null;
+                }
+                
                 this.isDragging = false;
                 this.waveformCanvas.style.cursor = 'crosshair';
                 this.playhead.classList.remove('dragging');
@@ -8519,60 +8915,36 @@ class MultracksApp {
     }
     
     showPadSelectionModal() {
-        // Create modal if it doesn't exist
-        let modal = document.getElementById('padSelectionModal');
+        const mixerTracks = document.getElementById('mixerTracks');
+        const padView = document.getElementById('padView');
         
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.className = 'modal-overlay';
-            modal.id = 'padSelectionModal';
-            
-            modal.innerHTML = `
-                <div class="modal pad-modal">
-                    <div class="modal-header">
-                        <h3 class="modal-title">Selecionar PAD</h3>
-                        <button class="modal-close" id="padModalClose" aria-label="Fechar">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="18" y1="6" x2="6" y2="18"></line>
-                                <line x1="6" y1="6" x2="18" y2="18"></line>
-                            </svg>
-                        </button>
-                    </div>
-                    
-                    <div class="modal-body">
-                        <div class="pad-grid" id="padGrid">
-                            <!-- Pads will be rendered here -->
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            document.body.appendChild(modal);
-            
-            // Setup close button
-            document.getElementById('padModalClose').addEventListener('click', () => {
+        if (!mixerTracks || !padView) return;
+        
+        // Hide faders and show pad view
+        mixerTracks.style.display = 'none';
+        padView.style.display = 'flex';
+        
+        // Setup close button if not already set up
+        const padViewClose = document.getElementById('padViewClose');
+        if (padViewClose && !padViewClose.hasAttribute('data-setup')) {
+            padViewClose.setAttribute('data-setup', 'true');
+            padViewClose.addEventListener('click', () => {
                 this.closePadSelectionModal();
-            });
-            
-            // Close on overlay click
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    this.closePadSelectionModal();
-                }
             });
         }
         
         // Render pads with current state
         this.renderPadGrid();
-        
-        // Show modal
-        modal.classList.add('active');
     }
     
     closePadSelectionModal() {
-        const modal = document.getElementById('padSelectionModal');
-        if (modal) {
-            modal.classList.remove('active');
+        const mixerTracks = document.getElementById('mixerTracks');
+        const padView = document.getElementById('padView');
+        
+        if (mixerTracks && padView) {
+            // Show faders and hide pad view
+            mixerTracks.style.display = 'flex';
+            padView.style.display = 'none';
         }
         
         // Update visual state to reflect current pad status

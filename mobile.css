@@ -434,6 +434,13 @@ html, body {
     font-size: var(--font-size-sm);
 }
 
+/* TAP TEMPO Button Mobile */
+.tap-tempo-btn {
+    min-width: 45px;
+    height: 36px;
+    font-size: 10px;
+}
+
 /* ========================================
    MOBILE AUTH MODAL (max-width: 768px)
    ======================================== */
