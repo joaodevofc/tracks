@@ -914,7 +914,7 @@
     right: 2px;
     width: 28px;
     height: 28px;
-    background: var(--color-accent);
+    background: var(--color-black);
     color: white;
     border-radius: 50%;
     display: flex;
@@ -927,7 +927,7 @@
 
 .profile-avatar-large:hover .avatar-camera-icon {
     transform: scale(1.1);
-    background: #ff4d40;
+    background: var(--color-black-hover);
 }
 
 .profile-avatar-large span {
@@ -969,7 +969,10 @@
 
 .account-type-value {
     color: var(--color-white);
-    font-weight: 500;
+    font-weight: 600;
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
     padding: 2px 8px;
     background: var(--color-black-card);
     border-radius: var(--radius-sm);
@@ -1009,10 +1012,139 @@
     border: 1px solid var(--border-subtle);
 }
 
+.account-plan-value.pro {
+    background: rgba(168, 85, 247, 0.2);
+    color: #a78bfa;
+    border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.account-plan-wrapper {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.account-plan-upgrade-btn {
+    font-size: var(--font-size-sm);
+    color: var(--color-white);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border-subtle);
+    padding: 4px 12px;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+}
+
+.account-plan-upgrade-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: var(--color-white);
+    transform: translateY(-1px);
+}
+
 .settings-divider {
     height: 1px;
     background: var(--border-subtle);
     margin: var(--spacing-lg) 0;
+}
+
+/* Settings Expiration Banner */
+.settings-expiration-banner {
+    background: linear-gradient(135deg, rgba(255, 59, 47, 0.1), rgba(255, 59, 47, 0.05));
+    border: 1px solid rgba(255, 59, 47, 0.3);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    margin: var(--spacing-md) 0;
+    transition: all var(--transition-fast);
+}
+
+.expiration-banner-content {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.expiration-banner-icon {
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 59, 47, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ff3b2f;
+    flex-shrink: 0;
+    transition: all var(--transition-fast);
+}
+
+.expiration-banner-icon svg {
+    width: 20px;
+    height: 20px;
+}
+
+.expiration-banner-text {
+    flex: 1;
+}
+
+.expiration-banner-text h4 {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: #ff3b2f;
+    margin: 0 0 4px 0;
+    transition: color var(--transition-fast);
+}
+
+.expiration-banner-text p {
+    font-size: var(--font-size-sm);
+    color: var(--color-white-dim);
+    margin: 0;
+    line-height: 1.4;
+}
+
+.expiration-banner-btn {
+    background: var(--color-white);
+    color: #ff3b2f;
+    padding: 8px 16px;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: all var(--transition-fast);
+}
+
+.expiration-banner-btn:hover {
+    background: var(--color-white-dim);
+    transform: translateY(-1px);
+}
+
+/* Banner color variants - controlled via inline styles in JS */
+
+/* Days Remaining Display */
+.settings-days-remaining {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    margin: var(--spacing-sm) 0;
+}
+
+.days-remaining-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.days-remaining-label {
+    font-size: var(--font-size-sm);
+    color: var(--color-white-dim);
+}
+
+.days-remaining-value {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: var(--color-white);
 }
 
 /* SAFE AREA SUPPORT FOR NOTCH/GESTURE BARS */
@@ -4035,6 +4167,31 @@ body.fader-animations-disabled .led-pointer {
     background: rgba(255, 255, 255, 0.02);
 }
 
+.track-channel.track-locked {
+    opacity: 0.4;
+    pointer-events: none;
+    position: relative;
+    filter: grayscale(30%);
+}
+
+.track-channel.track-locked::after {
+    content: '🔒';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 24px;
+    opacity: 0.3;
+    z-index: 10;
+}
+
+.track-channel.track-locked .track-btn,
+.track-channel.track-locked .fader-input,
+.track-channel.track-locked .track-pan-input {
+    pointer-events: auto;
+    cursor: not-allowed;
+}
+
 .track-channel:last-child {
     border-right: none;
 }
@@ -4118,6 +4275,17 @@ body.fader-animations-disabled .led-pointer {
     -webkit-tap-highlight-color: transparent;
     /* Increased touch target size for better accuracy */
     padding: 8px 4px;
+}
+
+/* Locked fader styling for Home plan limit */
+.fader-locked {
+    opacity: 0.4;
+    pointer-events: none;
+    filter: grayscale(50%);
+}
+
+.fader-locked .fader-input {
+    cursor: not-allowed;
 }
 
 /* Desktop: Reduce fader height for better fit */
@@ -4428,7 +4596,7 @@ body.fader-animations-disabled .led-pointer {
 .track-pan-input {
     width: 100%;
     height: 4px;
-    -webkit-appearance: none;
+    -webktirandoit-appearance: none;
     appearance: none;
     background: var(--color-black-elevated);
     border-radius: var(--radius-full);

@@ -756,7 +756,7 @@ class MultracksApp {
     async getUserPlan() {
         const userId = this.getCurrentUserId();
         if (!userId || !window.firebaseDB) {
-            return 'home'; // Default to home if not logged in or Firebase unavailable
+            return 'Home'; // Default to Home if not logged in or Firebase unavailable
         }
 
         try {
@@ -765,37 +765,65 @@ class MultracksApp {
             const userDoc = await getDoc(doc(db, 'users', userId));
             if (userDoc.exists()) {
                 const userData = userDoc.data();
-                return userData.plano || 'home';
+                // Check both 'plan' and 'plano' fields for compatibility
+                let plan = userData.plan || userData.plano || 'Home';
+                // Map old plan values to new system
+                if (plan === 'Free' || plan === 'Pro' || plan === 'VIP' || plan === 'Creator' || plan === 'home') {
+                    plan = 'Home';
+                }
+                return plan;
             } else {
                 // Fallback: try to find by uid field (old method with auto-generated IDs)
                 const q = query(collection(db, 'users'), where('uid', '==', userId));
                 const querySnapshot = await getDocs(q);
                 if (!querySnapshot.empty) {
                     const userData = querySnapshot.docs[0].data();
-                    return userData.plano || 'home';
+                    // Check both 'plan' and 'plano' fields for compatibility
+                    let plan = userData.plan || userData.plano || 'Home';
+                    // Map old plan values to new system
+                    if (plan === 'Free' || plan === 'Pro' || plan === 'VIP' || plan === 'Creator' || plan === 'home') {
+                        plan = 'Home';
+                    }
+                    return plan;
                 }
             }
         } catch (error) {
             console.warn('[APP] Could not fetch user plan:', error);
         }
 
-        return 'home'; // Default to home
+        return 'Home'; // Default to Home
     }
 
     async isStudioPlan() {
         const plan = await this.getUserPlan();
-        return plan === 'studio';
+        return plan === 'Studio';
     }
 
     async requireStudioPlan(featureName = 'este recurso') {
-        // Allow all features for Home users - no restrictions
+        const plan = await this.getUserPlan();
+        if (plan === 'Home') {
+            this.showUpgradeModal(featureName);
+            return false;
+        }
         return true;
     }
 
     showUpgradeModal(featureName) {
-        // Upgrade modal is no longer needed since all features are available for Home users
-        // This function is kept for compatibility but does nothing
-        console.log('[APP] Upgrade modal called for:', featureName, '- but all features are now available for Home users');
+        const upgradeModal = document.getElementById('upgradeModal');
+        if (upgradeModal) {
+            upgradeModal.classList.add('active');
+            
+            // Update the message based on the feature
+            const upgradeTitle = document.getElementById('upgradeTitle');
+            const upgradeMessage = document.getElementById('upgradeMessage');
+            
+            if (upgradeTitle && upgradeMessage) {
+                upgradeTitle.textContent = 'Recurso Exclusivo Studio';
+                upgradeMessage.textContent = `A funcionalidade "${featureName}" está disponível apenas para usuários do plano Studio.`;
+            }
+            
+            console.log('[APP] Upgrade modal shown for:', featureName);
+        }
     }
 
     hideUpgradeModal() {
@@ -2376,12 +2404,17 @@ class MultracksApp {
         this.currentTimeDisplay.textContent = '0:00';
     }
     
-    renderMixer() {
+    async renderMixer() {
         this.mixerTracks.innerHTML = '';
+
+        // Get user plan for fader limit
+        const userPlan = await this.getUserPlan();
+        const isHomePlan = userPlan === 'Home';
+        const faderLimit = isHomePlan ? 5 : Infinity;
 
         // Render regular tracks
         this.currentProject.tracks.forEach((track, index) => {
-            const channel = this.createTrackChannel(track, index);
+            const channel = this.createTrackChannel(track, index, isHomePlan, index >= faderLimit);
             this.mixerTracks.appendChild(channel);
         });
 
@@ -2413,9 +2446,12 @@ class MultracksApp {
         });
     }
     
-    createTrackChannel(track, index) {
+    createTrackChannel(track, index, isHomePlan = false, isLocked = false) {
         const channel = document.createElement('div');
         channel.className = 'track-channel';
+        if (isLocked) {
+            channel.classList.add('track-locked');
+        }
         channel.dataset.trackId = track.id;
         
         // Convert gain to position for display
@@ -2432,11 +2468,11 @@ class MultracksApp {
                 <div class="track-name">${this.escapeHtml(track.name)}</div>
             </div>
             <div class="track-controls">
-                <button class="track-btn mute-btn ${track.mute ? 'active' : ''}" data-action="mute">M</button>
-                <button class="track-btn solo-btn ${track.solo ? 'active' : ''}" data-action="solo">S</button>
+                <button class="track-btn mute-btn ${track.mute ? 'active' : ''}" data-action="mute" ${isLocked ? 'disabled' : ''}>M</button>
+                <button class="track-btn solo-btn ${track.solo ? 'active' : ''}" data-action="solo" ${isLocked ? 'disabled' : ''}>S</button>
             </div>
-            <div class="track-fader">
-                <input type="range" class="fader-input" min="0" max="100" value="${volumePercent}" data-action="volume">
+            <div class="track-fader ${isLocked ? 'fader-locked' : ''}">
+                <input type="range" class="fader-input" min="0" max="100" value="${volumePercent}" data-action="volume" ${isLocked ? 'disabled' : ''}>
                 <div class="fader-track">
                     <div class="fader-fill" style="height: ${volumePercent}%"></div>
                     <div class="track-level-bar" id="trackLevelBar_${track.id}" style="height: 0%"></div>
@@ -2446,24 +2482,34 @@ class MultracksApp {
             </div>
             <div class="track-db-value">${this.formatDbValue(db)}</div>
             <div class="track-pan-container">
-                <input type="range" class="track-pan-input" min="-100" max="100" value="${Math.round(track.pan * 100)}" data-track-id="${track.id}" data-action="pan">
+                <input type="range" class="track-pan-input" min="-100" max="100" value="${Math.round(track.pan * 100)}" data-track-id="${track.id}" data-action="pan" ${isLocked ? 'disabled' : ''}>
             </div>
         `;
         
         // Event listeners
         const muteBtn = channel.querySelector('.mute-btn');
-        muteBtn?.addEventListener('click', () => this.toggleTrackMute(track.id));
+        if (muteBtn && !isLocked) {
+            muteBtn?.addEventListener('click', () => this.toggleTrackMute(track.id));
+        } else if (muteBtn && isLocked) {
+            muteBtn.addEventListener('click', () => this.showUpgradeModal('Faders adicionais (limite de 5 no plano Home)'));
+        }
         
         const soloBtn = channel.querySelector('.solo-btn');
-        soloBtn?.addEventListener('click', () => this.toggleTrackSolo(track.id));
+        if (soloBtn && !isLocked) {
+            soloBtn?.addEventListener('click', () => this.toggleTrackSolo(track.id));
+        } else if (soloBtn && isLocked) {
+            soloBtn.addEventListener('click', () => this.showUpgradeModal('Faders adicionais (limite de 5 no plano Home)'));
+        }
         
         // Pan slider interaction
         const panSlider = channel.querySelector('.track-pan-input');
-        if (panSlider) {
+        if (panSlider && !isLocked) {
             panSlider.addEventListener('input', (e) => {
                 const panValue = parseInt(e.target.value) / 100; // Convert -100 to 100 range to -1 to 1
                 this.setTrackPan(track.id, panValue);
             });
+        } else if (panSlider && isLocked) {
+            panSlider.addEventListener('click', () => this.showUpgradeModal('Faders adicionais (limite de 5 no plano Home)'));
         }
         
         const volumeInput = channel.querySelector('.fader-input');
@@ -2502,6 +2548,10 @@ class MultracksApp {
         
         // Mouse events on entire fader container
         faderContainer?.addEventListener('mousedown', (e) => {
+            if (isLocked) {
+                this.showUpgradeModal('Faders adicionais (limite de 5 no plano Home)');
+                return;
+            }
             handleFaderInteraction(e.clientY);
             
             const handleMouseMove = (moveEvent) => {
@@ -2519,6 +2569,10 @@ class MultracksApp {
         
         // Touch events for mobile with reduced sensitivity
         faderContainer.addEventListener('touchstart', (e) => {
+            if (isLocked) {
+                this.showUpgradeModal('Faders adicionais (limite de 5 no plano Home)');
+                return;
+            }
             const startX = e.touches[0].clientX;
             const startY = e.touches[0].clientY;
             let gestureDecided = false;
@@ -3694,7 +3748,14 @@ class MultracksApp {
     // ========================================
     // LOOP POINT MARKING
     // ========================================
-    handleLoopMarking(x, canvasWidth) {
+    async handleLoopMarking(x, canvasWidth) {
+        // Check if user is on home plan
+        const userPlan = await this.getUserPlan();
+        if (userPlan === 'Home') {
+            this.showUpgradeModal('Loop e seções');
+            return;
+        }
+        
         const percentage = x / canvasWidth;
         const timeInSeconds = percentage * this.totalDuration;
         
@@ -3902,7 +3963,15 @@ class MultracksApp {
         timelineWaveform.appendChild(toggle);
     }
     
-    toggleLoopEnabled() {
+    async toggleLoopEnabled() {
+        // Check if user is on home plan
+        const userPlan = await this.getUserPlan();
+        if (userPlan === 'Home' && !this.loopEnabled) {
+            // Trying to enable loop on home plan
+            this.showUpgradeModal('Loop e seções');
+            return;
+        }
+        
         this.loopEnabled = !this.loopEnabled;
         console.log('[LOOP] Loop enabled:', this.loopEnabled);
         
@@ -3953,8 +4022,18 @@ class MultracksApp {
         });
     }
     
-    loadLoopState() {
+    async loadLoopState() {
         if (!this.currentProject) return;
+        
+        // Check if user is on home plan - disable loop features
+        const userPlan = await this.getUserPlan();
+        if (userPlan === 'Home') {
+            this.loopEnabled = false;
+            this.loopPointA = null;
+            this.loopPointB = null;
+            console.log('[LOOP] Loop features disabled for home user');
+            return;
+        }
         
         // Load loop state from project
         this.loopEnabled = this.currentProject.loopEnabled || false;
@@ -4046,9 +4125,19 @@ class MultracksApp {
         }
     }
     
-    updateTimeDisplay(time) {
+    async updateTimeDisplay(time) {
         this.currentTime = time;
         this.currentTimeDisplay.textContent = this.formatTime(time);
+        
+        // Check for 10-minute limit for home users
+        const userPlan = await this.getUserPlan();
+        if (userPlan === 'Home' && time >= 600) { // 600 seconds = 10 minutes
+            console.log('[APP] 10-minute limit reached for home user, pausing playback');
+            this.audioPlayer.pause();
+            alert('Limite de 10 minutos do plano Home atingido');
+            this.showUpgradeModal('Reprodução superior a 10 minutos');
+            return;
+        }
         
         // Update playhead position
         if (this.totalDuration > 0) {
@@ -5991,6 +6080,9 @@ class MultracksApp {
         // Profile photo file
         this.selectedProfilePhoto = null;
 
+        // Real-time listener for user profile
+        this.userProfileListener = null;
+
         // Initialize profile photo upload
         this.initProfilePhotoUpload();
 
@@ -6201,19 +6293,26 @@ class MultracksApp {
             const docSnap = await window.firebaseDB.getDoc(userDocRef);
 
             if (docSnap.exists()) {
-                // Update existing document, preserving plano field
+                // Update existing document, preserving plan field
                 const existingData = docSnap.data();
-                if (existingData.plano) {
-                    profileData.plano = existingData.plano;
+                // Check both 'plan' and 'plano' fields for compatibility
+                let existingPlan = existingData.plan || existingData.plano;
+                if (existingPlan) {
+                    // Map old plan values to new system
+                    let plan = existingPlan;
+                    if (plan === 'Free' || plan === 'Pro' || plan === 'VIP' || plan === 'Creator' || plan === 'home') {
+                        plan = 'Home';
+                    }
+                    profileData.plan = plan;
                 } else {
-                    profileData.plano = 'home'; // Set default plan if missing
+                    profileData.plan = 'Home'; // Set default plan if missing
                 }
                 await window.firebaseDB.updateDoc(userDocRef, profileData);
                 console.log('[PROFILE] Profile updated:', currentUser.uid);
             } else {
                 // Create new document with default plan
                 profileData.createdAt = window.firebaseDB.serverTimestamp();
-                profileData.plano = 'home';
+                profileData.plan = 'Home';
                 await window.firebaseDB.setDoc(userDocRef, profileData);
                 console.log('[PROFILE] Profile created:', currentUser.uid);
             }
@@ -6310,6 +6409,28 @@ class MultracksApp {
         this.settingsModal.classList.add('active');
         this.populateSettingsModal();
         this.removeProfilePhoto(); // Reset photo upload state
+
+        // Update expiration banner when modal opens
+        if (window.firebaseAuth && window.firebaseAuth.auth.currentUser) {
+            const user = window.firebaseAuth.auth.currentUser;
+            this.loadUserDataForSettings(user);
+        }
+    }
+
+    async loadUserDataForSettings(user) {
+        if (!window.firebaseDB) return;
+
+        try {
+            const { db, doc, getDoc } = window.firebaseDB;
+            const userDoc = await getDoc(doc(db, 'users', user.uid));
+
+            if (userDoc.exists()) {
+                const userData = userDoc.data();
+                this.updateSettingsExpirationBanner(userData);
+            }
+        } catch (error) {
+            console.error('[SETTINGS] Error loading user data for expiration banner:', error);
+        }
     }
 
     async populateSettingsModal() {
@@ -6318,79 +6439,43 @@ class MultracksApp {
             try {
                 const user = JSON.parse(storedUser);
 
-                // Try to get displayName from Firestore first
-                let displayName = user.displayName;
-                let email = user.email;
-                let profilePhoto = null;
+                // Clean up existing listener if any
+                if (this.userProfileListener) {
+                    this.userProfileListener();
+                    this.userProfileListener = null;
+                }
 
-                try {
-                    if (window.firebaseDB && user.uid) {
-                        const { db, doc, getDoc, collection, query, where, getDocs } = window.firebaseDB;
-                        // First try to get by UID (new method)
-                        const userDoc = await getDoc(doc(db, 'users', user.uid));
-                        if (userDoc.exists()) {
-                            const userData = userDoc.data();
-                            displayName = userData.displayName || displayName;
-                            profilePhoto = userData.profilePhoto || null;
-                            user.plano = userData.plano || 'home'; // Get plan from Firestore
+                // Setup real-time listener for user profile
+                if (window.firebaseDB && user.uid) {
+                    const { db, doc, onSnapshot, collection, query, where, getDocs } = window.firebaseDB;
+                    
+                    // First try to get by UID (new method)
+                    const userDocRef = doc(db, 'users', user.uid);
+                    
+                    this.userProfileListener = onSnapshot(userDocRef, (docSnapshot) => {
+                        if (docSnapshot.exists()) {
+                            const userData = docSnapshot.data();
+                            this.updateSettingsUI(userData, user);
                         } else {
                             // Fallback: try to find by uid field (old method with auto-generated IDs)
                             const q = query(collection(db, 'users'), where('uid', '==', user.uid));
-                            const querySnapshot = await getDocs(q);
-                            if (!querySnapshot.empty) {
-                                const userData = querySnapshot.docs[0].data();
-                                displayName = userData.displayName || displayName;
-                                profilePhoto = userData.profilePhoto || null;
-                                user.plano = userData.plano || 'home';
-                            }
+                            getDocs(q).then((querySnapshot) => {
+                                if (!querySnapshot.empty) {
+                                    const userData = querySnapshot.docs[0].data();
+                                    this.updateSettingsUI(userData, user);
+                                }
+                            });
                         }
-                    }
-                } catch (error) {
-                    console.warn('[SETTINGS] Could not fetch user data from Firestore:', error);
-                }
+                    }, (error) => {
+                        console.warn('[SETTINGS] Real-time listener error:', error);
+                        // Fallback to single read if listener fails
+                        this.loadUserDataOnce(user);
+                    });
 
-                // Fallback to email only if displayName is still null/undefined (not empty string)
-                if (!displayName || displayName.trim() === '') {
-                    displayName = email.split('@')[0];
-                }
-                const initial = displayName.charAt(0).toUpperCase();
-
-                const settingsUserInitial = document.getElementById('settingsUserInitial');
-                const settingsProfileName = document.getElementById('settingsProfileName');
-                const settingsProfileEmail = document.getElementById('settingsProfileEmail');
-                const settingsAccountType = document.getElementById('settingsAccountType');
-                const settingsAccountPlan = document.getElementById('settingsAccountPlan');
-
-                if (settingsUserInitial) {
-                    if (profilePhoto) {
-                        // Show profile photo instead of initial
-                        settingsUserInitial.style.backgroundImage = `url(${profilePhoto})`;
-                        settingsUserInitial.style.backgroundSize = 'cover';
-                        settingsUserInitial.style.backgroundPosition = 'center';
-                        settingsUserInitial.textContent = '';
-                    } else {
-                        // Show initial
-                        settingsUserInitial.style.backgroundImage = 'none';
-                        settingsUserInitial.textContent = initial;
-                    }
-                }
-
-                if (settingsProfileName) {
-                    settingsProfileName.textContent = displayName;
-                }
-
-                if (settingsProfileEmail) {
-                    settingsProfileEmail.textContent = email;
-                }
-
-                if (settingsAccountType) {
-                    settingsAccountType.textContent = user.accountType || 'Usuário';
-                }
-
-                if (settingsAccountPlan) {
-                    const plan = user.plano || 'home';
-                    settingsAccountPlan.textContent = plan.toUpperCase();
-                    settingsAccountPlan.className = 'account-plan-value ' + plan;
+                    console.log('[SETTINGS] Real-time profile listener setup for user:', user.uid);
+                } else {
+                    // Fallback to single read if Firebase not available
+                    this.loadUserDataOnce(user);
                 }
             } catch (e) {
                 console.warn('[SETTINGS] Could not parse stored user:', e);
@@ -6403,6 +6488,293 @@ class MultracksApp {
         this.transitionMode.checked = localStorage.getItem('transitionMode') === 'true';
     }
 
+    async loadUserDataOnce(user) {
+        let displayName = user.displayName;
+        let email = user.email;
+        let profilePhoto = null;
+
+        try {
+            if (window.firebaseDB && user.uid) {
+                const { db, doc, getDoc, collection, query, where, getDocs } = window.firebaseDB;
+                // First try to get by UID (new method)
+                const userDoc = await getDoc(doc(db, 'users', user.uid));
+                if (userDoc.exists()) {
+                    const userData = userDoc.data();
+                    this.updateSettingsUI(userData, user);
+                    return;
+                } else {
+                    // Fallback: try to find by uid field (old method with auto-generated IDs)
+                    const q = query(collection(db, 'users'), where('uid', '==', user.uid));
+                    const querySnapshot = await getDocs(q);
+                    if (!querySnapshot.empty) {
+                        const userData = querySnapshot.docs[0].data();
+                        this.updateSettingsUI(userData, user);
+                        return;
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn('[SETTINGS] Could not fetch user data from Firestore:', error);
+        }
+
+        // Fallback to basic user data
+        this.updateSettingsUI({
+            displayName: displayName,
+            email: email,
+            profilePhoto: profilePhoto,
+            plano: 'Home',
+            accountType: 'Usuário'
+        }, user);
+    }
+
+    updateSettingsUI(userData, user) {
+        console.log('[SETTINGS] updateSettingsUI called with userData:', userData);
+
+        let displayName = userData.displayName || user.displayName;
+        let email = userData.email || user.email;
+        let profilePhoto = userData.profilePhoto || null;
+
+        // Map old plan values to new system - check both 'plan' and 'plano' fields
+        let plan = userData.plan || userData.plano || 'Home';
+        console.log('[SETTINGS] Raw plan from Firestore:', userData.plan, userData.plano, 'Final plan:', plan);
+
+        if (plan === 'Free' || plan === 'Pro' || plan === 'VIP' || plan === 'Creator' || plan === 'home') {
+            plan = 'Home';
+        }
+
+        const accountType = userData.accountType || user.accountType || 'Usuário';
+        const statusPagamento = userData.statusPagamento || null;
+
+        // Fallback to email only if displayName is still null/undefined (not empty string)
+        if (!displayName || displayName.trim() === '') {
+            displayName = email.split('@')[0];
+        }
+        const initial = displayName.charAt(0).toUpperCase();
+
+        const settingsUserInitial = document.getElementById('settingsUserInitial');
+        const settingsProfileName = document.getElementById('settingsProfileName');
+        const settingsProfileEmail = document.getElementById('settingsProfileEmail');
+        const settingsAccountType = document.getElementById('settingsAccountType');
+        const settingsAccountPlan = document.getElementById('settingsAccountPlan');
+
+        // Handle expiration banner in settings
+        this.updateSettingsExpirationBanner(userData);
+
+        if (settingsUserInitial) {
+            if (profilePhoto) {
+                // Show profile photo instead of initial
+                settingsUserInitial.style.backgroundImage = `url(${profilePhoto})`;
+                settingsUserInitial.style.backgroundSize = 'cover';
+                settingsUserInitial.style.backgroundPosition = 'center';
+                settingsUserInitial.textContent = '';
+            } else {
+                // Show initial
+                settingsUserInitial.style.backgroundImage = 'none';
+                settingsUserInitial.textContent = initial;
+            }
+        }
+
+        if (settingsProfileName) {
+            settingsProfileName.textContent = displayName;
+        }
+
+        if (settingsProfileEmail) {
+            settingsProfileEmail.textContent = email;
+        }
+
+        if (settingsAccountType) {
+            settingsAccountType.textContent = accountType;
+        }
+
+        if (settingsAccountPlan) {
+            settingsAccountPlan.textContent = plan.toUpperCase();
+            settingsAccountPlan.className = 'account-plan-value ' + plan.toLowerCase();
+            console.log('[SETTINGS] Plan updated in UI:', plan);
+        }
+
+        // Show/hide upgrade button based on plan status
+        const settingsUpgradeBtn = document.getElementById('settingsUpgradeBtn');
+        if (settingsUpgradeBtn) {
+            const currentPlan = (userData.plan || userData.plano || 'home').toLowerCase();
+            const statusPagamento = userData.statusPagamento || null;
+
+            // Show upgrade button for Home users or expired Studio users
+            if (currentPlan === 'home' || (currentPlan === 'home' && statusPagamento === 'expirado')) {
+                settingsUpgradeBtn.style.display = 'inline-block';
+                settingsUpgradeBtn.textContent = 'Fazer Upgrade';
+                settingsUpgradeBtn.href = 'planos.html'; // Go to plans page
+                console.log('[SETTINGS] Upgrade button shown for Home user pointing to planos.html');
+            } else if (currentPlan === 'studio' && statusPagamento === 'expirado') {
+                settingsUpgradeBtn.style.display = 'inline-block';
+                settingsUpgradeBtn.textContent = 'Renovar Studio';
+                settingsUpgradeBtn.href = 'planos.html'; // Go to plans page for renewal
+                console.log('[SETTINGS] Renew button shown for expired Studio user pointing to planos.html');
+            } else {
+                settingsUpgradeBtn.style.display = 'none';
+                console.log('[SETTINGS] Upgrade button hidden (user has active Studio plan)');
+            }
+        }
+    }
+
+    updateSettingsExpirationBanner(userData) {
+        const settingsExpirationBanner = document.getElementById('settingsExpirationBanner');
+        const settingsDaysRemaining = document.getElementById('settingsDaysRemaining');
+        const daysRemainingValue = document.getElementById('daysRemainingValue');
+
+        if (!settingsExpirationBanner) return;
+
+        const statusPagamento = userData.statusPagamento || null;
+        const currentPlan = (userData.plan || userData.plano || 'home').toLowerCase();
+        const validadeAcesso = userData.validadeAcesso;
+        const trialExpiresAt = userData.trialExpiresAt;
+        const paymentOrigin = userData.paymentOrigin;
+
+        // Calculate days remaining
+        let daysRemaining = null;
+        let expiryDate = null;
+
+        if (currentPlan === 'studio' && validadeAcesso && paymentOrigin === 'site') {
+            expiryDate = new Date(validadeAcesso);
+            const currentDate = new Date();
+            daysRemaining = Math.ceil((expiryDate - currentDate) / (1000 * 60 * 60 * 24));
+        } else if (currentPlan === 'studio' && trialExpiresAt) {
+            expiryDate = new Date(trialExpiresAt);
+            const currentDate = new Date();
+            daysRemaining = Math.ceil((expiryDate - currentDate) / (1000 * 60 * 60 * 24));
+        }
+
+        // Update days remaining display
+        if (settingsDaysRemaining && daysRemainingValue) {
+            if (daysRemaining !== null && daysRemaining > 0) {
+                settingsDaysRemaining.style.display = 'block';
+                daysRemainingValue.textContent = `${daysRemaining} dia${daysRemaining > 1 ? 's' : ''}`;
+
+                // Color code based on urgency
+                if (daysRemaining <= 5) {
+                    daysRemainingValue.style.color = '#f59e0b'; // Orange for critical
+                } else if (daysRemaining <= 15) {
+                    daysRemainingValue.style.color = '#3b82f6'; // Blue for warning
+                } else {
+                    daysRemainingValue.style.color = '#10b981'; // Green for safe
+                }
+            } else {
+                settingsDaysRemaining.style.display = 'none';
+            }
+        }
+
+        const bannerContent = settingsExpirationBanner.querySelector('.expiration-banner-content');
+        const bannerText = settingsExpirationBanner.querySelector('.expiration-banner-text');
+        const bannerBtn = settingsExpirationBanner.querySelector('.expiration-banner-btn');
+        const bannerIcon = settingsExpirationBanner.querySelector('.expiration-banner-icon');
+
+        // Show different banners based on status
+        if (statusPagamento === 'expirado' && currentPlan === 'home') {
+            // Expired banner
+            settingsExpirationBanner.style.display = 'block';
+            settingsExpirationBanner.style.background = 'linear-gradient(135deg, rgba(255, 59, 47, 0.1), rgba(255, 59, 47, 0.05))';
+            settingsExpirationBanner.style.borderColor = 'rgba(255, 59, 47, 0.3)';
+
+            if (bannerText) {
+                bannerText.querySelector('h4').textContent = 'Sua assinatura Studio venceu';
+                bannerText.querySelector('p').textContent = 'Renove para reativar faders ilimitados e loops.';
+                bannerText.querySelector('h4').style.color = '#ff3b2f';
+            }
+
+            if (bannerBtn) {
+                bannerBtn.textContent = 'Renovar Assinatura (R$ 9,90)';
+                bannerBtn.style.background = 'var(--color-white)';
+                bannerBtn.style.color = '#ff3b2f';
+                bannerBtn.href = 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
+            }
+
+            if (bannerIcon) {
+                bannerIcon.style.background = 'rgba(255, 59, 47, 0.2)';
+                bannerIcon.style.color = '#ff3b2f';
+            }
+
+            console.log('[SETTINGS] Expiration banner shown for expired user');
+        } else if (daysRemaining !== null && daysRemaining >= 1 && daysRemaining <= 5) {
+            // Critical warning (5 days or less)
+            settingsExpirationBanner.style.display = 'block';
+            settingsExpirationBanner.style.background = 'linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(245, 158, 11, 0.05))';
+            settingsExpirationBanner.style.borderColor = 'rgba(245, 158, 11, 0.3)';
+
+            if (bannerText) {
+                bannerText.querySelector('h4').textContent = `Vence em ${daysRemaining} dia${daysRemaining > 1 ? 's' : ''}!`;
+                bannerText.querySelector('p').textContent = 'Renove agora para evitar o bloqueio dos faders e loops.';
+                bannerText.querySelector('h4').style.color = '#f59e0b';
+            }
+
+            if (bannerBtn) {
+                bannerBtn.textContent = 'Renovar Assinatura (R$ 9,90)';
+                bannerBtn.style.background = 'var(--color-white)';
+                bannerBtn.style.color = '#f59e0b';
+                bannerBtn.href = 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
+            }
+
+            if (bannerIcon) {
+                bannerIcon.style.background = 'rgba(245, 158, 11, 0.2)';
+                bannerIcon.style.color = '#f59e0b';
+            }
+
+            console.log('[SETTINGS] Critical expiration warning shown:', daysRemaining, 'days remaining');
+        } else if (daysRemaining !== null && daysRemaining >= 11 && daysRemaining <= 15) {
+            // Pre-expiration warning (15 days)
+            settingsExpirationBanner.style.display = 'block';
+            settingsExpirationBanner.style.background = 'linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.05))';
+            settingsExpirationBanner.style.borderColor = 'rgba(59, 130, 246, 0.3)';
+
+            if (bannerText) {
+                bannerText.querySelector('h4').textContent = `Faltam ${daysRemaining} dias`;
+                bannerText.querySelector('p').textContent = 'Prepare-se para renovar e continue aproveitando os recursos sem interrupção!';
+                bannerText.querySelector('h4').style.color = '#3b82f6';
+            }
+
+            if (bannerBtn) {
+                bannerBtn.textContent = 'Renovar Agora';
+                bannerBtn.style.background = 'var(--color-white)';
+                bannerBtn.style.color = '#3b82f6';
+                bannerBtn.href = 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
+            }
+
+            if (bannerIcon) {
+                bannerIcon.style.background = 'rgba(59, 130, 246, 0.2)';
+                bannerIcon.style.color = '#3b82f6';
+            }
+
+            console.log('[SETTINGS] Pre-expiration warning shown:', daysRemaining, 'days remaining');
+        } else if (daysRemaining !== null && daysRemaining >= 2 && daysRemaining <= 3 && !validadeAcesso) {
+            // Trial warning (2-3 days)
+            settingsExpirationBanner.style.display = 'block';
+            settingsExpirationBanner.style.background = 'linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(139, 92, 246, 0.05))';
+            settingsExpirationBanner.style.borderColor = 'rgba(139, 92, 246, 0.3)';
+
+            if (bannerText) {
+                bannerText.querySelector('h4').textContent = `Teste acaba em ${daysRemaining} dia${daysRemaining > 1 ? 's' : ''}`;
+                bannerText.querySelector('p').textContent = 'Assine o plano para continuar aproveitando todos os recursos.';
+                bannerText.querySelector('h4').style.color = '#8b5cf6';
+            }
+
+            if (bannerBtn) {
+                bannerBtn.textContent = 'Assinar Studio';
+                bannerBtn.style.background = 'var(--color-white)';
+                bannerBtn.style.color = '#8b5cf6';
+                bannerBtn.href = 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
+            }
+
+            if (bannerIcon) {
+                bannerIcon.style.background = 'rgba(139, 92, 246, 0.2)';
+                bannerIcon.style.color = '#8b5cf6';
+            }
+
+            console.log('[SETTINGS] Trial expiration warning shown:', daysRemaining, 'days remaining');
+        } else {
+            // Hide banner
+            settingsExpirationBanner.style.display = 'none';
+            console.log('[SETTINGS] Expiration banner hidden (no warning condition met)');
+        }
+    }
+
     async updateStorageInfo() {
         // Storage info display removed - function kept for compatibility but does nothing
         console.log('[SETTINGS] updateStorageInfo called - storage display removed');
@@ -6410,6 +6782,13 @@ class MultracksApp {
     
     closeSettingsModal() {
         this.settingsModal.classList.remove('active');
+        
+        // Clean up real-time listener when modal is closed
+        if (this.userProfileListener) {
+            this.userProfileListener();
+            this.userProfileListener = null;
+            console.log('[SETTINGS] Real-time profile listener cleaned up');
+        }
     }
     
     openPlayerSettingsModal() {
@@ -6650,6 +7029,27 @@ class MultracksApp {
             return;
         }
         
+        // Check duration limit for Home plan
+        const userPlan = await this.getUserPlan();
+        if (userPlan === 'Home') {
+            const MAX_DURATION = 600; // 10 minutes in seconds
+            
+            for (const file of audioFiles) {
+                try {
+                    const duration = await this.getAudioFileDuration(file);
+                    if (duration > MAX_DURATION) {
+                        const durationStr = this.formatTime(duration);
+                        alert(`O arquivo "${file.name}" tem duração de ${durationStr}, que excede o limite de 10 minutos do plano Home.\n\nPara importar arquivos mais longos, faça upgrade para o plano Studio.`);
+                        this.showUpgradeModal('Arquivos com duração superior a 10 minutos');
+                        return;
+                    }
+                } catch (error) {
+                    console.warn('[IMPORT] Could not check duration for file:', file.name, error);
+                    // Allow import if duration check fails
+                }
+            }
+        }
+        
         // Calculate total size of files to be imported
         const totalSize = audioFiles.reduce((sum, file) => sum + file.size, 0);
         
@@ -6711,6 +7111,21 @@ class MultracksApp {
         }
     }
     
+    async getAudioFileDuration(file) {
+        return new Promise((resolve, reject) => {
+            const audio = new Audio();
+            audio.addEventListener('loadedmetadata', () => {
+                resolve(audio.duration);
+                URL.revokeObjectURL(audio.src);
+            });
+            audio.addEventListener('error', () => {
+                reject(new Error('Could not load audio file'));
+                URL.revokeObjectURL(audio.src);
+            });
+            audio.src = URL.createObjectURL(file);
+        });
+    }
+    
     suggestTrackName(fileName) {
         // Remove extension and common suffixes
         let name = fileName.replace(/\.[^/.]+$/, '');
@@ -6723,6 +7138,21 @@ class MultracksApp {
         name = name.charAt(0).toUpperCase() + name.slice(1);
         
         return name || fileName;
+    }
+    
+    async getAudioFileDuration(file) {
+        return new Promise((resolve, reject) => {
+            const audio = new Audio();
+            audio.addEventListener('loadedmetadata', () => {
+                resolve(audio.duration);
+                URL.revokeObjectURL(audio.src);
+            });
+            audio.addEventListener('error', () => {
+                reject(new Error('Could not load audio file'));
+                URL.revokeObjectURL(audio.src);
+            });
+            audio.src = URL.createObjectURL(file);
+        });
     }
     
     renderSelectedFiles() {
@@ -7491,7 +7921,13 @@ class MultracksApp {
             this.handleTimelineSeek(x, rect.width, e.clientX, e.clientY);
             
             // Start hold timer for loop marking
-            this.loopHoldTimer = setTimeout(() => {
+            this.loopHoldTimer = setTimeout(async () => {
+                // Check if user is on home plan before allowing loop marking
+                const userPlan = await this.getUserPlan();
+                if (userPlan === 'Home') {
+                    this.showUpgradeModal('Loop e seções');
+                    return;
+                }
                 // This is a long press - enter loop marking mode
                 this.handleLoopMarking(x, rect.width);
             }, this.LOOP_HOLD_THRESHOLD);
@@ -8661,15 +9097,131 @@ class MultracksApp {
             // Try to get displayName from Firestore first
             let displayName = user.displayName;
             let email = user.email;
+            let planExpired = false;
 
             try {
                 if (window.firebaseDB) {
-                    const { db, doc, getDoc, collection, query, where, getDocs } = window.firebaseDB;
+                    const { db, doc, getDoc, collection, query, where, getDocs, updateDoc } = window.firebaseDB;
                     // First try to get by UID (new method)
                     const userDoc = await getDoc(doc(db, 'users', user.uid));
                     if (userDoc.exists()) {
                         const userData = userDoc.data();
                         displayName = userData.displayName || displayName;
+
+                        // Check plan validity
+                        const currentPlan = (userData.plan || userData.plano || 'home').toLowerCase();
+                        const validadeAcesso = userData.validadeAcesso;
+                        const trialExpiresAt = userData.trialExpiresAt;
+                        const paymentOrigin = userData.paymentOrigin;
+                        const statusPagamento = userData.statusPagamento;
+
+                        // Check if this is a paid subscription (not trial)
+                        const isPaidSubscription = paymentOrigin === 'site' && validadeAcesso;
+
+                        if (currentPlan === 'studio' && isPaidSubscription) {
+                            const expiryDate = new Date(validadeAcesso);
+                            const currentDate = new Date();
+
+                            if (currentDate > expiryDate) {
+                                console.log('[PLAN VALIDITY] Studio plan expired for user:', user.uid);
+                                console.log('[PLAN VALIDITY] Expiry date:', expiryDate, 'Current date:', currentDate);
+
+                                // Calculate days since expiration
+                                const daysSinceExpiration = Math.floor((currentDate - expiryDate) / (1000 * 60 * 60 * 24));
+                                console.log('[PLAN VALIDITY] Days since expiration:', daysSinceExpiration);
+
+                                // Update user plan to home and mark as expired
+                                await updateDoc(doc(db, 'users', user.uid), {
+                                    plan: 'home',
+                                    statusPagamento: 'expirado'
+                                });
+
+                                planExpired = true;
+
+                                // Only show floating notification if expired within 7 days
+                                if (daysSinceExpiration <= 7) {
+                                    this.showPlanExpiredNotification();
+                                } else {
+                                    console.log('[PLAN VALIDITY] Expiration older than 7 days, skipping floating notification');
+                                }
+                            } else {
+                                console.log('[PLAN VALIDITY] Studio plan is still valid for user:', user.uid);
+                                console.log('[PLAN VALIDITY] Expiry date:', expiryDate, 'Current date:', currentDate);
+
+                                // Check for pre-expiration warnings
+                                const daysRemaining = Math.ceil((expiryDate - currentDate) / (1000 * 60 * 60 * 24));
+                                console.log('[PLAN VALIDITY] Days remaining:', daysRemaining);
+
+                                // Show 15-day warning (11-15 days remaining)
+                                if (daysRemaining >= 11 && daysRemaining <= 15) {
+                                    this.showPreExpirationWarning(daysRemaining);
+                                }
+                                // Show 5-day critical warning (1-5 days remaining)
+                                else if (daysRemaining >= 1 && daysRemaining <= 5) {
+                                    this.showCriticalExpirationWarning(daysRemaining);
+                                }
+                            }
+                        } else if (currentPlan === 'studio' && trialExpiresAt) {
+                            // Check trial validity (7 days)
+                            const trialExpiryDate = new Date(trialExpiresAt);
+                            const currentDate = new Date();
+
+                            if (currentDate > trialExpiryDate) {
+                                console.log('[PLAN VALIDITY] Studio trial expired for user:', user.uid);
+                                console.log('[PLAN VALIDITY] Trial expiry date:', trialExpiryDate, 'Current date:', currentDate);
+
+                                // Calculate days since expiration
+                                const daysSinceExpiration = Math.floor((currentDate - trialExpiryDate) / (1000 * 60 * 60 * 24));
+                                console.log('[PLAN VALIDITY] Days since trial expiration:', daysSinceExpiration);
+
+                                // Update user plan to home and mark as expired
+                                await updateDoc(doc(db, 'users', user.uid), {
+                                    plan: 'home',
+                                    statusPagamento: 'expirado'
+                                });
+
+                                planExpired = true;
+
+                                // Only show floating notification if expired within 7 days
+                                if (daysSinceExpiration <= 7) {
+                                    this.showTrialExpiredNotification();
+                                } else {
+                                    console.log('[PLAN VALIDITY] Trial expiration older than 7 days, skipping floating notification');
+                                }
+                            } else {
+                                console.log('[PLAN VALIDITY] Studio trial is still valid for user:', user.uid);
+                                console.log('[PLAN VALIDITY] Trial expiry date:', trialExpiryDate, 'Current date:', currentDate);
+
+                                // Check for trial pre-expiration warnings
+                                const daysRemaining = Math.ceil((trialExpiryDate - currentDate) / (1000 * 60 * 60 * 24));
+                                console.log('[PLAN VALIDITY] Trial days remaining:', daysRemaining);
+
+                                // Show trial warning when 2-3 days remaining
+                                if (daysRemaining >= 2 && daysRemaining <= 3) {
+                                    this.showTrialExpirationWarning(daysRemaining);
+                                }
+                            }
+                        } else if (statusPagamento === 'expirado') {
+                            // User already has expired status, check if within 7-day window
+                            const expiryDate = validadeAcesso ? new Date(validadeAcesso) : trialExpiresAt ? new Date(trialExpiresAt) : null;
+
+                            if (expiryDate) {
+                                const currentDate = new Date();
+                                const daysSinceExpiration = Math.floor((currentDate - expiryDate) / (1000 * 60 * 60 * 24));
+
+                                // Show floating notification if expired within 7 days
+                                if (daysSinceExpiration <= 7) {
+                                    console.log('[PLAN VALIDITY] User has expired status within 7-day window, showing notification');
+                                    if (paymentOrigin === 'site') {
+                                        this.showPlanExpiredNotification();
+                                    } else {
+                                        this.showTrialExpiredNotification();
+                                    }
+                                } else {
+                                    console.log('[PLAN VALIDITY] Expired status older than 7 days, skipping floating notification');
+                                }
+                            }
+                        }
                     } else {
                         // Fallback: try to find by uid field (old method with auto-generated IDs)
                         const q = query(collection(db, 'users'), where('uid', '==', user.uid));
@@ -8712,6 +9264,16 @@ class MultracksApp {
             }
 
             console.log('[AUTH] User profile updated:', displayName);
+
+            // If plan expired, reload storage to apply Home plan restrictions
+            if (planExpired && typeof storage !== 'undefined') {
+                console.log('[PLAN VALIDITY] Reloading storage to apply Home plan restrictions');
+                this.storageReady = false;
+                this.storageLoadPromise = storage.load();
+                await this.storageLoadPromise;
+                this.storageReady = true;
+                this.renderLibrary();
+            }
         }
 
         // Store user info in localStorage
@@ -8720,6 +9282,429 @@ class MultracksApp {
             email: user.email,
             displayName: user.displayName
         }));
+    }
+
+    showPlanExpiredNotification() {
+        // Create and show a notification about expired plan
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #ff3b2f, #cc2d23);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(255, 59, 47, 0.3);
+            z-index: 10000;
+            max-width: 400px;
+            font-family: 'Inter', sans-serif;
+            animation: slideIn 0.3s ease;
+        `;
+
+        notification.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <strong style="font-size: 16px;">Assinatura Expirada</strong>
+            </div>
+            <p style="margin: 0; font-size: 14px; line-height: 1.5; opacity: 0.9;">
+                Sua assinatura Studio de 30 dias venceu. Faça a renovação para reativar todos os recursos.
+            </p>
+            <button onclick="window.location.href='https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm'" style="
+                margin-top: 16px;
+                padding: 10px 20px;
+                background: white;
+                color: #ff3b2f;
+                border: none;
+                border-radius: 8px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: transform 0.2s ease;
+            " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                Renovar Agora
+            </button>
+            <button onclick="this.parentElement.remove()" style="
+                margin-top: 8px;
+                padding: 8px 16px;
+                background: transparent;
+                color: white;
+                border: 1px solid rgba(255,255,255,0.3);
+                border-radius: 8px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: background 0.2s ease;
+            " onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">
+                Fechar
+            </button>
+        `;
+
+        // Add animation keyframes
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from {
+                    transform: translateX(400px);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+
+        document.body.appendChild(notification);
+
+        // Auto-remove after 10 seconds
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.style.animation = 'slideIn 0.3s ease reverse';
+                setTimeout(() => notification.remove(), 300);
+            }
+        }, 10000);
+    }
+
+    showTrialExpiredNotification() {
+        // Create and show a notification about expired trial
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(245, 158, 11, 0.3);
+            z-index: 10000;
+            max-width: 400px;
+            font-family: 'Inter', sans-serif;
+            animation: slideIn 0.3s ease;
+        `;
+
+        notification.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <strong style="font-size: 16px;">Teste Grátis Expirado</strong>
+            </div>
+            <p style="margin: 0; font-size: 14px; line-height: 1.5; opacity: 0.9;">
+                Seu período de teste de 7 dias do Studio acabou. Assine o plano para continuar aproveitando todos os recursos.
+            </p>
+            <button onclick="window.location.href='https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm'" style="
+                margin-top: 16px;
+                padding: 10px 20px;
+                background: white;
+                color: #f59e0b;
+                border: none;
+                border-radius: 8px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: transform 0.2s ease;
+            " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                Assinar Studio
+            </button>
+            <button onclick="this.parentElement.remove()" style="
+                margin-top: 8px;
+                padding: 8px 16px;
+                background: transparent;
+                color: white;
+                border: 1px solid rgba(255,255,255,0.3);
+                border-radius: 8px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: background 0.2s ease;
+            " onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">
+                Fechar
+            </button>
+        `;
+
+        // Add animation keyframes
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from {
+                    transform: translateX(400px);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+
+        document.body.appendChild(notification);
+
+        // Auto-remove after 10 seconds
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.style.animation = 'slideIn 0.3s ease reverse';
+                setTimeout(() => notification.remove(), 300);
+            }
+        }, 10000);
+    }
+
+    showPreExpirationWarning(daysRemaining) {
+        // Create and show a pre-expiration warning (15 days)
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
+            z-index: 10000;
+            max-width: 400px;
+            font-family: 'Inter', sans-serif;
+            animation: slideIn 0.3s ease;
+        `;
+
+        notification.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                <strong style="font-size: 16px;">Lembrete de Renovação</strong>
+            </div>
+            <p style="margin: 0; font-size: 14px; line-height: 1.5; opacity: 0.9;">
+                Faltam ${daysRemaining} dias para o vencimento da sua assinatura W.Tracks Studio. Prepare-se para renovar e continue aproveitando os recursos sem interrupção!
+            </p>
+            <button onclick="window.location.href='https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm'" style="
+                margin-top: 16px;
+                padding: 10px 20px;
+                background: white;
+                color: #3b82f6;
+                border: none;
+                border-radius: 8px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: transform 0.2s ease;
+            " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                Renovar Agora
+            </button>
+            <button onclick="this.parentElement.remove()" style="
+                margin-top: 8px;
+                padding: 8px 16px;
+                background: transparent;
+                color: white;
+                border: 1px solid rgba(255,255,255,0.3);
+                border-radius: 8px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: background 0.2s ease;
+            " onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">
+                Fechar
+            </button>
+        `;
+
+        // Add animation keyframes
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from {
+                    transform: translateX(400px);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+
+        document.body.appendChild(notification);
+
+        // Auto-remove after 15 seconds (longer for informational warning)
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.style.animation = 'slideIn 0.3s ease reverse';
+                setTimeout(() => notification.remove(), 300);
+            }
+        }, 15000);
+    }
+
+    showCriticalExpirationWarning(daysRemaining) {
+        // Create and show a critical expiration warning (5 days)
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(245, 158, 11, 0.3);
+            z-index: 10000;
+            max-width: 400px;
+            font-family: 'Inter', sans-serif;
+            animation: slideIn 0.3s ease;
+        `;
+
+        notification.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+                <strong style="font-size: 16px;">Atenção: Vencimento Próximo</strong>
+            </div>
+            <p style="margin: 0; font-size: 14px; line-height: 1.5; opacity: 0.9;">
+                Sua assinatura Studio vence em ${daysRemaining} dia${daysRemaining > 1 ? 's' : ''}! Renove agora para evitar o bloqueio dos faders e loops.
+            </p>
+            <button onclick="window.location.href='https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm'" style="
+                margin-top: 16px;
+                padding: 10px 20px;
+                background: white;
+                color: #f59e0b;
+                border: none;
+                border-radius: 8px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: transform 0.2s ease;
+            " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                Renovar Assinatura (R$ 9,90)
+            </button>
+            <button onclick="this.parentElement.remove()" style="
+                margin-top: 8px;
+                padding: 8px 16px;
+                background: transparent;
+                color: white;
+                border: 1px solid rgba(255,255,255,0.3);
+                border-radius: 8px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: background 0.2s ease;
+            " onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">
+                Fechar
+            </button>
+        `;
+
+        // Add animation keyframes
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from {
+                    transform: translateX(400px);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+
+        document.body.appendChild(notification);
+
+        // Auto-remove after 20 seconds (longer for critical warning)
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.style.animation = 'slideIn 0.3s ease reverse';
+                setTimeout(() => notification.remove(), 300);
+            }
+        }, 20000);
+    }
+
+    showTrialExpirationWarning(daysRemaining) {
+        // Create and show a trial expiration warning
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(139, 92, 246, 0.3);
+            z-index: 10000;
+            max-width: 400px;
+            font-family: 'Inter', sans-serif;
+            animation: slideIn 0.3s ease;
+        `;
+
+        notification.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                <strong style="font-size: 16px;">Teste Grátis Acabando</strong>
+            </div>
+            <p style="margin: 0; font-size: 14px; line-height: 1.5; opacity: 0.9;">
+                Seu teste grátis do Studio acaba em ${daysRemaining} dia${daysRemaining > 1 ? 's' : ''}! Assine o plano para continuar aproveitando todos os recursos.
+            </p>
+            <button onclick="window.location.href='https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm'" style="
+                margin-top: 16px;
+                padding: 10px 20px;
+                background: white;
+                color: #8b5cf6;
+                border: none;
+                border-radius: 8px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: transform 0.2s ease;
+            " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                Assinar Studio
+            </button>
+            <button onclick="this.parentElement.remove()" style="
+                margin-top: 8px;
+                padding: 8px 16px;
+                background: transparent;
+                color: white;
+                border: 1px solid rgba(255,255,255,0.3);
+                border-radius: 8px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: background 0.2s ease;
+            " onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">
+                Fechar
+            </button>
+        `;
+
+        // Add animation keyframes
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from {
+                    transform: translateX(400px);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+
+        document.body.appendChild(notification);
+
+        // Auto-remove after 15 seconds
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.style.animation = 'slideIn 0.3s ease reverse';
+                setTimeout(() => notification.remove(), 300);
+            }
+        }, 15000);
     }
 
     updateProfileButtonForLoggedOut() {
@@ -9535,6 +10520,13 @@ class MultracksApp {
     }
 
     async openCreatorSignupModal() {
+        // Check user plan before allowing creator signup
+        const userPlan = await this.getUserPlan();
+        if (userPlan === 'Home') {
+            this.showUpgradeModal('Criar conta no Minhas Tracks');
+            return;
+        }
+
         if (this.creatorSignupModal) {
             this.creatorSignupModal.classList.add('active');
             // Reset form
@@ -9561,6 +10553,13 @@ class MultracksApp {
     }
 
     async handleCreatorSignup() {
+        // Check user plan before allowing creator signup
+        const userPlan = await this.getUserPlan();
+        if (userPlan === 'Home') {
+            this.showUpgradeModal('Criar conta no Minhas Tracks');
+            return;
+        }
+
         const displayName = this.creatorDisplayName?.value?.trim();
         const termsAgreed = this.creatorTermsAgreement?.checked;
 

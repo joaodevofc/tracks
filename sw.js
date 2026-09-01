@@ -13,10 +13,16 @@ const DYNAMIC_CACHE = `multracks-dynamic-v${VERSION}`;
 const STATIC_ASSETS = [
     '/tracks/',
     '/tracks/index.html',
+    '/tracks/planos.html',
+    '/tracks/sucesso.html',
+    '/tracks/equipewtracks.html',
     '/tracks/styles.css',
+    '/tracks/mobile.css',
     '/tracks/storage.js',
+    '/tracks/audiostorage.js',
     '/tracks/player.js',
     '/tracks/app.js',
+    '/tracks/setlists.js',
     '/tracks/manifest.json',
     '/tracks/icon-black-transparent.png'
 ];

@@ -422,12 +422,12 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;}
   background:var(--bg-hover);
 }
 
-/* Contas Table - 6 columns */
+/* Contas Table - 8 columns */
 #tab-contas .table-header {
-  grid-template-columns: 60px 1fr 1fr 140px 120px 100px;
+  grid-template-columns: 60px 80px 1fr 1fr 140px 140px 140px 220px;
 }
 #tab-contas .table-row {
-  grid-template-columns: 60px 1fr 1fr 140px 120px 100px;
+  grid-template-columns: 60px 80px 1fr 1fr 140px 140px 140px 220px;
 }
 .table-cell{
   font-family:var(--font-mono);
@@ -458,6 +458,41 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;}
 }
 .action-btn.delete{
   color:#ff3b2f;
+}
+.action-btn.renew{
+  color:#4ade80;
+  border:1px solid #4ade80;
+  padding:6px 10px;
+  border-radius:4px;
+  font-size:0.8rem;
+  transition:all 0.15s ease;
+}
+.action-btn.renew:hover{
+  background:rgba(74, 222, 128, 0.1);
+}
+
+/* Payment Badge for Studio Users */
+.payment-badge-site{
+  background: #000000;
+  color: #00ff00;
+  border: 1px solid #00ff00;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 0 8px rgba(0, 255, 0, 0.3);
+  animation: glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes glow{
+  from{
+    box-shadow: 0 0 8px rgba(0, 255, 0, 0.3);
+  }
+  to{
+    box-shadow: 0 0 12px rgba(0, 255, 0, 0.6);
+  }
 }
 
 /* Empty State */
@@ -712,12 +747,14 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;}
       </div>
 
       <div class="data-table">
-        <div class="table-header" style="grid-template-columns: 60px 1fr 1fr 140px 120px 100px;">
+        <div class="table-header" style="grid-template-columns: 60px 80px 1fr 1fr 140px 140px 140px 220px;">
           <span>#</span>
+          <span>Foto</span>
           <span>Nome</span>
           <span>Email</span>
           <span>Tipo</span>
           <span>Plano</span>
+          <span>Dias Restantes</span>
           <span>Ações</span>
         </div>
         <div id="allContas">
@@ -739,7 +776,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;}
       </div>
 
       <div class="data-table">
-        <div class="table-header" style="grid-template-columns: 60px 80px 1fr 1fr 140px 100px 180px;">
+        <div class="table-header" style="grid-template-columns: 60px 80px 1fr 1fr 140px 140px 100px 220px;">
           <span>#</span>
           <span>Foto</span>
           <span>Nome</span>
@@ -1035,6 +1072,10 @@ function switchTab(tabName){
   } else if(tabName === 'emails'){
     loadEmails();
   } else if(tabName === 'contas'){
+    // Setup real-time listener if not already set up
+    if (!contasUnsubscribeListener) {
+      setupContasRealtimeListener();
+    }
     loadContas();
   } else if(tabName === 'criadores'){
     loadCriadores();
@@ -1551,7 +1592,7 @@ function renderCriadores(){
     }
 
     return `
-      <div class="table-row" style="grid-template-columns: 60px 80px 1fr 1fr 140px 100px 180px;">
+      <div class="table-row" style="grid-template-columns: 60px 80px 1fr 1fr 140px 140px 100px 180px;">
         <div class="table-cell id">${index + 1}</div>
         <div class="table-cell">${photoHtml}</div>
         <div class="table-cell">${item.displayName}</div>
@@ -1634,7 +1675,7 @@ function filterCriadores(){
     }
 
     return `
-      <div class="table-row" style="grid-template-columns: 60px 80px 1fr 1fr 140px 100px 180px;">
+      <div class="table-row" style="grid-template-columns: 60px 80px 1fr 1fr 140px 140px 100px 180px;">
         <div class="table-cell id">${index + 1}</div>
         <div class="table-cell">${photoHtml}</div>
         <div class="table-cell">${item.displayName}</div>
@@ -2615,8 +2656,90 @@ async function deleteComplaint(complaintId){
 // CONTAS MANAGEMENT
 // ========================================
 let contasCache = [];
+let contasUnsubscribeListener = null;
 
-// Load contas from Firebase
+// Setup real-time listener for contas
+function setupContasRealtimeListener(){
+  if (!window.firebaseDB) {
+    console.warn('[FIREBASE] Not available for contas realtime');
+    return;
+  }
+
+  try {
+    const usersCollection = window.firebaseDB.collection(window.firebaseDB.db, 'users');
+    
+    contasUnsubscribeListener = window.firebaseDB.onSnapshot(usersCollection, (snapshot) => {
+      console.log('[FIREBASE] Real-time contas update received, documents:', snapshot.size);
+      
+      contasCache = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        
+        // Fallback values for old/incomplete documents
+        const displayName = data.displayName || 'Sem nome';
+        const email = data.email || doc.id || 'Email não informado';
+        const accountType = data.accountType || 'Usuário';
+        
+        // Check both 'plan' and 'plano' fields for compatibility
+        let plan = data.plan || data.plano || 'Home';
+        // Normalize plan name to Title Case for consistency
+        plan = plan.charAt(0).toUpperCase() + plan.slice(1).toLowerCase();
+        // Map old plan values to new system
+        if (plan === 'Free' || plan === 'Pro' || plan === 'VIP' || plan === 'Creator' || plan === 'Home') {
+          plan = 'Home';
+        }
+        
+        const status = data.status || 'active';
+        const paymentOrigin = data.paymentOrigin || null;
+        const statusPagamento = data.statusPagamento || null;
+        const validadeAcesso = data.validadeAcesso || null;
+
+        contasCache.push({
+          id: doc.id,
+          uid: data.uid || doc.id,
+          displayName: displayName,
+          email: email,
+          accountType: accountType,
+          plan: plan,
+          status: status,
+          paymentOrigin: paymentOrigin,
+          statusPagamento: statusPagamento,
+          validadeAcesso: validadeAcesso,
+          profilePhoto: data.profilePhoto || null,
+          banReason: data.banReason || null,
+          suspensionReason: data.suspensionReason || null,
+          createdAt: data.createdAt,
+          at: data.createdAt ? new Date(data.createdAt.seconds * 1000).toISOString() : new Date().toISOString()
+        });
+      });
+
+      // Sort by createdAt
+      contasCache.sort((a, b) => new Date(b.at) - new Date(a.at));
+
+      console.log('[FIREBASE] Real-time contas updated:', contasCache.length, 'users');
+      
+      // Refresh the contas view if it's active
+      const activeTab = document.querySelector('.tab-content.active');
+      if (activeTab && activeTab.id === 'tab-contas') {
+        const searchTerm = document.getElementById('searchContas')?.value.toLowerCase() || '';
+        const filtered = contasCache.filter(conta =>
+          conta.displayName.toLowerCase().includes(searchTerm) ||
+          conta.email.toLowerCase().includes(searchTerm) ||
+          conta.accountType.toLowerCase().includes(searchTerm) ||
+          conta.plan.toLowerCase().includes(searchTerm) ||
+          (conta.paymentOrigin && conta.paymentOrigin.toLowerCase().includes(searchTerm))
+        );
+        renderContas(filtered);
+      }
+    });
+
+    console.log('[FIREBASE] Real-time contas listener setup complete');
+  } catch (error) {
+    console.error('[FIREBASE] Error setting up contas listener:', error);
+  }
+}
+
+// Load contas from Firebase (initial load)
 async function loadContasFromFirebase(){
   if (!window.firebaseDB) {
     console.warn('[FIREBASE] Not available for contas');
@@ -2626,7 +2749,6 @@ async function loadContasFromFirebase(){
   try {
     console.log('[FIREBASE] Attempting to load contas from users collection...');
 
-    // Try to get all documents from 'users' collection without ordering first
     const usersCollection = window.firebaseDB.collection(window.firebaseDB.db, 'users');
     const snapshot = await window.firebaseDB.getDocs(usersCollection);
     console.log('[FIREBASE] Total documents in users collection:', snapshot.size);
@@ -2634,22 +2756,45 @@ async function loadContasFromFirebase(){
     contasCache = [];
     snapshot.forEach((doc) => {
       const data = doc.data();
-      console.log('[FIREBASE] User document found:', doc.id, data);
+      
+      // Fallback values for old/incomplete documents
+      const displayName = data.displayName || 'Sem nome';
+      const email = data.email || doc.id || 'Email não informado';
+      const accountType = data.accountType || 'Usuário';
+      
+      // Check both 'plan' and 'plano' fields for compatibility
+      let plan = data.plan || data.plano || 'Home';
+      // Normalize plan name to Title Case for consistency
+      plan = plan.charAt(0).toUpperCase() + plan.slice(1).toLowerCase();
+      // Map old plan values to new system
+      if (plan === 'Free' || plan === 'Pro' || plan === 'VIP' || plan === 'Creator' || plan === 'Home') {
+        plan = 'Home';
+      }
+      
+      const status = data.status || 'active';
+      const paymentOrigin = data.paymentOrigin || null;
+      const statusPagamento = data.statusPagamento || null;
+      const validadeAcesso = data.validadeAcesso || null;
+
       contasCache.push({
         id: doc.id,
-        uid: data.uid || doc.id, // Use doc.id if uid is not present
-        nome: data.displayName || 'N/A',
-        email: data.email || 'N/A',
-        tipo: data.accountType || 'N/A',
-        plano: data.plano || 'home',
-        status: data.status || 'active', // active, banned, suspended
+        uid: data.uid || doc.id,
+        displayName: displayName,
+        email: email,
+        accountType: accountType,
+        plan: plan,
+        status: status,
+        paymentOrigin: paymentOrigin,
+        statusPagamento: statusPagamento,
+        validadeAcesso: validadeAcesso,
+        profilePhoto: data.profilePhoto || null,
         banReason: data.banReason || null,
+        suspensionReason: data.suspensionReason || null,
         createdAt: data.createdAt,
         at: data.createdAt ? new Date(data.createdAt.seconds * 1000).toISOString() : new Date().toISOString()
       });
     });
 
-    // Sort by createdAt manually after loading
     contasCache.sort((a, b) => new Date(b.at) - new Date(a.at));
 
     console.log('[FIREBASE] Loaded', contasCache.length, 'contas');
@@ -2666,6 +2811,26 @@ async function loadContas(){
   const container = document.getElementById('allContas');
   container.innerHTML = '<div class="loading">Carregando contas...</div>';
 
+  // Setup real-time listener if not already set up (this will load all existing data)
+  if (!contasUnsubscribeListener) {
+    setupContasRealtimeListener();
+  }
+
+  // If we already have data in cache, render it immediately
+  if (contasCache.length > 0) {
+    const searchTerm = document.getElementById('searchContas')?.value.toLowerCase() || '';
+    const filtered = contasCache.filter(conta =>
+      conta.displayName.toLowerCase().includes(searchTerm) ||
+      conta.email.toLowerCase().includes(searchTerm) ||
+      conta.accountType.toLowerCase().includes(searchTerm) ||
+      conta.plan.toLowerCase().includes(searchTerm) ||
+      (conta.paymentOrigin && conta.paymentOrigin.toLowerCase().includes(searchTerm))
+    );
+    renderContas(filtered);
+    return;
+  }
+
+  // Load initial data immediately
   const contas = await loadContasFromFirebase();
 
   if(contas.length === 0){
@@ -2687,6 +2852,35 @@ async function loadContas(){
   renderContas(contas);
 }
 
+// Calculate days remaining for Studio users
+function calculateDaysRemaining(validadeAcesso) {
+  if (!validadeAcesso) return null;
+
+  const expiryDate = new Date(validadeAcesso);
+  const currentDate = new Date();
+  const diffTime = expiryDate - currentDate;
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  return diffDays;
+}
+
+// Get days remaining text with styling
+function getDaysRemainingText(validadeAcesso) {
+  const daysRemaining = calculateDaysRemaining(validadeAcesso);
+
+  if (daysRemaining === null) {
+    return '<span style="color: var(--subtle); font-size: 0.75rem;">Sem validade</span>';
+  }
+
+  if (daysRemaining > 0) {
+    return `<span style="color: #4ade80; font-size: 0.75rem; font-weight: 500;">Faltam ${daysRemaining} dias</span>`;
+  } else if (daysRemaining === 0) {
+    return `<span style="color: #f59e0b; font-size: 0.75rem; font-weight: 500;">Vence hoje</span>`;
+  } else {
+    return `<span style="color: #ef4444; font-size: 0.75rem; font-weight: 500;">Vencido há ${Math.abs(daysRemaining)} dias</span>`;
+  }
+}
+
 // Render contas table
 function renderContas(contas){
   const container = document.getElementById('allContas');
@@ -2695,47 +2889,102 @@ function renderContas(contas){
   contas.forEach((conta, index) => {
     const row = document.createElement('div');
     row.className = 'table-row';
-    row.style.gridTemplateColumns = '60px 1fr 1fr 140px 120px 100px';
+    row.style.gridTemplateColumns = '60px 80px 1fr 1fr 140px 140px 140px 220px';
 
-    const date = new Date(conta.at).toLocaleString('pt-BR');
+    // Profile photo with fallback to initial
+    const photoHtml = conta.profilePhoto
+      ? `<img src="${conta.profilePhoto}" alt="${conta.displayName}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">`
+      : `<div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#666,#444);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:14px;">${conta.displayName.charAt(0).toUpperCase()}</div>`;
 
-    // Plan badge styling
-    const planBadgeStyle = conta.plano === 'studio'
-      ? 'background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3);'
-      : 'background: rgba(255, 255, 255, 0.1); color: var(--muted); border: 1px solid var(--border);';
+    // Status badge (moved to actions or combined with plan)
+    let statusBadge = '';
+    let rowStyle = '';
+    if (conta.status === 'active') {
+      statusBadge = '<span style="background:#10b981;color:#fff;padding:4px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">Ativo</span>';
+    } else if (conta.status === 'suspended') {
+      statusBadge = '<span style="background:#f59e0b;color:#fff;padding:4px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">Suspenso</span>';
+      rowStyle = 'opacity: 0.7; background: rgba(245, 158, 11, 0.05);';
+    } else if (conta.status === 'banned') {
+      statusBadge = '<span style="background:#ef4444;color:#fff;padding:4px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">Banido</span>';
+      rowStyle = 'opacity: 0.6; background: rgba(239, 68, 68, 0.05);';
+    }
 
-    // Status badge for banned accounts
-    const statusBadge = conta.status === 'banned'
-      ? '<span style="background: rgba(239, 68, 68, 0.2); color: #f87171; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; border: 1px solid rgba(239, 68, 68, 0.3);">BANIDO</span>'
-      : '';
+    // Payment badge for Studio users with site payment
+    let paymentBadge = '';
+    if (conta.plan === 'Studio' && conta.paymentOrigin === 'site' && conta.statusPagamento === 'ativo') {
+      paymentBadge = '<span class="payment-badge-site">Assinatura Site</span>';
+    }
 
-    const rowStyle = conta.status === 'banned' ? 'opacity: 0.6; background: rgba(239, 68, 68, 0.05);' : '';
+    // Days remaining for all users (main feature now)
+    let daysRemainingHtml = '';
+    if (conta.plan === 'Studio' && conta.validadeAcesso) {
+      daysRemainingHtml = getDaysRemainingText(conta.validadeAcesso);
+    } else if (conta.plan === 'Home') {
+      daysRemainingHtml = '<span style="color: var(--subtle); font-size: 0.75rem;">Plano gratuito</span>';
+    } else {
+      daysRemainingHtml = '<span style="color: var(--subtle); font-size: 0.75rem;">Sem validade</span>';
+    }
 
+    // Renew button for Studio or expired users
+    let renewButtonHtml = '';
+    if ((conta.plan === 'Studio' || conta.statusPagamento === 'expirado') && conta.status === 'active') {
+      renewButtonHtml = `
+        <button
+          class="action-btn renew"
+          onclick="renewUserAccess('${conta.id}', '${escapeHtml(conta.displayName)}', '${escapeHtml(conta.email)}')"
+        >
+          +30 Dias
+        </button>
+      `;
+    }
+
+    // Actions based on status
+    let actionsHtml = '';
+    if (conta.status === 'active') {
+      actionsHtml = `
+        ${renewButtonHtml}
+        <button class="action-btn" onclick="suspendConta('${conta.id}')">Suspender</button>
+        <button class="action-btn delete" onclick="banConta('${conta.id}')">Banir</button>
+      `;
+    } else if (conta.status === 'suspended') {
+      actionsHtml = `
+        <button class="action-btn" style="color: #4ade80;" onclick="reactivateConta('${conta.id}')">Reativar</button>
+        <button class="action-btn delete" onclick="banConta('${conta.id}')">Banir</button>
+      `;
+    } else if (conta.status === 'banned') {
+      actionsHtml = `
+        <button class="action-btn" style="color: #4ade80;" onclick="reactivateConta('${conta.id}')">Reativar</button>
+      `;
+    }
+
+    row.style.cssText = rowStyle;
     row.innerHTML = `
       <div class="table-cell id">${index + 1}</div>
-      <div class="table-cell email">
-        ${escapeHtml(conta.nome)}
-        ${statusBadge}
-      </div>
+      <div class="table-cell">${photoHtml}</div>
+      <div class="table-cell email">${escapeHtml(conta.displayName)}</div>
       <div class="table-cell email">${escapeHtml(conta.email)}</div>
-      <div class="table-cell date">${escapeHtml(conta.tipo)}</div>
+      <div class="table-cell date">${escapeHtml(conta.accountType)}</div>
       <div class="table-cell">
-        <select
-          onchange="changeUserPlan('${conta.id}', this.value)"
-          style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-card); color: var(--white-dim); font-size: 0.85rem; cursor: pointer;"
-          ${conta.status === 'banned' ? 'disabled' : ''}
-        >
-          <option value="home" ${conta.plano === 'home' ? 'selected' : ''}>Home</option>
-          <option value="studio" ${conta.plano === 'studio' ? 'selected' : ''}>Studio</option>
-        </select>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <select
+            onchange="changeUserPlan('${conta.id}', this.value)"
+            style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-card); color: var(--white-dim); font-size: 0.85rem; cursor: pointer;"
+            ${conta.status !== 'active' ? 'disabled' : ''}
+          >
+            <option value="Home" ${conta.plan === 'Home' ? 'selected' : ''}>Home</option>
+            <option value="Studio" ${conta.plan === 'Studio' ? 'selected' : ''}>Studio</option>
+          </select>
+          ${paymentBadge}
+        </div>
+      </div>
+      <div class="table-cell">
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          ${daysRemainingHtml}
+          ${statusBadge}
+        </div>
       </div>
       <div class="table-cell actions">
-        <button class="action-btn" onclick="viewConta('${conta.id}')">Ver</button>
-        ${conta.status === 'banned'
-          ? `<button class="action-btn" style="color: #4ade80;" onclick="unbanConta('${conta.id}')">Desbanir</button>`
-          : `<button class="action-btn" style="color: #f59e0b;" onclick="banConta('${conta.id}')">Banir</button>`
-        }
-        <button class="action-btn delete" onclick="deleteConta('${conta.id}')">Excluir</button>
+        ${actionsHtml}
       </div>
     `;
 
@@ -2747,30 +2996,89 @@ function renderContas(contas){
 function filterContas(){
   const searchTerm = document.getElementById('searchContas').value.toLowerCase();
   const filtered = contasCache.filter(conta =>
-    conta.nome.toLowerCase().includes(searchTerm) ||
+    conta.displayName.toLowerCase().includes(searchTerm) ||
     conta.email.toLowerCase().includes(searchTerm) ||
-    conta.tipo.toLowerCase().includes(searchTerm) ||
-    conta.plano.toLowerCase().includes(searchTerm)
+    conta.accountType.toLowerCase().includes(searchTerm) ||
+    conta.plan.toLowerCase().includes(searchTerm) ||
+    (conta.paymentOrigin && conta.paymentOrigin.toLowerCase().includes(searchTerm))
   );
   renderContas(filtered);
 }
 
 // Change user plan
 async function changeUserPlan(userId, newPlan){
-  if(!confirm(`Tem certeza que deseja alterar o plano do usuário para ${newPlan.toUpperCase()}?`)) return;
+  if(!confirm(`Tem certeza que deseja alterar o plano do usuário para ${newPlan}?`)) return;
 
   if (window.firebaseDB) {
     try {
+      console.log('[FIREBASE] About to update plan for user:', userId, 'to', newPlan);
       await window.firebaseDB.updateDoc(
         window.firebaseDB.doc(window.firebaseDB.db, 'users', userId),
-        { plano: newPlan }
+        { plan: newPlan.toLowerCase() }
       );
-      console.log('[FIREBASE] User plan updated:', userId, 'to', newPlan);
-      alert(`Plano alterado para ${newPlan.toUpperCase()} com sucesso!`);
-      await loadContas();
+      console.log('[FIREBASE] User plan updated successfully:', userId, 'to', newPlan);
+      // Real-time listener will update the UI automatically
     } catch (error) {
       console.error('[FIREBASE] Error updating user plan:', error);
       alert('Erro ao alterar plano: ' + error.message);
+    }
+  }
+}
+
+// Renew user access for +30 days
+async function renewUserAccess(userId, userName, userEmail) {
+  if(!confirm(`Deseja renovar o acesso de ${userName} (${userEmail}) por +30 dias?`)) return;
+
+  if (window.firebaseDB) {
+    try {
+      console.log('[FIREBASE] Renewing access for user:', userId);
+
+      // Get current user data to check existing validity
+      const userDocRef = window.firebaseDB.doc(window.firebaseDB.db, 'users', userId);
+      const userDoc = await window.firebaseDB.getDoc(userDocRef);
+
+      let baseDate = new Date();
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const currentValidity = userData.validadeAcesso;
+
+        // If user has existing validity that hasn't expired, use it as base
+        if (currentValidity) {
+          const expiryDate = new Date(currentValidity);
+          const currentDate = new Date();
+
+          if (expiryDate > currentDate) {
+            baseDate = expiryDate; // Extend from current expiry date
+            console.log('[FIREBASE] Extending from existing expiry date:', baseDate);
+          } else {
+            console.log('[FIREBASE] Existing validity expired, using current date as base');
+          }
+        }
+      }
+
+      // Calculate new expiry date (+30 days from base date)
+      const newExpiryDate = new Date(baseDate);
+      newExpiryDate.setDate(newExpiryDate.getDate() + 30);
+
+      console.log('[FIREBASE] New expiry date:', newExpiryDate.toISOString());
+
+      // Update user document
+      await window.firebaseDB.updateDoc(userDocRef, {
+        plan: 'studio',
+        statusPagamento: 'ativo',
+        validadeAcesso: newExpiryDate.toISOString(),
+        paymentOrigin: 'site'
+      });
+
+      console.log('[FIREBASE] User access renewed successfully:', userId);
+
+      // Show success notification
+      alert(`Acesso de ${userName} (${userEmail}) renovado por +30 dias com sucesso!\nNova validade: ${newExpiryDate.toLocaleDateString('pt-BR')}`);
+
+      // Real-time listener will update the UI automatically
+    } catch (error) {
+      console.error('[FIREBASE] Error renewing user access:', error);
+      alert('Erro ao renovar acesso: ' + error.message);
     }
   }
 }
@@ -2781,9 +3089,75 @@ function viewConta(id){
   if(!conta) return;
 
   const date = new Date(conta.at).toLocaleString('pt-BR');
-  const statusText = conta.status === 'banned' ? `Status: BANIDO\nMotivo: ${conta.banReason || 'Não especificado'}` : 'Status: Ativo';
+  const statusText = conta.status === 'banned' 
+    ? `Status: BANIDO\nMotivo: ${conta.banReason || 'Não especificado'}`
+    : conta.status === 'suspended'
+    ? `Status: SUSPENSO\nMotivo: ${conta.suspensionReason || 'Não especificado'}`
+    : 'Status: Ativo';
 
-  alert(`Detalhes da Conta:\n\nNome: ${conta.nome}\nEmail: ${conta.email}\nTipo: ${conta.tipo}\nPlano: ${conta.plano ? conta.plano.toUpperCase() : 'HOME'}\n${statusText}\nUID: ${conta.uid}\nData de registro: ${date}`);
+  alert(`Detalhes da Conta:\n\nNome: ${conta.displayName}\nEmail: ${conta.email}\nTipo: ${conta.accountType}\nPlano: ${conta.plan}\n${statusText}\nUID: ${conta.uid}\nData de registro: ${date}`);
+}
+
+// Suspend conta
+async function suspendConta(id){
+  const reason = prompt('Motivo da suspensão (opcional):');
+  const days = prompt('Dias de suspensão (deixe vazio para indefinido):');
+
+  if (reason === null) return; // User cancelled
+
+  try {
+    let suspensionEndDate = null;
+    if (days && days.trim()) {
+      const daysNum = parseInt(days);
+      if (!isNaN(daysNum)) {
+        suspensionEndDate = new Date();
+        suspensionEndDate.setDate(suspensionEndDate.getDate() + daysNum);
+      }
+    }
+
+    await window.firebaseDB.updateDoc(
+      window.firebaseDB.doc(window.firebaseDB.db, 'users', id),
+      {
+        status: 'suspended',
+        suspensionReason: reason || 'Não especificado',
+        suspensionEndDate: suspensionEndDate ? window.firebaseDB.serverTimestamp() : null,
+        suspendedAt: window.firebaseDB.serverTimestamp()
+      }
+    );
+
+    console.log('[FIREBASE] Conta suspended:', id);
+    // Real-time listener will update the UI automatically
+  } catch (error) {
+    console.error('[FIREBASE] Error suspending conta:', error);
+    alert('Erro ao suspender conta: ' + error.message);
+  }
+}
+
+// Reactivate conta
+async function reactivateConta(id){
+  if(!confirm('Tem certeza que deseja reativar esta conta?')) {
+    return;
+  }
+
+  try {
+    await window.firebaseDB.updateDoc(
+      window.firebaseDB.doc(window.firebaseDB.db, 'users', id),
+      {
+        status: 'active',
+        suspensionReason: null,
+        suspensionEndDate: null,
+        banReason: null,
+        suspendedAt: null,
+        bannedAt: null
+      }
+    );
+
+    console.log('[FIREBASE] Conta reactivated:', id);
+    // Real-time listener will update the UI automatically
+  } catch (error) {
+    console.error('[FIREBASE] Error reactivating conta:', error);
+    alert('Erro ao reativar conta: ' + error.message);
+  }
 }
 
 // Delete conta
@@ -2797,7 +3171,7 @@ async function deleteConta(id){
       );
       console.log('[FIREBASE] Conta deleted:', id);
       alert('Conta excluída com sucesso!');
-      await loadContas();
+      // Real-time listener will update the UI automatically
     } catch (error) {
       console.error('[FIREBASE] Error deleting conta:', error);
       alert('Erro ao excluir conta: ' + error.message);
@@ -2829,34 +3203,10 @@ async function banConta(id){
       );
       console.log('[FIREBASE] Conta banned:', id, 'reason:', reason);
       alert('Conta banida com sucesso!');
-      await loadContas();
+      // Real-time listener will update the UI automatically
     } catch (error) {
       console.error('[FIREBASE] Error banning conta:', error);
       alert('Erro ao banir conta: ' + error.message);
-    }
-  }
-}
-
-// Unban conta
-async function unbanConta(id){
-  if(!confirm('Tem certeza que deseja desbanir esta conta? O usuário poderá fazer login novamente.')) return;
-
-  if (window.firebaseDB) {
-    try {
-      await window.firebaseDB.updateDoc(
-        window.firebaseDB.doc(window.firebaseDB.db, 'users', id),
-        {
-          status: 'active',
-          banReason: null,
-          bannedAt: null
-        }
-      );
-      console.log('[FIREBASE] Conta unbanned:', id);
-      alert('Conta desbanida com sucesso!');
-      await loadContas();
-    } catch (error) {
-      console.error('[FIREBASE] Error unbanning conta:', error);
-      alert('Erro ao desbanir conta: ' + error.message);
     }
   }
 }
@@ -2869,10 +3219,10 @@ async function exportContas(){
     return;
   }
 
-  const headers = ['Nome', 'Email', 'Tipo', 'UID', 'Data de Registro'];
+  const headers = ['Nome', 'Email', 'Tipo', 'Plano', 'Status', 'UID', 'Data de Registro'];
   const rows = contas.map(conta => {
     const date = new Date(conta.at).toLocaleString('pt-BR');
-    return `"${conta.nome}","${conta.email}","${conta.tipo}","${conta.uid}","${date}"`;
+    return `"${conta.displayName}","${conta.email}","${conta.accountType}","${conta.plan}","${conta.status}","${conta.uid}","${date}"`;
   });
 
   const csv = [headers.join(','), ...rows].join('\n');
@@ -2889,6 +3239,12 @@ async function exportContas(){
 document.addEventListener('DOMContentLoaded', async function() {
   await loadDashboard();
   setupRealtimeListener();
+  
+  // Setup contas real-time listener and load initial data immediately
+  setupContasRealtimeListener();
+  // Pre-load contas data so it's ready when tab is opened
+  const contas = await loadContasFromFirebase();
+  console.log('[INIT] Pre-loaded', contas.length, 'contas on page load');
 });
 </script>
 </body>

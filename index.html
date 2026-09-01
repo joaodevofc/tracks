@@ -17,7 +17,7 @@
     <!-- Firebase SDK -->
     <script type="module">
       import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-      import { getFirestore, collection, getDocs, query, orderBy, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, where, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+      import { getFirestore, collection, getDocs, query, orderBy, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, where, setDoc, getDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
       import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
       const firebaseConfig = {
@@ -46,7 +46,8 @@
         serverTimestamp,
         where,
         setDoc,
-        getDoc
+        getDoc,
+        onSnapshot
       };
 
       window.firebaseAuth = {
@@ -972,14 +973,44 @@
                                 <span class="account-type-label">Tipo de conta:</span>
                                 <span class="account-type-value" id="settingsAccountType"></span>
                             </div>
-                            <div class="profile-account-plan" style="display: none;">
+                            <div class="profile-account-plan">
                                 <span class="account-plan-label">Plano atual:</span>
-                                <span class="account-plan-value" id="settingsAccountPlan"></span>
+                                <div class="account-plan-wrapper">
+                                    <span class="account-plan-value" id="settingsAccountPlan">Carregando...</span>
+                                    <a href="planos.html" class="account-plan-upgrade-btn" id="settingsUpgradeBtn" style="display: none;">Fazer Upgrade</a>
+                                </div>
                             </div>
                         </div>
                     </div>
+
+                    <!-- Expiration Banner -->
+                    <div class="settings-expiration-banner" id="settingsExpirationBanner" style="display: none;">
+                        <div class="expiration-banner-content">
+                            <div class="expiration-banner-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                </svg>
+                            </div>
+                            <div class="expiration-banner-text">
+                                <h4>Sua assinatura Studio venceu</h4>
+                                <p>Renove para reativar faders ilimitados e loops.</p>
+                            </div>
+                            <a href="https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm" class="expiration-banner-btn">Renovar Assinatura (R$ 9,90)</a>
+                        </div>
+                    </div>
+
+                    <!-- Days Remaining Display -->
+                    <div class="settings-days-remaining" id="settingsDaysRemaining" style="display: none;">
+                        <div class="days-remaining-content">
+                            <span class="days-remaining-label">Dias restantes:</span>
+                            <span class="days-remaining-value" id="daysRemainingValue">--</span>
+                        </div>
+                    </div>
+
                     <input type="file" id="profilePhotoInput" accept="image/*" style="display: none;">
-                    
+
                     <!-- Profile Edit Form -->
                     <div class="profile-edit-form">
                         <div class="form-group">
