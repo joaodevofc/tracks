@@ -734,6 +734,17 @@
                 </div>
             </div>
             
+            <!-- Master Side Panel (PAD and Reset buttons) -->
+            <div class="master-side-panel">
+                <button class="control-btn pad-btn" id="padBtn" aria-label="PAD">
+                    <span>PAD</span>
+                </button>
+                <button class="reset-square-btn reset-normal-btn" id="resetNormalVolumes" title="Resetar volumes ao normal">
+                    <span class="btn-label">R</span>
+                    <span class="btn-indicator"></span>
+                </button>
+            </div>
+            
             <!-- Master Channel (now part of the mixer row) -->
             <div class="track-channel master-channel" id="masterChannel">
                 <div class="master-divider"></div>
@@ -751,17 +762,6 @@
                 <div class="track-db-value" id="masterDbValue">0 dB</div>
                 <div class="track-pan-container">
                     <input type="range" class="track-pan-input" id="masterPanInput" min="-100" max="100" value="0">
-                </div>
-                
-                <!-- Auxiliary controls column -->
-                <div class="master-aux-controls">
-                    <button class="control-btn pad-btn" id="padBtn" aria-label="PAD">
-                        <span>PAD</span>
-                    </button>
-                    <button class="reset-square-btn reset-normal-btn" id="resetNormalVolumes" title="Resetar volumes ao normal">
-                        <span class="btn-label">R</span>
-                        <span class="btn-indicator"></span>
-                    </button>
                 </div>
             </div>
         </div>

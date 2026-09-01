@@ -4422,7 +4422,7 @@ body.fader-animations-disabled .led-pointer {
     border: 1px solid var(--border-medium);
 }
 
-/* Master auxiliary controls column */
+/* Master auxiliary controls column (deprecated, kept for compatibility) */
 .master-aux-controls {
     display: flex;
     flex-direction: column;
@@ -4442,6 +4442,31 @@ body.fader-animations-disabled .led-pointer {
 .master-aux-controls .reset-square-btn {
     width: 36px;
     height: 36px;
+}
+
+/* Master Side Panel - PAD and Reset buttons beside Master fader */
+.master-side-panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    justify-content: flex-start;
+    align-items: center;
+    width: 52px;
+    padding: var(--spacing-xs);
+    align-self: flex-start;
+    margin-top: 250px; /* Align with dB line of other tracks */
+}
+
+.master-side-panel .pad-btn {
+    width: 48px;
+    height: 48px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.master-side-panel .reset-square-btn {
+    width: 48px;
+    height: 48px;
 }
 
 /* Reset Buttons Container - Above Master Name */
