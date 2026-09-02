@@ -74,6 +74,29 @@
     }
   }
 
+  // Generate unique payment token
+  function generatePaymentToken() {
+    return 'pay_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  }
+
+  // Save payment token to user profile
+  async function savePaymentToken(userId, token) {
+    try {
+      const { db, doc, updateDoc } = window.firebaseDB;
+      const userDocRef = doc(db, 'users', userId);
+      await updateDoc(userDocRef, {
+        paymentToken: token,
+        paymentStatus: 'pending',
+        paymentTokenCreatedAt: new Date().toISOString()
+      });
+      console.log('[PLANS] Payment token saved for user:', userId, 'Token:', token);
+      return true;
+    } catch (error) {
+      console.error('[PLANS] Error saving payment token:', error);
+      return false;
+    }
+  }
+
   // Update plan cards with dynamic prices and links
   function updatePlanCards() {
     // Update monthly plan price
@@ -87,13 +110,32 @@
     const monthlyBtn = document.getElementById('btnUpgradeStudio');
     if (monthlyBtn && window.linkMensal) {
       monthlyBtn.innerHTML = 'Fazer upgrade';
-      monthlyBtn.onclick = () => {
-        // Get current user ID and append to checkout URL
+      monthlyBtn.onclick = async () => {
+        // Get current user ID
         const userId = window.currentUserId || (window.firebaseAuth?.auth?.currentUser?.uid);
-        const checkoutUrl = userId 
-          ? `${window.linkMensal}${window.linkMensal.includes('?') ? '&' : '?'}custom_id=${userId}`
-          : window.linkMensal;
-        console.log('[PLANS] Opening checkout with URL:', checkoutUrl);
+        
+        if (!userId) {
+          alert('Você precisa estar logado para fazer o upgrade');
+          window.location.href = 'index.html';
+          return;
+        }
+
+        // Generate and save payment token
+        const paymentToken = generatePaymentToken();
+        const tokenSaved = await savePaymentToken(userId, paymentToken);
+        
+        if (!tokenSaved) {
+          alert('Erro ao preparar pagamento. Tente novamente.');
+          return;
+        }
+
+        // Build checkout URL with user ID and transaction token
+        let checkoutUrl = window.linkMensal;
+        checkoutUrl += `${checkoutUrl.includes('?') ? '&' : '?'}custom_id=${userId}`;
+        checkoutUrl += `&transaction_token=${paymentToken}`;
+        checkoutUrl += `&plan_type=mensal`;
+        
+        console.log('[PLANS] Opening checkout with payment token:', paymentToken);
         window.open(checkoutUrl, '_blank');
       };
     }
@@ -110,20 +152,32 @@
     if (annualBtn) {
       if (window.linkAnual && window.linkAnual.trim() !== '') {
         annualBtn.innerHTML = 'Assinar plano anual';
-        annualBtn.onclick = () => {
-          // Get current user ID and append to checkout URL with plan type
+        annualBtn.onclick = async () => {
+          // Get current user ID
           const userId = window.currentUserId || (window.firebaseAuth?.auth?.currentUser?.uid);
-          let checkoutUrl = window.linkAnual;
           
-          // Add user ID
-          if (userId) {
-            checkoutUrl += `${checkoutUrl.includes('?') ? '&' : '?'}custom_id=${userId}`;
+          if (!userId) {
+            alert('Você precisa estar logado para fazer o upgrade');
+            window.location.href = 'index.html';
+            return;
           }
+
+          // Generate and save payment token
+          const paymentToken = generatePaymentToken();
+          const tokenSaved = await savePaymentToken(userId, paymentToken);
           
-          // Add plan type
-          checkoutUrl += `${checkoutUrl.includes('?') ? '&' : '?'}plan_type=anual`;
+          if (!tokenSaved) {
+            alert('Erro ao preparar pagamento. Tente novamente.');
+            return;
+          }
+
+          // Build checkout URL with user ID, transaction token and plan type
+          let checkoutUrl = window.linkAnual;
+          checkoutUrl += `${checkoutUrl.includes('?') ? '&' : '?'}custom_id=${userId}`;
+          checkoutUrl += `&transaction_token=${paymentToken}`;
+          checkoutUrl += `&plan_type=anual`;
           
-          console.log('[PLANS] Opening annual checkout with URL:', checkoutUrl);
+          console.log('[PLANS] Opening annual checkout with payment token:', paymentToken);
           window.open(checkoutUrl, '_blank');
         };
         annualBtn.disabled = false;

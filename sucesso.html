@@ -38,8 +38,10 @@
       const urlParams = new URLSearchParams(window.location.search);
       const userIdFromUrl = urlParams.get('custom_id') || urlParams.get('uid');
       const planType = urlParams.get('plan_type') || 'mensal'; // 'mensal' or 'anual'
+      const transactionToken = urlParams.get('transaction_token'); // Security token
       console.log('[SUCCESS] User ID from URL:', userIdFromUrl);
       console.log('[SUCCESS] Plan type from URL:', planType);
+      console.log('[SUCCESS] Transaction token from URL:', transactionToken);
 
       // Application Logic
       const loadingSpinner = document.getElementById('loadingSpinner');
@@ -60,9 +62,55 @@
         errorMessage.style.display = 'none';
       }
 
-      async function updateUserPlan(userId, planType = 'mensal') {
+      async function validatePaymentToken(userId, token) {
         try {
-          console.log('[SUCCESS] Updating user plan to studio for user:', userId, 'Plan type:', planType);
+          console.log('[SUCCESS] Validating payment token for user:', userId, 'Token:', token);
+          
+          if (!token) {
+            console.log('[SUCCESS] No transaction token provided');
+            return false;
+          }
+
+          const userDocRef = doc(db, 'users', userId);
+          const userDoc = await getDoc(userDocRef);
+
+          if (!userDoc.exists()) {
+            console.log('[SUCCESS] User document not found');
+            return false;
+          }
+
+          const userData = userDoc.data();
+          const savedToken = userData.paymentToken;
+          const paymentStatus = userData.paymentStatus;
+
+          console.log('[SUCCESS] Saved token:', savedToken, 'Status:', paymentStatus);
+
+          // Check if token matches and status is pending
+          if (savedToken === token && paymentStatus === 'pending') {
+            console.log('[SUCCESS] Payment token is valid and pending');
+            return true;
+          } else {
+            console.log('[SUCCESS] Payment token invalid or already used');
+            return false;
+          }
+        } catch (error) {
+          console.error('[SUCCESS] Error validating payment token:', error);
+          return false;
+        }
+      }
+
+      async function updateUserPlan(userId, planType = 'mensal', transactionToken = null) {
+        try {
+          console.log('[SUCCESS] Updating user plan to studio for user:', userId, 'Plan type:', planType, 'Token:', transactionToken);
+
+          // Validate transaction token if provided
+          if (transactionToken) {
+            const isValid = await validatePaymentToken(userId, transactionToken);
+            if (!isValid) {
+              console.error('[SUCCESS] Invalid or already used transaction token');
+              throw new Error('Transação inválida ou já processada');
+            }
+          }
 
           // Calculate expiry date based on plan type
           const expiryDate = new Date();
@@ -84,7 +132,8 @@
             validadeAcesso: expiryDate.toISOString(),
             paymentOrigin: 'site',
             statusPagamento: 'ativo',
-            trialUsed: true
+            trialUsed: true,
+            paymentStatus: 'completed' // Mark token as used
           };
 
           if (userDoc.exists()) {
@@ -111,8 +160,8 @@
         }
 
         try {
-          console.log('[SUCCESS] Attempting direct activation for user:', userIdFromUrl, 'Plan type:', planType);
-          const success = await updateUserPlan(userIdFromUrl, planType);
+          console.log('[SUCCESS] Attempting direct activation for user:', userIdFromUrl, 'Plan type:', planType, 'Token:', transactionToken);
+          const success = await updateUserPlan(userIdFromUrl, planType, transactionToken);
           if (success) {
             console.log('[SUCCESS] Direct activation successful');
             showSuccessUI();
@@ -120,7 +169,11 @@
           }
         } catch (error) {
           console.error('[SUCCESS] Direct activation failed:', error);
-          console.log('[SUCCESS] Falling back to authentication');
+          if (error.message === 'Transação inválida ou já processada') {
+            showError('Transação inválida ou já processada. Entre em contato com o suporte.');
+          } else {
+            console.log('[SUCCESS] Falling back to authentication');
+          }
         }
         return false;
       }
@@ -166,7 +219,7 @@
             }
           }
 
-          await updateUserPlan(userCredential.user.uid, planType);
+          await updateUserPlan(userCredential.user.uid, planType, transactionToken);
           showSuccessUI();
 
         } catch (error) {
