@@ -3213,10 +3213,10 @@ class MultracksApp {
             return;
         }
         
-        // Get the first track with a file for waveform generation
-        const trackWithFile = this.currentProject.tracks.find(t => t.file);
-        if (!trackWithFile) {
-            // No file available, draw placeholder
+        // Check if project has any tracks with files
+        const tracksWithFiles = this.currentProject.tracks.filter(t => t.file);
+        if (tracksWithFiles.length === 0) {
+            // No files available, draw placeholder
             this.drawPlaceholderWaveform(ctx, canvas.width, canvas.height);
             this.hideWaveformLoading();
             return;
@@ -3224,7 +3224,7 @@ class MultracksApp {
         
         // Generate waveform asynchronously
         try {
-            const waveformData = await this.generateWaveformData(trackWithFile.file, canvas.width);
+            const waveformData = await this.generateWaveformData(canvas.width);
             
             // Cache the waveform data
             this.currentProject.waveformData = waveformData;
@@ -3260,36 +3260,75 @@ class MultracksApp {
         this.updateEffectPositions();
     }
     
-    async generateWaveformData(file, width) {
+    async generateWaveformData(width) {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         const audioContext = new AudioContext();
         
         try {
-            const arrayBuffer = await file.arrayBuffer();
-            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+            // Get all tracks with files from the current project
+            const tracksWithFiles = this.currentProject.tracks.filter(t => t.file);
             
-            const channelData = audioBuffer.getChannelData(0); // Use first channel
-            const samplesPerPixel = Math.floor(channelData.length / width);
-            
-            const peaks = [];
-            
-            for (let i = 0; i < width; i++) {
-                const start = i * samplesPerPixel;
-                const end = start + samplesPerPixel;
-                
-                let max = 0;
-                for (let j = start; j < end && j < channelData.length; j++) {
-                    const sample = Math.abs(channelData[j]);
-                    if (sample > max) {
-                        max = sample;
-                    }
-                }
-                
-                peaks.push(max);
+            if (tracksWithFiles.length === 0) {
+                audioContext.close();
+                return [];
             }
             
+            // Decode all audio files
+            const audioBuffers = [];
+            for (const track of tracksWithFiles) {
+                try {
+                    const arrayBuffer = await track.file.arrayBuffer();
+                    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                    audioBuffers.push(audioBuffer);
+                } catch (error) {
+                    console.warn('[APP] Error decoding track:', track.name, error);
+                }
+            }
+            
+            if (audioBuffers.length === 0) {
+                audioContext.close();
+                return [];
+            }
+            
+            // Find the longest buffer to determine total samples
+            const maxSamples = Math.max(...audioBuffers.map(buffer => buffer.length));
+            const samplesPerPixel = Math.floor(maxSamples / width);
+            
+            // Initialize mixed peaks array
+            const mixedPeaks = new Array(width).fill(0);
+            let globalMax = 0;
+            
+            // Process each audio buffer and add to mixed peaks
+            for (const audioBuffer of audioBuffers) {
+                const channelData = audioBuffer.getChannelData(0); // Use first channel
+                
+                for (let i = 0; i < width; i++) {
+                    const start = i * samplesPerPixel;
+                    const end = start + samplesPerPixel;
+                    
+                    let max = 0;
+                    for (let j = start; j < end && j < channelData.length; j++) {
+                        const sample = Math.abs(channelData[j]);
+                        if (sample > max) {
+                            max = sample;
+                        }
+                    }
+                    
+                    // Add this track's peak to the mixed peak
+                    mixedPeaks[i] += max;
+                }
+            }
+            
+            // Find global maximum for normalization
+            globalMax = Math.max(...mixedPeaks);
+            
+            // Normalize all peaks so the highest is 1.0
+            const normalizedPeaks = mixedPeaks.map(peak => 
+                globalMax > 0 ? peak / globalMax : 0
+            );
+            
             audioContext.close();
-            return peaks;
+            return normalizedPeaks;
         } catch (error) {
             audioContext.close();
             throw error;
@@ -3321,7 +3360,8 @@ class MultracksApp {
         
         for (let i = 0; i < peaks.length && i < width; i++) {
             const peak = peaks[i];
-            const barHeight = peak * maxAmplitude;
+            // Apply sensitivity curve and ensure minimum height
+            const barHeight = Math.max(2, Math.pow(peak, 0.6) * maxAmplitude);
             
             // Use different colors based on playhead position
             if (i < playheadX) {
