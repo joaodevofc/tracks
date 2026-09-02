@@ -38,15 +38,17 @@
       const planType = 'anual';
       const planDurationDays = 365;
 
-      // Get token from URL parameter
+      // Get transaction_id from URL parameter (InfinitePay parameter)
       const urlParams = new URLSearchParams(window.location.search);
-      const paymentToken = urlParams.get('token');
+      const transactionId = urlParams.get('transaction_id') || urlParams.get('slug');
+      const customId = urlParams.get('custom_id');
       
-      console.log('[SUCCESS-ANUAL] Payment token from URL:', paymentToken);
+      console.log('[SUCCESS-ANUAL] Transaction ID from URL:', transactionId);
+      console.log('[SUCCESS-ANUAL] Custom ID from URL:', customId);
 
-      // Security validation: Check if token exists
-      if (!paymentToken || paymentToken.trim() === '') {
-        console.error('[SUCCESS-ANUAL] No payment token provided in URL');
+      // Security validation: Check if transaction_id exists
+      if (!transactionId || transactionId.trim() === '') {
+        console.error('[SUCCESS-ANUAL] No transaction_id provided in URL');
         document.body.innerHTML = `
           <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background: #000000; color: #ffffff; font-family: 'Poppins', sans-serif; text-align: center; padding: 20px;">
             <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #ff5252, #ff1744); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 30px;">
@@ -55,17 +57,17 @@
                 <line x1="6" y1="6" x2="18" y2="18"></line>
               </svg>
             </div>
-            <h1 style="font-size: 28px; font-weight: 700; margin-bottom: 12px; color: #ffffff;">Token de Pagamento Não Encontrado</h1>
+            <h1 style="font-size: 28px; font-weight: 700; margin-bottom: 12px; color: #ffffff;">Transação Não Encontrada</h1>
             <p style="font-size: 16px; color: #888; margin-bottom: 30px; line-height: 1.5; max-width: 400px;">
-              Esta página deve ser acessada através do link de pagamento. Por favor, retorne à página de planos para assinar.
+              Esta página deve ser acessada através do link de pagamento do InfinitePay. Por favor, retorne à página de planos para assinar.
             </p>
-            <a href="planos.html" style="display: inline-flex; align-items: center; justify-content: center; padding: 16px 32px; background: linear-gradient(135deg, #ffffff, #e0e0e0); color: #000000; font-size: 16px; font-weight: 600; border: none; border-radius: 12px; cursor: pointer; text-decoration: none; font-family: 'Poppins', sans-serif; transition: all 0.3s ease;">
-              Ir para Planos
+            <a href="index.html" style="display: inline-flex; align-items: center; justify-content: center; padding: 16px 32px; background: linear-gradient(135deg, #ffffff, #e0e0e0); color: #000000; font-size: 16px; font-weight: 600; border: none; border-radius: 12px; cursor: pointer; text-decoration: none; font-family: 'Poppins', sans-serif; transition: all 0.3s ease;">
+              Ir para o App
             </a>
           </div>
         `;
         // Stop script execution
-        throw new Error('No payment token provided');
+        throw new Error('No transaction_id provided');
       }
 
       // Application Logic
@@ -87,87 +89,60 @@
         errorMessage.style.display = 'none';
       }
 
-      async function activatePlanWithTransaction(userId, token) {
+      async function activatePlanWithTransaction(userId, transactionId) {
         try {
-          console.log('[SUCCESS-ANUAL] Starting atomic transaction for user:', userId, 'Token:', token);
+          console.log('[SUCCESS-ANUAL] Starting atomic transaction for user:', userId, 'Transaction ID:', transactionId);
 
           await runTransaction(db, async (transaction) => {
-            // 1. Get the payment token document
-            const tokenRef = doc(db, 'paymentTokens', token);
-            const tokenDoc = await transaction.get(tokenRef);
-
-            if (!tokenDoc.exists()) {
-              console.error('[SUCCESS-ANUAL] Token does not exist');
-              throw new Error('Token de pagamento inválido');
-            }
-
-            const tokenData = tokenDoc.data();
-            console.log('[SUCCESS-ANUAL] Token data:', tokenData);
-
-            // 2. Validate token status
-            if (tokenData.status !== 'pending') {
-              console.error('[SUCCESS-ANUAL] Token already used or invalid status:', tokenData.status);
-              throw new Error('Token já utilizado ou inválido');
-            }
-
-            // 3. Validate token expiration
-            const expiresAt = tokenData.expiresAt ? new Date(tokenData.expiresAt) : null;
-            const now = new Date();
-            
-            if (expiresAt && expiresAt < now) {
-              console.error('[SUCCESS-ANUAL] Token expired:', expiresAt);
-              throw new Error('Token expirado');
-            }
-
-            // 4. Validate UID match
-            if (tokenData.uid !== userId) {
-              console.error('[SUCCESS-ANUAL] UID mismatch:', tokenData.uid, 'vs', userId);
-              throw new Error('Token não pertence a este usuário');
-            }
-
-            // 5. Validate plan type matches
-            if (tokenData.planType !== planType) {
-              console.error('[SUCCESS-ANUAL] Plan type mismatch:', tokenData.planType, 'vs', planType);
-              throw new Error('Tipo de plano incorreto');
-            }
-
-            // 6. Calculate expiry date
-            const expiryDate = new Date();
-            expiryDate.setDate(expiryDate.getDate() + planDurationDays);
-            console.log('[SUCCESS-ANUAL] Plan expiry date:', expiryDate.toISOString());
-
-            // 7. Get user document
+            // 1. Get user document
             const userRef = doc(db, 'users', userId);
             const userDoc = await transaction.get(userRef);
 
-            // 8. Update token status to 'used'
-            transaction.update(tokenRef, {
-              status: 'used',
-              usedAt: now.toISOString(),
-              usedBy: userId
-            });
+            if (!userDoc.exists()) {
+              console.error('[SUCCESS-ANUAL] User document does not exist');
+              throw new Error('Usuário não encontrado');
+            }
 
-            // 9. Update user document with plan
+            const userData = userDoc.data();
+            console.log('[SUCCESS-ANUAL] User data:', userData);
+
+            // 2. Check if this transaction_id was already processed
+            if (userData.lastTransactionId === transactionId) {
+              console.error('[SUCCESS-ANUAL] Transaction already processed:', transactionId);
+              throw new Error('Esta transação já foi processada');
+            }
+
+            // 3. Check for existing active plan and calculate new expiry
+            const currentExpiry = userData.validadeAcesso ? new Date(userData.validadeAcesso) : null;
+            const now = new Date();
+            let baseDate = now;
+
+            // If user has existing validity that hasn't expired, extend from current expiry
+            if (currentExpiry && currentExpiry > now) {
+              baseDate = currentExpiry;
+              console.log('[SUCCESS-ANUAL] Extending from existing expiry date:', baseDate);
+            }
+
+            // 4. Calculate new expiry date
+            const expiryDate = new Date(baseDate);
+            expiryDate.setDate(expiryDate.getDate() + planDurationDays);
+            console.log('[SUCCESS-ANUAL] New plan expiry date:', expiryDate.toISOString());
+
+            // 5. Update user document with plan and transaction tracking
             const updateData = {
               plan: 'studio',
               planType: planType,
               planActivatedAt: now.toISOString(),
               validadeAcesso: expiryDate.toISOString(),
-              paymentOrigin: 'site',
+              paymentOrigin: 'infinitepay',
               statusPagamento: 'ativo',
               trialUsed: true,
               subscriptionStatus: 'active',
-              lastPaymentAt: now.toISOString()
+              lastPaymentAt: now.toISOString(),
+              lastTransactionId: transactionId
             };
 
-            if (userDoc.exists()) {
-              transaction.update(userRef, updateData);
-            } else {
-              transaction.set(userRef, {
-                ...updateData,
-                createdAt: now.toISOString()
-              });
-            }
+            transaction.update(userRef, updateData);
 
             console.log('[SUCCESS-ANUAL] Transaction completed successfully');
           });
@@ -180,34 +155,8 @@
       }
 
       async function tryDirectActivation() {
-        if (!paymentToken) {
-          console.log('[SUCCESS-ANUAL] No payment token in URL, requiring authentication');
-          return false;
-        }
-
-        try {
-          // For direct activation, we need to extract UID from token first
-          const tokenRef = doc(db, 'paymentTokens', paymentToken);
-          const tokenDoc = await getDoc(tokenRef);
-
-          if (!tokenDoc.exists()) {
-            showError('Token de pagamento inválido');
-            return false;
-          }
-
-          const tokenData = tokenDoc.data();
-          console.log('[SUCCESS-ANUAL] Attempting direct activation for UID:', tokenData.uid);
-
-          const success = await activatePlanWithTransaction(tokenData.uid, paymentToken);
-          if (success) {
-            console.log('[SUCCESS-ANUAL] Direct activation successful');
-            showSuccessUI();
-            return true;
-          }
-        } catch (error) {
-          console.error('[SUCCESS-ANUAL] Direct activation failed:', error);
-          showError(error.message || 'Erro ao ativar plano');
-        }
+        // Since we use transaction_id, we always need authentication to identify the user
+        console.log('[SUCCESS-ANUAL] Using InfinitePay transaction_id, authentication required');
         return false;
       }
 
@@ -232,11 +181,6 @@
           return;
         }
 
-        if (!paymentToken) {
-          showError('Token de pagamento não encontrado');
-          return;
-        }
-
         authButton.disabled = true;
         authButton.textContent = 'Processando...';
         loadingSpinner.style.display = 'block';
@@ -257,7 +201,7 @@
             }
           }
 
-          await activatePlanWithTransaction(userCredential.user.uid, paymentToken);
+          await activatePlanWithTransaction(userCredential.user.uid, transactionId);
           showSuccessUI();
 
         } catch (error) {
@@ -278,7 +222,7 @@
           hideError();
 
           try {
-            await activatePlanWithTransaction(user.uid, paymentToken);
+            await activatePlanWithTransaction(user.uid, transactionId);
             showSuccessUI();
           } catch (error) {
             showError(error.message || 'Erro ao ativar plano');

@@ -206,10 +206,10 @@
 
           // Build checkout URL with payment token
           let checkoutUrl = window.linkMensal;
-          // Use token as parameter instead of custom_id
-          checkoutUrl += `${checkoutUrl.includes('?') ? '&' : '?'}token=${paymentToken}`;
+          // Use custom_id to identify user, token will be stored in Firestore
+          checkoutUrl += `${checkoutUrl.includes('?') ? '&' : '?'}custom_id=${userId}`;
           
-          console.log('[PLANS] Opening monthly checkout with payment token:', paymentToken);
+          console.log('[PLANS] Opening monthly checkout with custom_id:', userId);
           window.open(checkoutUrl, '_blank');
         };
       }
@@ -259,12 +259,12 @@
               return;
             }
 
-            // Build checkout URL with payment token
+            // Build checkout URL with custom_id
             let checkoutUrl = window.linkAnual;
-            // Use token as parameter instead of custom_id
-            checkoutUrl += `${checkoutUrl.includes('?') ? '&' : '?'}token=${paymentToken}`;
+            // Use custom_id to identify user, token will be stored in Firestore
+            checkoutUrl += `${checkoutUrl.includes('?') ? '&' : '?'}custom_id=${userId}`;
             
-            console.log('[PLANS] Opening annual checkout with payment token:', paymentToken);
+            console.log('[PLANS] Opening annual checkout with custom_id:', userId);
             window.open(checkoutUrl, '_blank');
           };
         } else {
@@ -292,12 +292,12 @@
               return;
             }
 
-            // Build checkout URL with payment token
+            // Build checkout URL with custom_id
             let checkoutUrl = window.linkAnual;
-            // Use token as parameter instead of custom_id
-            checkoutUrl += `${checkoutUrl.includes('?') ? '&' : '?'}token=${paymentToken}`;
+            // Use custom_id to identify user, token will be stored in Firestore
+            checkoutUrl += `${checkoutUrl.includes('?') ? '&' : '?'}custom_id=${userId}`;
             
-            console.log('[PLANS] Opening annual checkout with payment token:', paymentToken);
+            console.log('[PLANS] Opening annual checkout with custom_id:', userId);
             window.open(checkoutUrl, '_blank');
           };
         }
