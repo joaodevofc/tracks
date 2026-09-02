@@ -4000,6 +4000,15 @@ body.fader-animations-disabled .led-pointer {
     border-radius: 50%;
 }
 
+/* Waveform Canvas - Touch Action Prevention */
+#waveformCanvas {
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    cursor: crosshair;
+}
+
 /* Effect Popover */
 .effect-popover {
     position: absolute;

@@ -137,6 +137,12 @@ class MultracksApp {
         this.loopHoldTimer = null;
         this.LOOP_HOLD_THRESHOLD = 450; // ms to trigger loop marking mode
         
+        // Pointer state machine for Canvas interaction
+        this.pointerState = 'idle'; // idle, pressing, dragging, loop_marking
+        this.pointerId = null;
+        this.pointerType = null;
+        this.DRAG_THRESHOLD = 5; // pixels to distinguish tap from drag
+        
         this.init();
     }
     
@@ -3719,6 +3725,13 @@ class MultracksApp {
         if (this.playhead) {
             this.playhead.classList.remove('dragging');
         }
+    }
+    
+    // Helper method to reset pointer state machine
+    resetPointerState() {
+        this.pointerState = 'idle';
+        this.pointerId = null;
+        this.pointerType = null;
     }
     
     // Show message when seeking is disabled during playback
@@ -8099,6 +8112,11 @@ class MultracksApp {
         
         // Timeline click for seeking and loop point marking
         // Timeline scrubbing with drag support
+        // State machine: idle -> pressing -> (dragging | loop_marking) -> idle
+        
+        // Movement threshold to distinguish between tap and drag (in pixels)
+        this.DRAG_THRESHOLD = 5;
+        
         this.waveformCanvas?.addEventListener('pointerdown', (e) => {
             if (!this.audioPlayer || this.totalDuration === 0) return;
             
@@ -8118,8 +8136,16 @@ class MultracksApp {
             
             e.preventDefault(); // Prevent default touch actions
             
+            // Capture pointer to ensure we receive all subsequent events
+            this.waveformCanvas.setPointerCapture(e.pointerId);
+            
             const rect = this.waveformCanvas.getBoundingClientRect();
             const x = e.clientX - rect.left;
+            
+            // Set initial state to 'pressing'
+            this.pointerState = 'pressing';
+            this.pointerId = e.pointerId;
+            this.pointerType = e.pointerType;
             
             // Initialize drag state
             this.isDragging = true;
@@ -8140,14 +8166,19 @@ class MultracksApp {
             
             // Start hold timer for loop marking
             this.loopHoldTimer = setTimeout(async () => {
-                // Check if user is on home plan before allowing loop marking
-                const userPlan = await this.getUserPlan();
-                if (userPlan === 'Home') {
-                    this.showUpgradeModal('Loop e seções');
-                    return;
+                // Check if still in pressing state (not already dragging)
+                if (this.pointerState === 'pressing') {
+                    // Check if user is on home plan before allowing loop marking
+                    const userPlan = await this.getUserPlan();
+                    if (userPlan === 'Home') {
+                        this.showUpgradeModal('Loop e seções');
+                        this.resetPointerState();
+                        return;
+                    }
+                    // This is a long press - enter loop marking mode
+                    this.pointerState = 'loop_marking';
+                    this.handleLoopMarking(x, rect.width);
                 }
-                // This is a long press - enter loop marking mode
-                this.handleLoopMarking(x, rect.width);
             }, this.LOOP_HOLD_THRESHOLD);
         });
         
@@ -8155,17 +8186,24 @@ class MultracksApp {
         this.handleTimelineDrag = (e) => {
             if (!this.isDragging) return;
             
-            // Clear loop hold timer if user moves cursor
-            if (this.loopHoldTimer) {
-                clearTimeout(this.loopHoldTimer);
-                this.loopHoldTimer = null;
-            }
-            
             const rect = this.waveformCanvas.getBoundingClientRect();
             let x = e.clientX - rect.left;
             
             // Clamp X to canvas bounds
             x = Math.max(0, Math.min(x, rect.width));
+            
+            // Calculate movement distance from start
+            const dragDistance = Math.abs(x - this.dragStartX);
+            
+            // If movement exceeds threshold and we're still in pressing state, transition to dragging
+            if (this.pointerState === 'pressing' && dragDistance > this.DRAG_THRESHOLD) {
+                this.pointerState = 'dragging';
+                // Clear loop hold timer since we're now dragging
+                if (this.loopHoldTimer) {
+                    clearTimeout(this.loopHoldTimer);
+                    this.loopHoldTimer = null;
+                }
+            }
             
             // Update playhead position during drag
             this.updatePlayheadPosition(x, rect.width);
@@ -8174,6 +8212,11 @@ class MultracksApp {
         // Handle drag end (bound to check isDragging)
         this.handleTimelineDragEnd = async (e) => {
             if (!this.isDragging) return;
+            
+            // Release pointer capture
+            if (this.pointerId && this.waveformCanvas.hasPointerCapture(this.pointerId)) {
+                this.waveformCanvas.releasePointerCapture(this.pointerId);
+            }
             
             // Clear loop hold timer
             if (this.loopHoldTimer) {
@@ -8202,15 +8245,16 @@ class MultracksApp {
             // Remove dragging class from playhead
             this.playhead.classList.remove('dragging');
             
-            // If it was a long press, the loop marking was already handled
-            if (isLongPress) {
+            // If it was a long press or in loop marking state, the loop marking was already handled
+            if (isLongPress || this.pointerState === 'loop_marking') {
                 this.hideEffectPopover();
                 this.hideClickIndicator();
+                this.resetPointerState();
                 return;
             }
             
             // If it was a quick click with minimal movement, show effect popover
-            if (dragDuration < 200 && dragDistance < 5) {
+            if (dragDuration < 200 && dragDistance < this.DRAG_THRESHOLD) {
                 const percentage = x / rect.width;
                 const seekTime = percentage * this.totalDuration;
                 await this.showEffectPopover(e.clientX, e.clientY, seekTime, x, rect.width);
@@ -8223,11 +8267,21 @@ class MultracksApp {
             
             // Final seek
             this.handleTimelineSeekSimple(x, rect.width);
+            
+            // Reset pointer state
+            this.resetPointerState();
         };
         
-        // Handle drag cancellation (bound to check isDragging)
-        this.handleTimelineDragCancel = (e) => {
+        // Handle pointer cancellation (e.g., system gesture, incoming call)
+        this.handleTimelinePointerCancel = (e) => {
             if (this.isDragging) {
+                console.log('[APP] Pointer cancelled, resetting state');
+                
+                // Release pointer capture if still held
+                if (this.pointerId && this.waveformCanvas.hasPointerCapture(this.pointerId)) {
+                    this.waveformCanvas.releasePointerCapture(this.pointerId);
+                }
+                
                 // Clear loop hold timer
                 if (this.loopHoldTimer) {
                     clearTimeout(this.loopHoldTimer);
@@ -8239,13 +8293,18 @@ class MultracksApp {
                 this.playhead.classList.remove('dragging');
                 this.hideEffectPopover();
                 this.hideClickIndicator();
+                
+                // Reset pointer state
+                this.resetPointerState();
             }
         };
         
         // Add window-level event listeners
         window.addEventListener('pointermove', this.handleTimelineDrag);
         window.addEventListener('pointerup', this.handleTimelineDragEnd);
-        window.addEventListener('pointerleave', this.handleTimelineDragCancel);
+        window.addEventListener('pointercancel', this.handleTimelinePointerCancel);
+        
+        // Remove old pointerleave listener - pointercancel handles this better
         
         // Effect file input change handler (disabled - functionality removed)
         // this.effectFileInput?.addEventListener('change', (e) => {
