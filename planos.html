@@ -34,7 +34,8 @@
     db,
     doc,
     getDoc,
-    updateDoc
+    updateDoc,
+    setDoc
   };
 
   window.firebaseAuth = {
@@ -79,26 +80,80 @@
     return 'pay_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
   }
 
-  // Save payment token to user profile
-  async function savePaymentToken(userId, token) {
+  // Save payment token to paymentTokens collection
+  async function savePaymentToken(userId, token, planType) {
     try {
-      const { db, doc, updateDoc } = window.firebaseDB;
-      const userDocRef = doc(db, 'users', userId);
-      await updateDoc(userDocRef, {
-        paymentToken: token,
-        paymentStatus: 'pending',
-        paymentTokenCreatedAt: new Date().toISOString()
+      const { db, doc, setDoc } = window.firebaseDB;
+      
+      // Check if user is authenticated
+      const currentUser = window.firebaseAuth?.auth?.currentUser;
+      if (!currentUser) {
+        console.error('[PLANS] User not authenticated, cannot save payment token');
+        return false;
+      }
+      
+      console.log('[PLANS] Current user UID:', currentUser.uid, 'Target UID:', userId);
+      
+      const tokenRef = doc(db, 'paymentTokens', token);
+      
+      // Token expires in 30 minutes
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + 30);
+      
+      console.log('[PLANS] Attempting to save token to paymentTokens collection:', token);
+      
+      await setDoc(tokenRef, {
+        uid: userId,
+        planType: planType,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        expiresAt: expiresAt.toISOString()
       });
-      console.log('[PLANS] Payment token saved for user:', userId, 'Token:', token);
+      
+      console.log('[PLANS] Payment token saved successfully for user:', userId, 'Token:', token, 'Plan:', planType);
       return true;
     } catch (error) {
       console.error('[PLANS] Error saving payment token:', error);
+      console.error('[PLANS] Error code:', error.code);
+      console.error('[PLANS] Error message:', error.message);
       return false;
     }
   }
 
   // Update plan cards with dynamic prices and links
-  function updatePlanCards() {
+  async function updatePlanCards() {
+    // Get current user data to check active plan
+    const userId = window.currentUserId || (window.firebaseAuth?.auth?.currentUser?.uid);
+    let userPlanType = null;
+    let planExpiryDate = null;
+    let isPlanActive = false;
+
+    if (userId && window.firebaseDB) {
+      try {
+        const { db, doc, getDoc } = window.firebaseDB;
+        const userDocRef = doc(db, 'users', userId);
+        const userDoc = await getDoc(userDocRef);
+        
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const currentPlan = (userData.plan || userData.plano || '').toLowerCase();
+          
+          if (currentPlan === 'studio' && userData.validadeAcesso) {
+            planExpiryDate = new Date(userData.validadeAcesso);
+            const currentDate = new Date();
+            
+            if (planExpiryDate > currentDate) {
+              isPlanActive = true;
+              userPlanType = userData.planType || 'mensal';
+              console.log('[PLANS] User has active plan:', userPlanType, 'Expiry:', planExpiryDate);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('[PLANS] Error checking user plan:', error);
+      }
+    }
+
     // Update monthly plan price
     const monthlyPriceAmount = document.querySelector('.plan-card.studio .plan-price .amount');
     if (monthlyPriceAmount && window.precoMensal) {
@@ -109,34 +164,55 @@
     // Update monthly plan button link and text
     const monthlyBtn = document.getElementById('btnUpgradeStudio');
     if (monthlyBtn && window.linkMensal) {
-      monthlyBtn.innerHTML = 'Fazer upgrade';
-      monthlyBtn.onclick = async () => {
-        // Get current user ID
-        const userId = window.currentUserId || (window.firebaseAuth?.auth?.currentUser?.uid);
-        
-        if (!userId) {
-          alert('Você precisa estar logado para fazer o upgrade');
-          window.location.href = 'index.html';
-          return;
-        }
+      // Check if user has active monthly plan
+      if (isPlanActive && userPlanType === 'mensal') {
+        monthlyBtn.innerHTML = 'Plano atual';
+        monthlyBtn.disabled = true;
+        monthlyBtn.classList.remove('upgrade');
+        monthlyBtn.classList.add('current');
+        monthlyBtn.onclick = null;
+        console.log('[PLANS] Monthly plan is active, button disabled');
+      } else if (isPlanActive && userPlanType === 'anual') {
+        // User has annual plan, disable monthly upgrade button
+        monthlyBtn.innerHTML = 'Plano anual ativo';
+        monthlyBtn.disabled = true;
+        monthlyBtn.classList.remove('upgrade');
+        monthlyBtn.classList.add('current');
+        monthlyBtn.onclick = null;
+        console.log('[PLANS] User has annual plan, monthly button disabled');
+      } else {
+        monthlyBtn.innerHTML = 'Fazer upgrade';
+        monthlyBtn.disabled = false;
+        monthlyBtn.classList.remove('current');
+        monthlyBtn.classList.add('upgrade');
+        monthlyBtn.onclick = async () => {
+          // Get current user ID
+          const userId = window.currentUserId || (window.firebaseAuth?.auth?.currentUser?.uid);
+          
+          if (!userId) {
+            alert('Você precisa estar logado para fazer o upgrade');
+            window.location.href = 'index.html';
+            return;
+          }
 
-        // Generate and save payment token
-        const paymentToken = generatePaymentToken();
-        const tokenSaved = await savePaymentToken(userId, paymentToken);
-        
-        if (!tokenSaved) {
-          alert('Erro ao preparar pagamento. Tente novamente.');
-          return;
-        }
+          // Generate and save payment token
+          const paymentToken = generatePaymentToken();
+          const tokenSaved = await savePaymentToken(userId, paymentToken, 'mensal');
+          
+          if (!tokenSaved) {
+            alert('Erro ao preparar pagamento. Tente novamente.');
+            return;
+          }
 
-        // Build checkout URL with user ID and transaction token
-        let checkoutUrl = window.linkMensal;
-        // Encode plan type and token in custom_id: {userId}|{planType}|{token}
-        checkoutUrl += `${checkoutUrl.includes('?') ? '&' : '?'}custom_id=${userId}|mensal|${paymentToken}`;
-        
-        console.log('[PLANS] Opening monthly checkout with payment token:', paymentToken);
-        window.open(checkoutUrl, '_blank');
-      };
+          // Build checkout URL with payment token
+          let checkoutUrl = window.linkMensal;
+          // Use token as parameter instead of custom_id
+          checkoutUrl += `${checkoutUrl.includes('?') ? '&' : '?'}token=${paymentToken}`;
+          
+          console.log('[PLANS] Opening monthly checkout with payment token:', paymentToken);
+          window.open(checkoutUrl, '_blank');
+        };
+      }
     }
 
     // Update annual plan price
@@ -150,38 +226,81 @@
     const annualBtn = document.getElementById('btnUpgradeAnnual');
     if (annualBtn) {
       if (window.linkAnual && window.linkAnual.trim() !== '') {
-        annualBtn.innerHTML = 'Assinar plano anual';
-        annualBtn.onclick = async () => {
-          // Get current user ID
-          const userId = window.currentUserId || (window.firebaseAuth?.auth?.currentUser?.uid);
-          
-          if (!userId) {
-            alert('Você precisa estar logado para fazer o upgrade');
-            window.location.href = 'index.html';
-            return;
-          }
+        // Check if user has active annual plan
+        if (isPlanActive && userPlanType === 'anual') {
+          annualBtn.innerHTML = 'Plano atual';
+          annualBtn.disabled = true;
+          annualBtn.classList.remove('upgrade');
+          annualBtn.classList.add('current');
+          annualBtn.onclick = null;
+          console.log('[PLANS] Annual plan is active, button disabled');
+        } else if (isPlanActive && userPlanType === 'mensal') {
+          // User has monthly plan, allow upgrade to annual
+          annualBtn.innerHTML = 'Fazer upgrade anual';
+          annualBtn.disabled = false;
+          annualBtn.classList.remove('current');
+          annualBtn.classList.add('upgrade');
+          annualBtn.onclick = async () => {
+            // Get current user ID
+            const userId = window.currentUserId || (window.firebaseAuth?.auth?.currentUser?.uid);
+            
+            if (!userId) {
+              alert('Você precisa estar logado para fazer o upgrade');
+              window.location.href = 'index.html';
+              return;
+            }
 
-          // Generate and save payment token
-          const paymentToken = generatePaymentToken();
-          const tokenSaved = await savePaymentToken(userId, paymentToken);
-          
-          if (!tokenSaved) {
-            alert('Erro ao preparar pagamento. Tente novamente.');
-            return;
-          }
+            // Generate and save payment token
+            const paymentToken = generatePaymentToken();
+            const tokenSaved = await savePaymentToken(userId, paymentToken, 'anual');
+            
+            if (!tokenSaved) {
+              alert('Erro ao preparar pagamento. Tente novamente.');
+              return;
+            }
 
-          // Build checkout URL with user ID, transaction token and plan type
-          let checkoutUrl = window.linkAnual;
-          // Encode plan type and token in custom_id: {userId}|{planType}|{token}
-          checkoutUrl += `${checkoutUrl.includes('?') ? '&' : '?'}custom_id=${userId}|anual|${paymentToken}`;
-          
-          console.log('[PLANS] Opening annual checkout with payment token:', paymentToken);
-          window.open(checkoutUrl, '_blank');
-        };
-        annualBtn.disabled = false;
-        annualBtn.classList.remove('current');
-        annualBtn.classList.add('upgrade');
-        console.log('[PLANS] Annual plan button enabled with link:', window.linkAnual);
+            // Build checkout URL with payment token
+            let checkoutUrl = window.linkAnual;
+            // Use token as parameter instead of custom_id
+            checkoutUrl += `${checkoutUrl.includes('?') ? '&' : '?'}token=${paymentToken}`;
+            
+            console.log('[PLANS] Opening annual checkout with payment token:', paymentToken);
+            window.open(checkoutUrl, '_blank');
+          };
+        } else {
+          // No active plan, allow annual signup
+          annualBtn.innerHTML = 'Assinar plano anual';
+          annualBtn.disabled = false;
+          annualBtn.classList.remove('current');
+          annualBtn.classList.add('upgrade');
+          annualBtn.onclick = async () => {
+            // Get current user ID
+            const userId = window.currentUserId || (window.firebaseAuth?.auth?.currentUser?.uid);
+            
+            if (!userId) {
+              alert('Você precisa estar logado para fazer o upgrade');
+              window.location.href = 'index.html';
+              return;
+            }
+
+            // Generate and save payment token
+            const paymentToken = generatePaymentToken();
+            const tokenSaved = await savePaymentToken(userId, paymentToken, 'anual');
+            
+            if (!tokenSaved) {
+              alert('Erro ao preparar pagamento. Tente novamente.');
+              return;
+            }
+
+            // Build checkout URL with payment token
+            let checkoutUrl = window.linkAnual;
+            // Use token as parameter instead of custom_id
+            checkoutUrl += `${checkoutUrl.includes('?') ? '&' : '?'}token=${paymentToken}`;
+            
+            console.log('[PLANS] Opening annual checkout with payment token:', paymentToken);
+            window.open(checkoutUrl, '_blank');
+          };
+        }
       } else {
         annualBtn.innerHTML = 'Em breve';
         annualBtn.disabled = true;
@@ -197,7 +316,7 @@
   // Load checkout config on page load and then update plan cards
   async function initCheckout() {
     await loadCheckoutConfig();
-    updatePlanCards();
+    await updatePlanCards();
   }
 
   // Initialize when DOM is ready
@@ -207,73 +326,22 @@
     document.addEventListener('DOMContentLoaded', initCheckout);
   }
 
-  async function checkUserPlan(userId) {
-    try {
-      const userDocRef = doc(db, 'users', userId);
-      const userDoc = await getDoc(userDocRef);
-
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        const currentPlan = (userData.plan || 'home').toLowerCase();
-        const trialUsed = userData.trialUsed || false;
-        const statusPagamento = userData.statusPagamento || null;
-
-        console.log('[PLANS] User plan:', currentPlan, 'Trial used:', trialUsed, 'Payment status:', statusPagamento);
-
-        // Check if user currently has studio plan (any form - trial or paid)
-        const hasStudioPlan = currentPlan === 'studio';
-
-        // Block upgrade button if user already has studio plan
-        if (hasStudioPlan) {
-          const upgradeBtn = document.getElementById('btnUpgradeStudio');
-          if (upgradeBtn) {
-            upgradeBtn.textContent = 'Plano Atual';
-            upgradeBtn.disabled = true;
-            upgradeBtn.classList.remove('upgrade');
-            upgradeBtn.classList.add('current');
-            console.log('[PLANS] Upgrade button disabled - user already has studio plan');
-          }
-        }
-
-        // Block trial button if trial was used OR user has/has had studio plan
-        // This prevents users who already had studio from using the trial
-        if (trialUsed || hasStudioPlan) {
-          const trialBtn = document.getElementById('btnStartTrial');
-          if (trialBtn) {
-            trialBtn.textContent = 'Teste já utilizado';
-            trialBtn.disabled = true;
-            trialBtn.classList.remove('upgrade');
-            trialBtn.classList.add('current');
-            console.log('[PLANS] Trial button disabled - trial already used or user has/has had studio plan');
-          }
-        }
-      } else {
-        console.log('[PLANS] User document does not exist');
-      }
-    } catch (error) {
-      console.error('[PLANS] Error checking user plan:', error);
-    }
-  }
-
-  // Make checkUserPlan available globally
-  window.checkUserPlan = checkUserPlan;
 
   // Store user info for later use when DOM is ready (make it globally accessible)
   window.currentUserId = null;
 
-  // Check user plan and update buttons when DOM is ready
+  // Update plan cards when user logs in
   onAuthStateChanged(auth, async (user) => {
     if (user) {
       console.log('[PLANS] User logged in:', user.uid);
       window.currentUserId = user.uid;
       
-      // Check if DOM is already loaded
-      if (document.readyState === 'complete' || document.readyState === 'interactive') {
-        await checkUserPlan(user.uid);
-      }
+      // Update plan cards with user's current plan status
+      await updatePlanCards();
     } else {
       console.log('[PLANS] No user logged in');
       // Keep buttons in default state for non-logged users
+      await updatePlanCards();
     }
   });
 </script>
@@ -886,7 +954,7 @@
       <div class="fader-track"></div><div class="fader-cap"></div>
       <div class="plan-tag">Economize 62%</div>
       <div class="plan-name">Studio anual</div>
-      <div class="plan-title">W.Tracks Studio</div>
+      <div class="plan-title">W.Tracks Studio/Anual</div>
       <div class="plan-price">
         <span class="currency">R$</span>
         <span class="amount"><div class="price-spinner"></div></span>
@@ -1018,11 +1086,8 @@
   <script>
     // Wait for DOM to be fully loaded before attaching event listeners
     document.addEventListener('DOMContentLoaded', function() {
-      // Check user plan if user is logged in and DOM is now ready
-      if (window.currentUserId) {
-        window.checkUserPlan(window.currentUserId);
-      }
-
+      // Plan cards are already updated by initCheckout and onAuthStateChanged
+      // No need for additional check here
 
     document.getElementById('btnStartTrial').addEventListener('click', async function () {
       // Check if button is already disabled

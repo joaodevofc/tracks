@@ -278,6 +278,46 @@ service cloud.firestore {
 
 
     // ============================================================
+    // PAYMENT TOKENS
+    // ============================================================
+
+    match /paymentTokens/{tokenId} {
+
+      // Usuário pode ler o próprio token.
+      // Admin pode ler todos os tokens.
+      allow read: if request.auth != null
+                  && (
+                    isAdmin()
+                    || resource.data.uid == request.auth.uid
+                  );
+
+      // Usuário autenticado pode criar tokens se o uid bater.
+      // Admin pode criar tokens para qualquer usuário.
+      allow create: if request.auth != null
+                    && (
+                      isAdmin()
+                      || request.resource.data.uid == request.auth.uid
+                    );
+
+      // Usuário pode atualizar o próprio token (para transações).
+      // Admin pode atualizar qualquer token.
+      allow update: if request.auth != null
+                    && (
+                      isAdmin()
+                      || resource.data.uid == request.auth.uid
+                    );
+
+      // Usuário pode deletar o próprio token.
+      // Admin pode deletar qualquer token.
+      allow delete: if request.auth != null
+                     && (
+                       isAdmin()
+                       || resource.data.uid == request.auth.uid
+                     );
+    }
+
+
+    // ============================================================
     // BLOQUEIO PADRÃO
     // ============================================================
 

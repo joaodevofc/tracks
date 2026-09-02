@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pagamento Aprovado - W.Tracks Studio Anual</title>
+    <meta name="description" content="Plano W.Tracks Studio Anual ativado com sucesso">
+    <meta name="theme-color" content="#000000">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="mobile.css" media="(max-width: 768px)">
+    <link rel="icon" type="image/png" href="icon-black-transparent.png">
+
+    <!-- Firebase SDK and Application Logic -->
+    <script type="module">
+      import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+      import { getFirestore, doc, setDoc, getDoc, runTransaction, updateDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+      import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyDW6P_V4_LRLRg6-FEe2E7QJa9J3oidY5g",
+        authDomain: "wtracks-acff8.firebaseapp.com",
+        projectId: "wtracks-acff8",
+        storageBucket: "wtracks-acff8.firebasestorage.app",
+        messagingSenderId: "719838064855",
+        appId: "1:719838064855:web:3c0631a882aac30cf3c092"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      const auth = getAuth(app);
+
+      console.log('[SUCCESS-ANUAL] Firebase initialized (Firestore + Auth)');
+
+      // Fixed plan type for this page
+      const planType = 'anual';
+      const planDurationDays = 365;
+
+      // Get token from URL parameter
+      const urlParams = new URLSearchParams(window.location.search);
+      const paymentToken = urlParams.get('token');
+      
+      console.log('[SUCCESS-ANUAL] Payment token from URL:', paymentToken);
+
+      // Security validation: Check if token exists
+      if (!paymentToken || paymentToken.trim() === '') {
+        console.error('[SUCCESS-ANUAL] No payment token provided in URL');
+        document.body.innerHTML = `
+          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background: #000000; color: #ffffff; font-family: 'Poppins', sans-serif; text-align: center; padding: 20px;">
+            <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #ff5252, #ff1744); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 30px;">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </div>
+            <h1 style="font-size: 28px; font-weight: 700; margin-bottom: 12px; color: #ffffff;">Token de Pagamento Não Encontrado</h1>
+            <p style="font-size: 16px; color: #888; margin-bottom: 30px; line-height: 1.5; max-width: 400px;">
+              Esta página deve ser acessada através do link de pagamento. Por favor, retorne à página de planos para assinar.
+            </p>
+            <a href="planos.html" style="display: inline-flex; align-items: center; justify-content: center; padding: 16px 32px; background: linear-gradient(135deg, #ffffff, #e0e0e0); color: #000000; font-size: 16px; font-weight: 600; border: none; border-radius: 12px; cursor: pointer; text-decoration: none; font-family: 'Poppins', sans-serif; transition: all 0.3s ease;">
+              Ir para Planos
+            </a>
+          </div>
+        `;
+        // Stop script execution
+        throw new Error('No payment token provided');
+      }
+
+      // Application Logic
+      const loadingSpinner = document.getElementById('loadingSpinner');
+      const errorMessage = document.getElementById('errorMessage');
+      const authForm = document.getElementById('authForm');
+      const goToAppBtn = document.getElementById('goToAppBtn');
+      const emailInput = document.getElementById('emailInput');
+      const passwordInput = document.getElementById('passwordInput');
+      const authButton = document.getElementById('authButton');
+
+      function showError(message) {
+        errorMessage.textContent = message;
+        errorMessage.style.display = 'block';
+        loadingSpinner.style.display = 'none';
+      }
+
+      function hideError() {
+        errorMessage.style.display = 'none';
+      }
+
+      async function activatePlanWithTransaction(userId, token) {
+        try {
+          console.log('[SUCCESS-ANUAL] Starting atomic transaction for user:', userId, 'Token:', token);
+
+          await runTransaction(db, async (transaction) => {
+            // 1. Get the payment token document
+            const tokenRef = doc(db, 'paymentTokens', token);
+            const tokenDoc = await transaction.get(tokenRef);
+
+            if (!tokenDoc.exists()) {
+              console.error('[SUCCESS-ANUAL] Token does not exist');
+              throw new Error('Token de pagamento inválido');
+            }
+
+            const tokenData = tokenDoc.data();
+            console.log('[SUCCESS-ANUAL] Token data:', tokenData);
+
+            // 2. Validate token status
+            if (tokenData.status !== 'pending') {
+              console.error('[SUCCESS-ANUAL] Token already used or invalid status:', tokenData.status);
+              throw new Error('Token já utilizado ou inválido');
+            }
+
+            // 3. Validate token expiration
+            const expiresAt = tokenData.expiresAt ? new Date(tokenData.expiresAt) : null;
+            const now = new Date();
+            
+            if (expiresAt && expiresAt < now) {
+              console.error('[SUCCESS-ANUAL] Token expired:', expiresAt);
+              throw new Error('Token expirado');
+            }
+
+            // 4. Validate UID match
+            if (tokenData.uid !== userId) {
+              console.error('[SUCCESS-ANUAL] UID mismatch:', tokenData.uid, 'vs', userId);
+              throw new Error('Token não pertence a este usuário');
+            }
+
+            // 5. Validate plan type matches
+            if (tokenData.planType !== planType) {
+              console.error('[SUCCESS-ANUAL] Plan type mismatch:', tokenData.planType, 'vs', planType);
+              throw new Error('Tipo de plano incorreto');
+            }
+
+            // 6. Calculate expiry date
+            const expiryDate = new Date();
+            expiryDate.setDate(expiryDate.getDate() + planDurationDays);
+            console.log('[SUCCESS-ANUAL] Plan expiry date:', expiryDate.toISOString());
+
+            // 7. Get user document
+            const userRef = doc(db, 'users', userId);
+            const userDoc = await transaction.get(userRef);
+
+            // 8. Update token status to 'used'
+            transaction.update(tokenRef, {
+              status: 'used',
+              usedAt: now.toISOString(),
+              usedBy: userId
+            });
+
+            // 9. Update user document with plan
+            const updateData = {
+              plan: 'studio',
+              planType: planType,
+              planActivatedAt: now.toISOString(),
+              validadeAcesso: expiryDate.toISOString(),
+              paymentOrigin: 'site',
+              statusPagamento: 'ativo',
+              trialUsed: true,
+              subscriptionStatus: 'active',
+              lastPaymentAt: now.toISOString()
+            };
+
+            if (userDoc.exists()) {
+              transaction.update(userRef, updateData);
+            } else {
+              transaction.set(userRef, {
+                ...updateData,
+                createdAt: now.toISOString()
+              });
+            }
+
+            console.log('[SUCCESS-ANUAL] Transaction completed successfully');
+          });
+
+          return true;
+        } catch (error) {
+          console.error('[SUCCESS-ANUAL] Transaction failed:', error);
+          throw error;
+        }
+      }
+
+      async function tryDirectActivation() {
+        if (!paymentToken) {
+          console.log('[SUCCESS-ANUAL] No payment token in URL, requiring authentication');
+          return false;
+        }
+
+        try {
+          // For direct activation, we need to extract UID from token first
+          const tokenRef = doc(db, 'paymentTokens', paymentToken);
+          const tokenDoc = await getDoc(tokenRef);
+
+          if (!tokenDoc.exists()) {
+            showError('Token de pagamento inválido');
+            return false;
+          }
+
+          const tokenData = tokenDoc.data();
+          console.log('[SUCCESS-ANUAL] Attempting direct activation for UID:', tokenData.uid);
+
+          const success = await activatePlanWithTransaction(tokenData.uid, paymentToken);
+          if (success) {
+            console.log('[SUCCESS-ANUAL] Direct activation successful');
+            showSuccessUI();
+            return true;
+          }
+        } catch (error) {
+          console.error('[SUCCESS-ANUAL] Direct activation failed:', error);
+          showError(error.message || 'Erro ao ativar plano');
+        }
+        return false;
+      }
+
+      function showSuccessUI() {
+        loadingSpinner.style.display = 'none';
+        authForm.style.display = 'none';
+        goToAppBtn.style.display = 'inline-flex';
+      }
+
+      function showAuthForm() {
+        loadingSpinner.style.display = 'none';
+        authForm.style.display = 'block';
+        goToAppBtn.style.display = 'none';
+      }
+
+      async function handleAuth() {
+        const email = emailInput.value.trim();
+        const password = passwordInput.value;
+
+        if (!email || !password) {
+          showError('Por favor, preencha todos os campos');
+          return;
+        }
+
+        if (!paymentToken) {
+          showError('Token de pagamento não encontrado');
+          return;
+        }
+
+        authButton.disabled = true;
+        authButton.textContent = 'Processando...';
+        loadingSpinner.style.display = 'block';
+        hideError();
+
+        try {
+          let userCredential;
+          
+          try {
+            userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            console.log('[SUCCESS-ANUAL] New user created:', userCredential.user.uid);
+          } catch (createError) {
+            if (createError.code === 'auth/email-already-in-use') {
+              userCredential = await signInWithEmailAndPassword(auth, email, password);
+              console.log('[SUCCESS-ANUAL] Existing user signed in:', userCredential.user.uid);
+            } else {
+              throw createError;
+            }
+          }
+
+          await activatePlanWithTransaction(userCredential.user.uid, paymentToken);
+          showSuccessUI();
+
+        } catch (error) {
+          console.error('[SUCCESS-ANUAL] Auth error:', error);
+          showError(error.message || 'Erro ao processar autenticação');
+          authButton.disabled = false;
+          authButton.textContent = 'Criar conta e ativar plano';
+          loadingSpinner.style.display = 'none';
+        }
+      }
+
+      authButton.addEventListener('click', handleAuth);
+
+      onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          console.log('[SUCCESS-ANUAL] User already logged in:', user.uid);
+          loadingSpinner.style.display = 'block';
+          hideError();
+
+          try {
+            await activatePlanWithTransaction(user.uid, paymentToken);
+            showSuccessUI();
+          } catch (error) {
+            showError(error.message || 'Erro ao ativar plano');
+          }
+        } else {
+          console.log('[SUCCESS-ANUAL] No user logged in, trying direct activation from URL');
+          const directSuccess = await tryDirectActivation();
+          if (!directSuccess) {
+            console.log('[SUCCESS-ANUAL] Direct activation failed, showing auth form');
+            showAuthForm();
+          }
+        }
+      });
+    </script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #000000;
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .success-container {
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .success-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 30px;
+            background: linear-gradient(135deg, #9C27B0, #7B1FA2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .success-icon svg {
+            width: 40px;
+            height: 40px;
+            stroke: white;
+            stroke-width: 3;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(156, 39, 176, 0.7);
+            }
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 0 0 20px rgba(156, 39, 176, 0);
+            }
+        }
+
+        .success-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: #ffffff;
+        }
+
+        .success-subtitle {
+            font-size: 16px;
+            color: #888;
+            margin-bottom: 40px;
+            line-height: 1.5;
+        }
+
+        .benefits-container {
+            background: #1a1a1a;
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 40px;
+            border: 1px solid #333;
+        }
+
+        .benefits-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #ffffff;
+        }
+
+        .benefit-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #333;
+        }
+
+        .benefit-item:last-child {
+            border-bottom: none;
+        }
+
+        .benefit-icon {
+            width: 32px;
+            height: 32px;
+            background: rgba(156, 39, 176, 0.1);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 16px;
+            flex-shrink: 0;
+        }
+
+        .benefit-icon svg {
+            width: 18px;
+            height: 18px;
+            stroke: #9C27B0;
+            stroke-width: 2;
+        }
+
+        .benefit-text {
+            font-size: 15px;
+            color: #ffffff;
+            font-weight: 500;
+        }
+
+        .cta-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 16px 32px;
+            background: linear-gradient(135deg, #ffffff, #e0e0e0);
+            color: #000000;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(255, 255, 255, 0.2);
+        }
+
+        .cta-button:active {
+            transform: translateY(0);
+        }
+
+        .loading-spinner {
+            display: none;
+            width: 40px;
+            height: 40px;
+            margin: 20px auto;
+            border: 3px solid #333;
+            border-top: 3px solid #9C27B0;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            display: none;
+            background: rgba(255, 82, 82, 0.1);
+            border: 1px solid #ff5252;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+            color: #ff5252;
+            font-size: 14px;
+        }
+
+        .auth-form {
+            display: none;
+            background: #1a1a1a;
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 1px solid #333;
+        }
+
+        .auth-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #ffffff;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 14px 16px;
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 15px;
+            font-family: 'Poppins', sans-serif;
+            transition: border-color 0.2s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #9C27B0;
+        }
+
+        .form-input::placeholder {
+            color: #666;
+        }
+
+        .auth-button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #9C27B0, #7B1FA2);
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Poppins', sans-serif;
+            transition: all 0.3s ease;
+        }
+
+        .auth-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(156, 39, 176, 0.3);
+        }
+
+        .auth-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        @media (max-width: 768px) {
+            .success-container {
+                padding: 20px 16px;
+            }
+
+            .success-title {
+                font-size: 24px;
+            }
+
+            .success-subtitle {
+                font-size: 14px;
+            }
+
+            .benefits-container {
+                padding: 20px;
+            }
+
+            .benefit-item {
+                padding: 10px 0;
+            }
+
+            .benefit-text {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="success-container">
+        <div class="success-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+        </div>
+
+        <h1 class="success-title">Pagamento Aprovado!</h1>
+        <p class="success-subtitle">Seu plano W.Tracks Studio Anual está ativo (365 dias)</p>
+
+        <div class="benefits-container">
+            <h2 class="benefits-title">Benefícios liberados:</h2>
+            
+            <div class="benefit-item">
+                <div class="benefit-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2v20M2 12h20"></path>
+                    </svg>
+                </div>
+                <span class="benefit-text">Faders ilimitados</span>
+            </div>
+
+            <div class="benefit-item">
+                <div class="benefit-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                </div>
+                <span class="benefit-text">Sem limite de tempo</span>
+            </div>
+
+            <div class="benefit-item">
+                <div class="benefit-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17 1l4 4-4 4"></path>
+                        <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                        <path d="M7 23l-4-4 4-4"></path>
+                        <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+                    </svg>
+                </div>
+                <span class="benefit-text">Função de loop liberada</span>
+            </div>
+
+            <div class="benefit-item">
+                <div class="benefit-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+                    </svg>
+                </div>
+                <span class="benefit-text">Economia de 62% (plano anual)</span>
+            </div>
+        </div>
+
+        <div class="loading-spinner" id="loadingSpinner"></div>
+        <div class="error-message" id="errorMessage"></div>
+
+        <div class="auth-form" id="authForm">
+            <h2 class="auth-title">Crie sua conta para ativar o plano</h2>
+            <div class="form-group">
+                <input type="email" class="form-input" id="emailInput" placeholder="Seu e-mail">
+            </div>
+            <div class="form-group">
+                <input type="password" class="form-input" id="passwordInput" placeholder="Sua senha">
+            </div>
+            <button class="auth-button" id="authButton">Criar conta e ativar plano</button>
+        </div>
+
+        <a href="index.html" class="cta-button" id="goToAppBtn" style="display: none;">
+            Ir para o App / Player
+        </a>
+    </div>
+</body>
+</html>
