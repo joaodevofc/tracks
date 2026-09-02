@@ -131,11 +131,10 @@
 
         // Build checkout URL with user ID and transaction token
         let checkoutUrl = window.linkMensal;
-        checkoutUrl += `${checkoutUrl.includes('?') ? '&' : '?'}custom_id=${userId}`;
-        checkoutUrl += `&transaction_token=${paymentToken}`;
-        checkoutUrl += `&plan_type=mensal`;
+        // Encode plan type and token in custom_id: {userId}|{planType}|{token}
+        checkoutUrl += `${checkoutUrl.includes('?') ? '&' : '?'}custom_id=${userId}|mensal|${paymentToken}`;
         
-        console.log('[PLANS] Opening checkout with payment token:', paymentToken);
+        console.log('[PLANS] Opening monthly checkout with payment token:', paymentToken);
         window.open(checkoutUrl, '_blank');
       };
     }
@@ -173,9 +172,8 @@
 
           // Build checkout URL with user ID, transaction token and plan type
           let checkoutUrl = window.linkAnual;
-          checkoutUrl += `${checkoutUrl.includes('?') ? '&' : '?'}custom_id=${userId}`;
-          checkoutUrl += `&transaction_token=${paymentToken}`;
-          checkoutUrl += `&plan_type=anual`;
+          // Encode plan type and token in custom_id: {userId}|{planType}|{token}
+          checkoutUrl += `${checkoutUrl.includes('?') ? '&' : '?'}custom_id=${userId}|anual|${paymentToken}`;
           
           console.log('[PLANS] Opening annual checkout with payment token:', paymentToken);
           window.open(checkoutUrl, '_blank');

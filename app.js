@@ -6533,11 +6533,8 @@ class MultracksApp {
         // Add user ID and token to payment URL if available
         let finalPaymentUrl = paymentUrl;
         if (userId) {
-            finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}`;
-            if (paymentToken) {
-                finalPaymentUrl += `&transaction_token=${paymentToken}`;
-            }
-            finalPaymentUrl += `&plan_type=mensal`;
+            // Encode plan type and token in custom_id: {userId}|{planType}|{token}
+            finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}|mensal|${paymentToken}`;
         }
 
         // Update banner button in settings
@@ -6835,11 +6832,8 @@ class MultracksApp {
                 
                 let finalPaymentUrl = paymentUrl;
                 if (userId) {
-                    finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}`;
-                    if (paymentToken) {
-                        finalPaymentUrl += `&transaction_token=${paymentToken}`;
-                    }
-                    finalPaymentUrl += `&plan_type=${planType}`;
+                    // Encode plan type and token in custom_id: {userId}|{planType}|{token}
+                    finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}|${planType}|${paymentToken}`;
                 }
                 bannerBtn.href = finalPaymentUrl;
             }
@@ -6887,11 +6881,8 @@ class MultracksApp {
                 
                 let finalPaymentUrl = paymentUrl;
                 if (userId) {
-                    finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}`;
-                    if (paymentToken) {
-                        finalPaymentUrl += `&transaction_token=${paymentToken}`;
-                    }
-                    finalPaymentUrl += `&plan_type=${planType}`;
+                    // Encode plan type and token in custom_id: {userId}|{planType}|{token}
+                    finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}|${planType}|${paymentToken}`;
                 }
                 bannerBtn.href = finalPaymentUrl;
             }
@@ -6937,11 +6928,8 @@ class MultracksApp {
                 
                 let finalPaymentUrl = paymentUrl;
                 if (userId) {
-                    finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}`;
-                    if (paymentToken) {
-                        finalPaymentUrl += `&transaction_token=${paymentToken}`;
-                    }
-                    finalPaymentUrl += `&plan_type=${planType}`;
+                    // Encode plan type and token in custom_id: {userId}|{planType}|{token}
+                    finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}|${planType}|${paymentToken}`;
                 }
                 bannerBtn.href = finalPaymentUrl;
             }
@@ -9561,11 +9549,8 @@ class MultracksApp {
         
         let finalPaymentUrl = paymentUrl;
         if (userId) {
-            finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}`;
-            if (paymentToken) {
-                finalPaymentUrl += `&transaction_token=${paymentToken}`;
-            }
-            finalPaymentUrl += `&plan_type=mensal`;
+            // Encode plan type and token in custom_id: {userId}|{planType}|{token}
+            finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}|mensal|${paymentToken}`;
         }
 
         const renewButton = document.createElement('button');
@@ -9678,11 +9663,8 @@ class MultracksApp {
         
         let finalPaymentUrl = paymentUrl;
         if (userId) {
-            finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}`;
-            if (paymentToken) {
-                finalPaymentUrl += `&transaction_token=${paymentToken}`;
-            }
-            finalPaymentUrl += `&plan_type=mensal`;
+            // Encode plan type and token in custom_id: {userId}|{planType}|{token}
+            finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}|mensal|${paymentToken}`;
         }
 
         const subscribeButton = document.createElement('button');
@@ -9794,11 +9776,8 @@ class MultracksApp {
         
         let finalPaymentUrl = paymentUrl;
         if (userId) {
-            finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}`;
-            if (paymentToken) {
-                finalPaymentUrl += `&transaction_token=${paymentToken}`;
-            }
-            finalPaymentUrl += `&plan_type=mensal`;
+            // Encode plan type and token in custom_id: {userId}|{planType}|{token}
+            finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}|mensal|${paymentToken}`;
         }
 
         const renewButton = document.createElement('button');
@@ -9911,11 +9890,8 @@ class MultracksApp {
         
         let finalPaymentUrl = paymentUrl;
         if (userId) {
-            finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}`;
-            if (paymentToken) {
-                finalPaymentUrl += `&transaction_token=${paymentToken}`;
-            }
-            finalPaymentUrl += `&plan_type=mensal`;
+            // Encode plan type and token in custom_id: {userId}|{planType}|{token}
+            finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}|mensal|${paymentToken}`;
         }
 
         const renewButton = document.createElement('button');
@@ -10027,11 +10003,8 @@ class MultracksApp {
         
         let finalPaymentUrl = paymentUrl;
         if (userId) {
-            finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}`;
-            if (paymentToken) {
-                finalPaymentUrl += `&transaction_token=${paymentToken}`;
-            }
-            finalPaymentUrl += `&plan_type=mensal`;
+            // Encode plan type and token in custom_id: {userId}|{planType}|{token}
+            finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}|mensal|${paymentToken}`;
         }
 
         const subscribeButton = document.createElement('button');

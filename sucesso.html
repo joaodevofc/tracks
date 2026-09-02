@@ -36,9 +36,20 @@
 
       // Get user ID from URL parameter for security
       const urlParams = new URLSearchParams(window.location.search);
-      const userIdFromUrl = urlParams.get('custom_id') || urlParams.get('uid');
-      const planType = urlParams.get('plan_type') || 'mensal'; // 'mensal' or 'anual'
-      const transactionToken = urlParams.get('transaction_token'); // Security token
+      const customId = urlParams.get('custom_id') || urlParams.get('uid');
+      
+      // Parse custom_id to extract userId, planType and token (format: {userId}|{planType}|{token})
+      let userIdFromUrl = customId;
+      let planType = 'mensal'; // default
+      let transactionToken = null;
+      
+      if (customId && customId.includes('|')) {
+        const parts = customId.split('|');
+        userIdFromUrl = parts[0];
+        planType = parts[1] || 'mensal';
+        transactionToken = parts[2] || null;
+      }
+      
       console.log('[SUCCESS] User ID from URL:', userIdFromUrl);
       console.log('[SUCCESS] Plan type from URL:', planType);
       console.log('[SUCCESS] Transaction token from URL:', transactionToken);
