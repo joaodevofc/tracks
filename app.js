@@ -3262,60 +3262,88 @@ class MultracksApp {
     
     async generateWaveformData(width) {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
-        const audioContext = new AudioContext();
         
         try {
             // Get all tracks with files from the current project
             const tracksWithFiles = this.currentProject.tracks.filter(t => t.file);
             
             if (tracksWithFiles.length === 0) {
-                audioContext.close();
                 return [];
             }
-            
-            // Decode all audio files
-            const audioBuffers = [];
-            for (const track of tracksWithFiles) {
-                try {
-                    const arrayBuffer = await track.file.arrayBuffer();
-                    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-                    audioBuffers.push(audioBuffer);
-                } catch (error) {
-                    console.warn('[APP] Error decoding track:', track.name, error);
-                }
-            }
-            
-            if (audioBuffers.length === 0) {
-                audioContext.close();
-                return [];
-            }
-            
-            // Find the longest buffer to determine total samples
-            const maxSamples = Math.max(...audioBuffers.map(buffer => buffer.length));
-            const samplesPerPixel = Math.floor(maxSamples / width);
             
             // Initialize mixed peaks array
             const mixedPeaks = new Array(width).fill(0);
             let globalMax = 0;
+            let maxSamples = 0;
             
-            // Process each audio buffer and add to mixed peaks
-            for (const audioBuffer of audioBuffers) {
-                const channelData = audioBuffer.getChannelData(0); // Use first channel
+            // Process tracks one at a time to reduce memory usage
+            // Close and recreate AudioContext every 3 tracks to force memory cleanup
+            const tracksPerContext = 3;
+            let processedCount = 0;
+            
+            for (const track of tracksWithFiles) {
+                let audioContext = null;
                 
-                for (let i = 0; i < width; i++) {
-                    const start = i * samplesPerPixel;
-                    const end = start + samplesPerPixel;
+                try {
+                    // Create AudioContext with low sample rate for waveform generation
+                    audioContext = new AudioContext({ sampleRate: 8000 });
                     
-                    let max = 0;
-                    for (let j = start; j < end && j < channelData.length; j++) {
-                        const sample = Math.abs(channelData[j]);
-                        if (sample > max) {
-                            max = sample;
-                        }
+                    // Decode the track
+                    const arrayBuffer = await track.file.arrayBuffer();
+                    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                    
+                    // Extract peaks from this track
+                    const channelData = audioBuffer.getChannelData(0); // Use first channel
+                    const trackSamples = channelData.length;
+                    
+                    // Update max samples if this track is longer
+                    if (trackSamples > maxSamples) {
+                        maxSamples = trackSamples;
                     }
                     
-                    // Add this track's peak to the mixed peak
-                    mixedPeaks[i] += max;
+                    const samplesPerPixel = Math.floor(trackSamples / width);
+                    
+                    // Add this track's peaks to the mixed peaks
+                    for (let i = 0; i < width; i++) {
+                        const start = i * samplesPerPixel;
+                        const end = start + samplesPerPixel;
+                        
+                        let max = 0;
+                        for (let j = start; j < end && j < channelData.length; j++) {
+                            const sample = Math.abs(channelData[j]);
+                            if (sample > max) {
+                                max = sample;
+                            }
+                        }
+                        
+                        // Add this track's peak to the mixed peak
+                        mixedPeaks[i] += max;
+                    }
+                    
+                    // Discard AudioBuffer reference immediately after use
+                    // This allows garbage collection to free memory
+                    console.log('[APP] Processed track for waveform:', track.name, 'Memory cleanup...');
+                    
+                } catch (error) {
+                    console.warn('[APP] Error decoding track for waveform:', track.name, error);
+                    // Continue with other tracks instead of failing completely
+                } finally {
+                    // Always close AudioContext to free memory
+                    if (audioContext) {
+                        try {
+                            await audioContext.close();
+                        } catch (e) {
+                            console.warn('[APP] Error closing AudioContext:', e);
+                        }
+                    }
+                }
+                
+                processedCount++;
+                
+                // Force garbage collection hint by pausing briefly after processing several tracks
+                if (processedCount % tracksPerContext === 0) {
+                    console.log('[APP] Memory cleanup checkpoint after', processedCount, 'tracks');
+                    await new Promise(resolve => setTimeout(resolve, 10));
                 }
             }
             
@@ -3327,10 +3355,10 @@ class MultracksApp {
                 globalMax > 0 ? peak / globalMax : 0
             );
             
-            audioContext.close();
+            console.log('[APP] Waveform generation complete, processed', processedCount, 'of', tracksWithFiles.length, 'tracks');
             return normalizedPeaks;
         } catch (error) {
-            audioContext.close();
+            console.error('[APP] Fatal error in waveform generation:', error);
             throw error;
         }
     }
