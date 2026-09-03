@@ -92,13 +92,22 @@ class MultitrackPlayer {
             this.masterAnalyser.fftSize = 256;
             this.masterAnalyser.smoothingTimeConstant = 0.8;
             
-            // Connect: masterGain -> masterPanner -> masterAnalyser -> analyser -> destination
+            // Create master limiter to prevent clipping/distortion
+            this.masterLimiter = this.audioContext.createDynamicsCompressor();
+            this.masterLimiter.threshold.value = -1; // -1 dB threshold
+            this.masterLimiter.knee.value = 0; // Hard knee for limiter behavior
+            this.masterLimiter.ratio.value = 20; // Aggressive ratio for limiting
+            this.masterLimiter.attack.value = 0.003; // 3ms attack for fast transient response
+            this.masterLimiter.release.value = 0.25; // 250ms release
+            
+            // Connect: masterGain -> masterPanner -> masterAnalyser -> analyser -> masterLimiter -> destination
             this.masterGain.connect(this.masterPanner);
             this.masterPanner.connect(this.masterAnalyser);
             this.masterAnalyser.connect(this.analyser);
-            this.analyser.connect(this.audioContext.destination);
+            this.analyser.connect(this.masterLimiter);
+            this.masterLimiter.connect(this.audioContext.destination);
             
-            console.log('[PLAYER] Audio graph initialized (using standard StereoPannerNode)');
+            console.log('[PLAYER] Audio graph initialized (using standard StereoPannerNode with master limiter)');
             
             // Initialize metronome
             this.metronome = new Metronome(this.audioContext, this.masterGain);
@@ -583,12 +592,6 @@ class MultitrackPlayer {
         console.log('[PLAYER] Total tracks in project:', this.currentProject.tracks.length);
         console.log('[PLAYER] Total trackNodes loaded:', this.trackNodes.size);
         
-        // Start metronome if enabled - use musical position (currentTime) not audioContext.currentTime
-        if (this.metronome && this.metronomeEnabled) {
-            console.log('[PLAYER] Starting metronome at musical position:', this.currentTime);
-            this.metronome.start(this.currentTime);
-        }
-        
         // Pre-synchronization: Set all audio elements to the exact same position first
         console.log('[PLAYER] Pre-synchronizing all tracks to position:', this.currentTime);
         this.trackNodes.forEach((nodes, trackId) => {
@@ -615,6 +618,12 @@ class MultitrackPlayer {
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
                     // Double requestAnimationFrame for better timing precision
+                    // Start metronome if enabled - use musical position (currentTime) not audioContext.currentTime
+                    if (this.metronome && this.metronomeEnabled) {
+                        console.log('[PLAYER] Starting metronome at musical position:', this.currentTime);
+                        this.metronome.start(this.currentTime);
+                    }
+                    
                     // Record playback start time for hardware clock synchronization
                     this.playbackStartContextTime = this.audioContext.currentTime;
                     this.playbackStartOffset = this.currentTime;

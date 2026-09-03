@@ -4705,6 +4705,19 @@ body.fader-animations-disabled .led-pointer {
     font-weight: 600;
 }
 
+.master-side-panel .loop-indicator-btn {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.master-side-panel .loop-indicator-btn svg {
+    width: 20px;
+    height: 20px;
+}
+
 .master-side-panel .reset-square-btn {
     width: 48px;
     height: 48px;

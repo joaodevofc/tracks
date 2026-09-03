@@ -210,6 +210,12 @@ class MultracksApp {
         this.initMyTracks();
         this.initSetlists();
         this.initPWAExternalLinks();
+        
+        // Initialize loop indicator button
+        const loopIndicatorBtn = document.getElementById('loopIndicatorBtn');
+        if (loopIndicatorBtn) {
+            loopIndicatorBtn.addEventListener('click', () => this.handleLoopIndicatorClick());
+        }
 
         // Wait for storage to load before rendering
         console.log('[APP] Starting initial storage load...');
@@ -769,7 +775,7 @@ class MultracksApp {
         }
 
         try {
-            const { db, doc, getDoc, collection, query, where, getDocs } = window.firebaseDB;
+            const { db, doc, getDoc, collection, query, where, getDocs, updateDoc } = window.firebaseDB;
             // First try to get by UID (new method)
             const userDoc = await getDoc(doc(db, 'users', userId));
             if (userDoc.exists()) {
@@ -780,6 +786,23 @@ class MultracksApp {
                 if (plan === 'Free' || plan === 'Pro' || plan === 'VIP' || plan === 'Creator' || plan === 'home') {
                     plan = 'Home';
                 }
+                
+                // Check plan validity based on expiration dates (source of truth)
+                const isExpired = this.isPlanExpired(userData);
+                if (isExpired && plan === 'Studio') {
+                    console.log('[getUserPlan] Plan expired based on date, returning Home');
+                    plan = 'Home';
+                    
+                    // Update Firestore asynchronously to sync the plan field
+                    // Don't await to avoid blocking - this is a background sync
+                    updateDoc(doc(db, 'users', userId), {
+                        plan: 'home',
+                        statusPagamento: 'expirado'
+                    }).catch(error => {
+                        console.warn('[getUserPlan] Failed to update expired plan in Firestore:', error);
+                    });
+                }
+                
                 return plan;
             } else {
                 // Fallback: try to find by uid field (old method with auto-generated IDs)
@@ -793,6 +816,23 @@ class MultracksApp {
                     if (plan === 'Free' || plan === 'Pro' || plan === 'VIP' || plan === 'Creator' || plan === 'home') {
                         plan = 'Home';
                     }
+                    
+                    // Check plan validity based on expiration dates (source of truth)
+                    const isExpired = this.isPlanExpired(userData);
+                    if (isExpired && plan === 'Studio') {
+                        console.log('[getUserPlan] Plan expired based on date, returning Home');
+                        plan = 'Home';
+                        
+                        // Update Firestore asynchronously to sync the plan field
+                        const userRef = querySnapshot.docs[0].ref;
+                        updateDoc(userRef, {
+                            plan: 'home',
+                            statusPagamento: 'expirado'
+                        }).catch(error => {
+                            console.warn('[getUserPlan] Failed to update expired plan in Firestore:', error);
+                        });
+                    }
+                    
                     return plan;
                 }
             }
@@ -801,6 +841,35 @@ class MultracksApp {
         }
 
         return 'Home'; // Default to Home
+    }
+
+    isPlanExpired(userData) {
+        // Check if the plan is expired based on expiration dates (source of truth)
+        const currentPlan = (userData.plan || userData.plano || 'home').toLowerCase();
+        const validadeAcesso = userData.validadeAcesso;
+        const trialExpiresAt = userData.trialExpiresAt;
+        const paymentOrigin = userData.paymentOrigin;
+        const currentDate = new Date();
+        
+        if (currentPlan !== 'studio') {
+            return false; // Only Studio plans can expire
+        }
+        
+        // Check if this is a paid subscription (not trial)
+        const isPaidSubscription = paymentOrigin === 'site' && validadeAcesso;
+        
+        if (isPaidSubscription) {
+            const expiryDate = new Date(validadeAcesso);
+            return currentDate > expiryDate;
+        } else if (trialExpiresAt) {
+            // Check trial validity
+            const trialExpiryDate = new Date(trialExpiresAt);
+            return currentDate > trialExpiryDate;
+        }
+        
+        // If no expiration date exists, consider it not expired
+        // (this handles edge cases where the plan field might be out of sync)
+        return false;
     }
 
     async isStudioPlan() {
@@ -1491,6 +1560,7 @@ class MultracksApp {
         this.loopPointB = null;
         this.loopEnabled = false;
         this.clearLoopVisuals();
+        this.updateLoopIndicatorBtn();
         
         // Stop any current playback and cleanup
         if (this.audioPlayer) {
@@ -3263,6 +3333,9 @@ class MultracksApp {
     async generateWaveformData(width) {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         
+        // Concurrency limit for parallel processing
+        const CONCURRENCY = 4;
+        
         try {
             // Get all tracks with files from the current project
             const tracksWithFiles = this.currentProject.tracks.filter(t => t.file);
@@ -3276,75 +3349,35 @@ class MultracksApp {
             let globalMax = 0;
             let maxSamples = 0;
             
-            // Process tracks one at a time to reduce memory usage
-            // Close and recreate AudioContext every 3 tracks to force memory cleanup
-            const tracksPerContext = 3;
             let processedCount = 0;
+            const totalTracks = tracksWithFiles.length;
             
-            for (const track of tracksWithFiles) {
-                let audioContext = null;
+            // Process tracks in parallel batches
+            for (let i = 0; i < tracksWithFiles.length; i += CONCURRENCY) {
+                const batch = tracksWithFiles.slice(i, i + CONCURRENCY);
                 
-                try {
-                    // Create AudioContext with low sample rate for waveform generation
-                    audioContext = new AudioContext({ sampleRate: 8000 });
-                    
-                    // Decode the track
-                    const arrayBuffer = await track.file.arrayBuffer();
-                    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-                    
-                    // Extract peaks from this track
-                    const channelData = audioBuffer.getChannelData(0); // Use first channel
-                    const trackSamples = channelData.length;
-                    
-                    // Update max samples if this track is longer
-                    if (trackSamples > maxSamples) {
-                        maxSamples = trackSamples;
-                    }
-                    
-                    const samplesPerPixel = Math.floor(trackSamples / width);
-                    
-                    // Add this track's peaks to the mixed peaks
-                    for (let i = 0; i < width; i++) {
-                        const start = i * samplesPerPixel;
-                        const end = start + samplesPerPixel;
-                        
-                        let max = 0;
-                        for (let j = start; j < end && j < channelData.length; j++) {
-                            const sample = Math.abs(channelData[j]);
-                            if (sample > max) {
-                                max = sample;
-                            }
+                // Process all tracks in this batch in parallel
+                const batchResults = await Promise.all(
+                    batch.map(track => this.processTrackForWaveform(track, width))
+                );
+                
+                // Add the results from this batch to mixed peaks
+                for (const result of batchResults) {
+                    if (result) {
+                        // Update max samples if this track is longer
+                        if (result.trackSamples > maxSamples) {
+                            maxSamples = result.trackSamples;
                         }
                         
-                        // Add this track's peak to the mixed peak
-                        mixedPeaks[i] += max;
-                    }
-                    
-                    // Discard AudioBuffer reference immediately after use
-                    // This allows garbage collection to free memory
-                    console.log('[APP] Processed track for waveform:', track.name, 'Memory cleanup...');
-                    
-                } catch (error) {
-                    console.warn('[APP] Error decoding track for waveform:', track.name, error);
-                    // Continue with other tracks instead of failing completely
-                } finally {
-                    // Always close AudioContext to free memory
-                    if (audioContext) {
-                        try {
-                            await audioContext.close();
-                        } catch (e) {
-                            console.warn('[APP] Error closing AudioContext:', e);
+                        // Add this track's peaks to the mixed peaks
+                        for (let j = 0; j < width; j++) {
+                            mixedPeaks[j] += result.peaks[j];
                         }
                     }
                 }
                 
-                processedCount++;
-                
-                // Force garbage collection hint by pausing briefly after processing several tracks
-                if (processedCount % tracksPerContext === 0) {
-                    console.log('[APP] Memory cleanup checkpoint after', processedCount, 'tracks');
-                    await new Promise(resolve => setTimeout(resolve, 10));
-                }
+                processedCount += batch.length;
+                console.log(`[APP] Waveform progress: ${processedCount}/${totalTracks} tracks processed`);
             }
             
             // Find global maximum for normalization
@@ -3355,11 +3388,65 @@ class MultracksApp {
                 globalMax > 0 ? peak / globalMax : 0
             );
             
-            console.log('[APP] Waveform generation complete, processed', processedCount, 'of', tracksWithFiles.length, 'tracks');
+            console.log('[APP] Waveform generation complete, processed', processedCount, 'of', totalTracks, 'tracks');
             return normalizedPeaks;
         } catch (error) {
             console.error('[APP] Fatal error in waveform generation:', error);
             throw error;
+        }
+    }
+    
+    async processTrackForWaveform(track, width) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioContext = null;
+        
+        try {
+            // Create AudioContext with low sample rate for waveform generation
+            audioContext = new AudioContext({ sampleRate: 8000 });
+            
+            // Decode the track
+            const arrayBuffer = await track.file.arrayBuffer();
+            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+            
+            // Extract peaks from this track
+            const channelData = audioBuffer.getChannelData(0); // Use first channel
+            const trackSamples = channelData.length;
+            
+            const samplesPerPixel = Math.floor(trackSamples / width);
+            const peaks = new Array(width).fill(0);
+            
+            // Calculate peaks for this track
+            for (let i = 0; i < width; i++) {
+                const start = i * samplesPerPixel;
+                const end = start + samplesPerPixel;
+                
+                let max = 0;
+                for (let j = start; j < end && j < channelData.length; j++) {
+                    const sample = Math.abs(channelData[j]);
+                    if (sample > max) {
+                        max = sample;
+                    }
+                }
+                
+                peaks[i] = max;
+            }
+            
+            console.log('[APP] Processed track for waveform:', track.name);
+            
+            return { peaks, trackSamples };
+            
+        } catch (error) {
+            console.warn('[APP] Error decoding track for waveform:', track.name, error);
+            return null; // Return null if this track fails, allowing other tracks to continue
+        } finally {
+            // Always close AudioContext to free memory
+            if (audioContext) {
+                try {
+                    await audioContext.close();
+                } catch (e) {
+                    console.warn('[APP] Error closing AudioContext:', e);
+                }
+            }
         }
     }
     
@@ -3852,6 +3939,7 @@ class MultracksApp {
             this.loopPointB = null;
             this.loopEnabled = false;
             this.clearLoopVisuals();
+            this.updateLoopIndicatorBtn();
         }
         
         // Set point A if not exists
@@ -3876,6 +3964,7 @@ class MultracksApp {
             this.showLoopMarker(x, 'B');
             this.showLoopRegion();
             this.showLoopToggle();
+            this.updateLoopIndicatorBtn();
         }
         
         // Update audio player loop points
@@ -4089,6 +4178,50 @@ class MultracksApp {
             }
         });
     }
+
+    updateLoopIndicatorBtn() {
+        const loopIndicatorBtn = document.getElementById('loopIndicatorBtn');
+        if (!loopIndicatorBtn) return;
+        
+        // Check if loop points exist
+        const hasLoop = this.loopPointA !== null && this.loopPointB !== null;
+        
+        if (hasLoop) {
+            // Set red color when loop is active
+            loopIndicatorBtn.style.color = '#ff4444';
+            loopIndicatorBtn.style.borderColor = '#ff4444';
+        } else {
+            // Reset to default color
+            loopIndicatorBtn.style.color = '';
+            loopIndicatorBtn.style.borderColor = '';
+        }
+    }
+
+    handleLoopIndicatorClick() {
+        // Only clear if loop exists
+        if (this.loopPointA !== null && this.loopPointB !== null) {
+            console.log('[LOOP] Clearing loop via indicator button');
+            
+            // Clear loop state
+            this.loopPointA = null;
+            this.loopPointB = null;
+            this.loopEnabled = false;
+            
+            // Clear visuals
+            this.clearLoopVisuals();
+            
+            // Disable loop in audio player
+            if (this.audioPlayer) {
+                this.audioPlayer.toggleLoop(false);
+            }
+            
+            // Save state
+            this.saveLoopState();
+            
+            // Update indicator button
+            this.updateLoopIndicatorBtn();
+        }
+    }
     
     saveLoopState() {
         if (!this.currentProject) return;
@@ -4115,6 +4248,7 @@ class MultracksApp {
             this.loopEnabled = false;
             this.loopPointA = null;
             this.loopPointB = null;
+            this.updateLoopIndicatorBtn();
             console.log('[LOOP] Loop features disabled for home user');
             return;
         }
@@ -4144,6 +4278,7 @@ class MultracksApp {
             this.showLoopMarker(endX, 'B');
             this.showLoopRegion();
             this.showLoopToggle();
+            this.updateLoopIndicatorBtn();
             
             // Update toggle button state
             const toggle = document.getElementById('loopToggle');
