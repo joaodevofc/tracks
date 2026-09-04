@@ -1108,6 +1108,14 @@
         try {
           console.log('[PLANS] Starting 7-day trial for user:', userId);
           
+          // Calculate trial expiry date with proper day counting
+          const trialExpiryDate = new Date();
+          // Reset time to start of day (00:00:00) to ensure full day counting
+          trialExpiryDate.setHours(0, 0, 0, 0);
+          trialExpiryDate.setDate(trialExpiryDate.getDate() + 7);
+          // Set expiry to end of day (23:59:59) to ensure full day access on the last day
+          trialExpiryDate.setHours(23, 59, 59, 999);
+          
           // Update user document to set trialUsed flag and plan to studio
           await window.firebaseDB.updateDoc(
             window.firebaseDB.doc(window.firebaseDB.db, 'users', userId),
@@ -1115,7 +1123,7 @@
               plan: 'studio',
               trialUsed: true,
               trialStartedAt: new Date().toISOString(),
-              trialExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+              trialExpiresAt: trialExpiryDate.toISOString()
             }
           );
           

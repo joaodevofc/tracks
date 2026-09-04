@@ -12,498 +12,41 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="mobile.css" media="(max-width: 768px)">
     <link rel="icon" type="image/png" href="icon-black-transparent.png">
-
-    <!-- Firebase SDK and Application Logic -->
     <script type="module">
-      import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-      import { getFirestore, doc, setDoc, getDoc, runTransaction, updateDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-      import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-
-      const firebaseConfig = {
-        apiKey: "AIzaSyDW6P_V4_LRLRg6-FEe2E7QJa9J3oidY5g",
-        authDomain: "wtracks-acff8.firebaseapp.com",
-        projectId: "wtracks-acff8",
-        storageBucket: "wtracks-acff8.firebasestorage.app",
-        messagingSenderId: "719838064855",
-        appId: "1:719838064855:web:3c0631a882aac30cf3c092"
-      };
-
-      const app = initializeApp(firebaseConfig);
-      const db = getFirestore(app);
-      const auth = getAuth(app);
-
-      console.log('[SUCCESS-MENSAL] Firebase initialized (Firestore + Auth)');
-
-      // Fixed plan type for this page
-      const planType = 'mensal';
-      const planDurationDays = 30;
-
-      // Get transaction_id from URL parameter (InfinitePay parameter)
-      const urlParams = new URLSearchParams(window.location.search);
-      const transactionId = urlParams.get('transaction_id') || urlParams.get('slug');
-      const customId = urlParams.get('custom_id');
-      
-      console.log('[SUCCESS-MENSAL] Transaction ID from URL:', transactionId);
-      console.log('[SUCCESS-MENSAL] Custom ID from URL:', customId);
-
-      // Security validation: Check if transaction_id exists
-      if (!transactionId || transactionId.trim() === '') {
-        console.error('[SUCCESS-MENSAL] No transaction_id provided in URL');
-        document.body.innerHTML = `
-          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background: #000000; color: #ffffff; font-family: 'Poppins', sans-serif; text-align: center; padding: 20px;">
-            <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #ff5252, #ff1744); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 30px;">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </div>
-            <h1 style="font-size: 28px; font-weight: 700; margin-bottom: 12px; color: #ffffff;">Transação Não Encontrada</h1>
-            <p style="font-size: 16px; color: #888; margin-bottom: 30px; line-height: 1.5; max-width: 400px;">
-              Esta página deve ser acessada através do link de pagamento do InfinitePay. Por favor, retorne à página de planos para assinar.
-            </p>
-            <a href="index.html" style="display: inline-flex; align-items: center; justify-content: center; padding: 16px 32px; background: linear-gradient(135deg, #ffffff, #e0e0e0); color: #000000; font-size: 16px; font-weight: 600; border: none; border-radius: 12px; cursor: pointer; text-decoration: none; font-family: 'Poppins', sans-serif; transition: all 0.3s ease;">
-              Ir para o App
-            </a>
-          </div>
-        `;
-        // Stop script execution
-        throw new Error('No transaction_id provided');
-      }
-
-      // Application Logic
-      const loadingSpinner = document.getElementById('loadingSpinner');
-      const errorMessage = document.getElementById('errorMessage');
-      const authForm = document.getElementById('authForm');
-      const goToAppBtn = document.getElementById('goToAppBtn');
-      const emailInput = document.getElementById('emailInput');
-      const passwordInput = document.getElementById('passwordInput');
-      const authButton = document.getElementById('authButton');
-
-      function showError(message) {
-        errorMessage.textContent = message;
-        errorMessage.style.display = 'block';
-        loadingSpinner.style.display = 'none';
-      }
-
-      function hideError() {
-        errorMessage.style.display = 'none';
-      }
-
-      async function activatePlanWithTransaction(userId, transactionId) {
-        try {
-          console.log('[SUCCESS-MENSAL] Starting atomic transaction for user:', userId, 'Transaction ID:', transactionId);
-
-          await runTransaction(db, async (transaction) => {
-            // 1. Get user document
-            const userRef = doc(db, 'users', userId);
-            const userDoc = await transaction.get(userRef);
-
-            if (!userDoc.exists()) {
-              console.error('[SUCCESS-MENSAL] User document does not exist');
-              throw new Error('Usuário não encontrado');
-            }
-
-            const userData = userDoc.data();
-            console.log('[SUCCESS-MENSAL] User data:', userData);
-
-            // 2. Check if this transaction_id was already processed
-            if (userData.lastTransactionId === transactionId) {
-              console.error('[SUCCESS-MENSAL] Transaction already processed:', transactionId);
-              throw new Error('Esta transação já foi processada');
-            }
-
-            // 3. Check for existing active plan and calculate new expiry
-            const currentExpiry = userData.validadeAcesso ? new Date(userData.validadeAcesso) : null;
-            const now = new Date();
-            let baseDate = now;
-
-            // If user has existing validity that hasn't expired, extend from current expiry
-            if (currentExpiry && currentExpiry > now) {
-              baseDate = currentExpiry;
-              console.log('[SUCCESS-MENSAL] Extending from existing expiry date:', baseDate);
-            }
-
-            // 4. Calculate new expiry date
-            const expiryDate = new Date(baseDate);
-            expiryDate.setDate(expiryDate.getDate() + planDurationDays);
-            console.log('[SUCCESS-MENSAL] New plan expiry date:', expiryDate.toISOString());
-
-            // 5. Update user document with plan and transaction tracking
-            const updateData = {
-              plan: 'studio',
-              planType: planType,
-              planActivatedAt: now.toISOString(),
-              validadeAcesso: expiryDate.toISOString(),
-              paymentOrigin: 'infinitepay',
-              statusPagamento: 'ativo',
-              trialUsed: true,
-              subscriptionStatus: 'active',
-              lastPaymentAt: now.toISOString(),
-              lastTransactionId: transactionId
-            };
-
-            transaction.update(userRef, updateData);
-
-            console.log('[SUCCESS-MENSAL] Transaction completed successfully');
-          });
-
-          return true;
-        } catch (error) {
-          console.error('[SUCCESS-MENSAL] Transaction failed:', error);
-          throw error;
-        }
-      }
-
-      async function tryDirectActivation() {
-        // Since we use transaction_id, we always need authentication to identify the user
-        console.log('[SUCCESS-MENSAL] Using InfinitePay transaction_id, authentication required');
-        return false;
-      }
-
-      function showSuccessUI() {
-        loadingSpinner.style.display = 'none';
-        authForm.style.display = 'none';
-        goToAppBtn.style.display = 'inline-flex';
-      }
-
-      function showAuthForm() {
-        loadingSpinner.style.display = 'none';
-        authForm.style.display = 'block';
-        goToAppBtn.style.display = 'none';
-      }
-
-      async function handleAuth() {
-        const email = emailInput.value.trim();
-        const password = passwordInput.value;
-
-        if (!email || !password) {
-          showError('Por favor, preencha todos os campos');
-          return;
-        }
-
-        authButton.disabled = true;
-        authButton.textContent = 'Processando...';
-        loadingSpinner.style.display = 'block';
-        hideError();
-
-        try {
-          let userCredential;
-          
-          try {
-            userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            console.log('[SUCCESS-MENSAL] New user created:', userCredential.user.uid);
-          } catch (createError) {
-            if (createError.code === 'auth/email-already-in-use') {
-              userCredential = await signInWithEmailAndPassword(auth, email, password);
-              console.log('[SUCCESS-MENSAL] Existing user signed in:', userCredential.user.uid);
-            } else {
-              throw createError;
-            }
-          }
-
-          await activatePlanWithTransaction(userCredential.user.uid, transactionId);
-          showSuccessUI();
-
-        } catch (error) {
-          console.error('[SUCCESS-MENSAL] Auth error:', error);
-          showError(error.message || 'Erro ao processar autenticação');
-          authButton.disabled = false;
-          authButton.textContent = 'Criar conta e ativar plano';
-          loadingSpinner.style.display = 'none';
-        }
-      }
-
-      authButton.addEventListener('click', handleAuth);
-
-      onAuthStateChanged(auth, async (user) => {
-        if (user) {
-          console.log('[SUCCESS-MENSAL] User already logged in:', user.uid);
-          loadingSpinner.style.display = 'block';
-          hideError();
-
-          try {
-            await activatePlanWithTransaction(user.uid, transactionId);
-            showSuccessUI();
-          } catch (error) {
-            showError(error.message || 'Erro ao ativar plano');
-          }
-        } else {
-          console.log('[SUCCESS-MENSAL] No user logged in, trying direct activation from URL');
-          const directSuccess = await tryDirectActivation();
-          if (!directSuccess) {
-            console.log('[SUCCESS-MENSAL] Direct activation failed, showing auth form');
-            showAuthForm();
-          }
-        }
-      });
+import{initializeApp as a}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';import{getFirestore as b,doc as c,setDoc as d,getDoc as e,runTransaction as f,updateDoc as g}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';import{getAuth as h,signInWithEmailAndPassword as i,createUserWithEmailAndPassword as j,onAuthStateChanged as k}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';const l={apiKey:"AIzaSyDW6P_V4_LRLRg6-FEe2E7QJa9J3oidY5g",authDomain:"wtracks-acff8.firebaseapp.com",projectId:"wtracks-acff8",storageBucket:"wtracks-acff8.firebasestorage.app",messagingSenderId:"719838064855",appId:"1:719838064855:web:3c0631a882aac30cf3c092"};const m=a(l);const n=b(m);const o=h(m);const p='mensal';const q=30;const r=new URLSearchParams(window.location.search);const s=r.get('transaction_id')||r.get('slug');const t=r.get('custom_id');if(!s||s.trim()===''){document.body.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#000000;color:#ffffff;font-family:'Poppins',sans-serif;text-align:center;padding:20px;"><div style="width:80px;height:80px;background:linear-gradient(135deg,#ff5252,#ff1744);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:30px;"><svg width="40"height="40"viewBox="0 0 24 24"fill="none"stroke="white"stroke-width="3"><line x1="18"y1="6"x2="6"y2="18"></line><line x1="6"y1="6"x2="18"y2="18"></line></svg></div><h1 style="font-size:28px;font-weight:700;margin-bottom:12px;color:#ffffff;">Transação Não Encontrada</h1><p style="font-size:16px;color:#888;margin-bottom:30px;line-height:1.5;max-width:400px;">Esta página deve ser acessada através do link de pagamento do InfinitePay. Por favor, retorne à página de planos para assinar.</p><a href="index.html"style="display:inline-flex;align-items:center;justify-content:center;padding:16px 32px;background:linear-gradient(135deg,#ffffff,#e0e0e0);color:#000000;font-size:16px;font-weight:600;border:none;border-radius:12px;cursor:pointer;text-decoration:none;font-family:'Poppins',sans-serif;transition:all 0.3s ease;">Ir para o App</a></div>`;throw new Error('No transaction_id provided');}const u=document.getElementById('loadingSpinner');const v=document.getElementById('errorMessage');const w=document.getElementById('authForm');const x=document.getElementById('goToAppBtn');const y=document.getElementById('emailInput');const z=document.getElementById('passwordInput');const A=document.getElementById('authButton');function B(C){v.textContent=C;v.style.display='block';u.style.display='none';}function D(){v.style.display='none';}async function E(F,G){try{await f(n,async(H)=>{const I=c(n,'users',F);const J=await H.get(I);if(!J.exists())throw new Error('Usuário não encontrado');const K=J.data();if(K.lastTransactionId===G)throw new Error('Esta transação já foi processada');const L=K.validadeAcesso?new Date(K.validadeAcesso):null;const M=new Date();let N=M;if(L&&L>M)N=L;const O=new Date(N);O.setHours(0,0,0,0);O.setDate(O.getDate()+q);O.setHours(23,59,59,999);const P={plan:'studio',planType:p,planActivatedAt:M.toISOString(),validadeAcesso:O.toISOString(),paymentOrigin:'infinitepay',statusPagamento:'ativo',trialUsed:true,subscriptionStatus:'active',lastPaymentAt:M.toISOString(),lastTransactionId:G};H.update(I,P);});return true;}catch(Q){throw Q;}}async function R(){return false;}function S(){u.style.display='none';w.style.display='none';x.style.display='inline-flex';}function T(){u.style.display='none';w.style.display='block';x.style.display='none';}async function U(){const V=y.value.trim();const W=z.value;if(!V||!W){B('Por favor, preencha todos os campos');return;}A.disabled=true;A.textContent='Processando...';u.style.display='block';D();try{let X;try{X=await j(o,V,W);}catch(Y){if(Y.code==='auth/email-already-in-use'){X=await i(o,V,W);}else{throw Y;}}await E(X.user.uid,s);S();}catch(Z){B(Z.message||'Erro ao processar autenticação');A.disabled=false;A.textContent='Criar conta e ativar plano';u.style.display='none';}}A.addEventListener('click',U);k(o,async(aa)=>{if(aa){u.style.display='block';D();try{await E(aa.uid,s);S();}catch(ab){B(ab.message||'Erro ao ativar plano');}}else{const ac=await R();if(!ac)T();}});
     </script>
-
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #000000;
-            color: #ffffff;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-
-        .success-container {
-            max-width: 500px;
-            width: 100%;
-            text-align: center;
-            padding: 40px 20px;
-        }
-
-        .success-icon {
-            width: 80px;
-            height: 80px;
-            margin: 0 auto 30px;
-            background: linear-gradient(135deg, #4CAF50, #45a049);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            animation: pulse 2s ease-in-out infinite;
-        }
-
-        .success-icon svg {
-            width: 40px;
-            height: 40px;
-            stroke: white;
-            stroke-width: 3;
-        }
-
-        @keyframes pulse {
-            0%, 100% {
-                transform: scale(1);
-                box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
-            }
-            50% {
-                transform: scale(1.05);
-                box-shadow: 0 0 0 20px rgba(76, 175, 80, 0);
-            }
-        }
-
-        .success-title {
-            font-size: 28px;
-            font-weight: 700;
-            margin-bottom: 12px;
-            color: #ffffff;
-        }
-
-        .success-subtitle {
-            font-size: 16px;
-            color: #888;
-            margin-bottom: 40px;
-            line-height: 1.5;
-        }
-
-        .benefits-container {
-            background: #1a1a1a;
-            border-radius: 16px;
-            padding: 30px;
-            margin-bottom: 40px;
-            border: 1px solid #333;
-        }
-
-        .benefits-title {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 20px;
-            color: #ffffff;
-        }
-
-        .benefit-item {
-            display: flex;
-            align-items: center;
-            padding: 12px 0;
-            border-bottom: 1px solid #333;
-        }
-
-        .benefit-item:last-child {
-            border-bottom: none;
-        }
-
-        .benefit-icon {
-            width: 32px;
-            height: 32px;
-            background: rgba(76, 175, 80, 0.1);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 16px;
-            flex-shrink: 0;
-        }
-
-        .benefit-icon svg {
-            width: 18px;
-            height: 18px;
-            stroke: #4CAF50;
-            stroke-width: 2;
-        }
-
-        .benefit-text {
-            font-size: 15px;
-            color: #ffffff;
-            font-weight: 500;
-        }
-
-        .cta-button {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            padding: 16px 32px;
-            background: linear-gradient(135deg, #ffffff, #e0e0e0);
-            color: #000000;
-            font-size: 16px;
-            font-weight: 600;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            font-family: 'Poppins', sans-serif;
-        }
-
-        .cta-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(255, 255, 255, 0.2);
-        }
-
-        .cta-button:active {
-            transform: translateY(0);
-        }
-
-        .loading-spinner {
-            display: none;
-            width: 40px;
-            height: 40px;
-            margin: 20px auto;
-            border: 3px solid #333;
-            border-top: 3px solid #4CAF50;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .error-message {
-            display: none;
-            background: rgba(255, 82, 82, 0.1);
-            border: 1px solid #ff5252;
-            border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 20px;
-            color: #ff5252;
-            font-size: 14px;
-        }
-
-        .auth-form {
-            display: none;
-            background: #1a1a1a;
-            border-radius: 16px;
-            padding: 30px;
-            margin-bottom: 30px;
-            border: 1px solid #333;
-        }
-
-        .auth-title {
-            font-size: 20px;
-            font-weight: 600;
-            margin-bottom: 20px;
-            color: #ffffff;
-        }
-
-        .form-group {
-            margin-bottom: 16px;
-        }
-
-        .form-input {
-            width: 100%;
-            padding: 14px 16px;
-            background: #0a0a0a;
-            border: 1px solid #333;
-            border-radius: 8px;
-            color: #ffffff;
-            font-size: 15px;
-            font-family: 'Poppins', sans-serif;
-            transition: border-color 0.2s;
-        }
-
-        .form-input:focus {
-            outline: none;
-            border-color: #4CAF50;
-        }
-
-        .form-input::placeholder {
-            color: #666;
-        }
-
-        .auth-button {
-            width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #4CAF50, #45a049);
-            color: white;
-            font-size: 16px;
-            font-weight: 600;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-family: 'Poppins', sans-serif;
-            transition: all 0.3s ease;
-        }
-
-        .auth-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
-        }
-
-        .auth-button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        @media (max-width: 768px) {
-            .success-container {
-                padding: 20px 16px;
-            }
-
-            .success-title {
-                font-size: 24px;
-            }
-
-            .success-subtitle {
-                font-size: 14px;
-            }
-
-            .benefits-container {
-                padding: 20px;
-            }
-
-            .benefit-item {
-                padding: 10px 0;
-            }
-
-            .benefit-text {
-                font-size: 14px;
-            }
-        }
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Poppins',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#000000;color:#ffffff;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+        .success-container{max-width:500px;width:100%;text-align:center;padding:40px 20px}
+        .success-icon{width:80px;height:80px;margin:0 auto 30px;background:linear-gradient(135deg,#4CAF50,#45a049);border-radius:50%;display:flex;align-items:center;justify-content:center;animation:pulse 2s ease-in-out infinite}
+        .success-icon svg{width:40px;height:40px;stroke:white;stroke-width:3}
+        @keyframes pulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(76,175,80,0.7)}50%{transform:scale(1.05);box-shadow:0 0 0 20px rgba(76,175,80,0)}}
+        .success-title{font-size:28px;font-weight:700;margin-bottom:12px;color:#ffffff}
+        .success-subtitle{font-size:16px;color:#888;margin-bottom:40px;line-height:1.5}
+        .benefits-container{background:#1a1a1a;border-radius:16px;padding:30px;margin-bottom:40px;border:1px solid #333}
+        .benefits-title{font-size:18px;font-weight:600;margin-bottom:20px;color:#ffffff}
+        .benefit-item{display:flex;align-items:center;padding:12px 0;border-bottom:1px solid #333}
+        .benefit-item:last-child{border-bottom:none}
+        .benefit-icon{width:32px;height:32px;background:rgba(76,175,80,0.1);border-radius:8px;display:flex;align-items:center;justify-content:center;margin-right:16px;flex-shrink:0}
+        .benefit-icon svg{width:18px;height:18px;stroke:#4CAF50;stroke-width:2}
+        .benefit-text{font-size:15px;color:#ffffff;font-weight:500}
+        .cta-button{display:inline-flex;align-items:center;justify-content:center;width:100%;padding:16px 32px;background:linear-gradient(135deg,#ffffff,#e0e0e0);color:#000000;font-size:16px;font-weight:600;border:none;border-radius:12px;cursor:pointer;transition:all 0.3s ease;text-decoration:none;font-family:'Poppins',sans-serif}
+        .cta-button:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(255,255,255,0.2)}
+        .cta-button:active{transform:translateY(0)}
+        .loading-spinner{display:none;width:40px;height:40px;margin:20px auto;border:3px solid #333;border-top:3px solid #4CAF50;border-radius:50%;animation:spin 1s linear infinite}
+        @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+        .error-message{display:none;background:rgba(255,82,82,0.1);border:1px solid #ff5252;border-radius:8px;padding:16px;margin-bottom:20px;color:#ff5252;font-size:14px}
+        .auth-form{display:none;background:#1a1a1a;border-radius:16px;padding:30px;margin-bottom:30px;border:1px solid #333}
+        .auth-title{font-size:20px;font-weight:600;margin-bottom:20px;color:#ffffff}
+        .form-group{margin-bottom:16px}
+        .form-input{width:100%;padding:14px 16px;background:#0a0a0a;border:1px solid #333;border-radius:8px;color:#ffffff;font-size:15px;font-family:'Poppins',sans-serif;transition:border-color 0.2s}
+        .form-input:focus{outline:none;border-color:#4CAF50}
+        .form-input::placeholder{color:#666}
+        .auth-button{width:100%;padding:14px;background:linear-gradient(135deg,#4CAF50,#45a049);color:white;font-size:16px;font-weight:600;border:none;border-radius:8px;cursor:pointer;font-family:'Poppins',sans-serif;transition:all 0.3s ease}
+        .auth-button:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(76,175,80,0.3)}
+        .auth-button:disabled{opacity:0.6;cursor:not-allowed;transform:none}
+        @media(max-width:768px){.success-container{padding:20px 16px}.success-title{font-size:24px}.success-subtitle{font-size:14px}.benefits-container{padding:20px}.benefit-item{padding:10px 0}.benefit-text{font-size:14px}}
     </style>
 </head>
 <body>
@@ -513,13 +56,10 @@
                 <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
         </div>
-
         <h1 class="success-title">Pagamento Aprovado!</h1>
         <p class="success-subtitle">Seu plano W.Tracks Studio Mensal está ativo (30 dias)</p>
-
         <div class="benefits-container">
             <h2 class="benefits-title">Benefícios liberados:</h2>
-            
             <div class="benefit-item">
                 <div class="benefit-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
@@ -528,7 +68,6 @@
                 </div>
                 <span class="benefit-text">Faders ilimitados</span>
             </div>
-
             <div class="benefit-item">
                 <div class="benefit-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
@@ -538,7 +77,6 @@
                 </div>
                 <span class="benefit-text">Sem limite de tempo</span>
             </div>
-
             <div class="benefit-item">
                 <div class="benefit-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
@@ -551,10 +89,8 @@
                 <span class="benefit-text">Função de loop liberada</span>
             </div>
         </div>
-
         <div class="loading-spinner" id="loadingSpinner"></div>
         <div class="error-message" id="errorMessage"></div>
-
         <div class="auth-form" id="authForm">
             <h2 class="auth-title">Crie sua conta para ativar o plano</h2>
             <div class="form-group">
@@ -565,7 +101,6 @@
             </div>
             <button class="auth-button" id="authButton">Criar conta e ativar plano</button>
         </div>
-
         <a href="index.html" class="cta-button" id="goToAppBtn" style="display: none;">
             Ir para o App / Player
         </a>

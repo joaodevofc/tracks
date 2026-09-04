@@ -6975,7 +6975,8 @@ class MultracksApp {
         if (currentPlan === 'studio' && validadeAcesso && paymentOrigin === 'site') {
             expiryDate = new Date(validadeAcesso);
             const currentDate = new Date();
-            daysRemaining = Math.ceil((expiryDate - currentDate) / (1000 * 60 * 60 * 24));
+            // Use Math.floor to count complete days remaining (not partial days)
+            daysRemaining = Math.floor((expiryDate - currentDate) / (1000 * 60 * 60 * 24));
             // Check if it's an annual plan (by checking planType field or expiry duration)
             if (userData.planType === 'anual') {
                 planType = 'anual';
@@ -6983,7 +6984,8 @@ class MultracksApp {
         } else if (currentPlan === 'studio' && trialExpiresAt) {
             expiryDate = new Date(trialExpiresAt);
             const currentDate = new Date();
-            daysRemaining = Math.ceil((expiryDate - currentDate) / (1000 * 60 * 60 * 24));
+            // Use Math.floor to count complete days remaining (not partial days)
+            daysRemaining = Math.floor((expiryDate - currentDate) / (1000 * 60 * 60 * 24));
         }
 
         // Update days remaining display
@@ -9629,7 +9631,7 @@ class MultracksApp {
                                 console.log('[PLAN VALIDITY] Expiry date:', expiryDate, 'Current date:', currentDate);
 
                                 // Check for pre-expiration warnings
-                                const daysRemaining = Math.ceil((expiryDate - currentDate) / (1000 * 60 * 60 * 24));
+                                const daysRemaining = Math.floor((expiryDate - currentDate) / (1000 * 60 * 60 * 24));
                                 console.log('[PLAN VALIDITY] Days remaining:', daysRemaining);
 
                                 // Show 15-day warning (11-15 days remaining)
@@ -9673,7 +9675,7 @@ class MultracksApp {
                                 console.log('[PLAN VALIDITY] Trial expiry date:', trialExpiryDate, 'Current date:', currentDate);
 
                                 // Check for trial pre-expiration warnings
-                                const daysRemaining = Math.ceil((trialExpiryDate - currentDate) / (1000 * 60 * 60 * 24));
+                                const daysRemaining = Math.floor((trialExpiryDate - currentDate) / (1000 * 60 * 60 * 24));
                                 console.log('[PLAN VALIDITY] Trial days remaining:', daysRemaining);
 
                                 // Show trial warning when 2-3 days remaining
