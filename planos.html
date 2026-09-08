@@ -12,7 +12,7 @@
 <link rel="icon" type="image/png" href="icon-black-transparent.png">
 
 <!-- Firebase SDK -->
-<script type="module">
+  <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
   import { getFirestore, doc, getDoc, updateDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
   import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
@@ -44,6 +44,488 @@
   };
 
   console.log('[FIREBASE] Firebase initialized for plans page');
+
+  // Feedback Modal Functions
+  window.openFeedbackModal = function() {
+    // Check if user already used trial before opening form
+    const userId = window.currentUserId || (window.firebaseAuth?.auth?.currentUser?.uid);
+    
+    if (userId && window.firebaseDB) {
+      const { db, doc, getDoc } = window.firebaseDB;
+      const userDocRef = doc(db, 'users', userId);
+      
+      getDoc(userDocRef).then(userDoc => {
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          
+          if (userData.trialUsed === true) {
+            // User already used trial, show modal instead of form
+            showTrialUsedModal(userData);
+            return;
+          }
+        }
+        
+        // User hasn't used trial, open form
+        const modal = document.getElementById('feedbackModal');
+        if (modal) {
+          modal.style.display = 'flex';
+          document.body.style.overflow = 'hidden';
+        }
+      }).catch(error => {
+        console.error('[FEEDBACK] Error checking trial status:', error);
+        // On error, still open the form
+        const modal = document.getElementById('feedbackModal');
+        if (modal) {
+          modal.style.display = 'flex';
+          document.body.style.overflow = 'hidden';
+        }
+      });
+    } else {
+      // No user ID, open form
+      const modal = document.getElementById('feedbackModal');
+      if (modal) {
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+      }
+    }
+  };
+
+  window.closeFeedbackModal = function() {
+    const modal = document.getElementById('feedbackModal');
+    if (modal) {
+      modal.style.display = 'none';
+      document.body.style.overflow = '';
+    }
+  };
+
+  window.skipFeedback = function() {
+    // Validate required fields before skipping
+    if (!validateRequiredFields()) {
+      return;
+    }
+
+    // Disable buttons to prevent double-click
+    const skipBtn = document.getElementById('btnSkipFeedback');
+    const submitBtn = document.getElementById('btnSubmitFeedback');
+    if (skipBtn) skipBtn.disabled = true;
+    if (submitBtn) submitBtn.disabled = true;
+
+    // Save only contact info (skip optional questions)
+    const contactInfo = {
+      email: document.getElementById('userEmail')?.value || null,
+      phone: document.getElementById('userPhone')?.value || null,
+      submittedAt: new Date().toISOString()
+    };
+
+    // Save contact info to Firestore
+    saveFeedbackToFirestore(contactInfo)
+      .then(() => {
+        console.log('[TRIAL] Form saved successfully, activating trial');
+        window.closeFeedbackModal();
+        activateFreeTrial();
+      })
+      .catch(err => {
+        console.error('[TRIAL] Form save failed, trial NOT activated:', err);
+        // Re-enable buttons on error
+        if (skipBtn) skipBtn.disabled = false;
+        if (submitBtn) submitBtn.disabled = false;
+        
+        // Show error in modal
+        const emailError = document.getElementById('emailError');
+        const phoneError = document.getElementById('phoneError');
+        emailError.textContent = 'Não foi possível concluir seu cadastro. Tente novamente.';
+        emailError.style.color = '#ff4444';
+        phoneError.textContent = '';
+      });
+  };
+
+  window.submitFeedback = function() {
+    // Validate required fields before submitting
+    if (!validateRequiredFields()) {
+      return;
+    }
+
+    // Disable buttons to prevent double-click
+    const skipBtn = document.getElementById('btnSkipFeedback');
+    const submitBtn = document.getElementById('btnSubmitFeedback');
+    if (skipBtn) skipBtn.disabled = true;
+    if (submitBtn) submitBtn.disabled = true;
+
+    // Change button text to show loading state
+    if (submitBtn) submitBtn.textContent = 'Ativando seu teste...';
+
+    const answers = {
+      email: document.getElementById('userEmail')?.value || null,
+      phone: document.getElementById('userPhone')?.value || null,
+      intendedUse: document.querySelector('input[name="intendedUse"]:checked')?.value || null,
+      experienceLevel: document.querySelector('input[name="experienceLevel"]:checked')?.value || null,
+      whatToTest: document.querySelector('input[name="whatToTest"]:checked')?.value || null,
+      usesSimilarTool: document.querySelector('input[name="usesSimilarTool"]:checked')?.value || null,
+      similarToolName: document.getElementById('similarToolName')?.value || null,
+      retentionReason: document.querySelector('input[name="retentionReason"]:checked')?.value || null,
+      submittedAt: new Date().toISOString()
+    };
+
+    // Save feedback to Firestore
+    saveFeedbackToFirestore(answers)
+      .then(() => {
+        console.log('[TRIAL] Form saved successfully, activating trial');
+        window.closeFeedbackModal();
+        activateFreeTrial();
+      })
+      .catch(err => {
+        console.error('[TRIAL] Form save failed, trial NOT activated:', err);
+        // Re-enable buttons and restore text on error
+        if (skipBtn) skipBtn.disabled = false;
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Começar meus 7 dias grátis';
+        }
+        
+        // Show error in modal
+        const emailError = document.getElementById('emailError');
+        const phoneError = document.getElementById('phoneError');
+        emailError.textContent = 'Não foi possível concluir seu cadastro. Tente novamente.';
+        emailError.style.color = '#ff4444';
+        phoneError.textContent = '';
+      });
+  };
+
+  function validateRequiredFields() {
+    const emailInput = document.getElementById('userEmail');
+    const phoneInput = document.getElementById('userPhone');
+    const emailError = document.getElementById('emailError');
+    const phoneError = document.getElementById('phoneError');
+    
+    let isValid = true;
+
+    // Clear previous errors
+    emailInput.classList.remove('error');
+    phoneInput.classList.remove('error');
+    emailError.textContent = '';
+    phoneError.textContent = '';
+
+    // Validate email
+    const email = emailInput.value.trim();
+    if (!email) {
+      emailInput.classList.add('error');
+      emailError.textContent = 'Por favor, informe seu e-mail';
+      isValid = false;
+    } else if (!isValidEmail(email)) {
+      emailInput.classList.add('error');
+      emailError.textContent = 'Por favor, informe um e-mail válido';
+      isValid = false;
+    }
+
+    // Validate phone
+    const phone = phoneInput.value.trim();
+    if (!phone) {
+      phoneInput.classList.add('error');
+      phoneError.textContent = 'Por favor, informe seu telefone';
+      isValid = false;
+    } else if (!isValidPhone(phone)) {
+      phoneInput.classList.add('error');
+      phoneError.textContent = 'Por favor, informe um telefone válido';
+      isValid = false;
+    }
+
+    return isValid;
+  }
+
+  function isValidEmail(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  }
+
+  function isValidPhone(phone) {
+    // Remove all non-numeric characters
+    const cleanPhone = phone.replace(/\D/g, '');
+    // Brazilian phone numbers should have 10 or 11 digits
+    return cleanPhone.length === 10 || cleanPhone.length === 11;
+  }
+
+  async function saveFeedbackToFirestore(answers) {
+    try {
+      // Get authenticated user
+      const user = window.firebaseAuth?.auth?.currentUser;
+      
+      console.log('[TRIAL] Auth user:', user?.uid);
+      console.log('[TRIAL] User email:', user?.email);
+
+      if (!user) {
+        console.error('[TRIAL] No authenticated user, cannot save form');
+        throw new Error('Usuário não autenticado');
+      }
+
+      const uid = user.uid;
+      const email = answers.email;
+      const phone = answers.phone;
+
+      if (!email || !phone) {
+        console.log('[TRIAL] Missing required contact info, skipping save');
+        throw new Error('E-mail e telefone são obrigatórios');
+      }
+
+      console.log('[TRIAL] Saving trial form:', {
+        uid,
+        email,
+        phone,
+        collection: 'trialForms'
+      });
+
+      const { db, doc, setDoc } = window.firebaseDB;
+
+      // Count optional questions answered
+      let questionsAnswered = 0;
+      const optionalFields = ['intendedUse', 'experienceLevel', 'whatToTest', 'usesSimilarTool', 'retentionReason'];
+      optionalFields.forEach(field => {
+        if (answers[field]) questionsAnswered++;
+      });
+
+      const formAnswered = questionsAnswered > 0;
+
+      // Create form data structure
+      const formData = {
+        uid: uid,
+        email: email,
+        phone: phone,
+        intendedUse: answers.intendedUse || null,
+        experienceLevel: answers.experienceLevel || null,
+        whatToTest: answers.whatToTest || null,
+        usesSimilarTool: answers.usesSimilarTool || null,
+        similarToolName: answers.similarToolName || null,
+        retentionReason: answers.retentionReason || null,
+        formAnswered: formAnswered,
+        questionsAnswered: questionsAnswered,
+        totalOptionalQuestions: 5,
+        submittedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      // Use UID as document ID (one form per user)
+      const formRef = doc(db, 'trialForms', uid);
+
+      // Save with merge: true (creates if doesn't exist, updates if exists)
+      // No need to check if document exists first
+      await setDoc(formRef, formData, { merge: true });
+
+      console.log('[TRIAL] Form saved successfully - answered:', questionsAnswered, '/ 5');
+      return true;
+    } catch (error) {
+      console.error('[TRIAL] Firestore error:', error);
+      console.error('[TRIAL] Firestore error code:', error?.code);
+      console.error('[TRIAL] Firestore error message:', error?.message);
+      throw error;
+    }
+  }
+
+  async function activateFreeTrial() {
+    try {
+      const userId = window.currentUserId || (window.firebaseAuth?.auth?.currentUser?.uid);
+
+      const { db, doc, setDoc, getDoc, serverTimestamp } = window.firebaseDB;
+
+      // Check if user already used trial
+      if (userId) {
+        const userDocRef = doc(db, 'users', userId);
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          
+          if (userData.trialUsed === true) {
+            // User already used trial
+            showTrialUsedModal(userData);
+            return;
+          }
+        }
+      }
+
+      // Calculate trial expiry date (7 days from now)
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + 7);
+      expiryDate.setHours(23, 59, 59, 999);
+
+      const updateData = {
+        plan: 'studio',
+        planType: 'trial',
+        planActivatedAt: new Date().toISOString(),
+        trialExpiresAt: expiryDate.toISOString(),
+        trialUsed: true,
+        trialStartedAt: new Date().toISOString(),
+        trialEndsAt: expiryDate.toISOString(),
+        trialStatus: 'active',
+        paymentOrigin: 'trial'
+      };
+
+      // If user is logged in, update their document
+      if (userId) {
+        const userDocRef = doc(db, 'users', userId);
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists()) {
+          await setDoc(userDocRef, updateData, { merge: true });
+        } else {
+          updateData.createdAt = new Date().toISOString();
+          await setDoc(userDocRef, updateData);
+        }
+      }
+
+      console.log('[TRIAL] Free trial activated successfully');
+
+      // Show welcome modal
+      showTrialWelcomeModal(expiryDate);
+    } catch (error) {
+      console.error('[TRIAL] Error activating free trial:', error);
+      alert('Erro ao ativar teste grátis. Tente novamente.');
+      
+      // Re-enable buttons on error
+      const skipBtn = document.getElementById('btnSkipFeedback');
+      const submitBtn = document.getElementById('btnSubmitFeedback');
+      if (skipBtn) skipBtn.disabled = false;
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Começar meus 7 dias grátis';
+      }
+    }
+  }
+
+  function showTrialWelcomeModal(expiryDate) {
+    const modal = document.getElementById('trialWelcomeModal');
+    const dateElement = document.getElementById('trialExpiryDate');
+    
+    // Format expiry date
+    const options = { day: 'numeric', month: 'long', year: 'numeric' };
+    const formattedDate = expiryDate.toLocaleDateString('pt-BR', options);
+    dateElement.textContent = `Até ${formattedDate}`;
+    
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+
+  window.closeTrialWelcomeModal = function() {
+    const modal = document.getElementById('trialWelcomeModal');
+    if (modal) {
+      modal.style.display = 'none';
+      document.body.style.overflow = '';
+    }
+    // Redirect to app
+    window.location.href = 'index.html';
+  }
+
+  function showTrialUsedModal(userData) {
+    const modal = document.getElementById('trialUsedModal');
+    const messageElement = document.getElementById('trialUsedMessage');
+    const buttonElement = document.getElementById('trialUsedButton');
+
+    if (userData.trialEndsAt) {
+      const trialEndsAt = new Date(userData.trialEndsAt);
+      const now = new Date();
+
+      if (trialEndsAt > now) {
+        // Trial still active
+        const daysRemaining = Math.ceil((trialEndsAt - now) / (1000 * 60 * 60 * 24));
+        messageElement.textContent = `Você já está no período de teste. Restam ${daysRemaining} dias do seu teste grátis.`;
+        buttonElement.textContent = 'Continuar usando';
+      } else {
+        // Trial expired
+        messageElement.textContent = 'Seu período de teste terminou. Você aproveitou os 7 dias de acesso ao W.Tracks Studio.';
+        buttonElement.textContent = 'Ver planos';
+        buttonElement.onclick = function() {
+          window.closeTrialUsedModal();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+      }
+    } else {
+      messageElement.textContent = 'Você já aproveitou os 7 dias de teste do W.Tracks Studio.';
+      buttonElement.textContent = 'Continuar usando o W.Tracks';
+    }
+
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+
+  window.closeTrialUsedModal = function() {
+    const modal = document.getElementById('trialUsedModal');
+    if (modal) {
+      modal.style.display = 'none';
+      document.body.style.overflow = '';
+    }
+  }
+
+  // Handle similar tool input visibility
+  document.addEventListener('DOMContentLoaded', function() {
+    const similarToolRadios = document.querySelectorAll('input[name="usesSimilarTool"]');
+    const similarToolInput = document.getElementById('similarToolInput');
+
+    similarToolRadios.forEach(radio => {
+      radio.addEventListener('change', function() {
+        if (this.value === 'sim' && similarToolInput) {
+          similarToolInput.style.display = 'block';
+        } else if (similarToolInput) {
+          similarToolInput.style.display = 'none';
+        }
+      });
+    });
+
+    // Phone mask formatting
+    const phoneInput = document.getElementById('userPhone');
+    if (phoneInput) {
+      phoneInput.addEventListener('input', function(e) {
+        let value = e.target.value.replace(/\D/g, '');
+        
+        // Limit to 11 digits
+        if (value.length > 11) {
+          value = value.slice(0, 11);
+        }
+
+        // Apply mask
+        if (value.length > 0) {
+          if (value.length <= 2) {
+            value = `(${value}`;
+          } else if (value.length <= 7) {
+            value = `(${value.slice(0, 2)}) ${value.slice(2)}`;
+          } else {
+            value = `(${value.slice(0, 2)}) ${value.slice(2, 7)}-${value.slice(7)}`;
+          }
+        }
+
+        e.target.value = value;
+      });
+
+      // Clear error on input
+      phoneInput.addEventListener('input', function() {
+        this.classList.remove('error');
+        document.getElementById('phoneError').textContent = '';
+      });
+    }
+
+    // Clear email error on input
+    const emailInput = document.getElementById('userEmail');
+    if (emailInput) {
+      emailInput.addEventListener('input', function() {
+        this.classList.remove('error');
+        document.getElementById('emailError').textContent = '';
+      });
+    }
+
+    // Close modal on overlay click
+    const modal = document.getElementById('feedbackModal');
+    if (modal) {
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+          window.closeFeedbackModal();
+        }
+      });
+    }
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        window.closeFeedbackModal();
+      }
+    });
+  });
 
   // Load checkout configuration from Firestore
   async function loadCheckoutConfig() {
@@ -127,6 +609,7 @@
     let userPlanType = null;
     let planExpiryDate = null;
     let isPlanActive = false;
+    let hasUsedFreeTrial = false;
 
     if (userId && window.firebaseDB) {
       try {
@@ -137,6 +620,12 @@
         if (userDoc.exists()) {
           const userData = userDoc.data();
           const currentPlan = (userData.plan || userData.plano || '').toLowerCase();
+          
+          // Check if user has already used free trial
+          if (userData.trialUsed === true) {
+            hasUsedFreeTrial = true;
+            console.log('[PLANS] User has already used free trial');
+          }
           
           if (currentPlan === 'studio' && userData.validadeAcesso) {
             planExpiryDate = new Date(userData.validadeAcesso);
@@ -307,6 +796,25 @@
         annualBtn.classList.remove('upgrade');
         annualBtn.classList.add('current');
         console.log('[PLANS] Annual plan button disabled - no link configured');
+      }
+    }
+
+    // Update trial button based on free trial usage
+    const trialBtn = document.getElementById('btnStartTrial');
+    if (trialBtn) {
+      if (hasUsedFreeTrial) {
+        trialBtn.textContent = 'Teste já utilizado';
+        trialBtn.disabled = true;
+        trialBtn.classList.remove('upgrade');
+        trialBtn.classList.add('current');
+        console.log('[PLANS] Trial button disabled - user has already used free trial');
+      } else {
+        trialBtn.textContent = 'Começar teste grátis';
+        trialBtn.disabled = false;
+        trialBtn.classList.remove('current');
+        trialBtn.classList.add('upgrade');
+        trialBtn.onclick = window.openFeedbackModal;
+        console.log('[PLANS] Trial button enabled - user can use free trial');
       }
     }
 
@@ -827,6 +1335,469 @@
   @keyframes spin {
     to { transform: rotate(360deg); }
   }
+
+  /* FEEDBACK MODAL */
+  .feedback-modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: fadeIn 0.3s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .feedback-modal {
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    border-radius: 20px;
+    max-width: 580px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 40px;
+    animation: slideUp 0.4s ease;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  }
+
+  @keyframes slideUp {
+    from { 
+      opacity: 0;
+      transform: translateY(30px) scale(0.95);
+    }
+    to { 
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .feedback-modal-header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  .feedback-modal-icon {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 20px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--line-strong);
+  }
+
+  .feedback-modal-icon svg {
+    width: 28px;
+    height: 28px;
+    color: var(--white);
+  }
+
+  .feedback-modal-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 12px;
+    letter-spacing: -0.5px;
+  }
+
+  .feedback-modal-subtitle {
+    font-size: 14px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    font-weight: 300;
+  }
+
+  .feedback-modal-subtitle strong {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .feedback-question {
+    margin-bottom: 28px;
+  }
+
+  .feedback-question-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 12px;
+    display: block;
+  }
+
+  .feedback-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .feedback-option {
+    position: relative;
+  }
+
+  .feedback-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  .feedback-option-label {
+    display: flex;
+    align-items: center;
+    padding: 14px 18px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+
+  .feedback-option-label:hover {
+    border-color: var(--line-strong);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .feedback-option input[type="radio"]:checked + .feedback-option-label {
+    border-color: var(--white);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+  }
+
+  .feedback-option-radio {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--line-strong);
+    border-radius: 50%;
+    margin-right: 12px;
+    position: relative;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+  }
+
+  .feedback-option input[type="radio"]:checked + .feedback-option-label .feedback-option-radio {
+    border-color: var(--white);
+  }
+
+  .feedback-option input[type="radio"]:checked + .feedback-option-label .feedback-option-radio::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 8px;
+    height: 8px;
+    background: var(--white);
+    border-radius: 50%;
+  }
+
+  .feedback-text-input {
+    width: 100%;
+    padding: 14px 18px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: 'Inter', sans-serif;
+    transition: all 0.2s ease;
+    margin-top: 10px;
+  }
+
+  .feedback-text-input:focus {
+    outline: none;
+    border-color: var(--line-strong);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .feedback-text-input::placeholder {
+    color: var(--text-faint);
+  }
+
+  .feedback-modal-footer {
+    display: flex;
+    gap: 14px;
+    margin-top: 36px;
+    padding-top: 28px;
+    border-top: 1px solid var(--line);
+  }
+
+  .feedback-btn {
+    flex: 1;
+    padding: 16px 24px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: none;
+    text-align: center;
+  }
+
+  .feedback-btn-skip {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--line);
+  }
+
+  .feedback-btn-skip:hover {
+    border-color: var(--line-strong);
+    color: var(--text);
+  }
+
+  .feedback-btn-submit {
+    background: var(--white);
+    color: #000;
+    border: 1px solid var(--white);
+  }
+
+  .feedback-btn-submit:hover {
+    background: var(--text);
+    border-color: var(--text);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(255, 255, 255, 0.15);
+  }
+
+  .feedback-btn-submit:active {
+    transform: translateY(0);
+  }
+
+  @media (max-width: 640px) {
+    .feedback-modal {
+      padding: 28px 24px;
+      border-radius: 16px;
+      max-height: 95vh;
+    }
+
+    .feedback-modal-title {
+      font-size: 20px;
+    }
+
+    .feedback-modal-subtitle {
+      font-size: 13px;
+    }
+
+    .feedback-modal-footer {
+      flex-direction: column-reverse;
+      gap: 12px;
+    }
+
+    .feedback-btn {
+      width: 100%;
+    }
+  }
+
+  /* Section Styles */
+  .feedback-section {
+    margin-bottom: 32px;
+  }
+
+  .feedback-section-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .feedback-section-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 100px;
+    background: var(--white);
+    color: #000;
+    letter-spacing: 0.5px;
+  }
+
+  .feedback-section-badge-optional {
+    background: var(--line);
+    color: var(--text-dim);
+  }
+
+  .feedback-section-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .feedback-section-subtitle {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 24px;
+    line-height: 1.5;
+    font-weight: 300;
+  }
+
+  .feedback-section-separator {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 32px 0;
+  }
+
+  .feedback-separator-line {
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+  }
+
+  .feedback-separator-text {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-faint);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* Required Field Indicator */
+  .required-star {
+    color: var(--white);
+    font-weight: 600;
+    margin-left: 2px;
+  }
+
+  /* Error States */
+  .feedback-text-input.error {
+    border-color: #ff4444;
+    background: rgba(255, 68, 68, 0.05);
+  }
+
+  .feedback-text-input.error:focus {
+    border-color: #ff4444;
+    outline: none;
+  }
+
+  .feedback-error-message {
+    font-size: 12px;
+    color: #ff4444;
+    margin-top: 6px;
+    min-height: 16px;
+    font-weight: 400;
+  }
+
+  /* Section-specific styling */
+  .feedback-section-required {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 24px;
+  }
+
+  .feedback-section-optional {
+    padding-top: 8px;
+  }
+
+  /* Trial Welcome Modal Styles */
+  .trial-welcome-modal {
+    max-width: 520px;
+  }
+
+  .trial-welcome-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 24px;
+    background: rgba(74, 222, 128, 0.1);
+    border: 2px solid rgba(74, 222, 128, 0.3);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4ade80;
+  }
+
+  .trial-welcome-icon svg {
+    width: 32px;
+    height: 32px;
+  }
+
+  .trial-welcome-content {
+    margin-bottom: 32px;
+  }
+
+  .trial-welcome-text {
+    color: var(--text-dim);
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 24px;
+    text-align: center;
+  }
+
+  .trial-benefits {
+    margin-bottom: 24px;
+  }
+
+  .trial-benefit-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+
+  .trial-benefit-item:last-child {
+    border-bottom: none;
+  }
+
+  .trial-benefit-item svg {
+    width: 18px;
+    height: 18px;
+    color: #4ade80;
+    flex-shrink: 0;
+  }
+
+  .trial-expiry-card {
+    background: rgba(74, 222, 128, 0.05);
+    border: 1px solid rgba(74, 222, 128, 0.2);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .trial-expiry-label {
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+
+  .trial-expiry-days {
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 700;
+    color: #4ade80;
+    margin-bottom: 4px;
+  }
+
+  .trial-expiry-date {
+    font-size: 14px;
+    color: var(--text-dim);
+  }
+
+  /* Warning Icon */
+  .warning-icon {
+    background: rgba(255, 59, 47, 0.1);
+    border-color: rgba(255, 59, 47, 0.3);
+    color: #ff3b2f;
+  }
 </style>
 </head>
 <body>
@@ -1089,70 +2060,8 @@
       // Plan cards are already updated by initCheckout and onAuthStateChanged
       // No need for additional check here
 
-    document.getElementById('btnStartTrial').addEventListener('click', async function () {
-      // Check if button is already disabled
-      if (this.disabled) {
-        return;
-      }
-
-      // Check if user is logged in
-      if (!window.firebaseAuth || !window.firebaseAuth.auth.currentUser) {
-        alert('Você precisa estar logado para iniciar o teste grátis');
-        window.location.href = 'index.html';
-        return;
-      }
-
-      const userId = window.firebaseAuth.auth.currentUser.uid;
-      
-      if (confirm('Deseja iniciar o período de teste de 7 dias do Studio?')) {
-        try {
-          console.log('[PLANS] Starting 7-day trial for user:', userId);
-          
-          // Calculate trial expiry date with proper day counting
-          const trialExpiryDate = new Date();
-          // Reset time to start of day (00:00:00) to ensure full day counting
-          trialExpiryDate.setHours(0, 0, 0, 0);
-          trialExpiryDate.setDate(trialExpiryDate.getDate() + 7);
-          // Set expiry to end of day (23:59:59) to ensure full day access on the last day
-          trialExpiryDate.setHours(23, 59, 59, 999);
-          
-          // Update user document to set trialUsed flag and plan to studio
-          await window.firebaseDB.updateDoc(
-            window.firebaseDB.doc(window.firebaseDB.db, 'users', userId),
-            {
-              plan: 'studio',
-              trialUsed: true,
-              trialStartedAt: new Date().toISOString(),
-              trialExpiresAt: trialExpiryDate.toISOString()
-            }
-          );
-          
-          console.log('[PLANS] Trial started successfully');
-          alert('Teste grátis iniciado! Você tem 7 dias de acesso ao Studio. Após o teste, você pode assinar o plano Studio pelo link de pagamento.');
-
-          // Disable the trial button and update text
-          this.textContent = 'Teste já utilizado';
-          this.disabled = true;
-          this.classList.remove('upgrade');
-          this.classList.add('current');
-          
-          // Also disable the upgrade button since user now has studio plan
-          const upgradeBtn = document.getElementById('btnUpgradeStudio');
-          if (upgradeBtn) {
-            upgradeBtn.textContent = 'Plano Atual';
-            upgradeBtn.disabled = true;
-            upgradeBtn.classList.remove('upgrade');
-            upgradeBtn.classList.add('current');
-          }
-          
-          // Optionally redirect to the app
-          // window.location.href = 'index.html';
-        } catch (error) {
-          console.error('[PLANS] Error starting trial:', error);
-          alert('Erro ao iniciar teste grátis: ' + error.message);
-        }
-      }
-    });
+    // btnStartTrial is now handled by window.openFeedbackModal set in updatePlanCards
+    // The old event listener has been removed to use the modal-based flow
 
     document.getElementById('btnUpgradeAnnual').addEventListener('click', function () {
       // TODO: abrir checkout/pagamento do plano anual e, após confirmação, atualizar o campo "plano" do usuário no Firestore para "studio_anual"
@@ -1188,6 +2097,367 @@
     }
     }); // Close DOMContentLoaded
   </script>
+
+  <!-- Feedback Modal -->
+  <div class="feedback-modal-overlay" id="feedbackModal">
+    <div class="feedback-modal">
+      <div class="feedback-modal-header">
+        <div class="feedback-modal-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+          </svg>
+        </div>
+        <h2 class="feedback-modal-title">Quer nos ajudar a melhorar o W.Tracks?</h2>
+        <p class="feedback-modal-subtitle">Antes de começar seu teste grátis de 7 dias, precisamos de alguns dados para criar/confirmar seu acesso. <strong>O restante é totalmente opcional.</strong></p>
+      </div>
+
+      <!-- Required Contact Section -->
+      <div class="feedback-section feedback-section-required">
+        <div class="feedback-section-title">
+          <span class="feedback-section-badge">OBRIGATÓRIO</span>
+          <span class="feedback-section-name">CONTATO</span>
+        </div>
+
+        <div class="feedback-question">
+          <label class="feedback-question-label" for="userEmail">E-mail <span class="required-star">*</span></label>
+          <input type="email" class="feedback-text-input" id="userEmail" placeholder="seu@email.com" novalidate>
+          <div class="feedback-error-message" id="emailError"></div>
+        </div>
+
+        <div class="feedback-question">
+          <label class="feedback-question-label" for="userPhone">Número de telefone <span class="required-star">*</span></label>
+          <input type="tel" class="feedback-text-input" id="userPhone" placeholder="(00) 00000-0000" maxlength="15" novalidate>
+          <div class="feedback-error-message" id="phoneError"></div>
+        </div>
+      </div>
+
+      <!-- Visual Separator -->
+      <div class="feedback-section-separator">
+        <div class="feedback-separator-line"></div>
+        <span class="feedback-separator-text">OPCIONAL</span>
+        <div class="feedback-separator-line"></div>
+      </div>
+
+      <!-- Optional Research Section -->
+      <div class="feedback-section feedback-section-optional">
+        <div class="feedback-section-title">
+          <span class="feedback-section-badge feedback-section-badge-optional">OPCIONAL</span>
+          <span class="feedback-section-name">Quer nos ajudar a melhorar o W.Tracks?</span>
+        </div>
+        <p class="feedback-section-subtitle">Essas perguntas são opcionais e ajudam a gente a melhorar o produto.</p>
+
+        <div class="feedback-question">
+          <label class="feedback-question-label">1. Como você pretende usar o W.Tracks?</label>
+          <div class="feedback-options">
+            <div class="feedback-option">
+              <input type="radio" name="intendedUse" value="producao_musical" id="use1">
+              <label class="feedback-option-label" for="use1">
+                <span class="feedback-option-radio"></span>
+                Produção musical
+              </label>
+            </div>
+            <div class="feedback-option">
+              <input type="radio" name="intendedUse" value="ensaios_apresentacoes" id="use2">
+              <label class="feedback-option-label" for="use2">
+                <span class="feedback-option-radio"></span>
+                Ensaios / apresentações
+              </label>
+            </div>
+            <div class="feedback-option">
+              <input type="radio" name="intendedUse" value="dj_performance" id="use3">
+              <label class="feedback-option-label" for="use3">
+                <span class="feedback-option-radio"></span>
+                DJ / performance
+              </label>
+            </div>
+            <div class="feedback-option">
+              <input type="radio" name="intendedUse" value="estudo_pratica" id="use4">
+              <label class="feedback-option-label" for="use4">
+                <span class="feedback-option-radio"></span>
+                Estudo / prática musical
+              </label>
+            </div>
+            <div class="feedback-option">
+              <input type="radio" name="intendedUse" value="criacao_conteudo" id="use5">
+              <label class="feedback-option-label" for="use5">
+                <span class="feedback-option-radio"></span>
+                Criação de conteúdo
+              </label>
+            </div>
+            <div class="feedback-option">
+              <input type="radio" name="intendedUse" value="trabalho_equipe" id="use6">
+              <label class="feedback-option-label" for="use6">
+                <span class="feedback-option-radio"></span>
+                Trabalho em equipe
+              </label>
+            </div>
+            <div class="feedback-option">
+              <input type="radio" name="intendedUse" value="outro" id="use7">
+              <label class="feedback-option-label" for="use7">
+                <span class="feedback-option-radio"></span>
+                Outro
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="feedback-question">
+          <label class="feedback-question-label">2. Qual é o seu nível de experiência?</label>
+          <div class="feedback-options">
+            <div class="feedback-option">
+              <input type="radio" name="experienceLevel" value="comecando" id="exp1">
+              <label class="feedback-option-label" for="exp1">
+                <span class="feedback-option-radio"></span>
+                Estou começando agora
+              </label>
+            </div>
+            <div class="feedback-option">
+              <input type="radio" name="experienceLevel" value="alguma_experiencia" id="exp2">
+              <label class="feedback-option-label" for="exp2">
+                <span class="feedback-option-radio"></span>
+                Tenho alguma experiência
+              </label>
+            </div>
+            <div class="feedback-option">
+              <input type="radio" name="experienceLevel" value="trabalha_ha_tempo" id="exp3">
+              <label class="feedback-option-label" for="exp3">
+                <span class="feedback-option-radio"></span>
+                Já trabalho com música há algum tempo
+              </label>
+            </div>
+            <div class="feedback-option">
+              <input type="radio" name="experienceLevel" value="profissional" id="exp4">
+              <label class="feedback-option-label" for="exp4">
+                <span class="feedback-option-radio"></span>
+                Sou profissional
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="feedback-question">
+          <label class="feedback-question-label">3. O que você mais quer testar durante os 7 dias?</label>
+          <div class="feedback-options">
+            <div class="feedback-option">
+              <input type="radio" name="whatToTest" value="setlists" id="test1">
+              <label class="feedback-option-label" for="test1">
+                <span class="feedback-option-radio"></span>
+                Criar e organizar setlists
+              </label>
+            </div>
+            <div class="feedback-option">
+              <input type="radio" name="whatToTest" value="efeitos" id="test2">
+              <label class="feedback-option-label" for="test2">
+                <span class="feedback-option-radio"></span>
+                Testar os efeitos
+              </label>
+            </div>
+            <div class="feedback-option">
+              <input type="radio" name="whatToTest" value="pads" id="test3">
+              <label class="feedback-option-label" for="test3">
+                <span class="feedback-option-radio"></span>
+                Usar os pads
+              </label>
+            </div>
+            <div class="feedback-option">
+              <input type="radio" name="whatToTest" value="faders" id="test4">
+              <label class="feedback-option-label" for="test4">
+                <span class="feedback-option-radio"></span>
+                Trabalhar com vários faders
+              </label>
+            </div>
+            <div class="feedback-option">
+              <input type="radio" name="whatToTest" value="organizar_musicas" id="test5">
+              <label class="feedback-option-label" for="test5">
+                <span class="feedback-option-radio"></span>
+                Organizar minhas músicas
+              </label>
+            </div>
+            <div class="feedback-option">
+              <input type="radio" name="whatToTest" value="loop" id="test6">
+              <label class="feedback-option-label" for="test6">
+                <span class="feedback-option-radio"></span>
+                Testar o Loop
+              </label>
+            </div>
+            <div class="feedback-option">
+              <input type="radio" name="whatToTest" value="explorar" id="test7">
+              <label class="feedback-option-label" for="test7">
+                <span class="feedback-option-radio"></span>
+                Explorar a plataforma
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="feedback-question">
+          <label class="feedback-question-label">4. Você já utiliza alguma ferramenta parecida?</label>
+          <div class="feedback-options">
+            <div class="feedback-option">
+              <input type="radio" name="usesSimilarTool" value="sim" id="tool1">
+              <label class="feedback-option-label" for="tool1">
+                <span class="feedback-option-radio"></span>
+                Sim
+              </label>
+            </div>
+            <div class="feedback-option">
+              <input type="radio" name="usesSimilarTool" value="nao" id="tool2">
+              <label class="feedback-option-label" for="tool2">
+                <span class="feedback-option-radio"></span>
+                Não
+              </label>
+            </div>
+            <div class="feedback-option">
+              <input type="radio" name="usesSimilarTool" value="ja_usei" id="tool3">
+              <label class="feedback-option-label" for="tool3">
+                <span class="feedback-option-radio"></span>
+                Já usei, mas não uso atualmente
+              </label>
+            </div>
+          </div>
+          <div class="feedback-option" id="similarToolInput" style="display: none;">
+            <input type="text" class="feedback-text-input" id="similarToolName" placeholder="Qual ferramenta?">
+          </div>
+        </div>
+
+        <div class="feedback-question">
+          <label class="feedback-question-label">5. O que faria você continuar usando o W.Tracks depois dos 7 dias?</label>
+          <div class="feedback-options">
+            <div class="feedback-option">
+              <input type="radio" name="retentionReason" value="recursos_profissionais" id="ret1">
+              <label class="feedback-option-label" for="ret1">
+                <span class="feedback-option-radio"></span>
+                Ter recursos profissionais
+              </label>
+            </div>
+            <div class="feedback-option">
+              <input type="radio" name="retentionReason" value="organizar_musicas" id="ret2">
+              <label class="feedback-option-label" for="ret2">
+                <span class="feedback-option-radio"></span>
+                Organizar melhor minhas músicas
+              </label>
+            </div>
+            <div class="feedback-option">
+              <input type="radio" name="retentionReason" value="apresentacoes" id="ret3">
+              <label class="feedback-option-label" for="ret3">
+                <span class="feedback-option-radio"></span>
+                Usar em apresentações
+              </label>
+            </div>
+            <div class="feedback-option">
+              <input type="radio" name="retentionReason" value="trabalho_equipe" id="ret4">
+              <label class="feedback-option-label" for="ret4">
+                <span class="feedback-option-radio"></span>
+                Trabalhar com outras pessoas
+              </label>
+            </div>
+            <div class="feedback-option">
+              <input type="radio" name="retentionReason" value="economizar_tempo" id="ret5">
+              <label class="feedback-option-label" for="ret5">
+                <span class="feedback-option-radio"></span>
+                Economizar tempo
+              </label>
+            </div>
+            <div class="feedback-option">
+              <input type="radio" name="retentionReason" value="tudo_um_lugar" id="ret6">
+              <label class="feedback-option-label" for="ret6">
+                <span class="feedback-option-radio"></span>
+                Ter tudo em um só lugar
+              </label>
+            </div>
+            <div class="feedback-option">
+              <input type="radio" name="retentionReason" value="outro" id="ret7">
+              <label class="feedback-option-label" for="ret7">
+                <span class="feedback-option-radio"></span>
+                Outro
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="feedback-modal-footer">
+        <button class="feedback-btn feedback-btn-skip" id="btnSkipFeedback" onclick="window.skipFeedback()">Pular perguntas</button>
+        <button class="feedback-btn feedback-btn-submit" id="btnSubmitFeedback" onclick="window.submitFeedback()">Começar meus 7 dias grátis</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trial Welcome Modal -->
+  <div class="feedback-modal-overlay" id="trialWelcomeModal">
+    <div class="feedback-modal trial-welcome-modal">
+      <div class="trial-welcome-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+      </div>
+      <h2 class="feedback-modal-title">Seu teste grátis começou</h2>
+      <p class="feedback-modal-subtitle">Você está no modo teste por 7 dias.</p>
+      
+      <div class="trial-welcome-content">
+        <p class="trial-welcome-text">Durante esse período, você terá acesso a todos os benefícios do W.Tracks Studio para conhecer a plataforma e aproveitar todos os recursos.</p>
+        
+        <div class="trial-benefits">
+          <div class="trial-benefit-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>Acesso completo aos recursos do Studio</span>
+          </div>
+          <div class="trial-benefit-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>Todos os benefícios do plano</span>
+          </div>
+          <div class="trial-benefit-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>7 dias para testar tudo</span>
+          </div>
+          <div class="trial-benefit-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>Sem limitações durante o período de teste</span>
+          </div>
+        </div>
+
+        <div class="trial-expiry-card">
+          <div class="trial-expiry-label">Seu teste termina em:</div>
+          <div class="trial-expiry-days">7 dias</div>
+          <div class="trial-expiry-date" id="trialExpiryDate">Calculando data...</div>
+        </div>
+      </div>
+
+      <div class="feedback-modal-footer">
+        <button class="feedback-btn feedback-btn-submit" onclick="window.closeTrialWelcomeModal()">Começar a usar o W.Tracks</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trial Already Used Modal -->
+  <div class="feedback-modal-overlay" id="trialUsedModal">
+    <div class="feedback-modal">
+      <div class="feedback-modal-header">
+        <div class="feedback-modal-icon warning-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+        </div>
+        <h2 class="feedback-modal-title">Seu teste grátis já foi utilizado</h2>
+        <p class="feedback-modal-subtitle" id="trialUsedMessage">Você já aproveitou os 7 dias de teste do W.Tracks Studio.</p>
+      </div>
+
+      <div class="feedback-modal-footer">
+        <button class="feedback-btn feedback-btn-submit" id="trialUsedButton" onclick="window.closeTrialUsedModal()">Continuar usando o W.Tracks</button>
+      </div>
+    </div>
+  </div>
 
 </body>
 </html>

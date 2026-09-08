@@ -13,10 +13,9 @@ class MultitrackPlayer {
         this.isReady = false;
         this.currentTime = 0;
         this.totalDuration = 0;
-        this.loopEnabled = false;
-        this.loopStart = 0;
-        this.loopEnd = 0;
+        this.loops = []; // Array of loop objects: { id, start, end, enabled }
         this.isRestarting = false;
+        this.playbackSpeed = 1.0; // Default playback speed (1.0x)
         
         // Playback synchronization using audioContext hardware clock
         this.playbackStartContextTime = 0; // audioContext.currentTime when playback started
@@ -341,13 +340,13 @@ class MultitrackPlayer {
             const objectUrl = URL.createObjectURL(track.file);
             audioElement.src = objectUrl;
             
-            console.log('[PLAYER] Created audio element for track:', track.name, 'URL:', objectUrl);
-            console.log('[PLAYER] Audio element properties:');
-            console.log('[PLAYER] - src:', audioElement.src);
-            console.log('[PLAYER] - crossOrigin:', audioElement.crossOrigin);
-            console.log('[PLAYER] - preload:', audioElement.preload);
-            console.log('[PLAYER] - mozAudioChannelType:', audioElement.mozAudioChannelType);
-            console.log('[PLAYER] - webkitAudioChannelType:', audioElement.webkitAudioChannelType);
+            // Set preservesPitch to false to prevent audio overlap/echo issues during speed changes
+            // This ensures clean playback rate changes without pitch preservation artifacts
+            audioElement.preservesPitch = false;
+            audioElement.mozPreservesPitch = false;
+            audioElement.webkitPreservesPitch = false;
+            
+            console.log('[PLAYER] Created audio element for track:', track.name, 'preservesPitch:', audioElement.preservesPitch);
             
             // Wait for metadata to load to get duration
             await new Promise((resolve, reject) => {
@@ -462,10 +461,15 @@ class MultitrackPlayer {
      * Handle track ended event for loop support with synchronized restart
      */
     handleTrackEnded(trackId) {
-        // console.log('[PLAYER] Track ended:', trackId, 'loopEnabled:', this.loopEnabled);
+        // Find the active loop that contains the current time
+        const activeLoop = this.loops.find(l =>
+            l.enabled &&
+            this.currentTime >= l.start &&
+            this.currentTime < l.end
+        );
 
-        // Only handle loop if loop is enabled
-        if (!this.loopEnabled) {
+        // Only handle loop if there's an active loop
+        if (!activeLoop) {
             return;
         }
 
@@ -486,7 +490,7 @@ class MultitrackPlayer {
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 // Double requestAnimationFrame for precise timing
-                // console.log('[PLAYER] Loop restart - synchronized reset to loop start:', this.loopStart);
+                // console.log('[PLAYER] Loop restart - synchronized reset to loop start:', activeLoop.start);
 
                 // Pause all audio elements first
                 this.trackNodes.forEach((nodes, id) => {
@@ -502,18 +506,18 @@ class MultitrackPlayer {
                 // Reset all track currentTimes simultaneously to loop start
                 this.trackNodes.forEach((nodes, id) => {
                     if (nodes.audioElement) {
-                        // console.log('[PLAYER] Resetting track:', id, 'to loop start:', this.loopStart);
-                        nodes.audioElement.currentTime = this.loopStart;
+                        // console.log('[PLAYER] Resetting track:', id, 'to loop start:', activeLoop.start);
+                        nodes.audioElement.currentTime = activeLoop.start;
                     }
                 });
 
                 // Reset player currentTime
-                this.currentTime = this.loopStart;
+                this.currentTime = activeLoop.start;
 
                 // Restart metronome at loop start if enabled
                 if (this.metronome && this.metronomeEnabled) {
-                    // console.log('[PLAYER] Loop: Restarting metronome at loop start:', this.loopStart);
-                    this.metronome.start(this.loopStart);
+                    // console.log('[PLAYER] Loop: Restarting metronome at loop start:', activeLoop.start);
+                    this.metronome.start(activeLoop.start);
                 }
 
                 // Notify UI of time update
@@ -1345,18 +1349,55 @@ class MultitrackPlayer {
     }
     
     /**
-     * Toggle loop
+     * Set playback speed for all audio elements
+     * @param {number} speed - Playback speed multiplier (e.g., 0.5 for half speed, 1.5 for 1.5x speed)
      */
-    toggleLoop(enabled) {
-        this.loopEnabled = enabled;
+    setPlaybackSpeed(speed) {
+        console.log('[PLAYER] setPlaybackSpeed:', speed.toFixed(2), 'x (current:', this.playbackSpeed.toFixed(2), 'x)');
+        
+        // Validate speed range
+        const clampedSpeed = Math.max(0.5, Math.min(2.0, speed));
+        
+        // Skip if speed hasn't changed
+        if (Math.abs(clampedSpeed - this.playbackSpeed) < 0.001) {
+            return this.playbackSpeed;
+        }
+        
+        // Update internal state
+        this.playbackSpeed = clampedSpeed;
+        
+        // Apply playbackRate to all audio elements WITHOUT recreating them
+        let updatedCount = 0;
+        this.trackNodes.forEach((nodes, trackId) => {
+            if (nodes.audioElement) {
+                // Set preservesPitch to false to prevent audio overlap/echo issues
+                // This ensures clean playback rate changes without pitch preservation artifacts
+                nodes.audioElement.preservesPitch = false;
+                nodes.audioElement.mozPreservesPitch = false;
+                nodes.audioElement.webkitPreservesPitch = false;
+                
+                nodes.audioElement.playbackRate = clampedSpeed;
+                updatedCount++;
+            }
+        });
+        
+        console.log('[PLAYER] Updated playbackRate for', updatedCount, 'tracks to', clampedSpeed.toFixed(2), 'x');
+        
+        return clampedSpeed;
     }
     
     /**
-     * Set loop points
+     * Get current playback speed
      */
-    setLoopPoints(start, end) {
-        this.loopStart = start;
-        this.loopEnd = end;
+    getPlaybackSpeed() {
+        return this.playbackSpeed;
+    }
+    
+    /**
+     * Set loops
+     */
+    setLoops(loops) {
+        this.loops = loops || [];
     }
     
     /**
@@ -1508,29 +1549,38 @@ class MultitrackPlayer {
 
                 // Continuous drift correction: check each track's actual currentTime
                 // and correct if drift exceeds threshold
-                this.trackNodes.forEach((nodes, trackId) => {
-                    const track = this.currentProject.tracks.find(t => t.id === trackId);
-                    if (nodes.audioElement && this.currentTime >= 0 && this.currentTime < nodes.duration) {
-                        const actualTime = nodes.audioElement.currentTime;
-                        const drift = Math.abs(actualTime - this.currentTime);
+                // IMPORTANT: Skip drift correction when playback speed is not 1.0x to avoid interference
+                // The HTMLAudioElement.playbackRate handles time scaling naturally
+                if (this.playbackSpeed === 1.0) {
+                    this.trackNodes.forEach((nodes, trackId) => {
+                        const track = this.currentProject.tracks.find(t => t.id === trackId);
+                        if (nodes.audioElement && this.currentTime >= 0 && this.currentTime < nodes.duration) {
+                            const actualTime = nodes.audioElement.currentTime;
+                            const drift = Math.abs(actualTime - this.currentTime);
 
-                        if (drift > driftThreshold) {
-                            // Drift correction without logging (high frequency operation)
-                            nodes.audioElement.currentTime = this.currentTime;
+                            if (drift > driftThreshold) {
+                                // Drift correction without logging (high frequency operation)
+                                nodes.audioElement.currentTime = this.currentTime;
+                            }
                         }
-                    }
-                });
-
-                // Handle loop with synchronized restart using seek
-                if (this.loopEnabled && this.loopStart !== null && this.loopEnd !== null) {
-                    if (this.currentTime >= this.loopEnd - 0.05) {
-                        // Use seek for synchronized loop back
-                        this.seek(this.loopStart, false);
-                    }
+                    });
                 }
 
-                // Stop at end (only if loop is not enabled)
-                if (!this.loopEnabled && this.currentTime >= this.totalDuration) {
+                // Handle loop with synchronized restart using seek
+                // Handle loop with synchronized restart using seek
+                const activeLoop = this.loops.find(l =>
+                    l.enabled &&
+                    this.currentTime >= l.start &&
+                    this.currentTime < l.end
+                );
+
+                if (activeLoop && this.currentTime >= activeLoop.end - 0.05) {
+                    // Use seek for synchronized loop back
+                    this.seek(activeLoop.start, false);
+                }
+
+                // Stop at end (only if not in an active loop)
+                if (!activeLoop && this.currentTime >= this.totalDuration) {
                     this.stop();
 
                     // Notify app that song ended (only once)

@@ -696,10 +696,6 @@
                     <span class="loading-text">Carregando waveform</span>
                     <span class="loading-subtext">Por favor, aguarde...</span>
                 </div>
-                <!-- Effects Layer -->
-                <div class="effects-layer" id="effectsLayer">
-                    <!-- Effect blocks will be rendered here -->
-                </div>
                 <!-- Click Indicator -->
                 <div class="click-indicator" id="clickIndicator"></div>
             </div>
@@ -713,8 +709,8 @@
                     <h4 class="popover-title">Adicionar Efeito</h4>
                     <p class="popover-time" id="popoverTime">0:00</p>
                     <div class="popover-actions">
-                        <label class="popover-btn upload-btn disabled">
-                            <input type="file" id="effectFileInput" accept="audio/*" style="display: none;" disabled>
+                        <label class="popover-btn upload-btn">
+                            <input type="file" id="effectFileInput" accept="audio/*" style="display: none;">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                                 <polyline points="17 8 12 3 7 8"></polyline>
@@ -760,6 +756,9 @@
             <div class="master-side-panel">
                 <button class="control-btn pad-btn" id="padBtn" aria-label="PAD">
                     <span>PAD</span>
+                </button>
+                <button class="control-btn speed-btn" id="speedBtn" aria-label="Velocidade" title="Velocidade">
+                    <span id="speedBtnText">1.0x</span>
                 </button>
                 <button class="control-btn loop-indicator-btn" id="loopIndicatorBtn" aria-label="Limpar Loop" title="Limpar Loop">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1746,6 +1745,275 @@
                         </svg>
                         Inscrever-se como Criador
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SPEED CONTROL MODAL -->
+    <div class="modal-overlay" id="speedModal">
+        <div class="modal speed-modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Velocidade de Reprodução</h3>
+                <button class="modal-close" id="speedModalClose" aria-label="Fechar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="speed-control-container">
+                    <div class="speed-current-display">
+                        <span class="speed-value" id="speedValue">1.0x</span>
+                    </div>
+                    <div class="speed-fader-container">
+                        <button class="speed-btn-decrease" id="speedDecreaseBtn" aria-label="Diminuir velocidade">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                        </button>
+                        <div class="speed-fader">
+                            <input type="range" class="speed-fader-input" id="speedFader" min="0.5" max="2.0" step="0.05" value="1.0">
+                            <div class="speed-fader-track">
+                                <div class="speed-fader-fill" id="speedFaderFill"></div>
+                            </div>
+                            <div class="speed-fader-thumb" id="speedFaderThumb"></div>
+                        </div>
+                        <button class="speed-btn-increase" id="speedIncreaseBtn" aria-label="Aumentar velocidade">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="speed-presets">
+                        <button class="speed-preset-btn" data-speed="0.5">0.5x</button>
+                        <button class="speed-preset-btn" data-speed="0.75">0.75x</button>
+                        <button class="speed-preset-btn active" data-speed="1.0">1.0x</button>
+                        <button class="speed-preset-btn" data-speed="1.25">1.25x</button>
+                        <button class="speed-preset-btn" data-speed="1.5">1.5x</button>
+                        <button class="speed-preset-btn" data-speed="2.0">2.0x</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Onboarding Modal -->
+    <div class="onboarding-overlay" id="onboardingOverlay" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
+        <div class="onboarding-container">
+            <div class="onboarding-content">
+                <!-- Step 1: Welcome -->
+                <div class="onboarding-step" data-step="1">
+                    <div class="onboarding-visual">
+                        <div class="onboarding-logo">W.Tracks</div>
+                        <div class="onboarding-multitrack">
+                            <div class="onboarding-track">
+                                <div class="onboarding-waveform"></div>
+                                <div class="onboarding-meter"></div>
+                            </div>
+                            <div class="onboarding-track">
+                                <div class="onboarding-waveform"></div>
+                                <div class="onboarding-meter"></div>
+                            </div>
+                            <div class="onboarding-track">
+                                <div class="onboarding-waveform"></div>
+                                <div class="onboarding-meter"></div>
+                            </div>
+                            <div class="onboarding-track">
+                                <div class="onboarding-waveform"></div>
+                                <div class="onboarding-meter"></div>
+                            </div>
+                            <div class="onboarding-track">
+                                <div class="onboarding-waveform"></div>
+                                <div class="onboarding-meter"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="onboarding-text">
+                        <h2 class="onboarding-title" id="onboardingTitle">Bem-vindo ao W.Tracks</h2>
+                        <p class="onboarding-description">O seu espaço para organizar, preparar e tocar projetos multitrack com mais controle e praticidade.</p>
+                        <p class="onboarding-subtext">Vamos mostrar rapidamente como tudo funciona.</p>
+                    </div>
+                </div>
+
+                <!-- Step 2: Library -->
+                <div class="onboarding-step" data-step="2">
+                    <div class="onboarding-visual">
+                        <div class="onboarding-library-visual">
+                            <div class="onboarding-library-header">
+                                <div class="onboarding-library-title">Biblioteca</div>
+                                <div class="onboarding-library-search"></div>
+                            </div>
+                            <div class="onboarding-library-grid">
+                                <div class="onboarding-library-card"></div>
+                                <div class="onboarding-library-card"></div>
+                                <div class="onboarding-library-card"></div>
+                                <div class="onboarding-library-card"></div>
+                            </div>
+                            <div class="onboarding-library-filters">
+                                <div class="onboarding-filter"></div>
+                                <div class="onboarding-filter"></div>
+                                <div class="onboarding-filter"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="onboarding-text">
+                        <h2 class="onboarding-title">Sua biblioteca</h2>
+                        <p class="onboarding-description">Na Biblioteca, você encontra seus projetos e músicas em um único lugar. Use a busca, filtros e favoritos para encontrar rapidamente o que precisa.</p>
+                    </div>
+                </div>
+
+                <!-- Step 3: Multitrack Player -->
+                <div class="onboarding-step" data-step="3">
+                    <div class="onboarding-visual">
+                        <div class="onboarding-player-visual">
+                            <div class="onboarding-player-track">
+                                <div class="onboarding-player-waveform"></div>
+                                <div class="onboarding-player-controls">
+                                    <div class="onboarding-player-volume"></div>
+                                    <div class="onboarding-player-mute"></div>
+                                    <div class="onboarding-player-solo"></div>
+                                </div>
+                            </div>
+                            <div class="onboarding-player-track">
+                                <div class="onboarding-player-waveform"></div>
+                                <div class="onboarding-player-controls">
+                                    <div class="onboarding-player-volume"></div>
+                                    <div class="onboarding-player-mute"></div>
+                                    <div class="onboarding-player-solo"></div>
+                                </div>
+                            </div>
+                            <div class="onboarding-player-track">
+                                <div class="onboarding-player-waveform"></div>
+                                <div class="onboarding-player-controls">
+                                    <div class="onboarding-player-volume"></div>
+                                    <div class="onboarding-player-mute"></div>
+                                    <div class="onboarding-player-solo"></div>
+                                </div>
+                            </div>
+                            <div class="onboarding-master">
+                                <div class="onboarding-master-label">MASTER</div>
+                                <div class="onboarding-master-volume"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="onboarding-text">
+                        <h2 class="onboarding-title">Controle cada faixa</h2>
+                        <p class="onboarding-description">Cada faixa pode ser controlada individualmente, permitindo ajustar a mix durante a reprodução. Volume, mute, solo e pan para cada canal.</p>
+                    </div>
+                </div>
+
+                <!-- Step 4: Loop and Speed -->
+                <div class="onboarding-step" data-step="4">
+                    <div class="onboarding-visual">
+                        <div class="onboarding-timeline-visual">
+                            <div class="onboarding-timeline">
+                                <div class="onboarding-timeline-waveform"></div>
+                                <div class="onboarding-loop-marker onboarding-loop-start"></div>
+                                <div class="onboarding-loop-marker onboarding-loop-end"></div>
+                                <div class="onboarding-playhead"></div>
+                            </div>
+                            <div class="onboarding-speed-control">
+                                <div class="onboarding-speed-label">1.0x</div>
+                                <div class="onboarding-speed-bar"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="onboarding-text">
+                        <h2 class="onboarding-title">Estude cada trecho com precisão</h2>
+                        <p class="onboarding-description">Crie loops para repetir trechos específicos e ajuste a velocidade de reprodução para estudar, ensaiar ou preparar uma música com mais precisão.</p>
+                    </div>
+                </div>
+
+                <!-- Step 5: Metronome -->
+                <div class="onboarding-step" data-step="5">
+                    <div class="onboarding-visual">
+                        <div class="onboarding-metronome-visual">
+                            <div class="onboarding-bpm-display">
+                                <div class="onboarding-bpm-value">120</div>
+                                <div class="onboarding-bpm-label">BPM</div>
+                            </div>
+                            <div class="onboarding-time-signature">
+                                <div class="onboarding-time-numerator">4</div>
+                                <div class="onboarding-time-divider">/</div>
+                                <div class="onboarding-time-denominator">4</div>
+                            </div>
+                            <div class="onboarding-tap-tempo">
+                                <div class="onboarding-tap-label">TAP TEMPO</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="onboarding-text">
+                        <h2 class="onboarding-title">Tenha o tempo sob controle</h2>
+                        <p class="onboarding-description">Defina o BPM, escolha a fórmula de compasso e use o metrônomo para manter o tempo durante seus estudos e ensaios.</p>
+                    </div>
+                </div>
+
+                <!-- Step 6: Setlists, Community, My Tracks -->
+                <div class="onboarding-step" data-step="6">
+                    <div class="onboarding-visual">
+                        <div class="onboarding-features-visual">
+                            <div class="onboarding-feature-card">
+                                <div class="onboarding-feature-icon">📋</div>
+                                <div class="onboarding-feature-title">Setlists</div>
+                                <div class="onboarding-feature-desc">Organize suas músicas em setlists</div>
+                            </div>
+                            <div class="onboarding-feature-card">
+                                <div class="onboarding-feature-icon">🌐</div>
+                                <div class="onboarding-feature-title">Comunidade</div>
+                                <div class="onboarding-feature-desc">Descubra tracks disponíveis</div>
+                            </div>
+                            <div class="onboarding-feature-card">
+                                <div class="onboarding-feature-icon">🎵</div>
+                                <div class="onboarding-feature-title">Minhas Tracks</div>
+                                <div class="onboarding-feature-desc">Gerencie seus projetos</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="onboarding-text">
+                        <h2 class="onboarding-title">Mais do que um player</h2>
+                        <p class="onboarding-description">Além do player multitrack, você tem acesso a setlists para organizar apresentações, comunidade para descobrir novos tracks e gerenciamento completo dos seus projetos.</p>
+                    </div>
+                </div>
+
+                <!-- Step 7: Ready -->
+                <div class="onboarding-step" data-step="7">
+                    <div class="onboarding-visual">
+                        <div class="onboarding-ready-visual">
+                            <div class="onboarding-ready-icon">✓</div>
+                            <div class="onboarding-ready-tracks">
+                                <div class="onboarding-ready-track"></div>
+                                <div class="onboarding-ready-track"></div>
+                                <div class="onboarding-ready-track"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="onboarding-text">
+                        <h2 class="onboarding-title">Tudo pronto.</h2>
+                        <p class="onboarding-description">Agora você já conhece o essencial para começar a usar o W.Tracks.</p>
+                        <p class="onboarding-subtext">Explore sua biblioteca, abra um projeto e comece a trabalhar com suas tracks.</p>
+                    </div>
+                </div>
+
+                <!-- Navigation -->
+                <div class="onboarding-navigation">
+                    <div class="onboarding-progress">
+                        <div class="onboarding-progress-indicator" data-step="1">●</div>
+                        <div class="onboarding-progress-indicator" data-step="2">○</div>
+                        <div class="onboarding-progress-indicator" data-step="3">○</div>
+                        <div class="onboarding-progress-indicator" data-step="4">○</div>
+                        <div class="onboarding-progress-indicator" data-step="5">○</div>
+                        <div class="onboarding-progress-indicator" data-step="6">○</div>
+                        <div class="onboarding-progress-indicator" data-step="7">○</div>
+                    </div>
+                    <div class="onboarding-step-counter">1 / 7</div>
+                    <div class="onboarding-buttons">
+                        <button class="onboarding-btn onboarding-btn-back" id="onboardingBackBtn" disabled>Voltar</button>
+                        <button class="onboarding-btn onboarding-btn-next" id="onboardingNextBtn">Próximo</button>
+                        <button class="onboarding-btn onboarding-btn-complete" id="onboardingCompleteBtn" style="display: none;">Começar a usar o W.Tracks</button>
+                    </div>
                 </div>
             </div>
         </div>

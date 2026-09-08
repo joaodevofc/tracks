@@ -89,6 +89,9 @@
   }
 </script>
 
+<!-- Plan Utilities -->
+<script src="planUtils.js"></script>
+
 <style>
 :root{
   --bg:#000000;
@@ -569,6 +572,93 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;}
     display:none;
   }
 }
+
+/* Modal Overlay */
+.modal-overlay{
+  display:none;
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  bottom:0;
+  background:rgba(0,0,0,0.85);
+  backdrop-filter:blur(8px);
+  z-index:1000;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+}
+.modal-overlay.active{
+  display:flex;
+}
+.modal-content{
+  background:var(--bg-elevated);
+  border:1px solid var(--border-md);
+  border-radius:var(--radius-md);
+  max-width:600px;
+  width:100%;
+  max-height:90vh;
+  overflow-y:auto;
+  padding:32px;
+  box-shadow:0 20px 60px rgba(0,0,0,0.5);
+}
+
+/* Form Response Styles */
+.form-response-section{
+  margin-bottom:24px;
+}
+.form-response-section-title{
+  font-family:var(--font-display);
+  font-size:0.9rem;
+  font-weight:600;
+  color:var(--white);
+  margin-bottom:12px;
+  text-transform:uppercase;
+  letter-spacing:0.05em;
+}
+.form-response-field{
+  margin-bottom:16px;
+}
+.form-response-label{
+  font-size:0.85rem;
+  color:var(--muted);
+  margin-bottom:4px;
+}
+.form-response-value{
+  font-size:0.95rem;
+  color:var(--white-dim);
+  font-family:var(--font-body);
+}
+.form-response-value.empty{
+  color:var(--subtle);
+  font-style:italic;
+}
+
+/* Formulários Table Specific */
+#tab-formularios .table-header {
+  grid-template-columns: 60px 1fr 140px 100px 140px 140px 100px;
+}
+#tab-formularios .table-row {
+  grid-template-columns: 60px 1fr 140px 100px 140px 140px 100px;
+}
+.form-badge{
+  display:inline-block;
+  padding:4px 8px;
+  border-radius:4px;
+  font-size:0.75rem;
+  font-weight:600;
+  text-transform:uppercase;
+}
+.form-badge-answered{
+  background:rgba(74,222,128,0.1);
+  color:#4ade80;
+  border:1px solid rgba(74,222,128,0.3);
+}
+.form-badge-not-answered{
+  background:rgba(107,107,107,0.1);
+  color:var(--subtle);
+  border:1px solid var(--border);
+}
 </style>
 </head>
 <body>
@@ -648,6 +738,16 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;}
         <line x1="2" y1="10" x2="22" y2="10"/>
       </svg>
       Checkout
+    </div>
+    <div class="nav-item" data-tab="formularios" onclick="switchTab('formularios')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+        <polyline points="10 9 9 9 8 9"/>
+      </svg>
+      Formulários
     </div>
   </nav>
   
@@ -1105,6 +1205,85 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;}
       </div>
     </div>
   </div>
+
+    <!-- Formulários Tab -->
+    <div class="tab-content" id="tab-formularios">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="label">Total de Testes</div>
+          <div class="value" id="formTotal">0</div>
+          <div class="change">Usuários no formulário</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Responderam</div>
+          <div class="value" id="formAnswered">0</div>
+          <div class="change positive">Responderam pesquisa</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Não Responderam</div>
+          <div class="value" id="formNotAnswered">0</div>
+          <div class="change">Apenas contato</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Taxa de Resposta</div>
+          <div class="value" id="formRate">0%</div>
+          <div class="change">Percentual de resposta</div>
+        </div>
+      </div>
+
+      <div class="search-bar">
+        <input type="text" class="search-input" id="searchFormularios" placeholder="Buscar por email ou telefone..." oninput="filterFormularios()">
+      </div>
+
+      <div class="actions-bar">
+        <button class="btn btn-primary" onclick="loadFormularios()">Atualizar</button>
+        <button class="btn btn-secondary" onclick="exportFormularios()">Exportar CSV</button>
+        <div style="display:flex;gap:8px;margin-left:auto;">
+          <button class="btn btn-secondary" onclick="setFormFilter('all')" id="filterAll">Todos</button>
+          <button class="btn btn-secondary" onclick="setFormFilter('answered')" id="filterAnswered">Respondidos</button>
+          <button class="btn btn-secondary" onclick="setFormFilter('notAnswered')" id="filterNotAnswered">Não Respondidos</button>
+        </div>
+      </div>
+
+      <div class="data-table">
+        <div class="table-header" style="grid-template-columns: 60px 1fr 140px 100px 140px 100px;">
+          <span>#</span>
+          <span>E-mail</span>
+          <span>Telefone</span>
+          <span>Pesquisa</span>
+          <span>Perguntas</span>
+          <span>Data</span>
+          <span>Ações</span>
+        </div>
+        <div id="allFormularios">
+          <div class="loading">Carregando formulários...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Form Response Modal -->
+    <div class="modal-overlay" id="formResponseModal" style="display:none;">
+      <div class="modal-content" style="max-width:600px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+          <h2 style="font-family:var(--font-display);font-size:1.3rem;color:var(--white);">Resposta do formulário</h2>
+          <button onclick="closeFormResponseModal()" style="padding:8px;color:var(--muted);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        <div id="formResponseContent">
+          <!-- Content will be populated dynamically -->
+        </div>
+
+        <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;">
+          <button class="btn btn-secondary" onclick="closeFormResponseModal()">Fechar</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </main>
 
 <script>
@@ -1137,7 +1316,8 @@ function switchTab(tabName){
     'comunidade': 'Gerenciar Comunidade',
     'suporte': 'Gerenciar Suporte',
     'analytics': 'Analytics',
-    'checkout': 'Configuração do Checkout'
+    'checkout': 'Configuração do Checkout',
+    'formularios': 'Formulários'
   };
   document.getElementById('pageTitle').textContent = titles[tabName];
 
@@ -1162,6 +1342,8 @@ function switchTab(tabName){
     loadAnalytics();
   } else if(tabName === 'checkout'){
     loadCheckoutConfig();
+  } else if(tabName === 'formularios'){
+    loadFormularios();
   }
   
   // Close mobile sidebar
@@ -2736,6 +2918,7 @@ let contasCache = [];
 let contasUnsubscribeListener = null;
 
 // Setup real-time listener for contas
+// Check if a Studio plan is expired based on expiration dates
 function setupContasRealtimeListener(){
   if (!window.firebaseDB) {
     console.warn('[FIREBASE] Not available for contas realtime');
@@ -2770,6 +2953,28 @@ function setupContasRealtimeListener(){
         const paymentOrigin = data.paymentOrigin || null;
         const statusPagamento = data.statusPagamento || null;
         const validadeAcesso = data.validadeAcesso || null;
+        const trialExpiresAt = data.trialExpiresAt || null;
+
+        // Check if Studio plan is expired and update Firestore if needed
+        if (plan === 'Studio' && isPlanExpired(data)) {
+          console.log('[EQUIPE] User has expired Studio plan, updating to Home:', doc.id);
+          
+          // Update Firestore immediately
+          window.firebaseDB.updateDoc(
+            window.firebaseDB.doc(window.firebaseDB.db, 'users', doc.id),
+            {
+              plan: 'home',
+              plano: 'home', // Migrate to single field
+              statusPagamento: 'expirado'
+            }
+          ).catch(error => {
+            console.error('[EQUIPE] Failed to update expired plan:', error);
+          });
+          
+          // Update local object for immediate UI feedback
+          plan = 'Home';
+          statusPagamento = 'expirado';
+        }
 
         contasCache.push({
           id: doc.id,
@@ -2852,6 +3057,28 @@ async function loadContasFromFirebase(){
       const paymentOrigin = data.paymentOrigin || null;
       const statusPagamento = data.statusPagamento || null;
       const validadeAcesso = data.validadeAcesso || null;
+      const trialExpiresAt = data.trialExpiresAt || null;
+
+      // Check if Studio plan is expired and update Firestore if needed
+      if (plan === 'Studio' && isPlanExpired(data)) {
+        console.log('[EQUIPE] User has expired Studio plan, updating to Home:', doc.id);
+        
+        // Update Firestore immediately
+        window.firebaseDB.updateDoc(
+          window.firebaseDB.doc(window.firebaseDB.db, 'users', doc.id),
+          {
+            plan: 'home',
+            plano: 'home', // Migrate to single field
+            statusPagamento: 'expirado'
+          }
+        ).catch(error => {
+          console.error('[EQUIPE] Failed to update expired plan:', error);
+        });
+        
+        // Update local object for immediate UI feedback
+        plan = 'Home';
+        statusPagamento = 'expirado';
+      }
 
       contasCache.push({
         id: doc.id,
@@ -3402,6 +3629,406 @@ async function exportContas(){
   a.download = 'wtracks_contas_' + new Date().toISOString().split('T')[0] + '.csv';
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// Formulários Functions
+let formulariosCache = [];
+let formulariosUnsubscribeListener = null;
+let currentFormFilter = 'all';
+
+// Load formularios from Firebase
+async function loadFormulariosFromFirebase(){
+  if (!window.firebaseDB) {
+    console.warn('[FIREBASE] Not available for formularios');
+    return [];
+  }
+
+  try {
+    console.log('[FORMULARIOS] Loading from trialForms collection...');
+    const formsCollection = window.firebaseDB.collection(window.firebaseDB.db, 'trialForms');
+    const snapshot = await window.firebaseDB.getDocs(formsCollection);
+    console.log('[FORMULARIOS] Total documents:', snapshot.size);
+
+    formulariosCache = [];
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      formulariosCache.push({
+        id: doc.id,
+        uid: data.uid || null,
+        email: data.email || 'Email não informado',
+        phone: data.phone || 'Telefone não informado',
+        intendedUse: data.intendedUse || null,
+        experienceLevel: data.experienceLevel || null,
+        whatToTest: data.whatToTest || null,
+        usesSimilarTool: data.usesSimilarTool || null,
+        similarToolName: data.similarToolName || null,
+        retentionReason: data.retentionReason || null,
+        formAnswered: data.formAnswered || false,
+        questionsAnswered: data.questionsAnswered || 0,
+        totalOptionalQuestions: data.totalOptionalQuestions || 5,
+        submittedAt: data.submittedAt || data.createdAt || null,
+        updatedAt: data.updatedAt || null
+      });
+    });
+
+    formulariosCache.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+    console.log('[FORMULARIOS] Loaded', formulariosCache.length, 'forms');
+    return formulariosCache;
+  } catch (error) {
+    console.error('[FORMULARIOS] Error loading forms:', error);
+    return [];
+  }
+}
+
+// Load and render formularios
+async function loadFormularios(){
+  const container = document.getElementById('allFormularios');
+  container.innerHTML = '<div class="loading">Carregando formulários...</div>';
+
+  // Setup real-time listener if not already set up
+  if (!formulariosUnsubscribeListener) {
+    setupFormulariosRealtimeListener();
+  }
+
+  // If we already have data in cache, render it immediately
+  if (formulariosCache.length > 0) {
+    renderFormularios(formulariosCache);
+  }
+}
+
+// Setup real-time listener for formularios
+function setupFormulariosRealtimeListener(){
+  if (!window.firebaseDB) {
+    console.warn('[FORMULARIOS] Firebase not available for real-time listener');
+    return;
+  }
+
+  try {
+    if (formulariosUnsubscribeListener) {
+      formulariosUnsubscribeListener();
+    }
+
+    const formsCollection = window.firebaseDB.collection(window.firebaseDB.db, 'trialForms');
+    const q = window.firebaseDB.query(formsCollection, window.firebaseDB.orderBy('submittedAt', 'desc'));
+
+    formulariosUnsubscribeListener = window.firebaseDB.onSnapshot(q, (snapshot) => {
+      console.log('[FORMULARIOS] Real-time update received, docs:', snapshot.size);
+      
+      formulariosCache = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        formulariosCache.push({
+          id: doc.id,
+          uid: data.uid || null,
+          email: data.email || 'Email não informado',
+          phone: data.phone || 'Telefone não informado',
+          intendedUse: data.intendedUse || null,
+          experienceLevel: data.experienceLevel || null,
+          whatToTest: data.whatToTest || null,
+          usesSimilarTool: data.usesSimilarTool || null,
+          similarToolName: data.similarToolName || null,
+          retentionReason: data.retentionReason || null,
+          formAnswered: data.formAnswered || false,
+          questionsAnswered: data.questionsAnswered || 0,
+          totalOptionalQuestions: data.totalOptionalQuestions || 5,
+          submittedAt: data.submittedAt || data.createdAt || null,
+          updatedAt: data.updatedAt || null
+        });
+      });
+
+      // Update stats and table
+      updateFormStats();
+      
+      // Apply current filter and render
+      const searchTerm = document.getElementById('searchFormularios')?.value.toLowerCase() || '';
+      const filtered = filterFormulariosData(formulariosCache, searchTerm, currentFormFilter);
+      renderFormularios(filtered);
+
+      console.log('[FORMULARIOS] Real-time update complete');
+    }, (error) => {
+      console.error('[FORMULARIOS] Real-time listener error:', error);
+    });
+
+    console.log('[FORMULARIOS] Real-time listener setup complete');
+  } catch (error) {
+    console.error('[FORMULARIOS] Error setting up real-time listener:', error);
+  }
+}
+
+// Update form statistics
+function updateFormStats(){
+  const total = formulariosCache.length;
+  const answered = formulariosCache.filter(f => f.formAnswered).length;
+  const notAnswered = total - answered;
+  const rate = total > 0 ? ((answered / total) * 100).toFixed(1) : '0';
+
+  document.getElementById('formTotal').textContent = total;
+  document.getElementById('formAnswered').textContent = answered;
+  document.getElementById('formNotAnswered').textContent = notAnswered;
+  document.getElementById('formRate').textContent = rate + '%';
+}
+
+// Filter formularios data
+function filterFormulariosData(data, searchTerm, filter){
+  let filtered = data;
+
+  // Apply search filter
+  if (searchTerm) {
+    filtered = filtered.filter(form =>
+      form.email.toLowerCase().includes(searchTerm) ||
+      form.phone.toLowerCase().includes(searchTerm)
+    );
+  }
+
+  // Apply status filter
+  if (filter === 'answered') {
+    filtered = filtered.filter(form => form.formAnswered);
+  } else if (filter === 'notAnswered') {
+    filtered = filtered.filter(form => !form.formAnswered);
+  }
+
+  return filtered;
+}
+
+// Render formularios table
+function renderFormularios(forms){
+  const container = document.getElementById('allFormularios');
+
+  if (forms.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+        <h3>Nenhum formulário encontrado</h3>
+        <p>Nenhum usuário completou o formulário ainda.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = forms.map((form, index) => {
+    const date = form.submittedAt ? new Date(form.submittedAt).toLocaleString('pt-BR') : 'Data não informada';
+    const badgeClass = form.formAnswered ? 'form-badge-answered' : 'form-badge-not-answered';
+    const badgeText = form.formAnswered ? '✓ Respondido' : '— Não respondeu';
+
+    return `
+      <div class="table-row">
+        <div class="table-cell id">${index + 1}</div>
+        <div class="table-cell email">${escapeHtml(form.email)}</div>
+        <div class="table-cell date">${escapeHtml(form.phone)}</div>
+        <div class="table-cell">
+          <span class="form-badge ${badgeClass}">${badgeText}</span>
+        </div>
+        <div class="table-cell">${form.questionsAnswered}/${form.totalOptionalQuestions}</div>
+        <div class="table-cell date">${date}</div>
+        <div class="table-cell actions">
+          <button class="action-btn" onclick="viewFormResponse('${form.id}')">Ver</button>
+          <button class="action-btn delete" onclick="deleteForm('${form.id}')">Excluir</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// Filter formularios (search input handler)
+function filterFormularios(){
+  const searchTerm = document.getElementById('searchFormularios')?.value.toLowerCase() || '';
+  const filtered = filterFormulariosData(formulariosCache, searchTerm, currentFormFilter);
+  renderFormularios(filtered);
+}
+
+// Set form filter
+function setFormFilter(filter){
+  currentFormFilter = filter;
+  
+  // Update button styles
+  document.querySelectorAll('#filterAll, #filterAnswered, #filterNotAnswered').forEach(btn => {
+    btn.classList.remove('btn-primary');
+    btn.classList.add('btn-secondary');
+  });
+  
+  const activeBtn = document.getElementById('filter' + filter.charAt(0).toUpperCase() + filter.slice(1));
+  if (activeBtn) {
+    activeBtn.classList.remove('btn-secondary');
+    activeBtn.classList.add('btn-primary');
+  }
+
+  // Re-render with new filter
+  filterFormularios();
+}
+
+// View form response
+function viewFormResponse(formId){
+  const form = formulariosCache.find(f => f.id === formId);
+  if (!form) {
+    alert('Formulário não encontrado');
+    return;
+  }
+
+  const date = form.submittedAt ? new Date(form.submittedAt).toLocaleString('pt-BR') : 'Data não informada';
+
+  const questionLabels = {
+    intendedUse: 'Como você pretende usar o W.Tracks?',
+    experienceLevel: 'Qual é o seu nível de experiência?',
+    whatToTest: 'O que você mais quer testar durante os 7 dias?',
+    usesSimilarTool: 'Você já utiliza alguma ferramenta parecida?',
+    retentionReason: 'O que faria você continuar usando o W.Tracks depois dos 7 dias?'
+  };
+
+  let content = `
+    <div class="form-response-section">
+      <div class="form-response-section-title">CONTATO</div>
+      <div class="form-response-field">
+        <div class="form-response-label">E-mail</div>
+        <div class="form-response-value">${escapeHtml(form.email)}</div>
+      </div>
+      <div class="form-response-field">
+        <div class="form-response-label">Telefone</div>
+        <div class="form-response-value">${escapeHtml(form.phone)}</div>
+      </div>
+    </div>
+  `;
+
+  if (form.formAnswered) {
+    content += `
+      <div class="form-response-section">
+        <div class="form-response-section-title">PESQUISA</div>
+    `;
+
+    Object.keys(questionLabels).forEach(key => {
+      const value = form[key];
+      content += `
+        <div class="form-response-field">
+          <div class="form-response-label">${questionLabels[key]}</div>
+          <div class="form-response-value ${value ? '' : 'empty'}">${value ? escapeHtml(value) : 'Não respondido'}</div>
+        </div>
+      `;
+    });
+
+    if (form.usesSimilarTool === 'sim' && form.similarToolName) {
+      content += `
+        <div class="form-response-field">
+          <div class="form-response-label">Qual ferramenta?</div>
+          <div class="form-response-value">${escapeHtml(form.similarToolName)}</div>
+        </div>
+      `;
+    }
+
+    content += `
+      </div>
+      <div class="form-response-section">
+        <div class="form-response-field">
+          <div class="form-response-label">Respondidas</div>
+          <div class="form-response-value">${form.questionsAnswered} de ${form.totalOptionalQuestions}</div>
+        </div>
+        <div class="form-response-field">
+          <div class="form-response-label">Data de preenchimento</div>
+          <div class="form-response-value">${date}</div>
+        </div>
+      </div>
+    `;
+  } else {
+    content += `
+      <div class="form-response-section">
+        <div class="form-response-section-title">PESQUISA</div>
+        <div class="form-response-field">
+          <div class="form-response-value empty">Este usuário optou por não responder às perguntas.</div>
+        </div>
+      </div>
+      <div class="form-response-section">
+        <div class="form-response-field">
+          <div class="form-response-label">Data de preenchimento</div>
+          <div class="form-response-value">${date}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  document.getElementById('formResponseContent').innerHTML = content;
+  document.getElementById('formResponseModal').style.display = 'flex';
+}
+
+// Close form response modal
+function closeFormResponseModal(){
+  document.getElementById('formResponseModal').style.display = 'none';
+}
+
+// Delete form
+async function deleteForm(formId){
+  if (!confirm('Tem certeza que deseja excluir este formulário? Esta ação não pode ser desfeita.')) {
+    return;
+  }
+
+  try {
+    const formRef = window.firebaseDB.doc(window.firebaseDB.db, 'trialForms', formId);
+    await window.firebaseDB.deleteDoc(formRef);
+    console.log('[FORMULARIOS] Form deleted:', formId);
+    alert('Formulário excluído com sucesso!');
+    // Real-time listener will update the UI automatically
+  } catch (error) {
+    console.error('[FORMULARIOS] Error deleting form:', error);
+    alert('Erro ao excluir formulário: ' + error.message);
+  }
+}
+
+// Export formularios to CSV
+async function exportFormularios(){
+  if (formulariosCache.length === 0) {
+    alert('Não há formulários para exportar');
+    return;
+  }
+
+  const headers = ['Email', 'Telefone', 'Pesquisa Respondida', 'Perguntas Respondidas', 'Uso do W.Tracks', 'Nível de Experiência', 'Objetivo', 'Ferramenta Similar', 'Qual Ferramenta', 'Motivo para Continuar', 'Data'];
+  
+  const rows = formulariosCache.map(form => {
+    const date = form.submittedAt ? new Date(form.submittedAt).toLocaleString('pt-BR') : '';
+    const answered = form.formAnswered ? 'Sim' : 'Não';
+    
+    // Escape CSV values
+    const escape = (val) => {
+      if (val === null || val === undefined) return '';
+      const str = String(val);
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    return [
+      escape(form.email),
+      escape(form.phone),
+      escape(answered),
+      escape(`${form.questionsAnswered}/${form.totalOptionalQuestions}`),
+      escape(form.intendedUse || ''),
+      escape(form.experienceLevel || ''),
+      escape(form.whatToTest || ''),
+      escape(form.usesSimilarTool || ''),
+      escape(form.similarToolName || ''),
+      escape(form.retentionReason || ''),
+      escape(date)
+    ].join(',');
+  });
+
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'wtracks_formularios_' + new Date().toISOString().split('T')[0] + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Escape HTML helper
+function escapeHtml(text){
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 // Initialize

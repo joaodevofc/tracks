@@ -35,6 +35,50 @@ service cloud.firestore {
                      isAdmin()
                      || request.auth.uid == userId
                    );
+
+      // ============================================================
+      // USER PROJECTS (Cross-Device Sync)
+      // ============================================================
+      
+      match /projects/{projectId} {
+        // Usuário pode ler seus próprios projetos
+        // Admin pode ler todos os projetos
+        allow read: if request.auth != null
+                    && (
+                      isAdmin()
+                      || request.auth.uid == userId
+                    );
+
+        // Usuário pode criar/alterar/excluir seus próprios projetos
+        // Admin pode gerenciar qualquer projeto
+        allow write: if request.auth != null
+                     && (
+                       isAdmin()
+                       || request.auth.uid == userId
+                     );
+      }
+
+      // ============================================================
+      // USER PLAYLISTS (Cross-Device Sync)
+      // ============================================================
+      
+      match /playlists/{playlistId} {
+        // Usuário pode ler suas próprias playlists
+        // Admin pode ler todas as playlists
+        allow read: if request.auth != null
+                    && (
+                      isAdmin()
+                      || request.auth.uid == userId
+                    );
+
+        // Usuário pode criar/alterar/excluir suas próprias playlists
+        // Admin pode gerenciar qualquer playlist
+        allow write: if request.auth != null
+                     && (
+                       isAdmin()
+                       || request.auth.uid == userId
+                     );
+      }
     }
 
 
@@ -241,7 +285,7 @@ service cloud.firestore {
 
 
     // ============================================================
-    // PROJECTS
+    // PROJECTS (Legacy - Mantido para compatibilidade)
     // ============================================================
 
     match /projects/{projectId} {
@@ -309,6 +353,50 @@ service cloud.firestore {
 
       // Usuário pode deletar o próprio token.
       // Admin pode deletar qualquer token.
+      allow delete: if request.auth != null
+                     && (
+                       isAdmin()
+                       || resource.data.uid == request.auth.uid
+                     );
+    }
+
+
+    // ============================================================
+    // TRIAL FORMS
+    // ============================================================
+
+    match /trialForms/{formId} {
+
+      // Admin pode ler todos os formulários.
+      // Usuário pode ler o próprio formulário (se o uid bater).
+      allow read: if request.auth != null
+                  && (
+                    isAdmin()
+                    || resource.data.uid == request.auth.uid
+                  );
+
+      // Usuário autenticado pode criar formulário com seu próprio UID.
+      // Admin pode criar formulários para qualquer usuário.
+      allow create: if request.auth != null
+                    && (
+                      isAdmin()
+                      || request.resource.data.uid == request.auth.uid
+                    );
+
+      // Usuário pode atualizar o próprio formulário.
+      // Admin pode atualizar qualquer formulário.
+      // Verifica tanto o documento existente quanto o novo para impedir troca de proprietário.
+      allow update: if request.auth != null
+                    && (
+                      isAdmin()
+                      || (
+                        resource.data.uid == request.auth.uid
+                        && request.resource.data.uid == request.auth.uid
+                      )
+                    );
+
+      // Admin pode excluir qualquer formulário.
+      // Usuário pode excluir o próprio formulário.
       allow delete: if request.auth != null
                      && (
                        isAdmin()

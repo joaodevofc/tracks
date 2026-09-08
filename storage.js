@@ -105,6 +105,9 @@ class Track {
         this.endTime = data.endTime || 0;
         this.waveform = data.waveform || null;
         this.offset = data.offset || 0;
+        this.isEffect = data.isEffect || false; // Flag for effect tracks
+        this.effectStartTime = data.effectStartTime || null; // Start time for effect tracks
+        this.effectDuration = data.effectDuration || null; // Duration for effect tracks
     }
     
     generateId() {
@@ -138,7 +141,10 @@ class Track {
             startTime: this.startTime,
             endTime: this.endTime,
             waveform: this.waveform,
-            offset: this.offset
+            offset: this.offset,
+            isEffect: this.isEffect,
+            effectStartTime: this.effectStartTime,
+            effectDuration: this.effectDuration
         };
         
         console.log('[STORAGE] Track.toJSON result has audioFileId:', !!json.audioFileId, 'Value:', json.audioFileId);

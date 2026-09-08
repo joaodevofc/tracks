@@ -29,6 +29,9 @@ class MultracksApp {
         // Community favorites
         this.communityFavorites = [];
         
+        // Cached user ID to avoid repeated Firebase Auth queries
+        this.cachedUserId = undefined;
+        
         // Storage state management
         this.storageReady = false; // Track when storage is fully loaded
         this.storageLoadPromise = null; // Track the ongoing storage load
@@ -45,6 +48,13 @@ class MultracksApp {
         
         // Make audioStorage globally accessible for storage.js
         window.audioStorage = this.audioStorage;
+        
+        // Onboarding state
+        this.onboardingCurrentStep = 1;
+        this.onboardingTotalSteps = 7;
+        this.onboardingActive = false;
+        this.onboardingCheckInProgress = false;
+        this.onboardingOpened = false;
         
         // Pad system
         this.availablePads = [
@@ -130,9 +140,8 @@ class MultracksApp {
         this.padTransitionDuration = 500; // ms for smooth transitions
         
         // Loop point marking state
-        this.loopPointA = null;
-        this.loopPointB = null;
-        this.loopEnabled = false;
+        this.loops = []; // Array of loop objects: { id, start, end, enabled }
+        this.pendingLoopStart = null; // Temporary state for marking in progress
         this.loopMarkingStartTime = null;
         this.loopHoldTimer = null;
         this.LOOP_HOLD_THRESHOLD = 450; // ms to trigger loop marking mode
@@ -210,12 +219,22 @@ class MultracksApp {
         this.initMyTracks();
         this.initSetlists();
         this.initPWAExternalLinks();
+        this.initOnboardingModal();
         
         // Initialize loop indicator button
         const loopIndicatorBtn = document.getElementById('loopIndicatorBtn');
         if (loopIndicatorBtn) {
             loopIndicatorBtn.addEventListener('click', () => this.handleLoopIndicatorClick());
         }
+
+        // Initialize speed control button
+        const speedBtn = document.getElementById('speedBtn');
+        if (speedBtn) {
+            speedBtn.addEventListener('click', () => this.handleSpeedButtonClick());
+        }
+
+        // Initialize speed modal controls
+        this.initSpeedModalControls();
 
         // Wait for storage to load before rendering
         console.log('[APP] Starting initial storage load...');
@@ -754,18 +773,30 @@ class MultracksApp {
     }
 
     getCurrentUserId() {
+        // Use cached user ID to avoid repeated Firebase Auth queries
+        if (this.cachedUserId !== undefined) {
+            return this.cachedUserId;
+        }
+        
         if (window.firebaseAuth && window.firebaseAuth.auth) {
             const user = window.firebaseAuth.auth.currentUser;
             if (user) {
                 console.log('[APP] Current user ID:', user.uid, 'Email:', user.email);
+                this.cachedUserId = user.uid; // Cache the user ID
                 return user.uid;
             } else {
                 console.log('[APP] No user logged in (currentUser is null)');
+                this.cachedUserId = null; // Cache null result
             }
         } else {
             console.log('[APP] Firebase Auth not available');
+            this.cachedUserId = null; // Cache null result
         }
         return null;
+    }
+    
+    clearUserIdCache() {
+        this.cachedUserId = undefined;
     }
 
     async getUserPlan() {
@@ -780,6 +811,10 @@ class MultracksApp {
             const userDoc = await getDoc(doc(db, 'users', userId));
             if (userDoc.exists()) {
                 const userData = userDoc.data();
+                
+                // TEMPORARY LOG: Debug plan field inconsistency
+                console.log('[getUserPlan] DEBUG - userData.plan:', userData.plan, 'userData.plano:', userData.plano);
+                
                 // Check both 'plan' and 'plano' fields for compatibility
                 let plan = userData.plan || userData.plano || 'Home';
                 // Map old plan values to new system
@@ -797,6 +832,7 @@ class MultracksApp {
                     // Don't await to avoid blocking - this is a background sync
                     updateDoc(doc(db, 'users', userId), {
                         plan: 'home',
+                        plano: 'home', // Migrate to single field
                         statusPagamento: 'expirado'
                     }).catch(error => {
                         console.warn('[getUserPlan] Failed to update expired plan in Firestore:', error);
@@ -827,6 +863,7 @@ class MultracksApp {
                         const userRef = querySnapshot.docs[0].ref;
                         updateDoc(userRef, {
                             plan: 'home',
+                            plano: 'home', // Migrate to single field
                             statusPagamento: 'expirado'
                         }).catch(error => {
                             console.warn('[getUserPlan] Failed to update expired plan in Firestore:', error);
@@ -1556,11 +1593,14 @@ class MultracksApp {
         console.log('[APP] Loading project to player:', project.name);
         
         // Reset loop state when loading new project
-        this.loopPointA = null;
-        this.loopPointB = null;
-        this.loopEnabled = false;
+        this.loops = [];
+        this.pendingLoopStart = null;
         this.clearLoopVisuals();
         this.updateLoopIndicatorBtn();
+        
+        // Reset playback speed to 1.0x when loading new project
+        this.playbackSpeed = 1.0;
+        this.updateSpeedButton();
         
         // Stop any current playback and cleanup
         if (this.audioPlayer) {
@@ -2070,9 +2110,6 @@ class MultracksApp {
             this.audioPlayer.stop();
         }
         
-        // Clear effects when returning to library
-        this.clearAllEffects();
-        
         // Hide effect popover if open
         this.hideEffectPopover();
         this.hideClickIndicator();
@@ -2137,7 +2174,6 @@ class MultracksApp {
         this.masterFader = document.getElementById('masterFader');
         
         // Effects management
-        this.effectsLayer = document.getElementById('effectsLayer');
         this.clickIndicator = document.getElementById('clickIndicator');
         this.effectPopover = document.getElementById('effectPopover');
         this.effectFileInput = document.getElementById('effectFileInput');
@@ -2145,7 +2181,6 @@ class MultracksApp {
         this.popoverTime = document.getElementById('popoverTime');
         
         // Effects data storage
-        this.effects = []; // Array to store effect objects
         this.currentClickTime = null; // Store current click position in seconds
         
         // Timeline scrubbing/dragging
@@ -2217,6 +2252,9 @@ class MultracksApp {
         this.metronomePan = 0;
         this.metronomeMuted = false;
         this.metronomeSolo = false;
+
+        // Initialize playback speed state
+        this.playbackSpeed = 1.0; // Default speed (1.0x)
 
         // Master solo state
         this.masterSoloEnabled = false;
@@ -2545,6 +2583,7 @@ class MultracksApp {
         channel.innerHTML = `
             <div class="track-header">
                 <div class="track-name">${this.escapeHtml(track.name)}</div>
+                ${track.isEffect ? `<button class="track-remove-btn" data-track-id="${track.id}" title="Remover efeito">×</button>` : ''}
             </div>
             <div class="track-controls">
                 <button class="track-btn mute-btn ${track.mute ? 'active' : ''}" data-action="mute" ${isLocked ? 'disabled' : ''}>M</button>
@@ -2709,6 +2748,19 @@ class MultracksApp {
             // Check if faders are modified to update indicator light
             this.checkFadersModified();
         });
+        
+        // Add remove button event listener for effect tracks
+        if (track.isEffect) {
+            const removeBtn = channel.querySelector('.track-remove-btn');
+            if (removeBtn) {
+                removeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (confirm('Remover este efeito?')) {
+                        this.removeEffectTrack(track.id);
+                    }
+                });
+            }
+        }
         
         return channel;
     }
@@ -3128,7 +3180,6 @@ class MultracksApp {
         });
         
         // Save project and reload
-        this.saveProjectEffects(); // Save effects along with project
         storage.updateProject(this.currentProject.id, this.currentProject);
         this.renderMixer();
         this.loadProjectAudio();
@@ -3200,6 +3251,11 @@ class MultracksApp {
             console.log('[APP] Calling audioPlayer.loadProject() for:', this.currentProject.name);
             await this.audioPlayer.loadProject(this.currentProject);
             console.log('[APP] ✅ Project audio loaded successfully');
+            
+            // Reset playback speed to 1.0x when loading new project audio
+            this.playbackSpeed = 1.0;
+            this.updateSpeedButton();
+            
             this.hidePlayerLoading();
             this.renderWaveform();
             
@@ -3304,7 +3360,6 @@ class MultracksApp {
             
             // Save project with cached waveform
             await storage.updateProject(this.currentProject.id, { waveformData: waveformData });
-            this.saveProjectEffects(); // Save effects with waveform
         } catch (error) {
             console.error('[APP] Error generating waveform:', error);
             this.drawPlaceholderWaveform(ctx, canvas.width, canvas.height);
@@ -3330,11 +3385,88 @@ class MultracksApp {
         this.updateEffectPositions();
     }
     
+    updateEffectPositions() {
+        // Remove existing effect markers
+        const timelineWaveform = document.getElementById('timelineWaveform');
+        if (!timelineWaveform) return;
+        
+        const existingMarkers = timelineWaveform.querySelectorAll('.effect-marker');
+        existingMarkers.forEach(marker => marker.remove());
+        
+        // Create markers for each effect track
+        this.currentProject.tracks.forEach(track => {
+            if (track.isEffect && track.effectStartTime !== undefined && track.effectDuration !== undefined) {
+                const leftPercent = (track.effectStartTime / this.totalDuration) * 100;
+                const widthPercent = (track.effectDuration / this.totalDuration) * 100;
+                
+                const marker = document.createElement('div');
+                marker.className = 'effect-marker';
+                marker.dataset.trackId = track.id;
+                marker.style.cssText = `
+                    position: absolute;
+                    left: ${leftPercent}%;
+                    top: 0;
+                    bottom: 0;
+                    width: ${widthPercent}%;
+                    background: rgba(138, 43, 226, 0.3);
+                    border: 1px solid rgba(138, 43, 226, 0.6);
+                    z-index: 10;
+                    pointer-events: auto;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                `;
+                
+                // Add label
+                const label = document.createElement('div');
+                label.className = 'effect-marker-label';
+                label.textContent = track.name;
+                label.style.cssText = `
+                    position: absolute;
+                    top: 2px;
+                    left: 2px;
+                    background: rgba(138, 43, 226, 0.8);
+                    color: white;
+                    padding: 2px 6px;
+                    border-radius: 3px;
+                    font-size: 10px;
+                    font-weight: bold;
+                    white-space: nowrap;
+                    pointer-events: none;
+                `;
+                
+                marker.appendChild(label);
+                
+                // Add click handler to remove effect
+                marker.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (confirm(`Remover ${track.name}?`)) {
+                        this.removeEffectTrack(track.id);
+                    }
+                });
+                
+                // Add hover effect
+                marker.addEventListener('mouseenter', () => {
+                    marker.style.background = 'rgba(138, 43, 226, 0.5)';
+                    marker.style.borderColor = 'rgba(138, 43, 226, 0.8)';
+                });
+                
+                marker.addEventListener('mouseleave', () => {
+                    marker.style.background = 'rgba(138, 43, 226, 0.3)';
+                    marker.style.borderColor = 'rgba(138, 43, 226, 0.6)';
+                });
+                
+                timelineWaveform.appendChild(marker);
+            }
+        });
+        
+        console.log('[EFFECTS] Updated effect markers on timeline');
+    }
+    
     async generateWaveformData(width) {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         
-        // Concurrency limit for parallel processing
-        const CONCURRENCY = 4;
+        // Concurrency limit for parallel processing - reduced to 1 to prevent memory spikes on tablets
+        const CONCURRENCY = 1;
         
         try {
             // Get all tracks with files from the current project
@@ -3396,7 +3528,216 @@ class MultracksApp {
         }
     }
     
+    // Check if WebCodecs AudioDecoder is supported for MP3
+    async supportsAudioDecoder() {
+        if (!('AudioDecoder' in window)) return false;
+        try {
+            const support = await AudioDecoder.isConfigSupported({
+                codec: 'mp3',
+                sampleRate: 44100,
+                numberOfChannels: 2
+            });
+            return support.supported;
+        } catch {
+            return false;
+        }
+    }
+
+    // Parse MP3 frames from a buffer - returns complete frames and remaining bytes
+    extractMp3Frames(buffer) {
+        const frames = [];
+        let offset = 0;
+
+        while (offset < buffer.length - 4) {
+            // Look for MP3 sync word (0xFFE)
+            if (buffer[offset] === 0xFF && (buffer[offset + 1] & 0xE0) === 0xE0) {
+                const header1 = buffer[offset];
+                const header2 = buffer[offset + 1];
+
+                // Parse MP3 header to determine frame size
+                const versionBits = (header2 >> 3) & 0x03;
+                const layerBits = (header2 >> 1) & 0x03;
+                const bitrateIndex = (buffer[offset + 2] >> 4) & 0x0F;
+                const samplingRateIndex = (buffer[offset + 2] >> 2) & 0x03;
+                const paddingBit = (buffer[offset + 2] >> 1) & 0x01;
+
+                // Valid MP3 frame check
+                if (layerBits === 1 && bitrateIndex !== 0 && bitrateIndex !== 15 && samplingRateIndex !== 3) {
+                    // Calculate frame size based on MP3 spec
+                    const bitrates = [
+                        [0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, 0],
+                        [0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, 0],
+                        [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0],
+                        [0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256, 0]
+                    ];
+                    const sampleRates = [
+                        [44100, 48000, 32000, 0],
+                        [44100, 48000, 32000, 0],
+                        [22050, 24000, 16000, 0],
+                        [11025, 12000, 8000, 0]
+                    ];
+
+                    const bitrate = bitrates[versionBits][bitrateIndex] * 1000;
+                    const sampleRate = sampleRates[versionBits][samplingRateIndex];
+                    const samplesPerFrame = layerBits === 3 ? 1152 : 576;
+
+                    const frameSize = Math.floor((samplesPerFrame / 8 * bitrate) / sampleRate) + paddingBit;
+
+                    // Check if we have enough bytes for a complete frame
+                    if (offset + frameSize <= buffer.length) {
+                        frames.push(buffer.slice(offset, offset + frameSize));
+                        offset += frameSize;
+                        continue;
+                    }
+                }
+            }
+            offset++;
+        }
+
+        return {
+            frames,
+            remaining: buffer.slice(offset)
+        };
+    }
+
+    // Concatenate Uint8Arrays
+    concatUint8Arrays(a, b) {
+        const result = new Uint8Array(a.length + b.length);
+        result.set(a, 0);
+        result.set(b, a.length);
+        return result;
+    }
+
     async processTrackForWaveform(track, width) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioContext = null;
+
+        try {
+            // Check if we can use streaming decode
+            const useStreaming = await this.supportsAudioDecoder();
+            
+            if (useStreaming) {
+                return await this.processTrackForWaveformStreaming(track, width);
+            } else {
+                console.log('[APP] WebCodecs not supported, falling back to legacy decode');
+                return await this.processTrackForWaveformLegacy(track, width);
+            }
+        } catch (error) {
+            console.warn('[APP] Error in streaming decode, falling back to legacy:', error);
+            return await this.processTrackForWaveformLegacy(track, width);
+        }
+    }
+
+    async processTrackForWaveformStreaming(track, width) {
+        const peaks = new Array(width).fill(0);
+        let elapsedTime = 0;
+        let totalSamples = 0;
+        let leftover = new Uint8Array(0);
+        let decodeComplete = false;
+        let pendingFrames = 0;
+        
+        return new Promise((resolve, reject) => {
+            try {
+                // Create AudioDecoder
+                const decoder = new AudioDecoder({
+                    output: (audioFrame) => {
+                        pendingFrames++;
+                        try {
+                            const numberOfFrames = audioFrame.numberOfFrames;
+                            const copyOptions = { planeIndex: 0, frameCount: numberOfFrames };
+                            const byteSize = audioFrame.allocationSize(copyOptions);
+                            const channelData = new Float32Array(byteSize / Float32Array.BYTES_PER_ELEMENT);
+                            audioFrame.copyTo(channelData, copyOptions);
+
+                            const frameDuration = numberOfFrames / audioFrame.sampleRate;
+                            const pixelIndex = Math.floor((elapsedTime / this.totalDuration) * width);
+                            if (pixelIndex >= 0 && pixelIndex < width) {
+                                let max = 0;
+                                for (let i = 0; i < channelData.length; i++) {
+                                    const sample = Math.abs(channelData[i]);
+                                    if (sample > max) max = sample;
+                                }
+                                peaks[pixelIndex] = Math.max(peaks[pixelIndex], max);
+                            }
+
+                            elapsedTime += frameDuration;
+                            totalSamples += numberOfFrames;
+                        } catch (e) {
+                            console.error('[APP] Error processing decoded audio frame:', e);
+                        } finally {
+                            audioFrame.close();
+                            pendingFrames--;
+                        }
+                    },
+                    error: (error) => {
+                        console.error('[APP] AudioDecoder error:', error);
+                        reject(error);
+                    }
+                });
+
+                // Configure decoder for MP3
+                decoder.configure({
+                    codec: 'mp3',
+                    sampleRate: 44100,
+                    numberOfChannels: 2
+                });
+
+                // Process the stream
+                const processStream = async () => {
+                    try {
+                        const reader = track.file.stream().getReader();
+                        
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+
+                            // Concatenate leftover bytes with new chunk
+                            const buffer = this.concatUint8Arrays(leftover, value);
+                            
+                            // Extract complete MP3 frames
+                            const { frames, remaining } = this.extractMp3Frames(buffer);
+                            leftover = remaining;
+
+                            // Decode each frame
+                            for (const frame of frames) {
+                                const encodedChunk = new EncodedAudioChunk({
+                                    type: 'key',
+                                    timestamp: elapsedTime * 1000000, // microseconds
+                                    data: frame
+                                });
+                                
+                                decoder.decode(encodedChunk);
+                            }
+                        }
+
+                        // Wait for all pending decodes to complete
+                        await decoder.flush();
+                        
+                        // Wait a bit for any remaining frames to be processed
+                        let attempts = 0;
+                        while (pendingFrames > 0 && attempts < 100) {
+                            await new Promise(resolve => setTimeout(resolve, 10));
+                            attempts++;
+                        }
+                        
+                        await decoder.close();
+
+                        console.log('[APP] Streaming waveform complete for:', track.name, 'samples:', totalSamples);
+                        resolve({ peaks, trackSamples: totalSamples });
+                    } catch (error) {
+                        console.warn('[APP] Streaming decode failed for:', track.name, error);
+                        reject(error);
+                    }
+                };
+
+                processStream();
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
+
+    async processTrackForWaveformLegacy(track, width) {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         let audioContext = null;
         
@@ -3565,51 +3906,79 @@ class MultracksApp {
         try {
             console.log('[EFFECTS] Processing effect file:', file.name);
             
-            // Create temporary URL for the file
-            const audioUrl = URL.createObjectURL(file);
+            // Get total duration from current project
+            const totalDuration = this.totalDuration;
+            if (!totalDuration) {
+                throw new Error('Não é possível adicionar efeito: projeto sem duração definida');
+            }
             
-            // Load audio to get duration
-            const audio = new Audio(audioUrl);
+            // Decode the effect file
+            const arrayBuffer = await file.arrayBuffer();
+            const effectBuffer = await this.audioPlayer.audioContext.decodeAudioData(arrayBuffer);
             
-            await new Promise((resolve, reject) => {
-                audio.addEventListener('loadedmetadata', () => {
-                    console.log('[EFFECTS] Effect duration:', audio.duration);
-                    resolve();
-                });
-                
-                audio.addEventListener('error', (error) => {
-                    console.error('[EFFECTS] Error loading audio:', error);
-                    reject(new Error('Não foi possível carregar o arquivo de áudio'));
-                });
-            });
+            console.log('[EFFECTS] Effect decoded:', effectBuffer.duration, 'seconds');
             
-            // Calculate effect timing
+            // Calculate timing
             const startTime = this.currentClickTime;
-            const duration = audio.duration;
-            const endTime = startTime + duration;
+            const effectDuration = effectBuffer.duration;
             
-            // Create effect object
-            const effect = {
+            // Create OfflineAudioContext for padding
+            const offlineContext = new OfflineAudioContext(
+                effectBuffer.numberOfChannels,
+                Math.ceil(totalDuration * effectBuffer.sampleRate),
+                effectBuffer.sampleRate
+            );
+            
+            // Create buffer source for the effect
+            const effectSource = offlineContext.createBufferSource();
+            effectSource.buffer = effectBuffer;
+            effectSource.connect(offlineContext.destination);
+            
+            // Start the effect at the correct time
+            effectSource.start(startTime);
+            
+            // Render the padded buffer
+            const paddedBuffer = await offlineContext.startRendering();
+            
+            console.log('[EFFECTS] Padded buffer created:', paddedBuffer.duration, 'seconds');
+            
+            // Convert to WAV
+            const wavBlob = this.audioBufferToWav(paddedBuffer);
+            
+            // Count existing effect tracks
+            const effectCount = this.currentProject.tracks.filter(t => t.isEffect).length;
+            
+            // Create track object
+            const track = {
                 id: 'effect-' + Date.now(),
-                fileName: file.name,
-                startTime: startTime,
-                duration: duration,
-                endTime: endTime,
-                fileBlob: file,
-                audioUrl: audioUrl
+                name: `Efeito ${effectCount + 1}`,
+                file: wavBlob,
+                volume: 1,
+                pan: 0,
+                mute: false,
+                solo: false,
+                isEffect: true,
+                effectStartTime: startTime,
+                effectDuration: effectDuration
             };
             
-            // Add to effects array
-            this.effects.push(effect);
+            // Add to project tracks
+            this.currentProject.tracks.push(track);
             
-            // Render effect block on timeline
-            this.renderEffectBlock(effect);
+            // Load track in player
+            await this.audioPlayer.loadTrack(track);
+            
+            // Re-render mixer
+            this.renderMixer();
+            
+            // Update effect markers on timeline
+            this.updateEffectPositions();
             
             // Hide popover and indicator
             this.hideEffectPopover();
             this.hideClickIndicator();
             
-            console.log('[EFFECTS] Effect added successfully:', effect);
+            console.log('[EFFECTS] Effect track added successfully:', track);
             
         } catch (error) {
             console.error('[EFFECTS] Error processing effect file:', error);
@@ -3618,103 +3987,66 @@ class MultracksApp {
             this.hideClickIndicator();
         }
     }
-    
-    renderEffectBlock(effect) {
-        const block = document.createElement('div');
-        block.className = 'effect-block';
-        block.dataset.effectId = effect.id;
-        
-        // Calculate position and width based on timeline
-        const canvasWidth = this.currentCanvasWidth || this.waveformCanvas.width;
-        const totalDuration = this.totalDuration;
-        
-        const leftPercent = (effect.startTime / totalDuration) * 100;
-        const widthPercent = (effect.duration / totalDuration) * 100;
-        
-        block.style.left = `${leftPercent}%`;
-        block.style.width = `${widthPercent}%`;
-        
-        // Create block content
-        block.innerHTML = `
-            <div class="effect-block-content">
-                ${effect.fileName}
-            </div>
-            <button class="effect-block-remove" title="Remover efeito">×</button>
-        `;
-        
-        // Add remove functionality
-        const removeBtn = block.querySelector('.effect-block-remove');
-        removeBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.removeEffect(effect.id);
-        });
-        
-        // Add click to play effect
-        block.addEventListener('click', (e) => {
-            if (!e.target.classList.contains('effect-block-remove')) {
-                this.playEffect(effect);
-            }
-        });
-        
-        // Add to effects layer
-        this.effectsLayer.appendChild(block);
-    }
-    
-    removeEffect(effectId) {
-        // Remove from array
-        const index = this.effects.findIndex(e => e.id === effectId);
-        if (index > -1) {
-            const effect = this.effects[index];
+
+    /**
+     * Remove an effect track from the project
+     * @param {string} trackId - The ID of the effect track to remove
+     */
+    async removeEffectTrack(trackId) {
+        try {
+            console.log('[EFFECTS] Removing effect track:', trackId);
             
-            // Clean up audio URL
-            if (effect.audioUrl) {
-                URL.revokeObjectURL(effect.audioUrl);
+            // Find the track
+            const trackIndex = this.currentProject.tracks.findIndex(t => t.id === trackId);
+            if (trackIndex === -1) {
+                console.warn('[EFFECTS] Track not found:', trackId);
+                return;
             }
             
-            this.effects.splice(index, 1);
-        }
-        
-        // Remove from DOM
-        const block = this.effectsLayer.querySelector(`[data-effect-id="${effectId}"]`);
-        if (block) {
-            block.remove();
-        }
-        
-        console.log('[EFFECTS] Effect removed:', effectId);
-    }
-    
-    playEffect(effect) {
-        console.log('[EFFECTS] Playing effect:', effect.fileName);
-        
-        // Create audio element for playback
-        const audio = new Audio(effect.audioUrl);
-        
-        // Play at the correct time if player is running
-        if (this.audioPlayer && this.audioPlayer.isPlaying) {
-            const currentTime = this.audioPlayer.getCurrentTime();
-            const delay = (effect.startTime - currentTime) * 1000;
+            const track = this.currentProject.tracks[trackIndex];
             
-            if (delay > 0) {
-                // Schedule to play at the right time
-                setTimeout(() => {
-                    if (this.audioPlayer.isPlaying) {
-                        audio.play();
+            // Verify it's an effect track
+            if (!track.isEffect) {
+                console.warn('[EFFECTS] Track is not an effect track:', trackId);
+                return;
+            }
+            
+            // Remove from player trackNodes
+            if (this.audioPlayer.trackNodes.has(trackId)) {
+                const trackNode = this.audioPlayer.trackNodes.get(trackId);
+                
+                // Pause the audio element
+                if (trackNode.audioElement) {
+                    trackNode.audioElement.pause();
+                    trackNode.audioElement.currentTime = 0;
+                    
+                    // Revoke object URL
+                    if (trackNode.objectUrl) {
+                        URL.revokeObjectURL(trackNode.objectUrl);
                     }
-                }, delay);
-            } else if (delay > -effect.duration * 1000) {
-                // Effect should be playing now
-                audio.currentTime = -delay / 1000;
-                audio.play();
+                }
+                
+                // Delete from trackNodes
+                this.audioPlayer.trackNodes.delete(trackId);
+                console.log('[EFFECTS] Removed from player trackNodes');
             }
-        } else {
-            // Just play immediately if player is stopped
-            audio.play();
+            
+            // Remove from project tracks
+            this.currentProject.tracks.splice(trackIndex, 1);
+            console.log('[EFFECTS] Removed from project tracks');
+            
+            // Re-render mixer
+            this.renderMixer();
+            
+            // Update effect markers on timeline
+            this.updateEffectPositions();
+            
+            console.log('[EFFECTS] Effect track removed successfully:', trackId);
+            
+        } catch (error) {
+            console.error('[EFFECTS] Error removing effect track:', error);
+            alert('Erro ao remover efeito: ' + error.message);
         }
-        
-        // Clean up after playback
-        audio.addEventListener('ended', () => {
-            URL.revokeObjectURL(effect.audioUrl);
-        });
     }
     
     formatTime(seconds) {
@@ -3723,109 +4055,65 @@ class MultracksApp {
         const ms = Math.floor((seconds % 1) * 100);
         return `${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
     }
-    
-    clearAllEffects() {
-        // Clean up all audio URLs
-        this.effects.forEach(effect => {
-            if (effect.audioUrl) {
-                URL.revokeObjectURL(effect.audioUrl);
+
+    /**
+     * Encode AudioBuffer to WAV format
+     * @param {AudioBuffer} buffer - The AudioBuffer to encode
+     * @returns {Blob} WAV file as Blob
+     */
+    audioBufferToWav(buffer) {
+        const numChannels = buffer.numberOfChannels;
+        const sampleRate = buffer.sampleRate;
+        const format = 1; // PCM
+        const bitDepth = 16;
+        
+        const bytesPerSample = bitDepth / 8;
+        const blockAlign = numChannels * bytesPerSample;
+        
+        const dataLength = buffer.length * blockAlign;
+        const bufferLength = 44 + dataLength;
+        
+        const arrayBuffer = new ArrayBuffer(bufferLength);
+        const view = new DataView(arrayBuffer);
+        
+        // WAV header
+        const writeString = (offset, string) => {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
             }
-        });
+        };
         
-        // Clear array
-        this.effects = [];
+        writeString(0, 'RIFF');
+        view.setUint32(4, 36 + dataLength, true);
+        writeString(8, 'WAVE');
+        writeString(12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, format, true);
+        view.setUint16(22, numChannels, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * blockAlign, true);
+        view.setUint16(32, blockAlign, true);
+        view.setUint16(34, bitDepth, true);
+        writeString(36, 'data');
+        view.setUint32(40, dataLength, true);
         
-        // Clear DOM
-        this.effectsLayer.innerHTML = '';
-        
-        console.log('[EFFECTS] All effects cleared');
-    }
-    
-    loadProjectEffects(project) {
-        // Load effects from project data if they exist
-        if (project.effects && Array.isArray(project.effects)) {
-            project.effects.forEach(effectData => {
-                // Recreate audio URL from stored blob or data
-                let audioUrl;
-                if (effectData.fileBlob) {
-                    audioUrl = URL.createObjectURL(effectData.fileBlob);
-                } else if (effectData.audioData) {
-                    // Handle base64 or other stored audio data
-                    const blob = this.base64ToBlob(effectData.audioData);
-                    audioUrl = URL.createObjectURL(blob);
-                }
-                
-                const effect = {
-                    id: effectData.id,
-                    fileName: effectData.fileName,
-                    startTime: effectData.startTime,
-                    duration: effectData.duration,
-                    endTime: effectData.endTime,
-                    fileBlob: effectData.fileBlob,
-                    audioUrl: audioUrl
-                };
-                
-                this.effects.push(effect);
-                this.renderEffectBlock(effect);
-            });
-            
-            console.log('[EFFECTS] Loaded', project.effects.length, 'effects from project');
-        }
-    }
-    
-    saveProjectEffects() {
-        // Save current effects to project
-        if (this.currentProject) {
-            const effectsData = this.effects.map(effect => ({
-                id: effect.id,
-                fileName: effect.fileName,
-                startTime: effect.startTime,
-                duration: effect.duration,
-                endTime: effect.endTime,
-                fileBlob: effect.fileBlob
-                // Note: We don't save audioUrl as it's recreated from blob
-            }));
-            
-            this.currentProject.effects = effectsData;
-            
-            // Save to storage
-            storage.updateProject(this.currentProject.id, { effects: effectsData });
-            
-            console.log('[EFFECTS] Saved', effectsData.length, 'effects to project');
-        }
-    }
-    
-    base64ToBlob(base64Data) {
-        // Helper to convert base64 audio data back to blob
-        const parts = base64Data.split(',');
-        const mimeType = parts[0].match(/:(.*?);/)[1];
-        const decodedData = atob(parts[1]);
-        const uint8Array = new Uint8Array(decodedData.length);
-        
-        for (let i = 0; i < decodedData.length; i++) {
-            uint8Array[i] = decodedData.charCodeAt(i);
+        // Write audio data
+        const channels = [];
+        for (let i = 0; i < numChannels; i++) {
+            channels.push(buffer.getChannelData(i));
         }
         
-        return new Blob([uint8Array], { type: mimeType });
-    }
-    
-    updateEffectPositions() {
-        // Update all effect block positions when timeline size changes
-        const canvasWidth = this.waveformCanvas.width;
-        const totalDuration = this.totalDuration;
-        
-        this.effects.forEach(effect => {
-            const block = this.effectsLayer.querySelector(`[data-effect-id="${effect.id}"]`);
-            if (block) {
-                const leftPercent = (effect.startTime / totalDuration) * 100;
-                const widthPercent = (effect.duration / totalDuration) * 100;
-                
-                block.style.left = `${leftPercent}%`;
-                block.style.width = `${widthPercent}%`;
+        let offset = 44;
+        for (let i = 0; i < buffer.length; i++) {
+            for (let channel = 0; channel < numChannels; channel++) {
+                const sample = Math.max(-1, Math.min(1, channels[channel][i]));
+                const intSample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+                view.setInt16(offset, intSample, true);
+                offset += 2;
             }
-        });
+        }
         
-        console.log('[EFFECTS] Updated effect positions');
+        return new Blob([arrayBuffer], { type: 'audio/wav' });
     }
     
     // ========================================
@@ -3932,63 +4220,82 @@ class MultracksApp {
         
         console.log('[LOOP] Loop marking triggered at time:', timeInSeconds, 'seconds');
         
-        // If both points exist, reset and start new marking
-        if (this.loopPointA !== null && this.loopPointB !== null) {
-            console.log('[LOOP] Resetting loop points');
-            this.loopPointA = null;
-            this.loopPointB = null;
-            this.loopEnabled = false;
-            this.clearLoopVisuals();
-            this.updateLoopIndicatorBtn();
-        }
-        
-        // Set point A if not exists
-        if (this.loopPointA === null) {
-            this.loopPointA = timeInSeconds;
-            console.log('[LOOP] Point A set to:', this.loopPointA, 'seconds');
+        // Estado temporário de marcação em andamento
+        if (this.pendingLoopStart === null || this.pendingLoopStart === undefined) {
+            // primeiro toque: marca o início do novo loop
+            this.pendingLoopStart = timeInSeconds;
             this.showLoopMarker(x, 'A');
-        } 
-        // Set point B if A exists but B doesn't
-        else if (this.loopPointB === null) {
-            this.loopPointB = timeInSeconds;
-            console.log('[LOOP] Point B set to:', this.loopPointB, 'seconds');
-            
-            // Ensure A is always the smaller point
-            if (this.loopPointB < this.loopPointA) {
-                const temp = this.loopPointA;
-                this.loopPointA = this.loopPointB;
-                this.loopPointB = temp;
-                console.log('[LOOP] Swapped points - A:', this.loopPointA, 'B:', this.loopPointB);
-            }
-            
-            this.showLoopMarker(x, 'B');
-            this.showLoopRegion();
-            this.showLoopToggle();
-            this.updateLoopIndicatorBtn();
+            return;
         }
         
-        // Update audio player loop points
+        // segundo toque: fecha o loop e adiciona na lista
+        let start = this.pendingLoopStart;
+        let end = timeInSeconds;
+        if (end < start) [start, end] = [end, start];
+        
+        // Validate no overlap with existing loops
+        const hasOverlap = this.loops.some(loop => 
+            (start >= loop.start && start < loop.end) ||
+            (end > loop.start && end <= loop.end) ||
+            (start <= loop.start && end >= loop.end)
+        );
+        
+        if (hasOverlap) {
+            console.warn('[LOOP] Cannot create loop - overlaps with existing loop');
+            this.pendingLoopStart = null;
+            
+            // Clear pending markers
+            const markerA = document.getElementById('loopMarkerA');
+            const markerB = document.getElementById('loopMarkerB');
+            if (markerA) markerA.remove();
+            if (markerB) markerB.remove();
+            
+            return;
+        }
+        
+        const newLoop = {
+            id: `loop_${Date.now()}`,
+            start,
+            end,
+            enabled: true
+        };
+        
+        this.loops.push(newLoop);
+        this.pendingLoopStart = null;
+        
+        // Clear pending markers
+        const markerA = document.getElementById('loopMarkerA');
+        const markerB = document.getElementById('loopMarkerB');
+        if (markerA) markerA.remove();
+        if (markerB) markerB.remove();
+        
+        this.showLoopRegion(newLoop);
+        this.showLoopToggle(newLoop);
+        this.updateLoopIndicatorBtn();
+        
         if (this.audioPlayer) {
-            this.audioPlayer.setLoopPoints(this.loopPointA, this.loopPointB);
+            this.audioPlayer.setLoops(this.loops);
         }
         
-        // Save loop state to project
         this.saveLoopState();
     }
     
-    showLoopMarker(x, point) {
+    showLoopMarker(x, point, loopId = null) {
         const timelineWaveform = document.getElementById('timelineWaveform');
         if (!timelineWaveform) return;
         
+        // For pending markers (A/B during marking), use the old IDs
+        const markerId = loopId ? `loopMarker-${loopId}-${point}` : `loopMarker${point}`;
+        
         // Remove existing marker for this point
-        const existingMarker = document.getElementById(`loopMarker${point}`);
+        const existingMarker = document.getElementById(markerId);
         if (existingMarker) {
             existingMarker.remove();
         }
         
         // Create new marker
         const marker = document.createElement('div');
-        marker.id = `loopMarker${point}`;
+        marker.id = markerId;
         marker.className = 'loop-marker';
         marker.style.cssText = `
             position: absolute;
@@ -4038,25 +4345,25 @@ class MultracksApp {
         timelineWaveform.appendChild(marker);
     }
     
-    showLoopRegion() {
+    showLoopRegion(loop) {
         const timelineWaveform = document.getElementById('timelineWaveform');
-        if (!timelineWaveform || this.loopPointA === null || this.loopPointB === null) return;
+        if (!timelineWaveform || !loop) return;
         
-        // Remove existing region
-        const existingRegion = document.getElementById('loopRegion');
+        // Remove existing region for this loop
+        const existingRegion = document.getElementById(`loopRegion-${loop.id}`);
         if (existingRegion) {
             existingRegion.remove();
         }
         
         // Calculate positions
         const canvasWidth = this.waveformCanvas.width;
-        const startX = (this.loopPointA / this.totalDuration) * canvasWidth;
-        const endX = (this.loopPointB / this.totalDuration) * canvasWidth;
+        const startX = (loop.start / this.totalDuration) * canvasWidth;
+        const endX = (loop.end / this.totalDuration) * canvasWidth;
         const width = endX - startX;
         
         // Create region
         const region = document.createElement('div');
-        region.id = 'loopRegion';
+        region.id = `loopRegion-${loop.id}`;
         region.className = 'loop-region';
         region.style.cssText = `
             position: absolute;
@@ -4066,31 +4373,67 @@ class MultracksApp {
             width: ${width}px;
             background: rgba(232, 230, 224, 0.15);
             z-index: 999;
-            pointer-events: none;
+            pointer-events: auto;
+            cursor: pointer;
         `;
+        
+        // Add long-press to delete loop (for touch/tablet)
+        let deleteHoldTimer = null;
+        let longPressTriggered = false;
+
+        region.addEventListener('pointerdown', (e) => {
+            longPressTriggered = false;
+            deleteHoldTimer = setTimeout(() => {
+                longPressTriggered = true;
+                this.deleteLoop(loop.id);
+            }, this.LOOP_HOLD_THRESHOLD);
+        });
+
+        region.addEventListener('pointerup', (e) => {
+            clearTimeout(deleteHoldTimer);
+        });
+
+        region.addEventListener('pointerleave', () => {
+            clearTimeout(deleteHoldTimer);
+        });
+
+        region.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Only toggle if long-press didn't already delete the loop
+            if (!longPressTriggered) {
+                this.toggleLoopEnabled(loop.id);
+            }
+        });
+
+        // Keep contextmenu for desktop mouse users
+        region.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.deleteLoop(loop.id);
+        });
         
         timelineWaveform.appendChild(region);
     }
     
-    showLoopToggle() {
+    showLoopToggle(loop) {
         const timelineWaveform = document.getElementById('timelineWaveform');
-        if (!timelineWaveform) return;
+        if (!timelineWaveform || !loop) return;
         
-        // Remove existing toggle
-        const existingToggle = document.getElementById('loopToggle');
+        // Remove existing toggle for this loop
+        const existingToggle = document.getElementById(`loopToggle-${loop.id}`);
         if (existingToggle) {
             existingToggle.remove();
         }
         
         // Calculate center position
         const canvasWidth = this.waveformCanvas.width;
-        const startX = (this.loopPointA / this.totalDuration) * canvasWidth;
-        const endX = (this.loopPointB / this.totalDuration) * canvasWidth;
+        const startX = (loop.start / this.totalDuration) * canvasWidth;
+        const endX = (loop.end / this.totalDuration) * canvasWidth;
         const centerX = startX + (endX - startX) / 2;
         
         // Create toggle button
         const toggle = document.createElement('button');
-        toggle.id = 'loopToggle';
+        toggle.id = `loopToggle-${loop.id}`;
         toggle.className = 'loop-toggle';
         toggle.innerHTML = `
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -4107,7 +4450,7 @@ class MultracksApp {
             transform: translate(-50%, -50%);
             width: 32px;
             height: 32px;
-            background: rgba(232, 230, 224, 0.9);
+            background: ${loop.enabled ? '#e8e6e0' : 'rgba(232, 230, 224, 0.9)'};
             border: 2px solid #e8e6e0;
             border-radius: 50%;
             cursor: pointer;
@@ -4124,58 +4467,134 @@ class MultracksApp {
         });
         
         toggle.addEventListener('mouseleave', () => {
-            toggle.style.background = 'rgba(232, 230, 224, 0.9)';
+            toggle.style.background = loop.enabled ? '#e8e6e0' : 'rgba(232, 230, 224, 0.9)';
             toggle.style.transform = 'translate(-50%, -50%) scale(1)';
         });
-        
+
+        // Add long-press to delete loop (for touch/tablet)
+        let deleteHoldTimer = null;
+        let longPressTriggered = false;
+
+        toggle.addEventListener('pointerdown', (e) => {
+            longPressTriggered = false;
+            deleteHoldTimer = setTimeout(() => {
+                longPressTriggered = true;
+                this.deleteLoop(loop.id);
+            }, this.LOOP_HOLD_THRESHOLD);
+        });
+
+        toggle.addEventListener('pointerup', (e) => {
+            clearTimeout(deleteHoldTimer);
+        });
+
+        toggle.addEventListener('pointerleave', () => {
+            clearTimeout(deleteHoldTimer);
+        });
+
         toggle.addEventListener('click', (e) => {
             e.stopPropagation();
-            this.toggleLoopEnabled();
+            // Only toggle if long-press didn't already delete the loop
+            if (!longPressTriggered) {
+                this.toggleLoopEnabled(loop.id);
+            }
+        });
+
+        // Keep contextmenu for desktop mouse users
+        toggle.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.deleteLoop(loop.id);
         });
         
         timelineWaveform.appendChild(toggle);
     }
     
-    async toggleLoopEnabled() {
+    async toggleLoopEnabled(loopId) {
         // Check if user is on home plan
         const userPlan = await this.getUserPlan();
-        if (userPlan === 'Home' && !this.loopEnabled) {
+        if (userPlan === 'Home') {
             // Trying to enable loop on home plan
             this.showUpgradeModal('Loop e seções');
             return;
         }
         
-        this.loopEnabled = !this.loopEnabled;
-        console.log('[LOOP] Loop enabled:', this.loopEnabled);
+        // Find the loop and toggle its enabled state
+        const loop = this.loops.find(l => l.id === loopId);
+        if (loop) {
+            loop.enabled = !loop.enabled;
+            console.log('[LOOP] Loop', loopId, 'enabled:', loop.enabled);
+            
+            // Update the toggle button visual
+            const toggle = document.getElementById(`loopToggle-${loopId}`);
+            if (toggle) {
+                if (loop.enabled) {
+                    toggle.style.background = '#e8e6e0';
+                    toggle.style.borderColor = '#e8e6e0';
+                } else {
+                    toggle.style.background = 'rgba(232, 230, 224, 0.9)';
+                    toggle.style.borderColor = '#e8e6e0';
+                }
+            }
+            
+            // Update audio player
+            if (this.audioPlayer) {
+                this.audioPlayer.setLoops(this.loops);
+            }
+            
+            // Save loop state
+            this.saveLoopState();
+        }
+    }
+    
+    deleteLoop(loopId) {
+        console.log('[LOOP] Deleting loop:', loopId);
+        
+        // Remove loop from array
+        this.loops = this.loops.filter(l => l.id !== loopId);
+        
+        // Remove visuals for this loop
+        const region = document.getElementById(`loopRegion-${loopId}`);
+        const toggle = document.getElementById(`loopToggle-${loopId}`);
+        const markerA = document.getElementById(`loopMarker-${loopId}-A`);
+        const markerB = document.getElementById(`loopMarker-${loopId}-B`);
+        
+        if (region) region.remove();
+        if (toggle) toggle.remove();
+        if (markerA) markerA.remove();
+        if (markerB) markerB.remove();
         
         // Update audio player
         if (this.audioPlayer) {
-            this.audioPlayer.toggleLoop(this.loopEnabled);
-        }
-        
-        // Update toggle button visual
-        const toggle = document.getElementById('loopToggle');
-        if (toggle) {
-            if (this.loopEnabled) {
-                toggle.style.background = '#e8e6e0';
-                toggle.style.borderColor = '#e8e6e0';
-            } else {
-                toggle.style.background = 'rgba(232, 230, 224, 0.5)';
-                toggle.style.borderColor = 'rgba(232, 230, 224, 0.5)';
-            }
+            this.audioPlayer.setLoops(this.loops);
         }
         
         // Save loop state
         this.saveLoopState();
+        
+        // Update indicator button
+        this.updateLoopIndicatorBtn();
     }
-    
     clearLoopVisuals() {
-        const elements = ['loopMarkerA', 'loopMarkerB', 'loopRegion', 'loopToggle'];
+        // Clear pending markers
+        const elements = ['loopMarkerA', 'loopMarkerB'];
         elements.forEach(id => {
             const element = document.getElementById(id);
             if (element) {
                 element.remove();
             }
+        });
+        
+        // Clear all loop-specific visuals
+        this.loops.forEach(loop => {
+            const region = document.getElementById(`loopRegion-${loop.id}`);
+            const toggle = document.getElementById(`loopToggle-${loop.id}`);
+            const markerA = document.getElementById(`loopMarker-${loop.id}-A`);
+            const markerB = document.getElementById(`loopMarker-${loop.id}-B`);
+            
+            if (region) region.remove();
+            if (toggle) toggle.remove();
+            if (markerA) markerA.remove();
+            if (markerB) markerB.remove();
         });
     }
 
@@ -4183,8 +4602,8 @@ class MultracksApp {
         const loopIndicatorBtn = document.getElementById('loopIndicatorBtn');
         if (!loopIndicatorBtn) return;
         
-        // Check if loop points exist
-        const hasLoop = this.loopPointA !== null && this.loopPointB !== null;
+        // Check if any loops exist
+        const hasLoop = this.loops.length > 0;
         
         if (hasLoop) {
             // Set red color when loop is active
@@ -4198,44 +4617,228 @@ class MultracksApp {
     }
 
     handleLoopIndicatorClick() {
-        // Only clear if loop exists
-        if (this.loopPointA !== null && this.loopPointB !== null) {
-            console.log('[LOOP] Clearing loop via indicator button');
-            
-            // Clear loop state
-            this.loopPointA = null;
-            this.loopPointB = null;
-            this.loopEnabled = false;
-            
-            // Clear visuals
+        // Only clear if loops exist
+        if (this.loops.length > 0) {
+            console.log('[LOOP] Clearing all loops via indicator button');
+
+            // Clear visuals WHILE this.loops still has the data
             this.clearLoopVisuals();
-            
-            // Disable loop in audio player
+
+            // Clear all loop state
+            this.loops = [];
+            this.pendingLoopStart = null;
+
+            // Update audio player
             if (this.audioPlayer) {
-                this.audioPlayer.toggleLoop(false);
+                this.audioPlayer.setLoops([]);
             }
-            
+
             // Save state
             this.saveLoopState();
-            
+
             // Update indicator button
             this.updateLoopIndicatorBtn();
         }
     }
-    
+
+    // ========================================
+    // SPEED CONTROL FUNCTIONS
+    // ========================================
+
+    handleSpeedButtonClick() {
+        console.log('[SPEED] Button clicked, current speed:', this.playbackSpeed.toFixed(2), 'x');
+        
+        // If speed is not 1.0x, reset to 1.0x first, then open modal
+        if (this.playbackSpeed !== 1.0) {
+            this.setPlaybackSpeed(1.0);
+        }
+        
+        // Open the speed modal
+        this.openSpeedModal();
+    }
+
+    initSpeedModalControls() {
+        const speedModal = document.getElementById('speedModal');
+        const speedModalClose = document.getElementById('speedModalClose');
+        const speedFader = document.getElementById('speedFader');
+        const speedDecreaseBtn = document.getElementById('speedDecreaseBtn');
+        const speedIncreaseBtn = document.getElementById('speedIncreaseBtn');
+        const speedPresets = document.querySelectorAll('.speed-preset-btn');
+
+        // Close modal button
+        if (speedModalClose) {
+            speedModalClose.addEventListener('click', () => this.closeSpeedModal());
+        }
+
+        // Close modal on overlay click
+        if (speedModal) {
+            speedModal.addEventListener('click', (e) => {
+                if (e.target === speedModal) {
+                    this.closeSpeedModal();
+                }
+            });
+        }
+
+        // Fader input - use 'change' instead of 'input' to avoid excessive calls during drag
+        if (speedFader) {
+            speedFader.addEventListener('input', (e) => {
+                const speed = parseFloat(e.target.value);
+                // Only update UI during drag, don't call setPlaybackSpeed
+                this.updateSpeedModalUIForDrag(speed);
+            });
+            
+            speedFader.addEventListener('change', (e) => {
+                const speed = parseFloat(e.target.value);
+                this.setPlaybackSpeed(speed);
+            });
+        }
+
+        // Decrease button
+        if (speedDecreaseBtn) {
+            speedDecreaseBtn.addEventListener('click', () => {
+                const newSpeed = Math.max(0.5, this.playbackSpeed - 0.05);
+                this.setPlaybackSpeed(newSpeed);
+            });
+        }
+
+        // Increase button
+        if (speedIncreaseBtn) {
+            speedIncreaseBtn.addEventListener('click', () => {
+                const newSpeed = Math.min(2.0, this.playbackSpeed + 0.05);
+                this.setPlaybackSpeed(newSpeed);
+            });
+        }
+
+        // Preset buttons
+        speedPresets.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const speed = parseFloat(btn.dataset.speed);
+                this.setPlaybackSpeed(speed);
+            });
+        });
+    }
+
+    openSpeedModal() {
+        const speedModal = document.getElementById('speedModal');
+        if (speedModal) {
+            speedModal.classList.add('active');
+            this.updateSpeedModalUI();
+        }
+    }
+
+    closeSpeedModal() {
+        const speedModal = document.getElementById('speedModal');
+        if (speedModal) {
+            speedModal.classList.remove('active');
+        }
+    }
+
+    setPlaybackSpeed(speed) {
+        console.log('[SPEED] setPlaybackSpeed:', speed.toFixed(2), 'x (current:', this.playbackSpeed.toFixed(2), 'x)');
+        
+        // Clamp speed to valid range
+        const clampedSpeed = Math.max(0.5, Math.min(2.0, speed));
+        
+        // Skip if speed hasn't changed
+        if (Math.abs(clampedSpeed - this.playbackSpeed) < 0.001) {
+            return;
+        }
+        
+        // Update app state
+        this.playbackSpeed = clampedSpeed;
+        
+        // Update audio player
+        if (this.audioPlayer) {
+            this.audioPlayer.setPlaybackSpeed(clampedSpeed);
+        }
+        
+        // Update UI
+        this.updateSpeedButton();
+        this.updateSpeedModalUI();
+    }
+
+    updateSpeedButton() {
+        const speedBtn = document.getElementById('speedBtn');
+        const speedBtnText = document.getElementById('speedBtnText');
+        
+        if (speedBtn && speedBtnText) {
+            speedBtnText.textContent = this.playbackSpeed.toFixed(1) + 'x';
+            
+            // Add active class if speed is not 1.0x
+            if (this.playbackSpeed !== 1.0) {
+                speedBtn.classList.add('active');
+            } else {
+                speedBtn.classList.remove('active');
+            }
+        }
+    }
+
+    updateSpeedModalUI() {
+        const speedValue = document.getElementById('speedValue');
+        const speedFader = document.getElementById('speedFader');
+        const speedFaderFill = document.getElementById('speedFaderFill');
+        const speedFaderThumb = document.getElementById('speedFaderThumb');
+        const speedPresets = document.querySelectorAll('.speed-preset-btn');
+
+        // Update speed value display
+        if (speedValue) {
+            speedValue.textContent = this.playbackSpeed.toFixed(2) + 'x';
+        }
+
+        // Update fader position
+        if (speedFader) {
+            speedFader.value = this.playbackSpeed;
+        }
+
+        // Update fader fill and thumb position
+        if (speedFaderFill && speedFaderThumb) {
+            // Map speed range [0.5, 2.0] to percentage [0%, 100%]
+            const percentage = ((this.playbackSpeed - 0.5) / 1.5) * 100;
+            speedFaderFill.style.width = percentage + '%';
+            speedFaderThumb.style.left = percentage + '%';
+        }
+
+        // Update preset buttons
+        speedPresets.forEach(btn => {
+            const presetSpeed = parseFloat(btn.dataset.speed);
+            if (Math.abs(presetSpeed - this.playbackSpeed) < 0.01) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+    }
+
+    updateSpeedModalUIForDrag(speed) {
+        const speedValue = document.getElementById('speedValue');
+        const speedFaderFill = document.getElementById('speedFaderFill');
+        const speedFaderThumb = document.getElementById('speedFaderThumb');
+        const speedPresets = document.querySelectorAll('.speed-preset-btn');
+
+        // Update speed value display during drag
+        if (speedValue) {
+            speedValue.textContent = speed.toFixed(2) + 'x';
+        }
+
+        // Update fader fill and thumb position during drag
+        if (speedFaderFill && speedFaderThumb) {
+            const percentage = ((speed - 0.5) / 1.5) * 100;
+            speedFaderFill.style.width = percentage + '%';
+            speedFaderThumb.style.left = percentage + '%';
+        }
+
+        // Don't update preset buttons during drag (they're for discrete values)
+    }
+
     saveLoopState() {
         if (!this.currentProject) return;
         
         // Update project loop state
-        this.currentProject.loopEnabled = this.loopEnabled;
-        this.currentProject.loopStart = this.loopPointA || 0;
-        this.currentProject.loopEnd = this.loopPointB || 0;
+        this.currentProject.loops = this.loops;
         
         // Save to storage
         storage.updateProject(this.currentProject.id, {
-            loopEnabled: this.loopEnabled,
-            loopStart: this.loopPointA || 0,
-            loopEnd: this.loopPointB || 0
+            loops: this.loops
         });
     }
     
@@ -4245,52 +4848,55 @@ class MultracksApp {
         // Check if user is on home plan - disable loop features
         const userPlan = await this.getUserPlan();
         if (userPlan === 'Home') {
-            this.loopEnabled = false;
-            this.loopPointA = null;
-            this.loopPointB = null;
+            this.loops = [];
+            this.pendingLoopStart = null;
             this.updateLoopIndicatorBtn();
             console.log('[LOOP] Loop features disabled for home user');
             return;
         }
         
-        // Load loop state from project
-        this.loopEnabled = this.currentProject.loopEnabled || false;
-        this.loopPointA = this.currentProject.loopStart || null;
-        this.loopPointB = this.currentProject.loopEnd || null;
+        // Migration: convert old single loop format to new array format
+        if (!this.currentProject.loops && this.currentProject.loopEnd) {
+            this.currentProject.loops = [{
+                id: 'loop_migrated',
+                start: this.currentProject.loopStart || 0,
+                end: this.currentProject.loopEnd,
+                enabled: this.currentProject.loopEnabled || false
+            }];
+            console.log('[LOOP] Migrated old loop format to new array format');
+            
+            // Save the migrated format
+            storage.updateProject(this.currentProject.id, {
+                loops: this.currentProject.loops
+            });
+        }
         
-        console.log('[LOOP] Loaded loop state - enabled:', this.loopEnabled, 'A:', this.loopPointA, 'B:', this.loopPointB);
+        // Load loop state from project
+        this.loops = this.currentProject.loops || [];
+        this.pendingLoopStart = null;
+        
+        console.log('[LOOP] Loaded loop state - loops:', this.loops.length, 'loops');
         
         // Update audio player
         if (this.audioPlayer) {
-            this.audioPlayer.toggleLoop(this.loopEnabled);
-            if (this.loopPointA !== null && this.loopPointB !== null) {
-                this.audioPlayer.setLoopPoints(this.loopPointA, this.loopPointB);
-            }
+            this.audioPlayer.setLoops(this.loops);
         }
         
-        // Show visuals if loop points exist
-        if (this.loopPointA !== null && this.loopPointB !== null) {
+        // Show visuals for each loop
+        if (this.loops.length > 0) {
             const canvasWidth = this.waveformCanvas.width;
-            const startX = (this.loopPointA / this.totalDuration) * canvasWidth;
-            const endX = (this.loopPointB / this.totalDuration) * canvasWidth;
             
-            this.showLoopMarker(startX, 'A');
-            this.showLoopMarker(endX, 'B');
-            this.showLoopRegion();
-            this.showLoopToggle();
+            this.loops.forEach(loop => {
+                const startX = (loop.start / this.totalDuration) * canvasWidth;
+                const endX = (loop.end / this.totalDuration) * canvasWidth;
+                
+                this.showLoopMarker(startX, 'A', loop.id);
+                this.showLoopMarker(endX, 'B', loop.id);
+                this.showLoopRegion(loop);
+                this.showLoopToggle(loop);
+            });
+            
             this.updateLoopIndicatorBtn();
-            
-            // Update toggle button state
-            const toggle = document.getElementById('loopToggle');
-            if (toggle) {
-                if (this.loopEnabled) {
-                    toggle.style.background = '#e8e6e0';
-                    toggle.style.borderColor = '#e8e6e0';
-                } else {
-                    toggle.style.background = 'rgba(232, 230, 224, 0.5)';
-                    toggle.style.borderColor = 'rgba(232, 230, 224, 0.5)';
-                }
-            }
         }
     }
     
@@ -6343,6 +6949,301 @@ class MultracksApp {
         this.ourProjectsBtn?.addEventListener('click', () => this.navigateToOurProjects());
     }
 
+    // ========================================
+    // ONBOARDING MODAL
+    // ========================================
+    initOnboardingModal() {
+        this.onboardingOverlay = document.getElementById('onboardingOverlay');
+        this.onboardingBackBtn = document.getElementById('onboardingBackBtn');
+        this.onboardingNextBtn = document.getElementById('onboardingNextBtn');
+        this.onboardingCompleteBtn = document.getElementById('onboardingCompleteBtn');
+        this.onboardingProgressIndicators = document.querySelectorAll('.onboarding-progress-indicator');
+        this.onboardingStepCounter = document.querySelector('.onboarding-step-counter');
+        this.onboardingSteps = document.querySelectorAll('.onboarding-step');
+
+        console.log('[ONBOARDING] Onboarding modal initialized:', !!this.onboardingOverlay);
+
+        // Back button
+        this.onboardingBackBtn?.addEventListener('click', () => this.previousOnboardingStep());
+
+        // Next button
+        this.onboardingNextBtn?.addEventListener('click', () => this.nextOnboardingStep());
+
+        // Complete button
+        this.onboardingCompleteBtn?.addEventListener('click', () => this.completeOnboarding());
+
+        // Prevent closing on backdrop click
+        this.onboardingOverlay?.addEventListener('click', (e) => {
+            if (e.target === this.onboardingOverlay) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        });
+
+        // Prevent ESC key from closing
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && this.onboardingActive) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        });
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (!this.onboardingActive) return;
+
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                if (this.onboardingCurrentStep < this.onboardingTotalSteps) {
+                    this.nextOnboardingStep();
+                } else {
+                    this.completeOnboarding();
+                }
+            }
+        });
+
+        // Focus trap
+        this.onboardingOverlay?.addEventListener('keydown', (e) => {
+            if (!this.onboardingActive) return;
+
+            const focusableElements = this.onboardingOverlay.querySelectorAll(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+            );
+            const firstElement = focusableElements[0];
+            const lastElement = focusableElements[focusableElements.length - 1];
+
+            if (e.key === 'Tab') {
+                if (e.shiftKey) {
+                    if (document.activeElement === firstElement) {
+                        e.preventDefault();
+                        lastElement.focus();
+                    }
+                } else {
+                    if (document.activeElement === lastElement) {
+                        e.preventDefault();
+                        firstElement.focus();
+                    }
+                }
+            }
+        });
+    }
+
+    async shouldShowOnboarding() {
+        const currentUser = window.firebaseAuth && window.firebaseAuth.auth && window.firebaseAuth.auth.currentUser;
+
+        if (!currentUser) {
+            // Guest user - check by guest key (existing behavior)
+            const key = 'wtracks_onboarding_completed_guest';
+            return !localStorage.getItem(key);
+        }
+
+        // Authenticated user - check Firebase
+        try {
+            const userDocRef = window.firebaseDB.doc(window.firebaseDB.db, 'users', currentUser.uid);
+            const docSnap = await window.firebaseDB.getDoc(userDocRef);
+
+            if (docSnap.exists()) {
+                const userData = docSnap.data();
+                const onboardingCompleted = userData.onboardingCompleted === true;
+                console.log('[ONBOARDING] Firebase check for user:', currentUser.uid, 'onboardingCompleted:', onboardingCompleted);
+                return !onboardingCompleted;
+            } else {
+                // User document doesn't exist yet - show onboarding
+                console.log('[ONBOARDING] User document does not exist for:', currentUser.uid, '- showing onboarding');
+                return true;
+            }
+        } catch (error) {
+            console.error('[ONBOARDING] Error checking onboarding status from Firebase:', error);
+            // On error, default to showing onboarding to be safe
+            return true;
+        }
+    }
+
+    async checkOnboardingStatus() {
+        // Prevent duplicate checks
+        if (this.onboardingCheckInProgress || this.onboardingOpened) {
+            console.log('[ONBOARDING] Check already in progress or onboarding already opened, skipping');
+            return;
+        }
+
+        this.onboardingCheckInProgress = true;
+
+        try {
+            const shouldShow = await this.shouldShowOnboarding();
+
+            if (shouldShow) {
+                console.log('[ONBOARDING] Showing onboarding for first-time user');
+                this.onboardingOpened = true;
+                setTimeout(() => this.openOnboarding(), 500); // Small delay after splash
+            } else {
+                console.log('[ONBOARDING] Onboarding already completed, skipping');
+            }
+        } catch (error) {
+            console.error('[ONBOARDING] Error checking onboarding status:', error);
+        } finally {
+            this.onboardingCheckInProgress = false;
+        }
+    }
+
+    openOnboarding() {
+        if (!this.onboardingOverlay) {
+            console.warn('[ONBOARDING] Onboarding overlay not found');
+            return;
+        }
+
+        this.onboardingActive = true;
+        this.onboardingCurrentStep = 1;
+
+        // Block body scroll
+        document.body.style.overflow = 'hidden';
+
+        // Show overlay
+        this.onboardingOverlay.classList.add('active');
+
+        // Render first step
+        this.renderOnboardingStep(1);
+
+        // Set initial focus
+        setTimeout(() => {
+            if (this.onboardingNextBtn) {
+                this.onboardingNextBtn.focus();
+            }
+        }, 100);
+
+        console.log('[ONBOARDING] Onboarding opened');
+    }
+
+    closeOnboarding() {
+        if (!this.onboardingOverlay) return;
+
+        this.onboardingOverlay.classList.remove('active');
+        this.onboardingActive = false;
+
+        // Restore body scroll
+        document.body.style.overflow = '';
+
+        console.log('[ONBOARDING] Onboarding closed');
+    }
+
+    renderOnboardingStep(step) {
+        // Hide all steps
+        this.onboardingSteps.forEach(s => {
+            s.classList.remove('active', 'step-exit', 'step-enter');
+        });
+
+        // Show current step with animation
+        const currentStep = document.querySelector(`.onboarding-step[data-step="${step}"]`);
+        if (currentStep) {
+            currentStep.classList.add('active');
+        }
+
+        // Update progress indicators
+        this.onboardingProgressIndicators.forEach((indicator, index) => {
+            const stepNum = index + 1;
+            if (stepNum <= step) {
+                indicator.classList.add('active');
+                indicator.textContent = '●';
+            } else {
+                indicator.classList.remove('active');
+                indicator.textContent = '○';
+            }
+        });
+
+        // Update step counter
+        if (this.onboardingStepCounter) {
+            this.onboardingStepCounter.textContent = `${step} / ${this.onboardingTotalSteps}`;
+        }
+
+        // Update buttons
+        if (this.onboardingBackBtn) {
+            this.onboardingBackBtn.disabled = step === 1;
+        }
+
+        if (this.onboardingNextBtn) {
+            this.onboardingNextBtn.style.display = step === this.onboardingTotalSteps ? 'none' : 'block';
+        }
+
+        if (this.onboardingCompleteBtn) {
+            this.onboardingCompleteBtn.style.display = step === this.onboardingTotalSteps ? 'block' : 'none';
+        }
+
+        console.log('[ONBOARDING] Rendered step:', step);
+    }
+
+    nextOnboardingStep() {
+        if (this.onboardingCurrentStep >= this.onboardingTotalSteps) return;
+
+        const currentStep = document.querySelector(`.onboarding-step[data-step="${this.onboardingCurrentStep}"]`);
+        if (currentStep) {
+            currentStep.classList.add('step-exit');
+        }
+
+        setTimeout(() => {
+            this.onboardingCurrentStep++;
+            this.renderOnboardingStep(this.onboardingCurrentStep);
+        }, 300);
+    }
+
+    previousOnboardingStep() {
+        if (this.onboardingCurrentStep <= 1) return;
+
+        const currentStep = document.querySelector(`.onboarding-step[data-step="${this.onboardingCurrentStep}"]`);
+        if (currentStep) {
+            currentStep.classList.add('step-enter');
+        }
+
+        setTimeout(() => {
+            this.onboardingCurrentStep--;
+            this.renderOnboardingStep(this.onboardingCurrentStep);
+        }, 300);
+    }
+
+    async completeOnboarding() {
+        const currentUser = window.firebaseAuth && window.firebaseAuth.auth && window.firebaseAuth.auth.currentUser;
+
+        if (!currentUser) {
+            // Guest user - save by guest key (existing behavior)
+            const key = 'wtracks_onboarding_completed_guest';
+            localStorage.setItem(key, 'true');
+            console.log('[ONBOARDING] Onboarding completed for guest');
+            this.closeOnboarding();
+            return;
+        }
+
+        try {
+            console.log('[ONBOARDING] Saving onboarding completion to Firebase for user:', currentUser.uid);
+
+            const userDocRef = window.firebaseDB.doc(window.firebaseDB.db, 'users', currentUser.uid);
+            const docSnap = await window.firebaseDB.getDoc(userDocRef);
+
+            const onboardingData = {
+                onboardingCompleted: true,
+                onboardingCompletedAt: window.firebaseDB.serverTimestamp()
+            };
+
+            if (docSnap.exists()) {
+                // Update existing document
+                await window.firebaseDB.updateDoc(userDocRef, onboardingData);
+                console.log('[ONBOARDING] Updated existing user document with onboarding completion');
+            } else {
+                // Create new document with onboarding data
+                onboardingData.createdAt = window.firebaseDB.serverTimestamp();
+                onboardingData.plan = 'Home'; // Default plan
+                await window.firebaseDB.setDoc(userDocRef, onboardingData);
+                console.log('[ONBOARDING] Created new user document with onboarding completion');
+            }
+
+            // Only close after successful Firebase save
+            this.closeOnboarding();
+            console.log('[ONBOARDING] Onboarding marked as completed in Firebase');
+
+        } catch (error) {
+            console.error('[ONBOARDING] Error saving onboarding completion to Firebase:', error);
+            alert('Erro ao salvar conclusão do tutorial. Por favor, tente novamente.');
+            // Do not close onboarding - user must try again
+        }
+    }
+
     initProfilePhotoUpload() {
         // Use the avatar button as upload trigger
         this.settingsProfileAvatarBtn = document.getElementById('settingsProfileAvatarBtn');
@@ -6860,7 +7761,7 @@ class MultracksApp {
             displayName: displayName,
             email: email,
             profilePhoto: profilePhoto,
-            plano: 'Home',
+            plan: 'Home', // Migrate to single field
             accountType: 'Usuário'
         }, user);
     }
@@ -6872,7 +7773,10 @@ class MultracksApp {
         let email = userData.email || user.email;
         let profilePhoto = userData.profilePhoto || null;
 
-        // Map old plan values to new system - check both 'plan' and 'plano' fields
+        // TEMPORARY LOG: Debug plan field inconsistency
+        console.log('[SETTINGS] DEBUG - userData.plan:', userData.plan, 'userData.plano:', userData.plano);
+
+        // Map old plan values to new system - prioritize 'plan' field
         let plan = userData.plan || userData.plano || 'Home';
         console.log('[SETTINGS] Raw plan from Firestore:', userData.plan, userData.plano, 'Final plan:', plan);
 
@@ -6988,23 +7892,9 @@ class MultracksApp {
             daysRemaining = Math.floor((expiryDate - currentDate) / (1000 * 60 * 60 * 24));
         }
 
-        // Update days remaining display
-        if (settingsDaysRemaining && daysRemainingValue) {
-            if (daysRemaining !== null && daysRemaining > 0) {
-                settingsDaysRemaining.style.display = 'block';
-                daysRemainingValue.textContent = `${daysRemaining} dia${daysRemaining > 1 ? 's' : ''}`;
-
-                // Color code based on urgency
-                if (daysRemaining <= 5) {
-                    daysRemainingValue.style.color = '#f59e0b'; // Orange for critical
-                } else if (daysRemaining <= 15) {
-                    daysRemainingValue.style.color = '#3b82f6'; // Blue for warning
-                } else {
-                    daysRemainingValue.style.color = '#10b981'; // Green for safe
-                }
-            } else {
-                settingsDaysRemaining.style.display = 'none';
-            }
+        // Update days remaining display - always hidden
+        if (settingsDaysRemaining) {
+            settingsDaysRemaining.style.display = 'none';
         }
 
         const bannerContent = settingsExpirationBanner.querySelector('.expiration-banner-content');
@@ -7062,148 +7952,6 @@ class MultracksApp {
             }
 
             console.log('[SETTINGS] Expiration banner shown for expired user');
-        } else if (daysRemaining !== null && daysRemaining >= 1 && daysRemaining <= 5) {
-            // Critical warning (5 days or less)
-            settingsExpirationBanner.style.display = 'block';
-            settingsExpirationBanner.style.background = 'linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(245, 158, 11, 0.05))';
-            settingsExpirationBanner.style.borderColor = 'rgba(245, 158, 11, 0.3)';
-
-            if (bannerText) {
-                bannerText.querySelector('h4').textContent = `Vence em ${daysRemaining} dia${daysRemaining > 1 ? 's' : ''}!`;
-                const planLabel = planType === 'anual' ? 'plano anual' : 'sua assinatura';
-                bannerText.querySelector('p').textContent = `Renove ${planLabel} agora para evitar o bloqueio dos faders e loops.`;
-                bannerText.querySelector('h4').style.color = '#f59e0b';
-            }
-
-            if (bannerBtn) {
-                const priceText = planType === 'anual' 
-                    ? (window.precoAnual ? window.precoAnual.split('/')[0] : 'R$ 99,00')
-                    : (window.precoMensal ? window.precoMensal.split('/')[0] : 'R$ 9,90');
-                bannerBtn.textContent = `Renovar (${priceText})`;
-                bannerBtn.style.background = 'var(--color-white)';
-                bannerBtn.style.color = '#f59e0b';
-                
-                // Get current user ID and add to payment URL
-                const userId = window.firebaseAuth?.auth?.currentUser?.uid;
-                const paymentUrl = planType === 'anual' 
-                    ? (window.linkAnual || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm')
-                    : (window.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm');
-                
-                // Generate and save payment token
-                const paymentToken = userId ? this.generatePaymentToken() : null;
-                if (userId && paymentToken) {
-                    this.savePaymentToken(userId, paymentToken).catch(error => {
-                        console.error('[PAYMENT] Background token save failed:', error);
-                    });
-                }
-                
-                let finalPaymentUrl = paymentUrl;
-                if (userId) {
-                    // Encode plan type and token in custom_id: {userId}|{planType}|{token}
-                    finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}|${planType}|${paymentToken}`;
-                }
-                bannerBtn.href = finalPaymentUrl;
-            }
-
-            if (bannerIcon) {
-                bannerIcon.style.background = 'rgba(245, 158, 11, 0.2)';
-                bannerIcon.style.color = '#f59e0b';
-            }
-
-            console.log('[SETTINGS] Critical expiration warning shown:', daysRemaining, 'days remaining');
-        } else if (daysRemaining !== null && daysRemaining >= 11 && daysRemaining <= 15) {
-            // Pre-expiration warning (15 days)
-            settingsExpirationBanner.style.display = 'block';
-            settingsExpirationBanner.style.background = 'linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.05))';
-            settingsExpirationBanner.style.borderColor = 'rgba(59, 130, 246, 0.3)';
-
-            if (bannerText) {
-                bannerText.querySelector('h4').textContent = `Faltam ${daysRemaining} dias`;
-                const planLabel = planType === 'anual' ? 'plano anual' : 'sua assinatura';
-                bannerText.querySelector('p').textContent = `Prepare-se para renovar ${planLabel} e continue aproveitando os recursos sem interrupção!`;
-                bannerText.querySelector('h4').style.color = '#3b82f6';
-            }
-
-            if (bannerBtn) {
-                const buttonText = planType === 'anual' ? 'Renovar Plano Anual' : 'Renovar Agora';
-                bannerBtn.textContent = buttonText;
-                bannerBtn.style.background = 'var(--color-white)';
-                bannerBtn.style.color = '#3b82f6';
-                
-                // Get current user ID and add to payment URL
-                const userId = window.firebaseAuth?.auth?.currentUser?.uid;
-                const paymentUrl = planType === 'anual' 
-                    ? (window.linkAnual || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm')
-                    : (window.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm');
-                
-                // Generate and save payment token
-                const paymentToken = userId ? this.generatePaymentToken() : null;
-                if (userId && paymentToken) {
-                    this.savePaymentToken(userId, paymentToken).catch(error => {
-                        console.error('[PAYMENT] Background token save failed:', error);
-                    });
-                }
-                
-                let finalPaymentUrl = paymentUrl;
-                if (userId) {
-                    // Encode plan type and token in custom_id: {userId}|{planType}|{token}
-                    finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}|${planType}|${paymentToken}`;
-                }
-                bannerBtn.href = finalPaymentUrl;
-            }
-
-            if (bannerIcon) {
-                bannerIcon.style.background = 'rgba(59, 130, 246, 0.2)';
-                bannerIcon.style.color = '#3b82f6';
-            }
-
-            console.log('[SETTINGS] Pre-expiration warning shown:', daysRemaining, 'days remaining');
-        } else if (daysRemaining !== null && daysRemaining >= 2 && daysRemaining <= 3 && !validadeAcesso) {
-            // Trial warning (2-3 days)
-            settingsExpirationBanner.style.display = 'block';
-            settingsExpirationBanner.style.background = 'linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(139, 92, 246, 0.05))';
-            settingsExpirationBanner.style.borderColor = 'rgba(139, 92, 246, 0.3)';
-
-            if (bannerText) {
-                bannerText.querySelector('h4').textContent = `Teste acaba em ${daysRemaining} dia${daysRemaining > 1 ? 's' : ''}`;
-                bannerText.querySelector('p').textContent = 'Assine o plano para continuar aproveitando todos os recursos.';
-                bannerText.querySelector('h4').style.color = '#8b5cf6';
-            }
-
-            if (bannerBtn) {
-                bannerBtn.textContent = 'Assinar Studio';
-                bannerBtn.style.background = 'var(--color-white)';
-                bannerBtn.style.color = '#8b5cf6';
-                
-                // Get current user ID and add to payment URL
-                const userId = window.firebaseAuth?.auth?.currentUser?.uid;
-                const paymentUrl = window.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
-                
-                // Generate and save payment token
-                const paymentToken = userId ? this.generatePaymentToken() : null;
-                if (userId && paymentToken) {
-                    this.savePaymentToken(userId, paymentToken).catch(error => {
-                        console.error('[PAYMENT] Background token save failed:', error);
-                    });
-                }
-                
-                let finalPaymentUrl = paymentUrl;
-                if (userId) {
-                    finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}`;
-                    if (paymentToken) {
-                        finalPaymentUrl += `&transaction_token=${paymentToken}`;
-                    }
-                    finalPaymentUrl += `&plan_type=mensal`;
-                }
-                bannerBtn.href = finalPaymentUrl;
-            }
-
-            if (bannerIcon) {
-                bannerIcon.style.background = 'rgba(139, 92, 246, 0.2)';
-                bannerIcon.style.color = '#8b5cf6';
-            }
-
-            console.log('[SETTINGS] Trial expiration warning shown:', daysRemaining, 'days remaining');
         } else {
             // Hide banner
             settingsExpirationBanner.style.display = 'none';
@@ -8511,10 +9259,10 @@ class MultracksApp {
         
         // Remove old pointerleave listener - pointercancel handles this better
         
-        // Effect file input change handler (disabled - functionality removed)
-        // this.effectFileInput?.addEventListener('change', (e) => {
-        //     this.handleEffectFileUpload(e.target.files[0]);
-        // });
+        // Effect file input change handler
+        this.effectFileInput?.addEventListener('change', (e) => {
+            this.handleEffectFileUpload(e.target.files[0]);
+        });
         
         // Cancel effect button handler
         this.cancelEffectBtn?.addEventListener('click', () => {
@@ -8529,13 +9277,6 @@ class MultracksApp {
                     this.hideEffectPopover();
                     this.hideClickIndicator();
                 }
-            }
-        });
-        
-        // Update effect positions on window resize
-        window.addEventListener('resize', () => {
-            if (this.currentView === 'player' && this.effects.length > 0) {
-                this.updateEffectPositions();
             }
         });
         
@@ -9004,21 +9745,29 @@ class MultracksApp {
                 const { auth, onAuthStateChanged } = window.firebaseAuth;
                 
                 onAuthStateChanged(auth, async (user) => {
+                    // Clear user ID cache whenever Firebase confirms auth state
+                    // This ensures getCurrentUserId() always gets fresh data after auth state changes
+                    this.clearUserIdCache();
+
+                    // Reset onboarding state on auth change
+                    this.onboardingOpened = false;
+                    this.onboardingCheckInProgress = false;
+
                     if (user) {
                         console.log('[AUTH] User is logged in:', user.email);
                         this.updateUserProfile(user);
                         this.updateProfileButtonForLoggedIn(user);
-                        
+
                         // Load community favorites for this user (async from Firestore)
                         await this.loadCommunityFavorites();
-                        
+
                         // Reload storage with new user's data
                         if (typeof storage !== 'undefined') {
                             console.log('[AUTH] Reloading storage for user:', user.uid);
                             // Capture version before auth reload
                             const authReloadVersion = ++this.libraryStateVersion;
                             console.log('[AUTH] AUTH RELOAD VERSION:', authReloadVersion);
-                            
+
                             // Wait for any existing storage load to complete before starting a new one
                             if (this.storageLoadPromise) {
                                 await this.storageLoadPromise;
@@ -9027,21 +9776,27 @@ class MultracksApp {
                             this.storageLoadPromise = storage.load();
                             await this.storageLoadPromise;
                             this.storageReady = true;
-                            
+
                             // Validate version before applying results
                             if (authReloadVersion !== this.libraryStateVersion) {
                                 console.log('[AUTH] Auth reload stale, ignoring results:', authReloadVersion, 'current:', this.libraryStateVersion);
                                 return;
                             }
-                            
+
                             console.log('[AUTH] Storage reloaded, refreshing UI');
                             this.renderLibrary();
+                        }
+
+                        // Check onboarding status for the newly logged-in user
+                        // Only check if onboarding hasn't been opened yet for this session
+                        if (!this.onboardingOpened) {
+                            this.checkOnboardingStatus();
                         }
                     } else {
                         console.log('[AUTH] User is logged out');
                         this.updateProfileButtonForLoggedOut();
                         localStorage.removeItem('currentUser');
-                        
+
                         // Clear community favorites on logout
                         this.communityFavorites = [];
                         
@@ -9223,6 +9978,7 @@ class MultracksApp {
         signOut(auth)
             .then(() => {
                 console.log('[AUTH] Logout successful');
+                this.clearUserIdCache(); // Clear cached user ID on logout
                 this.updateProfileButtonForLoggedOut();
                 localStorage.removeItem('currentUser');
                 this.communityFavorites = []; // Clear favorites on logout
@@ -9340,9 +10096,12 @@ class MultracksApp {
 
                         if (userData) {
                             // Ensure user has a plan, set to 'home' if missing
-                            if (!userData.plano) {
+                            if (!userData.plan) {
                                 try {
-                                    await window.firebaseDB.updateDoc(userDoc, { plano: 'home' });
+                                    await window.firebaseDB.updateDoc(userDoc, { 
+                                        plan: 'home',
+                                        plano: 'home' // Migrate to single field
+                                    });
                                     console.log('[AUTH] Default plan set for existing user:', user.uid);
                                 } catch (error) {
                                     console.warn('[AUTH] Could not set default plan:', error);
@@ -9380,11 +10139,13 @@ class MultracksApp {
                 // Reload user to get updated profile including displayName
                 user.reload().then(async () => {
                     console.log('[AUTH] User profile reloaded:', user.displayName);
+                    this.clearUserIdCache(); // Clear cache on login to ensure fresh user ID
                     this.closeAuthModal();
                     this.updateUserProfile(user);
                     await this.loadCommunityFavorites();
                 }).catch(async (error) => {
                     console.warn('[AUTH] Could not reload user profile:', error);
+                    this.clearUserIdCache(); // Clear cache on login to ensure fresh user ID
                     this.closeAuthModal();
                     this.updateUserProfile(user);
                     await this.loadCommunityFavorites();
@@ -9529,7 +10290,7 @@ class MultracksApp {
                         displayName: name,
                         email: email,
                         accountType: finalAccountType,
-                        plano: 'home', // Default plan for new users
+                        plan: 'home', // Default plan for new users (migrated from 'plano')
                         createdAt: serverTimestamp()
                     }).then(() => {
                         console.log('[AUTH] User data stored in Firestore with default plan: home');
@@ -9615,6 +10376,7 @@ class MultracksApp {
                                 // Update user plan to home and mark as expired
                                 await updateDoc(doc(db, 'users', user.uid), {
                                     plan: 'home',
+                                    plano: 'home', // Migrate to single field
                                     statusPagamento: 'expirado'
                                 });
 
@@ -9622,7 +10384,7 @@ class MultracksApp {
 
                                 // Only show floating notification if expired within 7 days
                                 if (daysSinceExpiration <= 7) {
-                                    this.showPlanExpiredNotification();
+                                    this.showPlanExpiredNotification(userData);
                                 } else {
                                     console.log('[PLAN VALIDITY] Expiration older than 7 days, skipping floating notification');
                                 }
@@ -9636,11 +10398,11 @@ class MultracksApp {
 
                                 // Show 15-day warning (11-15 days remaining)
                                 if (daysRemaining >= 11 && daysRemaining <= 15) {
-                                    this.showPreExpirationWarning(daysRemaining);
+                                    this.showPreExpirationWarning(daysRemaining, userData);
                                 }
                                 // Show 5-day critical warning (1-5 days remaining)
                                 else if (daysRemaining >= 1 && daysRemaining <= 5) {
-                                    this.showCriticalExpirationWarning(daysRemaining);
+                                    this.showCriticalExpirationWarning(daysRemaining, userData);
                                 }
                             }
                         } else if (currentPlan === 'studio' && trialExpiresAt) {
@@ -9659,6 +10421,7 @@ class MultracksApp {
                                 // Update user plan to home and mark as expired
                                 await updateDoc(doc(db, 'users', user.uid), {
                                     plan: 'home',
+                                    plano: 'home', // Migrate to single field
                                     statusPagamento: 'expirado'
                                 });
 
@@ -9695,7 +10458,7 @@ class MultracksApp {
                                 if (daysSinceExpiration <= 7) {
                                     console.log('[PLAN VALIDITY] User has expired status within 7-day window, showing notification');
                                     if (paymentOrigin === 'site') {
-                                        this.showPlanExpiredNotification();
+                                        this.showPlanExpiredNotification(userData);
                                     } else {
                                         this.showTrialExpiredNotification();
                                     }
@@ -9766,7 +10529,25 @@ class MultracksApp {
         }));
     }
 
-    showPlanExpiredNotification() {
+    showPlanExpiredNotification(userData = null) {
+        // Check if notification was already shown today
+        const userId = window.firebaseAuth?.auth?.currentUser?.uid;
+        if (userId) {
+            const today = new Date().toDateString();
+            const storageKey = `warning_shown_${userId}_planExpired_${today}`;
+            if (localStorage.getItem(storageKey)) {
+                console.log('[NOTIFICATION] Plan expired notification already shown today, skipping');
+                return;
+            }
+            localStorage.setItem(storageKey, 'true');
+        }
+
+        // Get user data to determine plan type
+        let planType = 'mensal'; // Default to monthly
+        if (userData && userData.planType) {
+            planType = userData.planType;
+        }
+
         // Create and show a notification about expired plan
         const notification = document.createElement('div');
         notification.style.cssText = `
@@ -9784,6 +10565,7 @@ class MultracksApp {
             animation: slideIn 0.3s ease;
         `;
 
+        const planLabel = planType === 'anual' ? 'plano anual' : 'assinatura Studio';
         notification.innerHTML = `
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -9794,14 +10576,15 @@ class MultracksApp {
                 <strong style="font-size: 16px;">Assinatura Expirada</strong>
             </div>
             <p style="margin: 0; font-size: 14px; line-height: 1.5; opacity: 0.9;">
-                Sua assinatura Studio de 30 dias venceu. Faça a renovação para reativar todos os recursos.
+                Seu ${planLabel} venceu. Faça a renovação para reativar todos os recursos.
             </p>`;
 
-        const paymentUrl = window.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
-        const priceText = window.precoMensal ? window.precoMensal.split('/')[0] : 'R$ 9,90';
-        
-        // Get current user ID and add to payment URL
-        const userId = window.firebaseAuth?.auth?.currentUser?.uid;
+        const paymentUrl = planType === 'anual' 
+            ? (window.linkAnual || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm')
+            : (window.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm');
+        const priceText = planType === 'anual' 
+            ? (window.precoAnual ? window.precoAnual.split('/')[0] : 'R$ 99,00')
+            : (window.precoMensal ? window.precoMensal.split('/')[0] : 'R$ 9,90');
         
         // Generate and save payment token
         const paymentToken = userId ? this.generatePaymentToken() : null;
@@ -9814,7 +10597,7 @@ class MultracksApp {
         let finalPaymentUrl = paymentUrl;
         if (userId) {
             // Encode plan type and token in custom_id: {userId}|{planType}|{token}
-            finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}|mensal|${paymentToken}`;
+            finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}|${planType}|${paymentToken}`;
         }
 
         const renewButton = document.createElement('button');
@@ -9881,6 +10664,18 @@ class MultracksApp {
     }
 
     showTrialExpiredNotification() {
+        // Check if notification was already shown today
+        const userId = window.firebaseAuth?.auth?.currentUser?.uid;
+        if (userId) {
+            const today = new Date().toDateString();
+            const storageKey = `warning_shown_${userId}_trialExpired_${today}`;
+            if (localStorage.getItem(storageKey)) {
+                console.log('[NOTIFICATION] Trial expired notification already shown today, skipping');
+                return;
+            }
+            localStorage.setItem(storageKey, 'true');
+        }
+
         // Create and show a notification about expired trial
         const notification = document.createElement('div');
         notification.style.cssText = `
@@ -9913,9 +10708,6 @@ class MultracksApp {
 
         const paymentUrl = window.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
         const priceText = window.precoMensal ? window.precoMensal.split('/')[0] : 'R$ 9,90';
-        
-        // Get current user ID and add to payment URL
-        const userId = window.firebaseAuth?.auth?.currentUser?.uid;
         
         // Generate and save payment token
         const paymentToken = userId ? this.generatePaymentToken() : null;
@@ -9994,7 +10786,25 @@ class MultracksApp {
         }, 10000);
     }
 
-    showPreExpirationWarning(daysRemaining) {
+    showPreExpirationWarning(daysRemaining, userData = null) {
+        // Check if notification was already shown today
+        const userId = window.firebaseAuth?.auth?.currentUser?.uid;
+        if (userId) {
+            const today = new Date().toDateString();
+            const storageKey = `warning_shown_${userId}_preExpiration_${today}`;
+            if (localStorage.getItem(storageKey)) {
+                console.log('[NOTIFICATION] Pre-expiration warning already shown today, skipping');
+                return;
+            }
+            localStorage.setItem(storageKey, 'true');
+        }
+
+        // Get user data to determine plan type
+        let planType = 'mensal'; // Default to monthly
+        if (userData && userData.planType) {
+            planType = userData.planType;
+        }
+
         // Create and show a pre-expiration warning (15 days)
         const notification = document.createElement('div');
         notification.style.cssText = `
@@ -10012,6 +10822,7 @@ class MultracksApp {
             animation: slideIn 0.3s ease;
         `;
 
+        const planLabel = planType === 'anual' ? 'plano anual' : 'assinatura W.Tracks Studio';
         notification.innerHTML = `
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -10021,14 +10832,15 @@ class MultracksApp {
                 <strong style="font-size: 16px;">Lembrete de Renovação</strong>
             </div>
             <p style="margin: 0; font-size: 14px; line-height: 1.5; opacity: 0.9;">
-                Faltam ${daysRemaining} dias para o vencimento da sua assinatura W.Tracks Studio. Prepare-se para renovar e continue aproveitando os recursos sem interrupção!
+                Faltam ${daysRemaining} dias para o vencimento da sua ${planLabel}. Prepare-se para renovar e continue aproveitando os recursos sem interrupção!
             </p>`;
 
-        const paymentUrl = window.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
-        const priceText = window.precoMensal ? window.precoMensal.split('/')[0] : 'R$ 9,90';
-        
-        // Get current user ID and add to payment URL
-        const userId = window.firebaseAuth?.auth?.currentUser?.uid;
+        const paymentUrl = planType === 'anual' 
+            ? (window.linkAnual || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm')
+            : (window.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm');
+        const priceText = planType === 'anual' 
+            ? (window.precoAnual ? window.precoAnual.split('/')[0] : 'R$ 99,00')
+            : (window.precoMensal ? window.precoMensal.split('/')[0] : 'R$ 9,90');
         
         // Generate and save payment token
         const paymentToken = userId ? this.generatePaymentToken() : null;
@@ -10041,7 +10853,7 @@ class MultracksApp {
         let finalPaymentUrl = paymentUrl;
         if (userId) {
             // Encode plan type and token in custom_id: {userId}|{planType}|{token}
-            finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}|mensal|${paymentToken}`;
+            finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}|${planType}|${paymentToken}`;
         }
 
         const renewButton = document.createElement('button');
@@ -10107,7 +10919,25 @@ class MultracksApp {
         }, 15000);
     }
 
-    showCriticalExpirationWarning(daysRemaining) {
+    showCriticalExpirationWarning(daysRemaining, userData = null) {
+        // Check if notification was already shown today
+        const userId = window.firebaseAuth?.auth?.currentUser?.uid;
+        if (userId) {
+            const today = new Date().toDateString();
+            const storageKey = `warning_shown_${userId}_criticalExpiration_${today}`;
+            if (localStorage.getItem(storageKey)) {
+                console.log('[NOTIFICATION] Critical expiration warning already shown today, skipping');
+                return;
+            }
+            localStorage.setItem(storageKey, 'true');
+        }
+
+        // Get user data to determine plan type
+        let planType = 'mensal'; // Default to monthly
+        if (userData && userData.planType) {
+            planType = userData.planType;
+        }
+
         // Create and show a critical expiration warning (5 days)
         const notification = document.createElement('div');
         notification.style.cssText = `
@@ -10125,6 +10955,7 @@ class MultracksApp {
             animation: slideIn 0.3s ease;
         `;
 
+        const planLabel = planType === 'anual' ? 'plano anual' : 'assinatura Studio';
         notification.innerHTML = `
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -10135,14 +10966,15 @@ class MultracksApp {
                 <strong style="font-size: 16px;">Atenção: Vencimento Próximo</strong>
             </div>
             <p style="margin: 0; font-size: 14px; line-height: 1.5; opacity: 0.9;">
-                Sua assinatura Studio vence em ${daysRemaining} dia${daysRemaining > 1 ? 's' : ''}! Renove agora para evitar o bloqueio dos faders e loops.
+                Seu ${planLabel} vence em ${daysRemaining} dia${daysRemaining > 1 ? 's' : ''}! Renove agora para evitar o bloqueio dos faders e loops.
             </p>`;
 
-        const paymentUrl = window.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
-        const priceText = window.precoMensal ? window.precoMensal.split('/')[0] : 'R$ 9,90';
-        
-        // Get current user ID and add to payment URL
-        const userId = window.firebaseAuth?.auth?.currentUser?.uid;
+        const paymentUrl = planType === 'anual' 
+            ? (window.linkAnual || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm')
+            : (window.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm');
+        const priceText = planType === 'anual' 
+            ? (window.precoAnual ? window.precoAnual.split('/')[0] : 'R$ 99,00')
+            : (window.precoMensal ? window.precoMensal.split('/')[0] : 'R$ 9,90');
         
         // Generate and save payment token
         const paymentToken = userId ? this.generatePaymentToken() : null;
@@ -10155,7 +10987,7 @@ class MultracksApp {
         let finalPaymentUrl = paymentUrl;
         if (userId) {
             // Encode plan type and token in custom_id: {userId}|{planType}|{token}
-            finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}|mensal|${paymentToken}`;
+            finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}|${planType}|${paymentToken}`;
         }
 
         const renewButton = document.createElement('button');
@@ -10222,6 +11054,18 @@ class MultracksApp {
     }
 
     showTrialExpirationWarning(daysRemaining) {
+        // Check if notification was already shown today
+        const userId = window.firebaseAuth?.auth?.currentUser?.uid;
+        if (userId) {
+            const today = new Date().toDateString();
+            const storageKey = `warning_shown_${userId}_trialExpiration_${today}`;
+            if (localStorage.getItem(storageKey)) {
+                console.log('[NOTIFICATION] Trial expiration warning already shown today, skipping');
+                return;
+            }
+            localStorage.setItem(storageKey, 'true');
+        }
+
         // Create and show a trial expiration warning
         const notification = document.createElement('div');
         notification.style.cssText = `
@@ -10253,9 +11097,6 @@ class MultracksApp {
 
         const paymentUrl = window.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
         const priceText = window.precoMensal ? window.precoMensal.split('/')[0] : 'R$ 9,90';
-        
-        // Get current user ID and add to payment URL
-        const userId = window.firebaseAuth?.auth?.currentUser?.uid;
         
         // Generate and save payment token
         const paymentToken = userId ? this.generatePaymentToken() : null;
