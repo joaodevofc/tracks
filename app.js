@@ -49,13 +49,6 @@ class MultracksApp {
         // Make audioStorage globally accessible for storage.js
         window.audioStorage = this.audioStorage;
         
-        // Onboarding state
-        this.onboardingCurrentStep = 1;
-        this.onboardingTotalSteps = 7;
-        this.onboardingActive = false;
-        this.onboardingCheckInProgress = false;
-        this.onboardingOpened = false;
-        
         // Pad system
         this.availablePads = [
             {
@@ -219,7 +212,6 @@ class MultracksApp {
         this.initMyTracks();
         this.initSetlists();
         this.initPWAExternalLinks();
-        this.initOnboardingModal();
         
         // Initialize loop indicator button
         const loopIndicatorBtn = document.getElementById('loopIndicatorBtn');
@@ -6949,301 +6941,6 @@ class MultracksApp {
         this.ourProjectsBtn?.addEventListener('click', () => this.navigateToOurProjects());
     }
 
-    // ========================================
-    // ONBOARDING MODAL
-    // ========================================
-    initOnboardingModal() {
-        this.onboardingOverlay = document.getElementById('onboardingOverlay');
-        this.onboardingBackBtn = document.getElementById('onboardingBackBtn');
-        this.onboardingNextBtn = document.getElementById('onboardingNextBtn');
-        this.onboardingCompleteBtn = document.getElementById('onboardingCompleteBtn');
-        this.onboardingProgressIndicators = document.querySelectorAll('.onboarding-progress-indicator');
-        this.onboardingStepCounter = document.querySelector('.onboarding-step-counter');
-        this.onboardingSteps = document.querySelectorAll('.onboarding-step');
-
-        console.log('[ONBOARDING] Onboarding modal initialized:', !!this.onboardingOverlay);
-
-        // Back button
-        this.onboardingBackBtn?.addEventListener('click', () => this.previousOnboardingStep());
-
-        // Next button
-        this.onboardingNextBtn?.addEventListener('click', () => this.nextOnboardingStep());
-
-        // Complete button
-        this.onboardingCompleteBtn?.addEventListener('click', () => this.completeOnboarding());
-
-        // Prevent closing on backdrop click
-        this.onboardingOverlay?.addEventListener('click', (e) => {
-            if (e.target === this.onboardingOverlay) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
-        });
-
-        // Prevent ESC key from closing
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && this.onboardingActive) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
-        });
-
-        // Keyboard navigation
-        document.addEventListener('keydown', (e) => {
-            if (!this.onboardingActive) return;
-
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                if (this.onboardingCurrentStep < this.onboardingTotalSteps) {
-                    this.nextOnboardingStep();
-                } else {
-                    this.completeOnboarding();
-                }
-            }
-        });
-
-        // Focus trap
-        this.onboardingOverlay?.addEventListener('keydown', (e) => {
-            if (!this.onboardingActive) return;
-
-            const focusableElements = this.onboardingOverlay.querySelectorAll(
-                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-            );
-            const firstElement = focusableElements[0];
-            const lastElement = focusableElements[focusableElements.length - 1];
-
-            if (e.key === 'Tab') {
-                if (e.shiftKey) {
-                    if (document.activeElement === firstElement) {
-                        e.preventDefault();
-                        lastElement.focus();
-                    }
-                } else {
-                    if (document.activeElement === lastElement) {
-                        e.preventDefault();
-                        firstElement.focus();
-                    }
-                }
-            }
-        });
-    }
-
-    async shouldShowOnboarding() {
-        const currentUser = window.firebaseAuth && window.firebaseAuth.auth && window.firebaseAuth.auth.currentUser;
-
-        if (!currentUser) {
-            // Guest user - check by guest key (existing behavior)
-            const key = 'wtracks_onboarding_completed_guest';
-            return !localStorage.getItem(key);
-        }
-
-        // Authenticated user - check Firebase
-        try {
-            const userDocRef = window.firebaseDB.doc(window.firebaseDB.db, 'users', currentUser.uid);
-            const docSnap = await window.firebaseDB.getDoc(userDocRef);
-
-            if (docSnap.exists()) {
-                const userData = docSnap.data();
-                const onboardingCompleted = userData.onboardingCompleted === true;
-                console.log('[ONBOARDING] Firebase check for user:', currentUser.uid, 'onboardingCompleted:', onboardingCompleted);
-                return !onboardingCompleted;
-            } else {
-                // User document doesn't exist yet - show onboarding
-                console.log('[ONBOARDING] User document does not exist for:', currentUser.uid, '- showing onboarding');
-                return true;
-            }
-        } catch (error) {
-            console.error('[ONBOARDING] Error checking onboarding status from Firebase:', error);
-            // On error, default to showing onboarding to be safe
-            return true;
-        }
-    }
-
-    async checkOnboardingStatus() {
-        // Prevent duplicate checks
-        if (this.onboardingCheckInProgress || this.onboardingOpened) {
-            console.log('[ONBOARDING] Check already in progress or onboarding already opened, skipping');
-            return;
-        }
-
-        this.onboardingCheckInProgress = true;
-
-        try {
-            const shouldShow = await this.shouldShowOnboarding();
-
-            if (shouldShow) {
-                console.log('[ONBOARDING] Showing onboarding for first-time user');
-                this.onboardingOpened = true;
-                setTimeout(() => this.openOnboarding(), 500); // Small delay after splash
-            } else {
-                console.log('[ONBOARDING] Onboarding already completed, skipping');
-            }
-        } catch (error) {
-            console.error('[ONBOARDING] Error checking onboarding status:', error);
-        } finally {
-            this.onboardingCheckInProgress = false;
-        }
-    }
-
-    openOnboarding() {
-        if (!this.onboardingOverlay) {
-            console.warn('[ONBOARDING] Onboarding overlay not found');
-            return;
-        }
-
-        this.onboardingActive = true;
-        this.onboardingCurrentStep = 1;
-
-        // Block body scroll
-        document.body.style.overflow = 'hidden';
-
-        // Show overlay
-        this.onboardingOverlay.classList.add('active');
-
-        // Render first step
-        this.renderOnboardingStep(1);
-
-        // Set initial focus
-        setTimeout(() => {
-            if (this.onboardingNextBtn) {
-                this.onboardingNextBtn.focus();
-            }
-        }, 100);
-
-        console.log('[ONBOARDING] Onboarding opened');
-    }
-
-    closeOnboarding() {
-        if (!this.onboardingOverlay) return;
-
-        this.onboardingOverlay.classList.remove('active');
-        this.onboardingActive = false;
-
-        // Restore body scroll
-        document.body.style.overflow = '';
-
-        console.log('[ONBOARDING] Onboarding closed');
-    }
-
-    renderOnboardingStep(step) {
-        // Hide all steps
-        this.onboardingSteps.forEach(s => {
-            s.classList.remove('active', 'step-exit', 'step-enter');
-        });
-
-        // Show current step with animation
-        const currentStep = document.querySelector(`.onboarding-step[data-step="${step}"]`);
-        if (currentStep) {
-            currentStep.classList.add('active');
-        }
-
-        // Update progress indicators
-        this.onboardingProgressIndicators.forEach((indicator, index) => {
-            const stepNum = index + 1;
-            if (stepNum <= step) {
-                indicator.classList.add('active');
-                indicator.textContent = '●';
-            } else {
-                indicator.classList.remove('active');
-                indicator.textContent = '○';
-            }
-        });
-
-        // Update step counter
-        if (this.onboardingStepCounter) {
-            this.onboardingStepCounter.textContent = `${step} / ${this.onboardingTotalSteps}`;
-        }
-
-        // Update buttons
-        if (this.onboardingBackBtn) {
-            this.onboardingBackBtn.disabled = step === 1;
-        }
-
-        if (this.onboardingNextBtn) {
-            this.onboardingNextBtn.style.display = step === this.onboardingTotalSteps ? 'none' : 'block';
-        }
-
-        if (this.onboardingCompleteBtn) {
-            this.onboardingCompleteBtn.style.display = step === this.onboardingTotalSteps ? 'block' : 'none';
-        }
-
-        console.log('[ONBOARDING] Rendered step:', step);
-    }
-
-    nextOnboardingStep() {
-        if (this.onboardingCurrentStep >= this.onboardingTotalSteps) return;
-
-        const currentStep = document.querySelector(`.onboarding-step[data-step="${this.onboardingCurrentStep}"]`);
-        if (currentStep) {
-            currentStep.classList.add('step-exit');
-        }
-
-        setTimeout(() => {
-            this.onboardingCurrentStep++;
-            this.renderOnboardingStep(this.onboardingCurrentStep);
-        }, 300);
-    }
-
-    previousOnboardingStep() {
-        if (this.onboardingCurrentStep <= 1) return;
-
-        const currentStep = document.querySelector(`.onboarding-step[data-step="${this.onboardingCurrentStep}"]`);
-        if (currentStep) {
-            currentStep.classList.add('step-enter');
-        }
-
-        setTimeout(() => {
-            this.onboardingCurrentStep--;
-            this.renderOnboardingStep(this.onboardingCurrentStep);
-        }, 300);
-    }
-
-    async completeOnboarding() {
-        const currentUser = window.firebaseAuth && window.firebaseAuth.auth && window.firebaseAuth.auth.currentUser;
-
-        if (!currentUser) {
-            // Guest user - save by guest key (existing behavior)
-            const key = 'wtracks_onboarding_completed_guest';
-            localStorage.setItem(key, 'true');
-            console.log('[ONBOARDING] Onboarding completed for guest');
-            this.closeOnboarding();
-            return;
-        }
-
-        try {
-            console.log('[ONBOARDING] Saving onboarding completion to Firebase for user:', currentUser.uid);
-
-            const userDocRef = window.firebaseDB.doc(window.firebaseDB.db, 'users', currentUser.uid);
-            const docSnap = await window.firebaseDB.getDoc(userDocRef);
-
-            const onboardingData = {
-                onboardingCompleted: true,
-                onboardingCompletedAt: window.firebaseDB.serverTimestamp()
-            };
-
-            if (docSnap.exists()) {
-                // Update existing document
-                await window.firebaseDB.updateDoc(userDocRef, onboardingData);
-                console.log('[ONBOARDING] Updated existing user document with onboarding completion');
-            } else {
-                // Create new document with onboarding data
-                onboardingData.createdAt = window.firebaseDB.serverTimestamp();
-                onboardingData.plan = 'Home'; // Default plan
-                await window.firebaseDB.setDoc(userDocRef, onboardingData);
-                console.log('[ONBOARDING] Created new user document with onboarding completion');
-            }
-
-            // Only close after successful Firebase save
-            this.closeOnboarding();
-            console.log('[ONBOARDING] Onboarding marked as completed in Firebase');
-
-        } catch (error) {
-            console.error('[ONBOARDING] Error saving onboarding completion to Firebase:', error);
-            alert('Erro ao salvar conclusão do tutorial. Por favor, tente novamente.');
-            // Do not close onboarding - user must try again
-        }
-    }
-
     initProfilePhotoUpload() {
         // Use the avatar button as upload trigger
         this.settingsProfileAvatarBtn = document.getElementById('settingsProfileAvatarBtn');
@@ -9749,10 +9446,6 @@ class MultracksApp {
                     // This ensures getCurrentUserId() always gets fresh data after auth state changes
                     this.clearUserIdCache();
 
-                    // Reset onboarding state on auth change
-                    this.onboardingOpened = false;
-                    this.onboardingCheckInProgress = false;
-
                     if (user) {
                         console.log('[AUTH] User is logged in:', user.email);
                         this.updateUserProfile(user);
@@ -9785,12 +9478,6 @@ class MultracksApp {
 
                             console.log('[AUTH] Storage reloaded, refreshing UI');
                             this.renderLibrary();
-                        }
-
-                        // Check onboarding status for the newly logged-in user
-                        // Only check if onboarding hasn't been opened yet for this session
-                        if (!this.onboardingOpened) {
-                            this.checkOnboardingStatus();
                         }
                     } else {
                         console.log('[AUTH] User is logged out');
