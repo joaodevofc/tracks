@@ -634,6 +634,98 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;}
   font-style:italic;
 }
 
+/* Cover Upload Area Styles */
+.cover-upload-area{
+  width:100%;
+  height:200px;
+  border:2px dashed var(--border);
+  border-radius:var(--radius-md);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  transition:all 0.3s ease;
+  position:relative;
+  overflow:hidden;
+}
+.cover-upload-area:hover{
+  border-color:var(--accent);
+  background:var(--bg-hover);
+}
+.cover-upload-placeholder{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:var(--spacing-sm);
+  color:var(--white-muted);
+}
+.cover-upload-placeholder svg{
+  width:48px;
+  height:48px;
+}
+.cover-preview{
+  width:100%;
+  height:100%;
+  position:relative;
+}
+.cover-preview img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+.cover-remove-btn{
+  position:absolute;
+  top:var(--spacing-sm);
+  right:var(--spacing-sm);
+  background:var(--bg-black);
+  border:1px solid var(--border-medium);
+  border-radius:50%;
+  width:32px;
+  height:32px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  transition:all 0.2s ease;
+}
+.cover-remove-btn:hover{
+  background:var(--accent);
+  border-color:var(--accent);
+}
+.cover-remove-btn svg{
+  width:16px;
+  height:16px;
+}
+
+/* Poll Option Image Upload Styles */
+.poll-option-image-upload{
+  width:100px;
+  height:100px;
+  border:2px dashed var(--border);
+  border-radius:6px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  background:var(--bg-card);
+  overflow:hidden;
+  transition:all 0.2s ease;
+}
+.poll-option-image-upload:hover{
+  border-color:var(--border-md);
+  background:var(--bg-hover);
+}
+.poll-option-image-placeholder{
+  text-align:center;
+  padding:8px;
+}
+.poll-option-image-preview{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:none;
+}
+
 /* Formulários Table Specific */
 #tab-formularios .table-header {
   grid-template-columns: 60px 1fr 140px 100px 140px 140px 100px;
@@ -748,6 +840,16 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;}
         <polyline points="10 9 9 9 8 9"/>
       </svg>
       Formulários
+    </div>
+    <div class="nav-item" data-tab="noticias" onclick="switchTab('noticias')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+        <polyline points="10 9 9 9 8 9"/>
+      </svg>
+      Notícias
     </div>
   </nav>
   
@@ -1204,7 +1306,6 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;}
         </form>
       </div>
     </div>
-  </div>
 
     <!-- Formulários Tab -->
     <div class="tab-content" id="tab-formularios">
@@ -1283,6 +1384,202 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;}
         </div>
       </div>
     </div>
+
+    <!-- Noticias Tab -->
+    <div class="tab-content" id="tab-noticias">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="label">Total de Notícias</div>
+          <div class="value" id="newsTotal">0</div>
+          <div class="change">Notícias publicadas</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Total de Enquetes</div>
+          <div class="value" id="pollTotal">0</div>
+          <div class="change">Enquetes ativas</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Curtidas Totais</div>
+          <div class="value" id="likesTotal">0</div>
+          <div class="change positive">Interações</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Votos Totais</div>
+          <div class="value" id="votesTotal">0</div>
+          <div class="change">Participação</div>
+        </div>
+      </div>
+
+      <div class="actions-bar">
+        <button class="btn btn-primary" onclick="showCreateNewsModal()">+ Nova Notícia</button>
+        <button class="btn btn-secondary" onclick="showCreatePollModal()">+ Nova Enquete</button>
+        <button class="btn btn-secondary" onclick="loadNoticias()">Atualizar</button>
+      </div>
+
+      <div class="data-table">
+        <div class="table-header" style="grid-template-columns: 60px 1fr 100px 100px 120px 100px;">
+          <span>#</span>
+          <span>Título</span>
+          <span>Tipo</span>
+          <span>Curtidas</span>
+          <span>Votos</span>
+          <span>Data</span>
+          <span>Ações</span>
+        </div>
+        <div id="allNews">
+          <div class="loading">Carregando notícias...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create News Modal -->
+    <div class="modal-overlay" id="createNewsModal">
+      <div class="modal-content" style="max-width:600px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+          <h2 style="font-family:var(--font-display);font-size:1.3rem;color:var(--white);">Criar Nova Notícia</h2>
+          <button onclick="closeCreateNewsModal()" style="padding:8px;color:var(--muted);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        <form id="createNewsForm" onsubmit="submitNews(event)">
+          <div style="margin-bottom:16px;">
+            <label style="display:block;margin-bottom:8px;font-size:0.85rem;color:var(--muted);">Título da Notícia</label>
+            <input type="text" id="newsTitle" required style="width:100%;padding:12px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--white);font-size:0.95rem;" placeholder="Digite o título...">
+          </div>
+
+          <div style="margin-bottom:16px;">
+            <label style="display:block;margin-bottom:8px;font-size:0.85rem;color:var(--muted);">Descrição</label>
+            <textarea id="newsDescription" required style="width:100%;padding:12px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--white);font-size:0.95rem;min-height:100px;resize:vertical;" placeholder="Digite a descrição da notícia..."></textarea>
+          </div>
+
+          <div style="margin-bottom:16px;">
+            <label style="display:block;margin-bottom:8px;font-size:0.85rem;color:var(--muted);">Imagem da Notícia</label>
+            <div id="newsImageUploadArea" class="cover-upload-area" onclick="document.getElementById('newsImageInput').click()">
+              <div id="newsImageUploadPlaceholder" class="cover-upload-placeholder">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                  <polyline points="21 15 16 10 5 21"/>
+                </svg>
+                <span style="margin-top:12px;font-size:0.9rem;color:var(--muted);">Clique ou arraste uma imagem aqui</span>
+              </div>
+              <div id="newsImageUploadPreview" class="cover-preview" style="display:none;">
+                <img id="newsImagePreviewImg" src="" alt="Preview">
+                <button type="button" class="cover-remove-btn" onclick="event.stopPropagation(); resetNewsImageUpload()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <input type="file" id="newsImageInput" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="handleNewsImageSelect(event)">
+            <div id="newsImageFileInfo" style="margin-top:8px;font-size:0.85rem;color:var(--muted);"></div>
+          </div>
+
+          <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:12px;">
+            <button type="button" class="btn btn-secondary" onclick="closeCreateNewsModal()">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Publicar Notícia</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Create Poll Modal -->
+    <div class="modal-overlay" id="createPollModal">
+      <div class="modal-content" style="max-width:600px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+          <h2 style="font-family:var(--font-display);font-size:1.3rem;color:var(--white);">Criar Nova Enquete</h2>
+          <button onclick="closeCreatePollModal()" style="padding:8px;color:var(--muted);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        <form id="createPollForm" onsubmit="submitPoll(event)">
+          <div style="margin-bottom:16px;">
+            <label style="display:block;margin-bottom:8px;font-size:0.85rem;color:var(--muted);">Pergunta da Enquete</label>
+            <input type="text" id="pollQuestion" required style="width:100%;padding:12px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--white);font-size:0.95rem;" placeholder="Digite a pergunta...">
+          </div>
+
+          <div style="margin-bottom:16px;">
+            <label style="display:block;margin-bottom:8px;font-size:0.85rem;color:var(--muted);">Opções de Votação</label>
+            <div id="pollOptionsContainer">
+              <div class="poll-option-input" style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;">
+                <input type="text" class="poll-option-text" required style="flex:1;padding:12px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--white);font-size:0.95rem;" placeholder="Opção 1">
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                  <div class="poll-option-image-upload" style="width:100px;height:100px;border:2px dashed var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:var(--bg-card);overflow:hidden;" onclick="this.querySelector('input').click()">
+                    <input type="file" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="handlePollOptionImageSelect(event, this)">
+                    <div class="poll-option-image-placeholder" style="text-align:center;padding:8px;">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24" style="color:var(--muted);">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                        <polyline points="21 15 16 10 5 21"/>
+                      </svg>
+                    </div>
+                    <img class="poll-option-image-preview" src="" style="width:100%;height:100%;object-fit:cover;display:none;">
+                  </div>
+                </div>
+              </div>
+              <div class="poll-option-input" style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;">
+                <input type="text" class="poll-option-text" required style="flex:1;padding:12px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--white);font-size:0.95rem;" placeholder="Opção 2">
+                <div style="display:flex;flex-direction:column;gap:4px;">
+                  <div class="poll-option-image-upload" style="width:100px;height:100px;border:2px dashed var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:var(--bg-card);overflow:hidden;" onclick="this.querySelector('input').click()">
+                    <input type="file" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="handlePollOptionImageSelect(event, this)">
+                    <div class="poll-option-image-placeholder" style="text-align:center;padding:8px;">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24" style="color:var(--muted);">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                        <polyline points="21 15 16 10 5 21"/>
+                      </svg>
+                    </div>
+                    <img class="poll-option-image-preview" src="" style="width:100%;height:100%;object-fit:cover;display:none;">
+                  </div>
+                </div>
+              </div>
+            </div>
+            <button type="button" class="btn btn-secondary" onclick="addPollOption()" style="margin-top:8px;font-size:0.85rem;">+ Adicionar Opção</button>
+          </div>
+
+          <div style="margin-bottom:16px;">
+            <label style="display:block;margin-bottom:8px;font-size:0.85rem;color:var(--muted);">Imagem da Enquete (opcional)</label>
+            <div id="pollImageUploadArea" class="cover-upload-area" onclick="document.getElementById('pollImageInput').click()">
+              <div id="pollImageUploadPlaceholder" class="cover-upload-placeholder">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                  <polyline points="21 15 16 10 5 21"/>
+                </svg>
+                <span style="margin-top:12px;font-size:0.9rem;color:var(--muted);">Clique ou arraste uma imagem aqui</span>
+              </div>
+              <div id="pollImageUploadPreview" class="cover-preview" style="display:none;">
+                <img id="pollImagePreviewImg" src="" alt="Preview">
+                <button type="button" class="cover-remove-btn" onclick="event.stopPropagation(); resetPollImageUpload()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <input type="file" id="pollImageInput" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="handlePollImageSelect(event)">
+            <div id="pollImageFileInfo" style="margin-top:8px;font-size:0.85rem;color:var(--muted);"></div>
+          </div>
+
+          <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:12px;">
+            <button type="button" class="btn btn-secondary" onclick="closeCreatePollModal()">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Publicar Enquete</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
   </div>
 </main>
 
@@ -1317,7 +1614,8 @@ function switchTab(tabName){
     'suporte': 'Gerenciar Suporte',
     'analytics': 'Analytics',
     'checkout': 'Configuração do Checkout',
-    'formularios': 'Formulários'
+    'formularios': 'Formulários',
+    'noticias': 'Gestão de Notícias'
   };
   document.getElementById('pageTitle').textContent = titles[tabName];
 
@@ -1344,6 +1642,8 @@ function switchTab(tabName){
     loadCheckoutConfig();
   } else if(tabName === 'formularios'){
     loadFormularios();
+  } else if(tabName === 'noticias'){
+    loadNoticias();
   }
   
   // Close mobile sidebar
@@ -4031,10 +4331,576 @@ function escapeHtml(text){
   return div.innerHTML;
 }
 
+// ========================================
+// NEWS MANAGEMENT
+// ========================================
+let newsCache = [];
+let selectedNewsImageFile = null;
+let selectedPollImageFile = null;
+
+// Load news from Firebase
+async function loadNoticias(){
+  if (!window.firebaseDB) {
+    console.warn('[FIREBASE] Not available for news');
+    return;
+  }
+
+  try {
+    const { db, collection, query, orderBy, getDocs } = window.firebaseDB;
+    const newsQuery = query(
+      collection(db, 'news'),
+      orderBy('createdAt', 'desc')
+    );
+
+    const querySnapshot = await getDocs(newsQuery);
+    newsCache = [];
+
+    querySnapshot.forEach((doc) => {
+      newsCache.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+
+    renderNewsTable();
+    updateNewsStats();
+    console.log('[NEWS] Loaded', newsCache.length, 'news items');
+  } catch (error) {
+    console.error('[NEWS] Error loading news:', error);
+    document.getElementById('allNews').innerHTML = '<div class="empty-state">Erro ao carregar notícias</div>';
+  }
+}
+
+// Render news table
+function renderNewsTable(){
+  const container = document.getElementById('allNews');
+  
+  if (newsCache.length === 0) {
+    container.innerHTML = '<div class="empty-state">Nenhuma notícia encontrada</div>';
+    return;
+  }
+
+  container.innerHTML = newsCache.map((news, index) => {
+    const typeBadge = news.type === 'poll' 
+      ? '<span class="form-badge form-badge-answered">Enquete</span>'
+      : '<span class="form-badge form-badge-not-answered">Notícia</span>';
+
+    const likesCount = news.likes ? news.likes.length : 0;
+    const votesCount = calculateTotalVotes(news);
+    const date = news.createdAt ? new Date(news.createdAt.seconds * 1000).toLocaleDateString('pt-BR') : 'N/A';
+
+    return `
+      <div class="table-row" style="grid-template-columns: 60px 1fr 100px 100px 120px 100px;">
+        <div class="table-cell id">${index + 1}</div>
+        <div class="table-cell email">${escapeHtml(news.title)}</div>
+        <div class="table-cell">${typeBadge}</div>
+        <div class="table-cell">${likesCount}</div>
+        <div class="table-cell">${votesCount}</div>
+        <div class="table-cell date">${date}</div>
+        <div class="table-cell actions">
+          <button class="action-btn delete" onclick="deleteNews('${news.id}')">Excluir</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// Update news statistics
+function updateNewsStats(){
+  const totalNews = newsCache.length;
+  const totalPolls = newsCache.filter(n => n.type === 'poll').length;
+  const totalLikes = newsCache.reduce((sum, n) => sum + (n.likes ? n.likes.length : 0), 0);
+  const totalVotes = newsCache.reduce((sum, n) => sum + calculateTotalVotes(n), 0);
+
+  document.getElementById('newsTotal').textContent = totalNews;
+  document.getElementById('pollTotal').textContent = totalPolls;
+  document.getElementById('likesTotal').textContent = totalLikes;
+  document.getElementById('votesTotal').textContent = totalVotes;
+}
+
+// Calculate total votes for a poll
+function calculateTotalVotes(news){
+  if (!news.options) return 0;
+  return news.options.reduce((sum, option) => sum + (option.votes || 0), 0);
+}
+
+// Show create news modal
+function showCreateNewsModal(){
+  console.log('[NEWS] Opening create news modal');
+  const modal = document.getElementById('createNewsModal');
+  if (modal) {
+    modal.classList.add('active');
+    console.log('[NEWS] Modal classList:', modal.classList);
+  } else {
+    console.error('[NEWS] Modal element not found');
+  }
+}
+
+// Close create news modal
+function closeCreateNewsModal(){
+  console.log('[NEWS] Closing create news modal');
+  const modal = document.getElementById('createNewsModal');
+  if (modal) {
+    modal.classList.remove('active');
+    const form = document.getElementById('createNewsForm');
+    if (form) form.reset();
+    resetNewsImageUpload();
+    selectedNewsImageFile = null;
+  }
+}
+
+// Show create poll modal
+function showCreatePollModal(){
+  console.log('[NEWS] Opening create poll modal');
+  const modal = document.getElementById('createPollModal');
+  if (modal) {
+    modal.classList.add('active');
+    console.log('[NEWS] Modal classList:', modal.classList);
+  } else {
+    console.error('[NEWS] Poll modal element not found');
+  }
+}
+
+// Close create poll modal
+function closeCreatePollModal(){
+  document.getElementById('createPollModal').classList.remove('active');
+  document.getElementById('createPollForm').reset();
+  resetPollImageUpload();
+  selectedPollImageFile = null;
+  // Reset poll options to default 2
+  const container = document.getElementById('pollOptionsContainer');
+  container.innerHTML = `
+    <div class="poll-option-input" style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;">
+      <input type="text" class="poll-option-text" required style="flex:1;padding:12px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--white);font-size:0.95rem;" placeholder="Opção 1">
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <div class="poll-option-image-upload" style="width:100px;height:100px;border:2px dashed var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:var(--bg-card);overflow:hidden;" onclick="this.querySelector('input').click()">
+          <input type="file" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="handlePollOptionImageSelect(event, this)">
+          <div class="poll-option-image-placeholder" style="text-align:center;padding:8px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24" style="color:var(--muted);">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+          </div>
+          <img class="poll-option-image-preview" src="" style="width:100%;height:100%;object-fit:cover;display:none;">
+        </div>
+      </div>
+    </div>
+    <div class="poll-option-input" style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;">
+      <input type="text" class="poll-option-text" required style="flex:1;padding:12px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--white);font-size:0.95rem;" placeholder="Opção 2">
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <div class="poll-option-image-upload" style="width:100px;height:100px;border:2px dashed var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:var(--bg-card);overflow:hidden;" onclick="this.querySelector('input').click()">
+          <input type="file" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="handlePollOptionImageSelect(event, this)">
+          <div class="poll-option-image-placeholder" style="text-align:center;padding:8px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24" style="color:var(--muted);">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+          </div>
+          <img class="poll-option-image-preview" src="" style="width:100%;height:100%;object-fit:cover;display:none;">
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Add poll option
+function addPollOption(){
+  const container = document.getElementById('pollOptionsContainer');
+  const optionCount = container.querySelectorAll('.poll-option-input').length + 1;
+  
+  const optionDiv = document.createElement('div');
+  optionDiv.className = 'poll-option-input';
+  optionDiv.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;';
+  optionDiv.innerHTML = `
+    <input type="text" class="poll-option-text" required style="flex:1;padding:12px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--white);font-size:0.95rem;" placeholder="Opção ${optionCount}">
+    <div style="display:flex;flex-direction:column;gap:4px;">
+      <div class="poll-option-image-upload" style="width:100px;height:100px;border:2px dashed var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:var(--bg-card);overflow:hidden;" onclick="this.querySelector('input').click()">
+        <input type="file" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="handlePollOptionImageSelect(event, this)">
+        <div class="poll-option-image-placeholder" style="text-align:center;padding:8px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24" style="color:var(--muted);">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
+          </svg>
+        </div>
+        <img class="poll-option-image-preview" src="" style="width:100%;height:100%;object-fit:cover;display:none;">
+      </div>
+    </div>
+    <button type="button" class="action-btn delete" onclick="this.parentElement.remove()" style="padding:6px 10px;margin-top:0;">×</button>
+  `;
+  
+  container.appendChild(optionDiv);
+}
+
+// Submit news
+async function submitNews(event){
+  event.preventDefault();
+  
+  if (!window.firebaseDB) {
+    alert('Firebase não disponível');
+    return;
+  }
+
+  const title = document.getElementById('newsTitle').value;
+  const description = document.getElementById('newsDescription').value;
+  
+  let imageUrl = '';
+  
+  // Upload image if selected
+  if (selectedNewsImageFile) {
+    try {
+      imageUrl = await uploadImageToCloudinary(selectedNewsImageFile);
+      console.log('[NEWS] Image uploaded successfully:', imageUrl);
+    } catch (error) {
+      console.error('[NEWS] Error uploading image:', error);
+      alert('Erro ao fazer upload da imagem: ' + error.message);
+      return;
+    }
+  }
+
+  try {
+    const { db, collection, addDoc, serverTimestamp } = window.firebaseDB;
+    
+    await addDoc(collection(db, 'news'), {
+      type: 'news',
+      title,
+      description,
+      imageUrl,
+      likes: [],
+      createdAt: serverTimestamp()
+    });
+
+    console.log('[NEWS] News created successfully');
+    closeCreateNewsModal();
+    loadNoticias();
+    alert('Notícia publicada com sucesso!');
+  } catch (error) {
+    console.error('[NEWS] Error creating news:', error);
+    alert('Erro ao publicar notícia: ' + error.message);
+  }
+}
+
+// Submit poll
+async function submitPoll(event){
+  event.preventDefault();
+  
+  if (!window.firebaseDB) {
+    alert('Firebase não disponível');
+    return;
+  }
+
+  const question = document.getElementById('pollQuestion').value;
+  
+  let imageUrl = '';
+  
+  // Upload image if selected
+  if (selectedPollImageFile) {
+    try {
+      imageUrl = await uploadImageToCloudinary(selectedPollImageFile);
+      console.log('[NEWS] Poll image uploaded successfully:', imageUrl);
+    } catch (error) {
+      console.error('[NEWS] Error uploading poll image:', error);
+      alert('Erro ao fazer upload da imagem: ' + error.message);
+      return;
+    }
+  }
+  
+  const optionInputs = document.querySelectorAll('.poll-option-input');
+  const options = [];
+
+  // Upload option images and collect options
+  const uploadPromises = [];
+  
+  optionInputs.forEach((input, index) => {
+    const text = input.querySelector('.poll-option-text').value;
+    const imageUploadDiv = input.querySelector('.poll-option-image-upload');
+    const imageInput = imageUploadDiv.querySelector('input[type="file"]');
+    const optionImageFile = imageInput.files[0];
+    
+    if (optionImageFile) {
+      const uploadPromise = uploadImageToCloudinary(optionImageFile)
+        .then(optionImageUrl => {
+          options.push({
+            text,
+            imageUrl: optionImageUrl,
+            votes: 0,
+            votedBy: []
+          });
+        })
+        .catch(error => {
+          console.error('[NEWS] Error uploading option image:', error);
+          options.push({
+            text,
+            imageUrl: '',
+            votes: 0,
+            votedBy: []
+          });
+        });
+      uploadPromises.push(uploadPromise);
+    } else {
+      options.push({
+        text,
+        imageUrl: '',
+        votes: 0,
+        votedBy: []
+      });
+    }
+  });
+
+  // Wait for all image uploads to complete
+  await Promise.all(uploadPromises);
+
+  try {
+    const { db, collection, addDoc, serverTimestamp } = window.firebaseDB;
+    
+    await addDoc(collection(db, 'news'), {
+      type: 'poll',
+      question,
+      description: question, // Use question as description for consistency
+      imageUrl,
+      options,
+      votedBy: [],
+      likes: [],
+      createdAt: serverTimestamp()
+    });
+
+    console.log('[NEWS] Poll created successfully');
+    closeCreatePollModal();
+    loadNoticias();
+    alert('Enquete publicada com sucesso!');
+  } catch (error) {
+    console.error('[NEWS] Error creating poll:', error);
+    alert('Erro ao publicar enquete: ' + error.message);
+  }
+}
+
+// Delete news
+async function deleteNews(newsId){
+  if (!confirm('Tem certeza que deseja excluir esta notícia/enquete? Esta ação não pode ser desfeita.')) {
+    return;
+  }
+
+  if (!window.firebaseDB) {
+    alert('Firebase não disponível');
+    return;
+  }
+
+  try {
+    const { db, doc, deleteDoc } = window.firebaseDB;
+    
+    await deleteDoc(doc(db, 'news', newsId));
+    console.log('[NEWS] News deleted:', newsId);
+    loadNoticias();
+    alert('Notícia excluída com sucesso!');
+  } catch (error) {
+    console.error('[NEWS] Error deleting news:', error);
+    alert('Erro ao excluir notícia: ' + error.message);
+  }
+}
+
+// ========================================
+// NEWS IMAGE UPLOAD HANDLERS
+// ========================================
+
+// Setup news image upload area
+function setupNewsImageUpload(){
+  const uploadArea = document.getElementById('newsImageUploadArea');
+  const fileInput = document.getElementById('newsImageInput');
+  
+  if (!uploadArea || !fileInput) return;
+
+  // Click to upload
+  uploadArea.addEventListener('click', () => fileInput.click());
+
+  // Drag and drop
+  uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.style.borderColor = 'var(--border-strong)';
+    uploadArea.style.background = 'var(--bg-hover)';
+  });
+
+  uploadArea.addEventListener('dragleave', () => {
+    uploadArea.style.borderColor = 'var(--border)';
+    uploadArea.style.background = 'var(--bg-card)';
+  });
+
+  uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadArea.style.borderColor = 'var(--border)';
+    uploadArea.style.background = 'var(--bg-card)';
+    const files = e.dataTransfer.files;
+    if(files.length > 0){
+      handleNewsImageSelect({ target: { files } });
+    }
+  });
+}
+
+// Handle news image selection
+function handleNewsImageSelect(event){
+  const file = event.target.files[0];
+  if(!file) return;
+
+  if(!file.type.match(/image\/(jpeg|png|webp)/)){
+    alert('Por favor, selecione apenas arquivos JPG, PNG ou WEBP.');
+    return;
+  }
+
+  if(file.size > MAX_SIZE){
+    alert('A imagem deve ter no máximo 5MB.');
+    return;
+  }
+
+  selectedNewsImageFile = file;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const previewImg = document.getElementById('newsImagePreviewImg');
+    const placeholder = document.getElementById('newsImageUploadPlaceholder');
+    const preview = document.getElementById('newsImageUploadPreview');
+    const fileInfo = document.getElementById('newsImageFileInfo');
+
+    previewImg.src = e.target.result;
+    fileInfo.textContent = `${file.name} (${formatFileSize(file.size)})`;
+    placeholder.style.display = 'none';
+    preview.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+// Reset news image upload
+function resetNewsImageUpload(){
+  selectedNewsImageFile = null;
+  const previewImg = document.getElementById('newsImagePreviewImg');
+  const placeholder = document.getElementById('newsImageUploadPlaceholder');
+  const preview = document.getElementById('newsImageUploadPreview');
+  const fileInfo = document.getElementById('newsImageFileInfo');
+  const fileInput = document.getElementById('newsImageInput');
+
+  if (previewImg) previewImg.src = '';
+  if (fileInfo) fileInfo.textContent = '';
+  if (placeholder) placeholder.style.display = 'block';
+  if (preview) preview.style.display = 'none';
+  if (fileInput) fileInput.value = '';
+}
+
+// Setup poll image upload area
+function setupPollImageUpload(){
+  const uploadArea = document.getElementById('pollImageUploadArea');
+  const fileInput = document.getElementById('pollImageInput');
+  
+  if (!uploadArea || !fileInput) return;
+
+  // Click to upload
+  uploadArea.addEventListener('click', () => fileInput.click());
+
+  // Drag and drop
+  uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.style.borderColor = 'var(--border-strong)';
+    uploadArea.style.background = 'var(--bg-hover)';
+  });
+
+  uploadArea.addEventListener('dragleave', () => {
+    uploadArea.style.borderColor = 'var(--border)';
+    uploadArea.style.background = 'var(--bg-card)';
+  });
+
+  uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadArea.style.borderColor = 'var(--border)';
+    uploadArea.style.background = 'var(--bg-card)';
+    const files = e.dataTransfer.files;
+    if(files.length > 0){
+      handlePollImageSelect({ target: { files } });
+    }
+  });
+}
+
+// Handle poll image selection
+function handlePollImageSelect(event){
+  const file = event.target.files[0];
+  if(!file) return;
+
+  if(!file.type.match(/image\/(jpeg|png|webp)/)){
+    alert('Por favor, selecione apenas arquivos JPG, PNG ou WEBP.');
+    return;
+  }
+
+  if(file.size > MAX_SIZE){
+    alert('A imagem deve ter no máximo 5MB.');
+    return;
+  }
+
+  selectedPollImageFile = file;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const previewImg = document.getElementById('pollImagePreviewImg');
+    const placeholder = document.getElementById('pollImageUploadPlaceholder');
+    const preview = document.getElementById('pollImageUploadPreview');
+    const fileInfo = document.getElementById('pollImageFileInfo');
+
+    previewImg.src = e.target.result;
+    fileInfo.textContent = `${file.name} (${formatFileSize(file.size)})`;
+    placeholder.style.display = 'none';
+    preview.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+// Reset poll image upload
+function resetPollImageUpload(){
+  selectedPollImageFile = null;
+  const previewImg = document.getElementById('pollImagePreviewImg');
+  const placeholder = document.getElementById('pollImageUploadPlaceholder');
+  const preview = document.getElementById('pollImageUploadPreview');
+  const fileInfo = document.getElementById('pollImageFileInfo');
+  const fileInput = document.getElementById('pollImageInput');
+
+  if (previewImg) previewImg.src = '';
+  if (fileInfo) fileInfo.textContent = '';
+  if (placeholder) placeholder.style.display = 'block';
+  if (preview) preview.style.display = 'none';
+  if (fileInput) fileInput.value = '';
+}
+
+// Handle poll option image selection
+function handlePollOptionImageSelect(event, uploadDiv){
+  const file = event.target.files[0];
+  if(!file) return;
+
+  if(!file.type.match(/image\/(jpeg|png|webp)/)){
+    alert('Por favor, selecione apenas arquivos JPG, PNG ou WEBP.');
+    return;
+  }
+
+  if(file.size > MAX_SIZE){
+    alert('A imagem deve ter no máximo 5MB.');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const previewImg = uploadDiv.querySelector('.poll-option-image-preview');
+    const placeholder = uploadDiv.querySelector('.poll-option-image-placeholder');
+
+    previewImg.src = e.target.result;
+    placeholder.style.display = 'none';
+    previewImg.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', async function() {
   await loadDashboard();
   setupRealtimeListener();
+  
+  // Setup news image upload handlers
+  setupNewsImageUpload();
+  setupPollImageUpload();
   
   // Setup contas real-time listener and load initial data immediately
   setupContasRealtimeListener();
@@ -4042,9 +4908,6 @@ document.addEventListener('DOMContentLoaded', async function() {
   const contas = await loadContasFromFirebase();
   console.log('[INIT] Pre-loaded', contas.length, 'contas on page load');
 });
-</script>
-</body>
-</html>
 </script>
 </body>
 </html>

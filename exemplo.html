@@ -2386,7 +2386,7 @@
                     <h4>Contato</h4>
                     <ul>
                             <li>
-                            <a href="suporte.html">
+                            <a href="#" onclick="openTelegramSupport(); return false;">
                                 Suporte
                             </a>
                         </li>
@@ -2666,6 +2666,14 @@
                 }
             });
         }
+
+        // Telegram support function
+        function openTelegramSupport() {
+            const phoneNumber = '5521969632153';
+            const message = encodeURIComponent('Olá! Preciso de suporte do WTracks. Poderia me ajudar?');
+            const telegramUrl = `https://t.me/+${phoneNumber}?text=${message}`;
+            window.open(telegramUrl, '_blank');
+        }
     </script>
 
     <!-- Logo -->
@@ -2688,7 +2696,7 @@
         <a href="#plans" class="side-menu-item" data-tooltip="Planos">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         </a>
-        <a href="suporte.html" class="side-menu-item" data-tooltip="Suporte">
+        <a href="#" onclick="openTelegramSupport(); return false;" class="side-menu-item" data-tooltip="Suporte">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </a>
     </nav>

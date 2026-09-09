@@ -10,6 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles_3.css">
     <link rel="stylesheet" href="mobile.css" media="(max-width: 768px)">
     <link rel="icon" type="image/png" href="icon-black-transparent.png">
     <link rel="manifest" href="manifest.json">
@@ -103,6 +104,289 @@
                     });
             });
         }
+
+        // Telegram support function
+        function openTelegramSupport() {
+            const phoneNumber = '5521969632153';
+            const message = encodeURIComponent('Olá! Preciso de suporte do WTracks. Poderia me ajudar?');
+            const telegramUrl = `https://t.me/+${phoneNumber}?text=${message}`;
+            window.open(telegramUrl, '_blank');
+        }
+
+        // ========================================
+        // NEWS CAROUSEL LOGIC
+        // ========================================
+        let currentSlide = 0;
+        const slides = ['welcome', 'studio', 'news'];
+        let carouselInterval = null;
+        let latestNews = null;
+        let studioPrice = 'R$ 47,90/mês'; // Default price
+        let isTransitioning = false; // Prevent rapid transitions
+
+        // Initialize carousel
+        function initCarousel() {
+            loadLatestNews();
+            loadStudioPrice();
+            startCarouselAutoplay();
+            setupCarouselEventListeners();
+        }
+
+        // Load studio price from Firebase
+        async function loadStudioPrice() {
+            try {
+                if (typeof window.firebaseDB === 'undefined') {
+                    console.warn('[CAROUSEL] Firebase not available for price');
+                    return;
+                }
+
+                const { db, doc, getDoc } = window.firebaseDB;
+                const configDocRef = doc(db, 'global_config', 'checkout');
+                const configDoc = await getDoc(configDocRef);
+
+                if (configDoc.exists()) {
+                    const configData = configDoc.data();
+                    if (configData.precoMensal) {
+                        studioPrice = configData.precoMensal;
+                        updateStudioSlidePrice();
+                        console.log('[CAROUSEL] Studio price loaded:', studioPrice);
+                    }
+                }
+            } catch (error) {
+                console.error('[CAROUSEL] Error loading studio price:', error);
+            }
+        }
+
+        // Update studio slide price
+        function updateStudioSlidePrice() {
+            const priceElement = document.getElementById('carouselStudioPrice');
+            if (priceElement) {
+                // Parse the price format (e.g., "R$ 47,90/mês" or "R$ 9,90/mês")
+                const priceMatch = studioPrice.match(/R\$\s*([\d.,]+)/);
+                if (priceMatch) {
+                    const numericPrice = priceMatch[1];
+                    priceElement.innerHTML = `R$ ${numericPrice}<span style="font-size: 1.5rem;">/mês</span>`;
+                } else {
+                    priceElement.textContent = studioPrice;
+                }
+            }
+        }
+
+        // Load latest news from Firebase
+        async function loadLatestNews() {
+            try {
+                if (typeof window.firebaseDB === 'undefined') {
+                    console.warn('[CAROUSEL] Firebase not available');
+                    showNewsFallback();
+                    return;
+                }
+
+                const { db, collection, query, orderBy, getDocs } = window.firebaseDB;
+                const newsQuery = query(
+                    collection(db, 'news'),
+                    orderBy('createdAt', 'desc')
+                );
+
+                const querySnapshot = await getDocs(newsQuery);
+                
+                if (!querySnapshot.empty) {
+                    const newsDoc = querySnapshot.docs[0];
+                    latestNews = {
+                        id: newsDoc.id,
+                        ...newsDoc.data()
+                    };
+                    renderNewsSlide();
+                } else {
+                    showNewsFallback();
+                }
+            } catch (error) {
+                console.error('[CAROUSEL] Error loading news:', error);
+                showNewsFallback();
+            }
+        }
+
+        // Render news slide content
+        function renderNewsSlide() {
+            const newsContent = document.getElementById('newsSlideContent');
+            
+            if (!latestNews) {
+                showNewsFallback();
+                return;
+            }
+
+            const date = latestNews.createdAt 
+                ? new Date(latestNews.createdAt.seconds * 1000).toLocaleDateString('pt-BR')
+                : 'Recentemente';
+
+            const isPoll = latestNews.type === 'poll';
+            const badgeText = isPoll ? 'Enquete' : 'Notícia';
+
+            newsContent.innerHTML = `
+                <span class="news-badge">${badgeText}</span>
+                <h3 class="news-title">${latestNews.title}</h3>
+                <p class="news-description">${latestNews.description || ''}</p>
+                <div class="news-meta">
+                    <span class="news-date">${date}</span>
+                    ${latestNews.likes ? `<span>• ${latestNews.likes.length} curtidas</span>` : ''}
+                </div>
+                <a href="noticias.html" class="news-cta">
+                    Ver mais
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                </a>
+            `;
+        }
+
+        // Show fallback when no news available
+        function showNewsFallback() {
+            const newsContent = document.getElementById('newsSlideContent');
+            newsContent.innerHTML = `
+                <span class="news-badge">Notícias</span>
+                <h3 class="news-title">Fique por dentro!</h3>
+                <p class="news-description">Acompanhe as últimas novidades do W.Tracks em nossa página de notícias.</p>
+                <div class="news-meta">
+                    <span class="news-date">Atualizado recentemente</span>
+                </div>
+                <a href="noticias.html" class="news-cta">
+                    Ver notícias
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                </a>
+            `;
+        }
+
+        // Carousel navigation
+        function goToSlide(slideName) {
+            const slideIndex = slides.indexOf(slideName);
+            if (slideIndex === -1 || isTransitioning) return;
+
+            isTransitioning = true;
+            currentSlide = slideIndex;
+            updateCarousel();
+
+            setTimeout(() => {
+                isTransitioning = false;
+            }, 800); // Match the CSS transition duration
+        }
+
+        function nextSlide() {
+            if (isTransitioning) return;
+            isTransitioning = true;
+            currentSlide = (currentSlide + 1) % slides.length;
+            updateCarousel();
+
+            setTimeout(() => {
+                isTransitioning = false;
+            }, 800);
+        }
+
+        function prevSlide() {
+            if (isTransitioning) return;
+            isTransitioning = true;
+            currentSlide = (currentSlide - 1 + slides.length) % slides.length;
+            updateCarousel();
+
+            setTimeout(() => {
+                isTransitioning = false;
+            }, 800);
+        }
+
+        // Update carousel UI
+        function updateCarousel() {
+            const slideName = slides[currentSlide];
+
+            // Update slides
+            document.querySelectorAll('.carousel-slide').forEach((slide, index) => {
+                slide.classList.remove('active', 'prev');
+                if (index === currentSlide) {
+                    slide.classList.add('active');
+                } else if (index === (currentSlide - 1 + slides.length) % slides.length) {
+                    slide.classList.add('prev');
+                }
+            });
+
+            // Update LED ring theme with smooth transition
+            const ledRing = document.getElementById('carouselLedRing');
+            ledRing.classList.remove('welcome-theme', 'studio-theme', 'news-theme');
+            ledRing.classList.add('active');
+            // Small delay to allow the theme change to be smooth
+            setTimeout(() => {
+                ledRing.classList.add(`${slideName}-theme`);
+            }, 50);
+
+            // Update navigation dots
+            document.querySelectorAll('.carousel-dot').forEach((dot, index) => {
+                dot.classList.remove('active', 'welcome-active', 'studio-active', 'news-active');
+                if (index === currentSlide) {
+                    dot.classList.add('active');
+                    dot.classList.add(`${slideName}-active`);
+                }
+            });
+
+            // Reset autoplay timer
+            resetCarouselAutoplay();
+        }
+
+        // Autoplay controls
+        function startCarouselAutoplay() {
+            carouselInterval = setInterval(nextSlide, 6000); // 6 seconds per slide
+        }
+
+        function stopCarouselAutoplay() {
+            if (carouselInterval) {
+                clearInterval(carouselInterval);
+                carouselInterval = null;
+            }
+        }
+
+        function resetCarouselAutoplay() {
+            stopCarouselAutoplay();
+            startCarouselAutoplay();
+        }
+
+        // Event listeners
+        function setupCarouselEventListeners() {
+            // Pause on hover
+            const carousel = document.getElementById('newsCarousel');
+            carousel.addEventListener('mouseenter', stopCarouselAutoplay);
+            carousel.addEventListener('mouseleave', startCarouselAutoplay);
+
+            // Keyboard navigation
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowLeft') prevSlide();
+                if (e.key === 'ArrowRight') nextSlide();
+            });
+
+            // Touch swipe support
+            let touchStartX = 0;
+            let touchEndX = 0;
+
+            carousel.addEventListener('touchstart', (e) => {
+                touchStartX = e.changedTouches[0].screenX;
+            });
+
+            carousel.addEventListener('touchend', (e) => {
+                touchEndX = e.changedTouches[0].screenX;
+                handleSwipe();
+            });
+
+            function handleSwipe() {
+                const swipeThreshold = 50;
+                const diff = touchStartX - touchEndX;
+
+                if (diff > swipeThreshold) {
+                    nextSlide(); // Swipe left
+                } else if (diff < -swipeThreshold) {
+                    prevSlide(); // Swipe right
+                }
+            }
+        }
+
+        // Initialize carousel when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            initCarousel();
+        });
     </script>
 </head>
 <body>
@@ -165,11 +449,21 @@
                                 </svg>
                                 Configurações
                             </button>
-                            <a href="suporte.html" class="profile-menu-item">
+                            <button class="profile-menu-item" onclick="openTelegramSupport()">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8.9L21 3l-1.9 5.7a8.38 8.38 0 0 1 .9 3.8z"></path>
                                 </svg>
                                 Suporte
+                            </button>
+                            <a href="noticias.html" class="profile-menu-item">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                    <polyline points="14 2 14 8 20 8"></polyline>
+                                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                                    <polyline points="10 9 9 9 8 9"></polyline>
+                                </svg>
+                                Notícias
                             </a>
                             <button class="profile-menu-item" id="myTracksBtn">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -194,47 +488,104 @@
         </div>
     </header>
 
-    <!-- HERO BANNER -->
-    <section class="hero" id="heroBanner">
-        <img src="banners/baner index.png" alt="W.Tracks Banner" class="hero-banner" id="heroBannerImage">
-        <div class="scroll-indicator">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M7 13l5 5 5-5M7 6l5 5 5-5"/>
+    <!-- NEWS CAROUSEL -->
+    <section class="news-carousel" id="newsCarousel">
+        <!-- LED Ring Effect -->
+        <svg class="carousel-led-ring welcome-theme" id="carouselLedRing" viewBox="0 0 60 60">
+            <circle class="carousel-led-ring-base" cx="30" cy="30" r="28"></circle>
+            <circle class="carousel-led-ring-active" cx="30" cy="30" r="28"></circle>
+        </svg>
+
+        <!-- Carousel Slides -->
+        <div class="carousel-slides" id="carouselSlides">
+            <!-- Slide 1: Welcome -->
+            <div class="carousel-slide welcome-slide active" data-slide="welcome">
+                <div class="welcome-content">
+                    <h2 class="welcome-title">Bem-vindo ao W.Tracks</h2>
+                    <div class="welcome-social-icons">
+                        <a href="https://www.instagram.com/wtracksstudio?utm_source=ig_web_button_share_sheet&igsi=ZDNlZDc0MzIxNw==" target="_blank" class="welcome-social-icon" aria-label="Instagram">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+                            </svg>
+                        </a>
+                        <a href="mailto:wtracksstudio@gmail.com" class="welcome-social-icon" aria-label="Email">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                <polyline points="22,6 12,13 2,6"></polyline>
+                            </svg>
+                        </a>
+                        <button class="welcome-social-icon" onclick="openTelegramSupport()" aria-label="Telegram">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8.9L21 3l-1.9 5.7a8.38 8.38 0 0 1 .9 3.8z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slide 2: Studio Plan -->
+            <div class="carousel-slide studio-slide" data-slide="studio">
+                <div class="studio-content">
+                    <span class="studio-badge">Studio</span>
+                    <h2 class="studio-title">Plano Studio</h2>
+                    <div class="studio-price" id="carouselStudioPrice">R$ 47,90<span style="font-size: 1.5rem;">/mês</span></div>
+                    <div class="studio-features">
+                        <div class="studio-feature">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 6L9 17l-5-5"/>
+                            </svg>
+                            <span>Acesso Completo</span>
+                        </div>
+                        <div class="studio-feature">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 6L9 17l-5-5"/>
+                            </svg>
+                            <span>Sem Limites</span>
+                        </div>
+                        <div class="studio-feature">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 6L9 17l-5-5"/>
+                            </svg>
+                            <span>Suporte Prioritário</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slide 3: Latest News -->
+            <div class="carousel-slide news-slide" data-slide="news">
+                <div class="news-content" id="newsSlideContent">
+                    <div class="carousel-loading">
+                        <div class="carousel-loading-spinner"></div>
+                        <span>Carregando notícias...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Carousel Navigation -->
+        <button class="carousel-arrow prev" onclick="prevSlide()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M15 18l-6-6 6-6"/>
             </svg>
+        </button>
+        <button class="carousel-arrow next" onclick="nextSlide()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 18l6-6-6-6"/>
+            </svg>
+        </button>
+
+        <div class="carousel-nav" id="carouselNav">
+            <div class="carousel-dot welcome-active active" data-slide="welcome" onclick="goToSlide('welcome')"></div>
+            <div class="carousel-dot" data-slide="studio" onclick="goToSlide('studio')"></div>
+            <div class="carousel-dot" data-slide="news" onclick="goToSlide('news')"></div>
         </div>
     </section>
 
     <!-- LIBRARY -->
     <main class="library" id="libraryView">
-        <div class="library-welcome">
-            <div class="welcome-logo">
-                <img src="icon-white-transparent.png" alt="W.Tracks" class="welcome-logo-icon">
-            </div>
-            <div class="welcome-text">
-                <h1 class="welcome-title">Bem vindo ao W.Tracks</h1>
-            </div>
-            <div class="welcome-social-links">
-                <a href="https://www.instagram.com/wtracksstudio?utm_source=ig_web_button_share_sheet&igsi=ZDNlZDc0MzIxNw==" target="_blank" class="welcome-social-link" aria-label="Instagram">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
-                        <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
-                        <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
-                    </svg>
-                </a>
-                <a href="https://youtube.com/@wtracks?si=1csbp61FXvZRiPU4" target="_blank" class="welcome-social-link" aria-label="YouTube">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"></path>
-                        <polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon>
-                    </svg>
-                </a>
-                <a href="mailto:wtracksstudio@gmail.com" class="welcome-social-link" aria-label="Email">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                        <polyline points="22,6 12,13 2,6"></polyline>
-                    </svg>
-                </a>
-            </div>
-        </div>
         <div class="library-filters">
             <div class="filter-group">
                 <button class="filter-btn active" data-filter="all">Todos</button>
@@ -292,16 +643,6 @@
 
     <!-- SETLISTS -->
     <main class="setlists" id="setlistsView" style="display: none;">
-        <div class="library-welcome">
-            <div class="welcome-logo">
-                <img src="icon-white-transparent.png" alt="W.Tracks" class="welcome-logo-icon">
-            </div>
-            <div class="welcome-text">
-                <h1 class="welcome-title">Setlists</h1>
-                <p class="welcome-description">Pesquise músicas no YouTube e organize suas setlists.</p>
-            </div>
-        </div>
-
         <div class="setlists-search-container">
             <div class="search-wrapper">
                 <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -420,16 +761,6 @@
 
     <!-- COMMUNITY -->
     <main class="community" id="communityView" style="display: none;">
-        <div class="library-welcome">
-            <div class="welcome-logo">
-                <img src="icon-white-transparent.png" alt="W.Tracks" class="welcome-logo-icon">
-            </div>
-            <div class="welcome-text">
-                <h1 class="welcome-title">Bem vindos a Comunidade W.Tracks</h1>
-                <p class="welcome-description">Tracks prontas pra baixar e usar direto no seu player. Sem complicação.</p>
-            </div>
-        </div>
-
         <div class="community-disclaimer">
             <div class="disclaimer-content">
                 <h3 class="disclaimer-title">Sobre as tracks</h3>

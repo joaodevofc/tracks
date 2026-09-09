@@ -406,6 +406,39 @@ service cloud.firestore {
 
 
     // ============================================================
+    // NEWS (Notícias e Enquetes)
+    // ============================================================
+
+    match /news/{newsId} {
+
+      // Usuários autenticados podem ler notícias e enquetes.
+      allow read: if request.auth != null;
+
+      // Apenas admin pode criar notícias e enquetes.
+      allow create: if isAdmin();
+
+      // Usuários autenticados podem atualizar (curtir/votar).
+      // Admin pode atualizar qualquer notícia.
+      allow update: if request.auth != null
+                   && (
+                     isAdmin()
+                     || (
+                       // Permitir curtidas (adicionar/remover uid do array likes)
+                       request.resource.data.likes == resource.data.likes + [request.auth.uid]
+                       || request.resource.data.likes == resource.data.likes.diff([request.auth.uid])
+                       // Permitir votos em enquetes
+                       || request.resource.data.votedBy == resource.data.votedBy + [request.auth.uid]
+                       // Permitir atualização de opções de votação (admin)
+                       || isAdmin()
+                     )
+                   );
+
+      // Apenas admin pode excluir notícias e enquetes.
+      allow delete: if isAdmin();
+    }
+
+
+    // ============================================================
     // BLOQUEIO PADRÃO
     // ============================================================
 

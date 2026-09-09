@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notícias - W.Tracks</title>
+    <link rel="icon" type="image/x-icon" href="icone tracks.ico">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Firebase SDK -->
+    <script type="module">
+      import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+      import { getFirestore, collection, getDocs, getDoc, query, orderBy, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, arrayUnion, arrayRemove } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+      import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyDW6P_V4_LRLRg6-FEe2E7QJa9J3oidY5g",
+        authDomain: "wtracks-acff8.firebaseapp.com",
+        projectId: "wtracks-acff8",
+        storageBucket: "wtracks-acff8.firebasestorage.app",
+        messagingSenderId: "719838064855",
+        appId: "1:719838064855:web:3c0631a882aac30cf3c092"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      const auth = getAuth(app);
+
+      window.firebaseDB = {
+        db,
+        collection,
+        getDocs,
+        getDoc,
+        query,
+        orderBy,
+        onSnapshot,
+        addDoc,
+        updateDoc,
+        doc,
+        serverTimestamp,
+        arrayUnion,
+        arrayRemove
+      };
+
+      window.firebaseAuth = {
+        auth,
+        onAuthStateChanged
+      };
+
+      console.log('[FIREBASE] Firestore initialized for news page');
+
+      // Check auth state
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          console.log('[FIREBASE] User authenticated:', user.email);
+          window.currentUser = user;
+        } else {
+          console.log('[FIREBASE] User not authenticated');
+          window.currentUser = null;
+        }
+      });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="main-header">
+            <div class="header-left">
+                <h1 class="page-title">Notícias</h1>
+                <p class="page-subtitle">Acompanhe as últimas atualizações do WTracks</p>
+            </div>
+            <div class="header-right">
+                <a href="index.html" class="back-btn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 12H5M12 19l-7-7 7-7"/>
+                    </svg>
+                    Voltar
+                </a>
+            </div>
+        </header>
+
+        <!-- News Feed -->
+        <div class="news-feed" id="newsFeed">
+            <div class="loading-spinner"></div>
+            <p class="loading-text">Carregando notícias...</p>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" id="emptyState" style="display: none;">
+            <div class="empty-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+            </div>
+            <h3 class="empty-title">Nenhuma notícia disponível</h3>
+            <p class="empty-description">Em breve você verá as últimas atualizações do WTracks aqui.</p>
+        </div>
+    </div>
+
+    <style>
+        :root {
+            --bg: #000000;
+            --bg-soft: #0a0a0a;
+            --bg-elevated: #101010;
+            --bg-card: #151515;
+            --bg-hover: #1c1c1c;
+            --white: #ffffff;
+            --white-dim: #f2f2f2;
+            --muted: #9a9a9a;
+            --subtle: #6b6b6b;
+            --border: rgba(255,255,255,0.08);
+            --border-md: rgba(255,255,255,0.14);
+            --border-strong: rgba(255,255,255,0.24);
+            --accent: #ff3b2f;
+            --font-display: 'Space Grotesk', sans-serif;
+            --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--white-dim);
+            font-family: var(--font-body);
+            line-height: 1.55;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 24px;
+        }
+
+        /* Header */
+        .main-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .header-left h1 {
+            font-family: var(--font-display);
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--white);
+            margin-bottom: 8px;
+        }
+
+        .page-subtitle {
+            font-size: 1rem;
+            color: var(--muted);
+        }
+
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-md);
+            border-radius: 8px;
+            color: var(--white-dim);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.15s ease;
+        }
+
+        .back-btn:hover {
+            background: var(--bg-hover);
+            border-color: var(--border-strong);
+            transform: translateY(-1px);
+        }
+
+        .back-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* News Feed */
+        .news-feed {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* News Card */
+        .news-card {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: border-color 0.15s ease;
+        }
+
+        .news-card:hover {
+            border-color: var(--border-md);
+        }
+
+        .news-image {
+            width: 100%;
+            height: 300px;
+            object-fit: cover;
+            background: var(--bg-card);
+        }
+
+        .news-content {
+            padding: 24px;
+        }
+
+        .news-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+
+        .news-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .news-badge.news {
+            color: var(--white);
+        }
+
+        .news-badge.poll {
+            color: var(--accent);
+            border-color: rgba(255, 59, 47, 0.3);
+            background: rgba(255, 59, 47, 0.1);
+        }
+
+        .news-date {
+            font-family: var(--font-mono);
+        }
+
+        .news-title {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--white);
+            margin-bottom: 12px;
+            line-height: 1.3;
+        }
+
+        .news-description {
+            font-size: 1rem;
+            color: var(--white-dim);
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        /* News Actions */
+        .news-actions {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+
+        .like-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--white-dim);
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .like-btn:hover {
+            background: var(--bg-hover);
+            border-color: var(--border-md);
+        }
+
+        .like-btn.liked {
+            background: rgba(255, 59, 47, 0.1);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .like-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .like-count {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+        }
+
+        /* Poll Styles */
+        .poll-container {
+            margin-top: 20px;
+        }
+
+        .poll-question {
+            font-family: var(--font-display);
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--white);
+            margin-bottom: 16px;
+        }
+
+        .poll-options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .poll-option {
+            position: relative;
+            padding: 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            overflow: hidden;
+        }
+
+        .poll-option:hover {
+            background: var(--bg-hover);
+            border-color: var(--border-md);
+        }
+
+        .poll-option.voted {
+            cursor: default;
+        }
+
+        .poll-option-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), rgba(255, 59, 47, 0.6));
+            width: 0%;
+            transition: width 0.3s ease;
+            z-index: 1;
+        }
+
+        .poll-option-content {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .poll-option-image {
+            width: 48px;
+            height: 48px;
+            border-radius: 6px;
+            object-fit: cover;
+            background: var(--bg-hover);
+        }
+
+        .poll-option-text {
+            flex: 1;
+            font-size: 0.95rem;
+            color: var(--white-dim);
+        }
+
+        .poll-option-stats {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+
+        .poll-percentage {
+            font-weight: 600;
+            color: var(--white);
+        }
+
+        .poll-option.selected {
+            border-color: var(--accent);
+            background: rgba(255, 59, 47, 0.05);
+        }
+
+        /* Loading Spinner */
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 20px;
+            position: relative;
+        }
+
+        .loading-spinner::before,
+        .loading-spinner::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 3px solid transparent;
+        }
+
+        .loading-spinner::before {
+            border-top-color: var(--accent);
+            border-right-color: var(--accent);
+            animation: spin 1.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+        }
+
+        .loading-spinner::after {
+            border-bottom-color: rgba(255, 255, 255, 0.3);
+            border-left-color: rgba(255, 255, 255, 0.3);
+            animation: spin 2s linear infinite reverse;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .loading-text {
+            text-align: center;
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            color: var(--muted);
+        }
+
+        .empty-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 80px;
+            height: 80px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            margin-bottom: 20px;
+        }
+
+        .empty-icon svg {
+            width: 40px;
+            height: 40px;
+            opacity: 0.4;
+        }
+
+        .empty-title {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            color: var(--white);
+            margin-bottom: 8px;
+        }
+
+        .empty-description {
+            font-size: 1rem;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px 16px;
+            }
+
+            .main-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .header-left h1 {
+                font-size: 1.5rem;
+            }
+
+            .news-image {
+                height: 200px;
+            }
+
+            .news-title {
+                font-size: 1.25rem;
+            }
+
+            .news-content {
+                padding: 20px;
+            }
+        }
+    </style>
+
+    <script type="module">
+        // News and Poll Management
+        class NewsManager {
+            constructor() {
+                this.newsFeed = document.getElementById('newsFeed');
+                this.emptyState = document.getElementById('emptyState');
+                this.currentUser = null;
+                this.init();
+            }
+
+            async init() {
+                // Wait for Firebase to be available
+                while (typeof window.firebaseDB === 'undefined' || typeof window.firebaseAuth === 'undefined') {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+
+                console.log('[NEWS] Firebase available, initializing news manager');
+
+                // Get current user
+                window.firebaseAuth.onAuthStateChanged(window.firebaseAuth.auth, (user) => {
+                    this.currentUser = user;
+                    console.log('[NEWS] Auth state changed:', user ? user.email : 'not authenticated');
+                });
+
+                // Load news in real-time
+                this.loadNews();
+            }
+
+            loadNews() {
+                try {
+                    const { db, collection, query, orderBy, onSnapshot } = window.firebaseDB;
+                    
+                    const newsQuery = query(
+                        collection(db, 'news'),
+                        orderBy('createdAt', 'desc')
+                    );
+
+                    onSnapshot(newsQuery, (snapshot) => {
+                        this.newsFeed.innerHTML = '';
+                        
+                        if (snapshot.empty) {
+                            this.newsFeed.style.display = 'none';
+                            this.emptyState.style.display = 'block';
+                            return;
+                        }
+
+                        this.newsFeed.style.display = 'flex';
+                        this.emptyState.style.display = 'none';
+
+                        snapshot.forEach((doc) => {
+                            const news = doc.data();
+                            news.id = doc.id;
+                            this.renderNewsCard(news);
+                        });
+
+                        console.log('[NEWS] Loaded', snapshot.size, 'news items');
+                    }, (error) => {
+                        console.error('[NEWS] Error loading news:', error);
+                        this.showError('Erro ao carregar notícias');
+                    });
+                } catch (error) {
+                    console.error('[NEWS] Error setting up news listener:', error);
+                    this.showError('Erro ao conectar com o servidor');
+                }
+            }
+
+            renderNewsCard(news) {
+                const card = document.createElement('div');
+                card.className = 'news-card';
+
+                const isPoll = news.type === 'poll';
+                const badgeClass = isPoll ? 'poll' : 'news';
+                const badgeText = isPoll ? 'Enquete' : 'Notícia';
+
+                const imageUrl = news.imageUrl || '';
+                const imageHtml = imageUrl ? `<img src="${imageUrl}" alt="${news.title}" class="news-image">` : '';
+
+                const likeClass = this.isLiked(news) ? 'liked' : '';
+                const likeCount = news.likes ? news.likes.length : 0;
+
+                let contentHtml = '';
+
+                if (isPoll) {
+                    contentHtml = this.renderPoll(news);
+                }
+
+                card.innerHTML = `
+                    ${imageHtml}
+                    <div class="news-content">
+                        <div class="news-meta">
+                            <span class="news-badge ${badgeClass}">${badgeText}</span>
+                            <span class="news-date">${this.formatDate(news.createdAt)}</span>
+                        </div>
+                        <h2 class="news-title">${news.title}</h2>
+                        <p class="news-description">${news.description || ''}</p>
+                        ${contentHtml}
+                        <div class="news-actions">
+                            <button class="like-btn ${likeClass}" onclick="window.newsManager.toggleLike('${news.id}')" ${!this.currentUser ? 'disabled' : ''}>
+                                <svg viewBox="0 0 24 24" fill="${this.isLiked(news) ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
+                                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                                </svg>
+                                <span class="like-count">${likeCount}</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                this.newsFeed.appendChild(card);
+            }
+
+            renderPoll(poll) {
+                const hasVoted = this.hasVoted(poll);
+                const totalVotes = this.calculateTotalVotes(poll);
+
+                let optionsHtml = poll.options.map((option, index) => {
+                    const percentage = totalVotes > 0 ? Math.round((option.votes || 0) / totalVotes * 100) : 0;
+                    const selectedClass = hasVoted && option.votedBy?.includes(this.currentUser?.uid) ? 'selected' : '';
+                    const votedClass = hasVoted ? 'voted' : '';
+                    
+                    const optionImage = option.imageUrl ? `<img src="${option.imageUrl}" alt="${option.text}" class="poll-option-image">` : '';
+
+                    return `
+                        <div class="poll-option ${selectedClass} ${votedClass}" 
+                             onclick="window.newsManager.vote('${poll.id}', ${index})" 
+                             ${hasVoted ? '' : ''}>
+                            <div class="poll-option-bar" style="width: ${percentage}%"></div>
+                            <div class="poll-option-content">
+                                ${optionImage}
+                                <span class="poll-option-text">${option.text}</span>
+                                <div class="poll-option-stats">
+                                    <span class="poll-percentage">${percentage}%</span>
+                                    <span>(${option.votes || 0} votos)</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                return `
+                    <div class="poll-container">
+                        <h3 class="poll-question">${poll.question}</h3>
+                        <div class="poll-options">
+                            ${optionsHtml}
+                        </div>
+                    </div>
+                `;
+            }
+
+            async toggleLike(newsId) {
+                if (!this.currentUser) {
+                    alert('Faça login para curtir notícias');
+                    return;
+                }
+
+                try {
+                    const { db, doc, updateDoc, arrayUnion, arrayRemove } = window.firebaseDB;
+                    const newsRef = doc(db, 'news', newsId);
+                    const news = await this.getNewsById(newsId);
+
+                    if (this.isLiked(news)) {
+                        await updateDoc(newsRef, {
+                            likes: arrayRemove(this.currentUser.uid)
+                        });
+                        console.log('[NEWS] Unliked news:', newsId);
+                    } else {
+                        await updateDoc(newsRef, {
+                            likes: arrayUnion(this.currentUser.uid)
+                        });
+                        console.log('[NEWS] Liked news:', newsId);
+                    }
+                } catch (error) {
+                    console.error('[NEWS] Error toggling like:', error);
+                    alert('Erro ao curtir notícia');
+                }
+            }
+
+            async vote(pollId, optionIndex) {
+                if (!this.currentUser) {
+                    alert('Faça login para votar');
+                    return;
+                }
+
+                const poll = await this.getNewsById(pollId);
+                
+                if (this.hasVoted(poll)) {
+                    console.log('[NEWS] User already voted in this poll');
+                    return;
+                }
+
+                try {
+                    const { db, doc, updateDoc, arrayUnion } = window.firebaseDB;
+                    const pollRef = doc(db, 'news', pollId);
+
+                    // Update the specific option
+                    const options = [...poll.options];
+                    options[optionIndex].votes = (options[optionIndex].votes || 0) + 1;
+                    options[optionIndex].votedBy = options[optionIndex].votedBy || [];
+                    options[optionIndex].votedBy.push(this.currentUser.uid);
+
+                    await updateDoc(pollRef, {
+                        options: options,
+                        votedBy: arrayUnion(this.currentUser.uid)
+                    });
+
+                    console.log('[NEWS] Voted in poll:', pollId, 'option:', optionIndex);
+                } catch (error) {
+                    console.error('[NEWS] Error voting:', error);
+                    alert('Erro ao votar');
+                }
+            }
+
+            isLiked(news) {
+                if (!this.currentUser || !news.likes) return false;
+                return news.likes.includes(this.currentUser.uid);
+            }
+
+            hasVoted(poll) {
+                if (!this.currentUser || !poll.votedBy) return false;
+                return poll.votedBy.includes(this.currentUser.uid);
+            }
+
+            calculateTotalVotes(poll) {
+                if (!poll.options) return 0;
+                return poll.options.reduce((total, option) => total + (option.votes || 0), 0);
+            }
+
+            async getNewsById(newsId) {
+                try {
+                    const { db, doc, getDoc } = window.firebaseDB;
+                    const newsDoc = await getDoc(doc(db, 'news', newsId));
+                    if (newsDoc.exists()) {
+                        return { id: newsDoc.id, ...newsDoc.data() };
+                    }
+                    return null;
+                } catch (error) {
+                    console.error('[NEWS] Error getting news by ID:', error);
+                    return null;
+                }
+            }
+
+            formatDate(timestamp) {
+                if (!timestamp) return '';
+                
+                const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+                const now = new Date();
+                const diff = now - date;
+                
+                const minutes = Math.floor(diff / 60000);
+                const hours = Math.floor(diff / 3600000);
+                const days = Math.floor(diff / 86400000);
+
+                if (minutes < 1) return 'Agora mesmo';
+                if (minutes < 60) return `${minutes} min atrás`;
+                if (hours < 24) return `${hours}h atrás`;
+                if (days < 7) return `${days}d atrás`;
+                
+                return date.toLocaleDateString('pt-BR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                });
+            }
+
+            showError(message) {
+                this.newsFeed.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="8" x2="12" y2="12"></line>
+                                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                            </svg>
+                        </div>
+                        <h3 class="empty-title">Erro</h3>
+                        <p class="empty-description">${message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Initialize news manager when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            window.newsManager = new NewsManager();
+        });
+    </script>
+</body>
+</html>
