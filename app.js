@@ -6880,30 +6880,72 @@ class MultracksApp {
         console.log('[APP] Opening track editor for project:', projectId);
         console.log('[APP] Project ID type:', typeof projectId);
         console.log('[APP] Project ID value:', projectId);
-        
+
         if (!projectId) {
             console.error('[APP] No project ID provided to openTrackEditor');
             this.showToast('Erro: ID do projeto não encontrado');
             return;
         }
-        
+
         // Check if user has Studio plan using the same logic as the player
         const userPlan = await this.getUserPlan();
         console.log('[APP] User plan for track editor:', userPlan);
-        
+
         if (userPlan === 'Home') {
             this.showUpgradeModal('Edição de Tracks (Playlist)');
             return;
         }
-        
+
+        // Cleanup memory-heavy resources before navigation
+        console.log('[APP] Cleaning up PWA resources before opening editor');
+        await this.cleanupForEditor();
+
         // Use the correct file name
         const editorUrl = `track-editor.html?projectId=${encodeURIComponent(projectId)}`;
         console.log('[APP] Redirecting to:', editorUrl);
-        
+
         // Store the project ID in sessionStorage as backup
         sessionStorage.setItem('editorProjectId', projectId);
-        
+
         window.location.href = editorUrl;
+    }
+
+    async cleanupForEditor() {
+        console.log('[APP] Cleanup: Stopping playback and releasing audio resources');
+
+        // Stop playback
+        if (this.audioPlayer) {
+            this.audioPlayer.stop();
+            this.audioPlayer.stopVisualization();
+            this.audioPlayer.stopPlaybackTimer();
+        }
+
+        // Stop pad
+        if (this.padIsPlaying) {
+            this.stopPad();
+        }
+
+        // Cancel any pending waveform generation
+        this.waveformLoading = false;
+
+        // Clear large audio buffers from current project
+        if (this.currentProject && this.currentProject.tracks) {
+            this.currentProject.tracks.forEach(track => {
+                if (track.file) {
+                    // Remove file reference to free memory
+                    // The file will be reloaded from storage when needed
+                    console.log('[APP] Cleanup: Removing file reference for track:', track.name);
+                    track.file = null;
+                }
+            });
+        }
+
+        // Clear waveform data cache
+        if (this.currentProject) {
+            this.currentProject.waveformData = null;
+        }
+
+        console.log('[APP] Cleanup complete');
     }
 
     async deleteProject(projectId) {

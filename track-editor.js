@@ -80,20 +80,20 @@ class TrackEditor {
     
     setupEventListeners() {
         // Back button
-        document.getElementById('backBtn').addEventListener('click', () => {
-            window.location.href = 'index.html';
+        document.getElementById('backBtn').addEventListener('click', async () => {
+            await this.cleanupAndReturn();
         });
-        
+
         // Save button
         document.getElementById('saveBtn').addEventListener('click', () => {
             this.saveConfiguration();
         });
-        
+
         // Play/Pause button
         document.getElementById('playPauseBtn').addEventListener('click', () => {
             this.togglePlayPause();
         });
-        
+
         // Toast close
         document.getElementById('toastClose').addEventListener('click', () => {
             this.hideToast();
@@ -1918,24 +1918,67 @@ class TrackEditor {
     cleanup() {
         // Stop playback
         this.pause();
-        
+
         // Stop auto-scroll
         this.stopAutoScroll();
-        
+
         // Clear audio buffers
         this.audioBuffers.clear();
         this.sourceNodes.clear();
-        
+
         // Clear waveform cache
         this.waveformCache.clear();
-        
+
         // Close AudioContext
         if (this.audioContext) {
             this.audioContext.close();
             this.audioContext = null;
         }
-        
+
         console.log('[EDITOR] Cleanup completed');
+    }
+
+    async cleanupAndReturn() {
+        console.log('[EDITOR] Cleaning up before returning to PWA');
+
+        // Stop playback
+        this.pause();
+
+        // Stop auto-scroll
+        this.stopAutoScroll();
+
+        // Stop visualization
+        this.stopVisualization();
+
+        // Clear audio buffers to free memory
+        this.audioBuffers.clear();
+        this.sourceNodes.clear();
+        this.trackGainNodes.clear();
+        this.trackAnalyserNodes.clear();
+
+        // Clear waveform cache
+        this.waveformCache.clear();
+
+        // Close AudioContext to free audio resources
+        if (this.audioContext) {
+            try {
+                await this.audioContext.close();
+                this.audioContext = null;
+            } catch (e) {
+                console.warn('[EDITOR] Error closing AudioContext:', e);
+            }
+        }
+
+        // Clear project reference
+        this.currentProject = null;
+
+        // Clear sessionStorage
+        sessionStorage.removeItem('editorProjectId');
+
+        console.log('[EDITOR] Cleanup complete, navigating to index.html');
+
+        // Navigate back to PWA
+        window.location.href = 'index.html';
     }
     
     /**
