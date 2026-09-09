@@ -6526,7 +6526,7 @@ class MultracksApp {
         `;
         
         const items = [
-            { label: 'Editar Tracks', action: () => this.openTrackEditor(project.id) },
+            { label: 'Editar Tracks (suporte só pra desktop)', action: () => this.openTrackEditor(project.id) },
             { label: 'Renomear', action: () => this.showRenameModal(project) },
             { label: 'Editar', action: () => this.showEditProjectModal(project) },
             { label: project.favorite ? 'Remover favorito' : 'Favoritar', action: () => this.toggleFavorite(project.id) },
@@ -6901,6 +6901,11 @@ class MultracksApp {
         const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
                       window.navigator.standalone === true;
 
+        console.log('[APP] Device detection - isMobile:', isMobile, 'isPWA:', isPWA);
+        console.log('[APP] User agent:', navigator.userAgent);
+        console.log('[APP] Screen width:', window.innerWidth);
+        console.log('[APP] Touch points:', navigator.maxTouchPoints);
+
         if (isMobile || isPWA) {
             this.showDesktopOnlyModal();
             return;
@@ -6921,8 +6926,23 @@ class MultracksApp {
     }
 
     isMobileDevice() {
-        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-               (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+
+        // Check for mobile/tablet user agents
+        const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Tablet|iPad/i;
+        const isMobileUA = mobileRegex.test(userAgent);
+
+        // Check for touch capability (more reliable for tablets)
+        const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+        // Check for iPad (including iPad Pro which reports as MacIntel)
+        const isIPad = /iPad/i.test(userAgent) ||
+                      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+        // Check screen size (tablets have smaller screens than desktops)
+        const isSmallScreen = window.innerWidth <= 1024;
+
+        return isMobileUA || isIPad || (hasTouch && isSmallScreen);
     }
 
     showDesktopOnlyModal() {
@@ -6931,7 +6951,7 @@ class MultracksApp {
         modal.innerHTML = `
             <div class="modal-content" style="max-width: 400px; text-align: center;">
                 <div style="font-size: 48px; margin-bottom: 16px;">💻</div>
-                <h3 style="color: #ffffff; margin-bottom: 12px;">Modo Desktop Apenas</h3>
+                <h3 style="color: #ffffff; margin-bottom: 12px;">Edição de Tracks (suporte só pra desktop)</h3>
                 <p style="color: #a0a0a0; margin-bottom: 24px; line-height: 1.5;">
                     Por enquanto, o modo de edição de tracks está disponível apenas no desktop. Use um computador para acessar todas as funcionalidades do Studio.
                 </p>
