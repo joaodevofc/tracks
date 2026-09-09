@@ -170,7 +170,7 @@ class MultracksApp {
                 warningBanner.style.fontSize = '14px';
                 warningBanner.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
                 
-                warningBanner.innerHTML = '<div style="max-width: 800px; margin: 0 auto; padding: 0 20px;"><strong>⚠️ Modo file:// detectado</strong><br>Para melhor experiência, use um servidor local (ex: Live Server no VS Code). Alguns recursos PWA/Service Worker podem não funcionar corretamente. <button id="dismissFileWarning" style="margin-left: 15px; padding: 6px 12px; background: white; color: #ee5a5a; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Entendi</button></div>';
+                warningBanner.innerHTML = '<div style="max-width: 800px; margin: 0 auto; padding: 0 20px;"><strong>⚠️ Modo desenvolvedor</strong><br>Para melhor experiência, use um servidor local (ex: Live Server no VS Code). Alguns recursos PWA/Service Worker podem não funcionar corretamente. <button id="dismissFileWarning" style="margin-left: 15px; padding: 6px 12px; background: white; color: #ee5a5a; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Entendi</button></div>';
                 
                 // Append to DOM first, then add event listener
                 document.body.appendChild(warningBanner);
@@ -1935,6 +1935,10 @@ class MultracksApp {
     }
     
     createMusicCard(project) {
+        console.log('[APP] createMusicCard called with project:', project);
+        console.log('[APP] Project ID:', project.id);
+        console.log('[APP] Project ID type:', typeof project.id);
+        
         const card = document.createElement('div');
         card.className = 'music-card';
         card.dataset.projectId = project.id;
@@ -1958,6 +1962,10 @@ class MultracksApp {
         const isExploreMusic = project.isExploreMusic || false;
         const trackInfo = isExploreMusic ? '🎵 Música do explorar' : `${trackCount} track${trackCount !== 1 ? 's' : ''}`;
         
+        // Check if project has been edited
+        const isEdited = project.isEdited || false;
+        const editedBadge = isEdited ? '<span class="music-card-edited-badge">✏️ Editado</span>' : '';
+        
         card.innerHTML = `
             <div class="music-card-cover">
                 ${coverHtml}
@@ -1975,6 +1983,7 @@ class MultracksApp {
                     <div class="music-card-meta-row">
                         ${project.key && !isExploreMusic ? `<span class="music-card-key">🎹 ${project.key}</span>` : ''}
                         <span class="${isExploreMusic ? 'music-card-key' : ''}">${trackInfo}</span>
+                        ${editedBadge}
                     </div>
                     <div class="music-card-date">Última alteração: ${date}</div>
                 </div>
@@ -2086,13 +2095,27 @@ class MultracksApp {
     
     switchToLibrary() {
         this.currentView = 'library';
-        document.getElementById('playerView').classList.remove('active');
-        document.getElementById('libraryView').style.display = 'block';
-        document.getElementById('myTracksView').style.display = 'none';
-        document.getElementById('communityView').style.display = 'none';
-        document.getElementById('exploreView').style.display = 'none';
-        document.querySelector('.hero').style.display = 'block';
-        document.querySelector('.fab-add').style.display = 'flex';
+        
+        const playerView = document.getElementById('playerView');
+        if (playerView) playerView.classList.remove('active');
+        
+        const libraryView = document.getElementById('libraryView');
+        if (libraryView) libraryView.style.display = 'block';
+        
+        const myTracksView = document.getElementById('myTracksView');
+        if (myTracksView) myTracksView.style.display = 'none';
+        
+        const communityView = document.getElementById('communityView');
+        if (communityView) communityView.style.display = 'none';
+        
+        const exploreView = document.getElementById('exploreView');
+        if (exploreView) exploreView.style.display = 'none';
+        
+        const hero = document.querySelector('.hero');
+        if (hero) hero.style.display = 'block';
+        
+        const fabAdd = document.querySelector('.fab-add');
+        if (fabAdd) fabAdd.style.display = 'flex';
         
         // Show main header when returning to library
         document.body.classList.remove('player-active');
@@ -2914,13 +2937,17 @@ class MultracksApp {
         let missingCount = 0;
         let alreadyHadFileCount = 0;
         let invalidIdCount = 0;
+        let corruptedFileCount = 0;
         
         for (const track of project.tracks) {
             console.log('[HYDRATE] Checking track:', track.name);
             console.log('[HYDRATE] Track has file:', !!track.file);
             console.log('[HYDRATE] Track has audioFileId:', track.audioFileId);
             
-            if (!track.file && track.audioFileId) {
+            // Check if track.file is a valid Blob/File (not a corrupted object like {})
+            const hasValidFile = track.file && (track.file instanceof Blob || track.file instanceof File);
+            
+            if (!hasValidFile && track.audioFileId) {
                 console.log('[HYDRATE] Track needs hydration - fetching from IndexedDB with ID:', track.audioFileId);
                 try {
                     const file = await this.audioStorage.getAudioFile(track.audioFileId);
@@ -2937,9 +2964,34 @@ class MultracksApp {
                     missingCount++;
                     console.error('[HYDRATE] ❌ Error fetching file from IndexedDB for track:', track.name, error);
                 }
-            } else if (track.file) {
+            } else if (hasValidFile) {
                 alreadyHadFileCount++;
-                console.log('[HYDRATE] Track already has file, skipping hydration:', track.name);
+                console.log('[HYDRATE] Track already has valid file, skipping hydration:', track.name);
+            } else if (track.file && !hasValidFile) {
+                // Corrupted file object (e.g., {} from old localStorage)
+                corruptedFileCount++;
+                console.warn('[HYDRATE] Track has corrupted file object, will rehydrate:', track.name);
+                // Remove corrupted file and rehydrate
+                track.file = null;
+                if (track.audioFileId) {
+                    try {
+                        const file = await this.audioStorage.getAudioFile(track.audioFileId);
+                        if (file) {
+                            track.file = file;
+                            hydratedCount++;
+                            console.log('[HYDRATE] ✅ Rehydrated corrupted file for track:', track.name);
+                        } else {
+                            missingCount++;
+                            console.error('[HYDRATE] ❌ File not found for rehydration:', track.name);
+                        }
+                    } catch (error) {
+                        missingCount++;
+                        console.error('[HYDRATE] ❌ Error rehydrating track:', track.name, error);
+                    }
+                } else {
+                    missingCount++;
+                    console.warn('[HYDRATE] Track has corrupted file but no audioFileId:', track.name);
+                }
             } else {
                 missingCount++;
                 invalidIdCount++;
@@ -2947,7 +2999,7 @@ class MultracksApp {
             }
         }
         
-        console.log('[HYDRATE] Hydration summary - Hydrated:', hydratedCount, 'Already had file:', alreadyHadFileCount, 'Missing:', missingCount, 'Invalid IDs:', invalidIdCount);
+        console.log('[HYDRATE] Hydration summary - Hydrated:', hydratedCount, 'Already had file:', alreadyHadFileCount, 'Missing:', missingCount, 'Invalid IDs:', invalidIdCount, 'Corrupted files fixed:', corruptedFileCount);
         console.log('[HYDRATE] =======================================');
         
         return { hydratedCount, missingCount, alreadyHadFileCount, invalidIdCount };
@@ -6452,6 +6504,10 @@ class MultracksApp {
     }
     
     showCardMenu(project, button) {
+        console.log('[APP] showCardMenu called with project:', project);
+        console.log('[APP] Project ID:', project.id);
+        console.log('[APP] Project ID type:', typeof project.id);
+        
         // Close any existing menus first
         document.querySelectorAll('.card-menu-dropdown').forEach(m => m.remove());
 
@@ -6470,6 +6526,7 @@ class MultracksApp {
         `;
         
         const items = [
+            { label: 'Editar Tracks', action: () => this.openTrackEditor(project.id) },
             { label: 'Renomear', action: () => this.showRenameModal(project) },
             { label: 'Editar', action: () => this.showEditProjectModal(project) },
             { label: project.favorite ? 'Remover favorito' : 'Favoritar', action: () => this.toggleFavorite(project.id) },
@@ -6819,6 +6876,34 @@ class MultracksApp {
         }
     }
     
+    async openTrackEditor(projectId) {
+        console.log('[APP] Opening track editor for project:', projectId);
+        console.log('[APP] Project ID type:', typeof projectId);
+        console.log('[APP] Project ID value:', projectId);
+        
+        if (!projectId) {
+            console.error('[APP] No project ID provided to openTrackEditor');
+            this.showToast('Erro: ID do projeto não encontrado');
+            return;
+        }
+        
+        // Check if user has Studio plan
+        const isStudio = await this.isStudioPlan();
+        if (!isStudio) {
+            this.showUpgradeModal('Edição de Tracks (Playlist)');
+            return;
+        }
+        
+        // Use the correct file name
+        const editorUrl = `track-editor.html?projectId=${encodeURIComponent(projectId)}`;
+        console.log('[APP] Redirecting to:', editorUrl);
+        
+        // Store the project ID in sessionStorage as backup
+        sessionStorage.setItem('editorProjectId', projectId);
+        
+        window.location.href = editorUrl;
+    }
+
     async deleteProject(projectId) {
         console.log('[LIBRARY] DELETE START:', projectId);
         
@@ -7220,6 +7305,27 @@ class MultracksApp {
     closeModal() {
         this.modal.classList.remove('active');
         this.resetWizard();
+        
+        // Reset studio creation flag
+        this.isStudioCreation = false;
+        
+        // Restore key field visibility
+        const keyField = document.getElementById('projectKey');
+        const keyLabel = keyField?.parentElement;
+        if (keyLabel) {
+            keyLabel.style.display = 'block';
+        }
+        
+        // Restore project name label
+        const nameLabel = document.querySelector('label[for="projectName"]');
+        if (nameLabel) {
+            nameLabel.textContent = 'Nome da música';
+        }
+        
+        // Restore create button text
+        if (this.wizardCreate) {
+            this.wizardCreate.textContent = 'Criar música';
+        }
     }
     
     openSettingsModal() {
@@ -7802,8 +7908,14 @@ class MultracksApp {
         this.currentWizardStep = 1;
         this.selectedFiles = [];
         this.importMethod = null;
+        this.isStudioCreation = false;
         this.projectName.value = '';
         this.projectKey.value = '';
+        
+        // Restore create button text
+        if (this.wizardCreate) {
+            this.wizardCreate.textContent = 'Criar música';
+        }
         
         // Manually reset wizard steps
         this.wizardSteps.forEach(s => s.classList.remove('active'));
@@ -7838,9 +7950,16 @@ class MultracksApp {
     updateWizardUI() {
         this.wizardBack.disabled = this.currentWizardStep === 1;
         
-        if (this.currentWizardStep === this.totalWizardSteps) {
+        // For studio creation, show create button immediately on step 3
+        if (this.isStudioCreation && this.currentWizardStep === 3) {
             this.wizardNext.style.display = 'none';
             this.wizardCreate.style.display = 'inline-block';
+            this.wizardCreate.textContent = 'Criar no Studio';
+            this.wizardCreate.disabled = !this.validateStep(this.currentWizardStep);
+        } else if (this.currentWizardStep === this.totalWizardSteps) {
+            this.wizardNext.style.display = 'none';
+            this.wizardCreate.style.display = 'inline-block';
+            this.wizardCreate.textContent = 'Criar música';
             this.wizardCreate.disabled = !this.validateStep(this.currentWizardStep);
         } else {
             this.wizardNext.style.display = 'inline-block';
@@ -7867,15 +7986,10 @@ class MultracksApp {
     handleImportMethod(method) {
         this.importMethod = method;
         
-        if (method === 'drive') {
-            // Handle Google Drive import
-            console.log('[APP] Google Drive import requested');
-            if (typeof abrirGoogleDrive === 'function') {
-                abrirGoogleDrive();
-            } else {
-                console.error('[APP] Google Drive function not available');
-                alert('Integração com Google Drive não disponível. Verifique se os scripts foram carregados.');
-            }
+        if (method === 'studio') {
+            // Handle Studio creation - go directly to project info step
+            console.log('[APP] Studio creation requested');
+            this.showStudioProjectInfoStep();
             return;
         }
         
@@ -7888,6 +8002,71 @@ class MultracksApp {
         }
         
         this.fileInput.click();
+    }
+    
+    showStudioProjectInfoStep() {
+        // Hide the key field for studio projects
+        const keyField = document.getElementById('projectKey');
+        const keyLabel = keyField?.parentElement;
+        if (keyLabel) {
+            keyLabel.style.display = 'none';
+        }
+        
+        // Change the label to be more appropriate for studio
+        const nameLabel = document.querySelector('label[for="projectName"]');
+        if (nameLabel) {
+            nameLabel.textContent = 'Nome do projeto';
+        }
+        
+        // Change create button text for studio
+        if (this.wizardCreate) {
+            this.wizardCreate.textContent = 'Criar no Studio';
+        }
+        
+        // Clear previous values
+        this.projectName.value = '';
+        this.projectKey.value = '';
+        
+        // Go to step 3 directly
+        this.goToWizardStep(3);
+        
+        // Store that this is a studio creation (we'll need this later)
+        this.isStudioCreation = true;
+    }
+    
+    async createEmptyStudioProject() {
+        const projectName = this.projectName.value.trim();
+        
+        if (!projectName) {
+            alert('Por favor, insira um nome para o projeto.');
+            return;
+        }
+        
+        console.log('[APP] Creating empty Studio project:', projectName);
+        
+        try {
+            // Create empty project with 0 tracks
+            const project = await storage.createProject({
+                name: projectName,
+                key: '', // No key for studio projects
+                tracks: [] // Empty tracks array
+            });
+            
+            console.log('[APP] Empty Studio project created:', project.id);
+            
+            // Reset studio creation flag
+            this.isStudioCreation = false;
+            
+            // Close modal
+            this.closeModal();
+            
+            // Navigate to track-editor with the new project ID
+            window.location.href = `track-editor.html?projectId=${project.id}`;
+            
+        } catch (error) {
+            console.error('[APP] Error creating empty Studio project:', error);
+            alert('Erro ao criar projeto no Studio. Tente novamente.');
+        }
     }
     
     async handleFileSelect(files) {
@@ -8698,7 +8877,11 @@ class MultracksApp {
         });
         
         this.wizardCreate?.addEventListener('click', () => {
-            this.createProject();
+            if (this.isStudioCreation) {
+                this.createEmptyStudioProject();
+            } else {
+                this.createProject();
+            }
         });
         
         // Form validation

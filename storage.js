@@ -249,12 +249,13 @@ class Project {
     getTotalDuration() {
         if (this.totalDuration > 0) return this.totalDuration;
         // Calculate from tracks if not set
+        if (this.tracks.length === 0) return 0;
         const maxDuration = Math.max(...this.tracks.map(t => t.duration || 0));
         return maxDuration;
     }
     
     async toJSON(onProgress) {
-        console.log('[STORAGE] Project.toJSON called for:', this.name);
+        console.log('[STORAGE] Project.toJSON called for:', this.name, 'tracks:', this.tracks.length);
         const tracksData = [];
         for (let i = 0; i < this.tracks.length; i++) {
             // Ensure track is a Track instance
@@ -384,7 +385,7 @@ class StorageManager {
             console.log('[STORAGE] save() called for user:', userId, 'projects:', this.projects.length);
             const projectsData = [];
             for (const project of this.projects) {
-                console.log('[STORAGE] Converting project to JSON:', project.name);
+                console.log('[STORAGE] Converting project to JSON:', project.name, 'tracks:', project.tracks.length);
                 const projectJSON = await project.toJSON(onProgress);
                 projectsData.push(projectJSON);
             }
@@ -421,7 +422,11 @@ class StorageManager {
         const project = new Project(projectData);
         
         console.log('[STORAGE] Project created, tracks:', project.tracks.length);
-        console.log('[STORAGE] First track after Project constructor:', project.tracks[0]);
+        if (project.tracks.length > 0) {
+            console.log('[STORAGE] First track after Project constructor:', project.tracks[0]);
+        } else {
+            console.log('[STORAGE] Empty project created (0 tracks)');
+        }
         
         // Always save to localStorage for both logged in users and guests
         // This ensures audioFileId is persisted across page refreshes
@@ -431,9 +436,13 @@ class StorageManager {
         console.log('[STORAGE] Project saved and added to storage');
         
         // Log audioFileId for each track
-        project.tracks.forEach(track => {
-            console.log('[STORAGE] Track audioFileId:', track.name, ':', track.audioFileId);
-        });
+        if (project.tracks.length > 0) {
+            project.tracks.forEach(track => {
+                console.log('[STORAGE] Track audioFileId:', track.name, ':', track.audioFileId);
+            });
+        } else {
+            console.log('[STORAGE] No tracks to log audioFileId for');
+        }
         
         console.log('[STORAGE] Returning project:', project.name);
         console.log('[STORAGE] Project is now available in getProjectsByFilter:', this.getProjectsByFilter('all').length);

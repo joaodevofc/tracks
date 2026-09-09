@@ -589,14 +589,15 @@ class MultitrackPlayer {
         console.log('[PLAYER] AudioContext state after resume:', this.audioContext.state);
         console.log('[PLAYER] Master gain value:', this.masterGain.gain.value);
         
-        this.isPlaying = true;
+        // Don't set isPlaying yet - set it only after audio actually starts
+        // This prevents race conditions where flag is true but audio isn't playing
         this.songEndedNotified = false; // Reset song ended notification flag
         
         console.log('[PLAYER] Starting playback at position:', this.currentTime);
         console.log('[PLAYER] Total tracks in project:', this.currentProject.tracks.length);
         console.log('[PLAYER] Total trackNodes loaded:', this.trackNodes.size);
         
-        // Pre-synchronization: Set all audio elements to the exact same position first
+        // Pre-synchronization: Set all audio elements based on track offset
         console.log('[PLAYER] Pre-synchronizing all tracks to position:', this.currentTime);
         this.trackNodes.forEach((nodes, trackId) => {
             const track = this.currentProject.tracks.find(t => t.id === trackId);
@@ -607,12 +608,32 @@ class MultitrackPlayer {
                 return;
             }
             
-            // Set ALL audio elements to the SAME current position
-            if (this.currentTime >= 0 && this.currentTime < nodes.duration) {
-                nodes.audioElement.currentTime = this.currentTime;
-                // Apply mute/solo via gain
-                this.applyMuteSoloToTrack(trackId);
+            // Get track offset from editor (delay entrance)
+            const trackOffset = track && track.offset ? track.offset : 0;
+            
+            // Calculate track's actual start time (when this track should start playing)
+            const trackStartTime = trackOffset;
+            const trackEndTime = trackOffset + nodes.duration;
+            
+            // Determine if track should be playing now
+            if (this.currentTime >= trackStartTime && this.currentTime < trackEndTime) {
+                // Track is within its active window - set position relative to its offset
+                // Subtract offset to get position within the track's own audio content
+                const relativeTime = this.currentTime - trackOffset;
+                nodes.audioElement.currentTime = relativeTime;
+                console.log('[PLAYER] Track within window:', track.name, 'offset:', trackOffset, 'relativeTime:', relativeTime);
+            } else if (this.currentTime < trackStartTime) {
+                // Track hasn't started yet - set to beginning and will be paused
+                nodes.audioElement.currentTime = 0;
+                console.log('[PLAYER] Track not started yet:', track.name, 'offset:', trackOffset, 'will start at:', trackStartTime);
+            } else {
+                // Track has ended - set to end
+                nodes.audioElement.currentTime = nodes.duration;
+                console.log('[PLAYER] Track has ended:', track.name, 'offset:', trackOffset, 'ended at:', trackEndTime);
             }
+            
+            // Apply mute/solo via gain
+            this.applyMuteSoloToTrack(trackId);
         });
         
         // Use requestAnimationFrame for precise synchronized playback start
@@ -654,6 +675,7 @@ class MultitrackPlayer {
         let tracksPlaying = 0;
         let tracksSkipped = 0;
         let tracksErrored = 0;
+        let tracksDelayed = 0;
         const playPromises = [];
         
         // Calculate absolute start time for perfect synchronization
@@ -678,22 +700,38 @@ class MultitrackPlayer {
             }
         });
         
-        // Start all tracks simultaneously using the same timing reference
+        // Start all tracks using the same timing reference, accounting for offset
         this.trackNodes.forEach((nodes, trackId) => {
             const track = this.currentProject.tracks.find(t => t.id === trackId);
             
-            console.log('[PLAYER] Starting synchronized playback for track:', track.name);
+            // Get track offset from editor (delay entrance)
+            const trackOffset = track && track.offset ? track.offset : 0;
+            const trackStartTime = trackOffset;
+            const trackEndTime = trackOffset + nodes.duration;
             
-            // Check if current position is valid
-            if (this.currentTime >= 0 && this.currentTime < nodes.duration) {
-                // Play the audio element
+            console.log('[PLAYER] Checking track for playback:', track.name, 'offset:', trackOffset, 'currentTime:', this.currentTime);
+            
+            // Check if audio element is ready to play
+            if (nodes.audioElement.readyState < 3) {
+                console.warn('[PLAYER] Track not ready to play yet:', track.name, 'readyState:', nodes.audioElement.readyState);
+                tracksSkipped++;
+                return;
+            }
+            
+            // Determine if track should play now based on offset
+            if (this.currentTime >= trackStartTime && this.currentTime < trackEndTime) {
+                // Track is within its active window - play it
+                // Set position relative to its offset (subtract, not add)
+                const relativeTime = this.currentTime - trackOffset;
+                nodes.audioElement.currentTime = relativeTime;
+                
                 const playPromise = nodes.audioElement.play();
                 
                 if (playPromise !== undefined) {
                     playPromises.push(playPromise);
                     playPromise
                         .then(() => {
-                            console.log('[PLAYER] ✅ Successfully started playing track:', track.name);
+                            console.log('[PLAYER] ✅ Successfully started playing track:', track.name, 'at relative time:', relativeTime.toFixed(2));
                         })
                         .catch(error => {
                             console.error('[PLAYER] ❌ Error playing track:', track.name, error);
@@ -702,13 +740,21 @@ class MultitrackPlayer {
                 }
                 
                 tracksPlaying++;
+                console.log('[PLAYER] ✓ Playing track:', track.name, 'relativeTime:', relativeTime.toFixed(2));
+            } else if (this.currentTime < trackStartTime) {
+                // Track hasn't started yet - leave paused at position 0
+                // It will be started by the playback timer when playhead reaches its offset
+                nodes.audioElement.currentTime = 0;
+                tracksDelayed++;
+                console.log('[PLAYER] ⏱️ Track delayed:', track.name, 'will start at:', trackStartTime.toFixed(2));
             } else {
-                console.log('[PLAYER] Track position out of range:', track.name, 'currentTime:', this.currentTime, 'duration:', nodes.duration);
+                // Track has ended - leave paused
                 tracksSkipped++;
+                console.log('[PLAYER] ⏹️ Track ended:', track.name, 'offset:', trackOffset, 'ended at:', trackEndTime.toFixed(2));
             }
         });
         
-        console.log('[PLAYER] Synchronized playback summary - Playing:', tracksPlaying, 'Skipped:', tracksSkipped, 'Errored:', tracksErrored);
+        console.log('[PLAYER] Synchronized playback summary - Playing:', tracksPlaying, 'Delayed:', tracksDelayed, 'Skipped:', tracksSkipped, 'Errored:', tracksErrored);
         
         // Post-synchronization: Immediate drift correction after all tracks start
         if (playPromises.length > 0) {
@@ -719,11 +765,18 @@ class MultitrackPlayer {
                     requestAnimationFrame(() => {
                         this.trackNodes.forEach((nodes, trackId) => {
                             const track = this.currentProject.tracks.find(t => t.id === trackId);
-                            if (this.currentTime >= 0 && this.currentTime < nodes.duration) {
-                                // Small final adjustment to ensure perfect sync
-                                const drift = Math.abs(nodes.audioElement.currentTime - this.currentTime);
+                            const trackOffset = track && track.offset ? track.offset : 0;
+                            const trackStartTime = trackOffset;
+                            const trackEndTime = trackOffset + nodes.duration;
+                            
+                            // Only correct drift for tracks that are within their active window
+                            if (this.currentTime >= trackStartTime && this.currentTime < trackEndTime) {
+                                // Use relative time (subtract offset, not absolute)
+                                const relativeTime = this.currentTime - trackOffset;
+                                const drift = Math.abs(nodes.audioElement.currentTime - relativeTime);
                                 if (drift > 0.005) { // Reduced threshold to 5ms for tighter sync
-                                    nodes.audioElement.currentTime = this.currentTime;
+                                    nodes.audioElement.currentTime = relativeTime;
+                                    console.log('[PLAYER] Drift correction for track:', track.name, 'drift:', drift.toFixed(3) + 's');
                                 }
                             }
                         });
@@ -732,7 +785,20 @@ class MultitrackPlayer {
                 })
                 .catch(error => {
                     console.error('[PLAYER] Error during synchronized playback:', error);
+                    // Still set flag even if some tracks failed, to prevent desync
+                    this.isPlaying = true;
                 });
+        } else {
+            // No play promises (no tracks), still set flag
+            this.isPlaying = true;
+        }
+        
+        this.startPlaybackTimer();
+        this.startVisualization();
+        
+        // Notify UI of play state change
+        if (this.onPlayStateChange) {
+            this.onPlayStateChange('playing');
         }
     }
     
@@ -742,8 +808,25 @@ class MultitrackPlayer {
     pause() {
         console.log('[PLAYER] pause() called, isPlaying:', this.isPlaying);
         
+        // Safety net: Even if isPlaying is false, try to pause audio elements
+        // This prevents race conditions where flag is out of sync with actual audio state
+        let forcedPauseCount = 0;
         if (!this.isPlaying) {
-            console.log('[PLAYER] Not playing, ignoring pause()');
+            console.log('[PLAYER] WARNING: isPlaying is false, but forcing audio element pause as safety net');
+            this.trackNodes.forEach((nodes, trackId) => {
+                if (nodes.audioElement && !nodes.audioElement.paused) {
+                    try {
+                        nodes.audioElement.pause();
+                        forcedPauseCount++;
+                        console.log('[PLAYER] Force-paused audio element for track:', trackId);
+                    } catch (e) {
+                        console.error('[PLAYER] Error force-pausing audio element for track:', trackId, e);
+                    }
+                }
+            });
+            if (forcedPauseCount > 0) {
+                console.log('[PLAYER] Force-paused', forcedPauseCount, 'audio elements that were still playing');
+            }
             return;
         }
         
@@ -799,7 +882,33 @@ class MultitrackPlayer {
         console.log('[PLAYER] stop() called');
         console.log('[PLAYER] Current state before stop - isPlaying:', this.isPlaying, 'currentTime:', this.currentTime);
         
-        this.pause();
+        // UNCONDITIONALLY pause all audio elements regardless of isPlaying flag
+        // This ensures playback stops even if the flag is out of sync
+        let pausedCount = 0;
+        this.trackNodes.forEach((nodes, trackId) => {
+            if (nodes.audioElement) {
+                try {
+                    nodes.audioElement.pause();
+                    pausedCount++;
+                    console.log('[PLAYER] Force-paused audio element for track:', trackId);
+                } catch (e) {
+                    console.error('[PLAYER] Error force-pausing audio element for track:', trackId, e);
+                }
+            }
+        });
+        
+        // Stop metronome unconditionally
+        if (this.metronome) {
+            this.metronome.stop();
+            console.log('[PLAYER] Metronome stopped');
+        }
+        
+        // Stop playback timer
+        this.stopPlaybackTimer();
+        
+        // Reset isPlaying flag
+        this.isPlaying = false;
+        this.isRestarting = false;
         
         // Synchronized reset of all audio elements to position 0
         this.trackNodes.forEach((nodes, trackId) => {
@@ -816,7 +925,7 @@ class MultitrackPlayer {
         this.currentTime = 0;
         this.songEndedNotified = false; // Reset song ended notification flag
         
-        console.log('[PLAYER] Playback stopped and all tracks synchronized to position 0');
+        console.log('[PLAYER] Playback stopped - paused', pausedCount, 'audio elements, synchronized to position 0');
         
         if (this.onPlayStateChange) {
             this.onPlayStateChange('stopped');
@@ -887,16 +996,11 @@ class MultitrackPlayer {
                 });
             });
             
-            // Ensure playback state is correct
-            this.isPlaying = true;
-            
             // Restart playback timer to update playhead position
             this.startPlaybackTimer();
             
-            // Notify UI of play state change
-            if (this.onPlayStateChange) {
-                this.onPlayStateChange('playing');
-            }
+            // Notify UI of play state change (will be called when isPlaying is set in startSynchronizedPlayback)
+            // The UI notification will happen when playback actually starts
         }
         
         console.log('[PLAYER] Seek complete - pauseAfterSeek:', pauseAfterSeek, 'final state:', this.isPlaying ? 'playing' : 'paused');
@@ -1547,6 +1651,33 @@ class MultitrackPlayer {
                 const elapsedRealTime = this.audioContext.currentTime - this.playbackStartContextTime;
                 this.currentTime = this.playbackStartOffset + elapsedRealTime;
 
+                // Handle delayed track starts based on offset
+                this.trackNodes.forEach((nodes, trackId) => {
+                    const track = this.currentProject.tracks.find(t => t.id === trackId);
+                    const trackOffset = track && track.offset ? track.offset : 0;
+                    const trackStartTime = trackOffset;
+                    const trackEndTime = trackOffset + nodes.duration;
+                    
+                    // Check if track should start playing now
+                    if (this.currentTime >= trackStartTime && this.currentTime < trackEndTime) {
+                        if (nodes.audioElement.paused) {
+                            // Track was delayed, now starting it
+                            const relativeTime = this.currentTime - trackOffset;
+                            nodes.audioElement.currentTime = relativeTime;
+                            nodes.audioElement.play().catch(error => {
+                                console.error('[PLAYER] Error starting delayed track:', track.name, error);
+                            });
+                            console.log('[PLAYER] Started delayed track:', track.name, 'at', this.currentTime.toFixed(2));
+                        }
+                    } else if (this.currentTime >= trackEndTime) {
+                        // Track has ended, pause it
+                        if (!nodes.audioElement.paused) {
+                            nodes.audioElement.pause();
+                            console.log('[PLAYER] Paused ended track:', track.name, 'at', this.currentTime.toFixed(2));
+                        }
+                    }
+                });
+
                 // Continuous drift correction: check each track's actual currentTime
                 // and correct if drift exceeds threshold
                 // IMPORTANT: Skip drift correction when playback speed is not 1.0x to avoid interference
@@ -1554,13 +1685,19 @@ class MultitrackPlayer {
                 if (this.playbackSpeed === 1.0) {
                     this.trackNodes.forEach((nodes, trackId) => {
                         const track = this.currentProject.tracks.find(t => t.id === trackId);
-                        if (nodes.audioElement && this.currentTime >= 0 && this.currentTime < nodes.duration) {
+                        const trackOffset = track && track.offset ? track.offset : 0;
+                        const trackStartTime = trackOffset;
+                        const trackEndTime = trackOffset + nodes.duration;
+                        
+                        // Only correct drift for tracks that are within their active window
+                        if (nodes.audioElement && this.currentTime >= trackStartTime && this.currentTime < trackEndTime) {
+                            const relativeTime = this.currentTime - trackOffset;
                             const actualTime = nodes.audioElement.currentTime;
-                            const drift = Math.abs(actualTime - this.currentTime);
+                            const drift = Math.abs(actualTime - relativeTime);
 
                             if (drift > driftThreshold) {
                                 // Drift correction without logging (high frequency operation)
-                                nodes.audioElement.currentTime = this.currentTime;
+                                nodes.audioElement.currentTime = relativeTime;
                             }
                         }
                     });
@@ -1584,9 +1721,9 @@ class MultitrackPlayer {
                     this.stop();
 
                     // Notify app that song ended (only once)
-                    if (this.onSongEnded && !this.songEndedNotified) {
+                    if (onSongEnded && !this.songEndedNotified) {
                         this.songEndedNotified = true;
-                        this.onSongEnded();
+                        onSongEnded();
                     }
                     return;
                 }

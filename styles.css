@@ -2042,6 +2042,19 @@ a {
     font-weight: 500;
 }
 
+.music-card-edited-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: rgba(74, 158, 255, 0.1);
+    border: 1px solid rgba(74, 158, 255, 0.3);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    color: #4a9eff;
+}
+
 .music-card-date {
     margin-top: var(--spacing-sm);
     font-size: var(--font-size-xs);

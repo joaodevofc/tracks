@@ -257,6 +257,13 @@ class AudioStorage {
         });
     }
     
+    /**
+     * Alias for getAudioFile - used by track editor
+     */
+    async loadAudioFile(fileId) {
+        return this.getAudioFile(fileId);
+    }
+    
     async deleteAudioFile(id) {
         if (!this.db) await this.init();
         
