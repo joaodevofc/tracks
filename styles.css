@@ -3005,6 +3005,46 @@ a {
     color: var(--color-white-muted);
 }
 
+/* Studio Beta Card - Special styling */
+.import-option[data-method="studio"] {
+    position: relative;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+    border: 2px solid rgba(102, 126, 234, 0.3);
+}
+
+.import-option[data-method="studio"]::before {
+    content: 'BETA';
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 12px;
+    letter-spacing: 0.5px;
+}
+
+.import-option[data-method="studio"]:hover {
+    border-color: rgba(102, 126, 234, 0.6);
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.2);
+}
+
+.import-option[data-method="studio"] .import-icon svg {
+    stroke: #667eea;
+}
+
+.import-option[data-method="studio"] .import-label {
+    color: #667eea;
+}
+
+.import-option[data-method="studio"] .import-description {
+    color: rgba(102, 126, 234, 0.8);
+}
+
 /* Drop Zone */
 .drop-zone {
     border: 2px dashed var(--border-medium);

@@ -6896,6 +6896,16 @@ class MultracksApp {
             return;
         }
 
+        // Check if running on mobile/PWA - editor is desktop-only for now
+        const isMobile = this.isMobileDevice();
+        const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
+                      window.navigator.standalone === true;
+
+        if (isMobile || isPWA) {
+            this.showDesktopOnlyModal();
+            return;
+        }
+
         // Cleanup memory-heavy resources before navigation
         console.log('[APP] Cleaning up PWA resources before opening editor');
         await this.cleanupForEditor();
@@ -6908,6 +6918,40 @@ class MultracksApp {
         sessionStorage.setItem('editorProjectId', projectId);
 
         window.location.href = editorUrl;
+    }
+
+    isMobileDevice() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+               (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    }
+
+    showDesktopOnlyModal() {
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 400px; text-align: center;">
+                <div style="font-size: 48px; margin-bottom: 16px;">💻</div>
+                <h3 style="color: #ffffff; margin-bottom: 12px;">Modo Desktop Apenas</h3>
+                <p style="color: #a0a0a0; margin-bottom: 24px; line-height: 1.5;">
+                    Por enquanto, o modo de edição de tracks está disponível apenas no desktop. Use um computador para acessar todas as funcionalidades do Studio.
+                </p>
+                <button class="modal-btn" id="closeDesktopModal" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;">
+                    Entendi
+                </button>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        document.getElementById('closeDesktopModal').addEventListener('click', () => {
+            modal.remove();
+        });
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
     }
 
     async cleanupForEditor() {
@@ -8080,14 +8124,24 @@ class MultracksApp {
     
     async createEmptyStudioProject() {
         const projectName = this.projectName.value.trim();
-        
+
         if (!projectName) {
             alert('Por favor, insira um nome para o projeto.');
             return;
         }
-        
+
+        // Check if running on mobile/PWA - editor is desktop-only for now
+        const isMobile = this.isMobileDevice();
+        const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
+                      window.navigator.standalone === true;
+
+        if (isMobile || isPWA) {
+            this.showDesktopOnlyModal();
+            return;
+        }
+
         console.log('[APP] Creating empty Studio project:', projectName);
-        
+
         try {
             // Create empty project with 0 tracks
             const project = await storage.createProject({
@@ -8095,18 +8149,18 @@ class MultracksApp {
                 key: '', // No key for studio projects
                 tracks: [] // Empty tracks array
             });
-            
+
             console.log('[APP] Empty Studio project created:', project.id);
-            
+
             // Reset studio creation flag
             this.isStudioCreation = false;
-            
+
             // Close modal
             this.closeModal();
-            
+
             // Navigate to track-editor with the new project ID
             window.location.href = `track-editor.html?projectId=${project.id}`;
-            
+
         } catch (error) {
             console.error('[APP] Error creating empty Studio project:', error);
             alert('Erro ao criar projeto no Studio. Tente novamente.');
