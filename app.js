@@ -6887,9 +6887,11 @@ class MultracksApp {
             return;
         }
         
-        // Check if user has Studio plan
-        const isStudio = await this.isStudioPlan();
-        if (!isStudio) {
+        // Check if user has Studio plan using the same logic as the player
+        const userPlan = await this.getUserPlan();
+        console.log('[APP] User plan for track editor:', userPlan);
+        
+        if (userPlan === 'Home') {
             this.showUpgradeModal('Edição de Tracks (Playlist)');
             return;
         }
