@@ -89,8 +89,8 @@
   }
 </script>
 
-<!-- Plan Utilities -->
-<script src="planUtils.js"></script>
+<!-- Plan System -->
+<script src="planSystem.js"></script>
 
 <style>
 :root{
@@ -433,6 +433,14 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;}
 #tab-contas .table-row {
   grid-template-columns: 60px 80px 1fr 1fr 140px 140px 140px 220px;
 }
+
+/* Upgrade Accounts Table - 7 columns */
+#tab-upgrade .table-header {
+  grid-template-columns: 60px 1fr 1fr 120px 120px 120px 100px;
+}
+#tab-upgrade .table-row {
+  grid-template-columns: 60px 1fr 1fr 120px 120px 120px 100px;
+}
 .table-cell{
   font-family:var(--font-mono);
   font-size:0.9rem;
@@ -475,7 +483,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;}
   background:rgba(74, 222, 128, 0.1);
 }
 
-/* Payment Badge for Studio Users */
+/* Payment Badge for Track Pro Users */
 .payment-badge-site{
   background: #000000;
   color: #00ff00;
@@ -793,6 +801,16 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;}
       </svg>
       Contas
     </div>
+    <div class="nav-item" data-tab="upgrade" onclick="switchTab('upgrade')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 2v20M2 12h20"/>
+        <path d="M17 1l4 4-4 4"/>
+        <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+        <path d="M7 23l-4-4 4-4"/>
+        <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+      </svg>
+      Contas Upgrade
+    </div>
     <div class="nav-item" data-tab="criadores" onclick="switchTab('criadores')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -973,6 +991,33 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;}
       </div>
     </div>
 
+    <!-- Contas Upgrade Tab -->
+    <div class="tab-content" id="tab-upgrade">
+      <div class="search-bar">
+        <input type="text" class="search-input" id="searchUpgrade" placeholder="Buscar upgrades por nome, email ou origem..." oninput="filterUpgradeAccounts()">
+      </div>
+
+      <div class="actions-bar">
+        <button class="btn btn-primary" onclick="loadUpgradeAccounts()">Atualizar</button>
+        <button class="btn btn-secondary" onclick="exportUpgradeAccounts()">Exportar CSV</button>
+      </div>
+
+      <div class="data-table">
+        <div class="table-header" style="grid-template-columns: 60px 1fr 1fr 120px 120px 120px 100px;">
+          <span>#</span>
+          <span>Usuário</span>
+          <span>Email</span>
+          <span>Virou Pro</span>
+          <span>Origem</span>
+          <span>Vencimento</span>
+          <span>Status</span>
+        </div>
+        <div id="allUpgradeAccounts">
+          <div class="loading">Carregando upgrades...</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Criadores Tab -->
     <div class="tab-content" id="tab-criadores">
       <div class="search-bar">
@@ -1122,7 +1167,7 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;}
 
       <div style="margin-bottom: 32px;">
         <h3 style="font-family:var(--font-display);font-size:1.2rem;color:var(--white);margin-bottom:8px;">Configuração de Planos</h3>
-        <p style="color:var(--muted);font-size:0.9rem;">Gerencie os links e preços dos planos mensal e anual</p>
+        <p style="color:var(--muted);font-size:0.9rem;">Gerencie os links e preços dos planos Track Pro (mensal e anual)</p>
       </div>
 
       <!-- Plano Mensal Section -->
@@ -1609,6 +1654,7 @@ function switchTab(tabName){
     'dashboard': 'Dashboard',
     'emails': 'Gerenciar Emails',
     'contas': 'Gerenciar Contas',
+    'upgrade': 'Contas Upgrade',
     'criadores': 'Gerenciar Criadores',
     'comunidade': 'Gerenciar Comunidade',
     'suporte': 'Gerenciar Suporte',
@@ -1630,6 +1676,8 @@ function switchTab(tabName){
       setupContasRealtimeListener();
     }
     loadContas();
+  } else if(tabName === 'upgrade'){
+    loadUpgradeAccounts();
   } else if(tabName === 'criadores'){
     loadCriadores();
   } else if(tabName === 'comunidade'){
@@ -3218,7 +3266,6 @@ let contasCache = [];
 let contasUnsubscribeListener = null;
 
 // Setup real-time listener for contas
-// Check if a Studio plan is expired based on expiration dates
 function setupContasRealtimeListener(){
   if (!window.firebaseDB) {
     console.warn('[FIREBASE] Not available for contas realtime');
@@ -3239,42 +3286,21 @@ function setupContasRealtimeListener(){
         const displayName = data.displayName || 'Sem nome';
         const email = data.email || doc.id || 'Email não informado';
         const accountType = data.accountType || 'Usuário';
-        
-        // Check both 'plan' and 'plano' fields for compatibility
-        let plan = data.plan || data.plano || 'Home';
-        // Normalize plan name to Title Case for consistency
-        plan = plan.charAt(0).toUpperCase() + plan.slice(1).toLowerCase();
-        // Map old plan values to new system
-        if (plan === 'Free' || plan === 'Pro' || plan === 'VIP' || plan === 'Creator' || plan === 'Home') {
-          plan = 'Home';
+
+        // Read plan from official field only - use 'track' as default
+        let plan = data.plan || 'track';
+
+        // Validate plan against official plan system
+        if (!window.PlanSystem || !window.PlanSystem.PLANS[plan]) {
+          console.warn('[EQUIPE] Invalid plan value:', plan, 'for user:', doc.id, 'defaulting to track');
+          plan = 'track';
         }
-        
+
         const status = data.status || 'active';
         const paymentOrigin = data.paymentOrigin || null;
         const statusPagamento = data.statusPagamento || null;
         const validadeAcesso = data.validadeAcesso || null;
         const trialExpiresAt = data.trialExpiresAt || null;
-
-        // Check if Studio plan is expired and update Firestore if needed
-        if (plan === 'Studio' && isPlanExpired(data)) {
-          console.log('[EQUIPE] User has expired Studio plan, updating to Home:', doc.id);
-          
-          // Update Firestore immediately
-          window.firebaseDB.updateDoc(
-            window.firebaseDB.doc(window.firebaseDB.db, 'users', doc.id),
-            {
-              plan: 'home',
-              plano: 'home', // Migrate to single field
-              statusPagamento: 'expirado'
-            }
-          ).catch(error => {
-            console.error('[EQUIPE] Failed to update expired plan:', error);
-          });
-          
-          // Update local object for immediate UI feedback
-          plan = 'Home';
-          statusPagamento = 'expirado';
-        }
 
         contasCache.push({
           id: doc.id,
@@ -3343,42 +3369,21 @@ async function loadContasFromFirebase(){
       const displayName = data.displayName || 'Sem nome';
       const email = data.email || doc.id || 'Email não informado';
       const accountType = data.accountType || 'Usuário';
-      
-      // Check both 'plan' and 'plano' fields for compatibility
-      let plan = data.plan || data.plano || 'Home';
-      // Normalize plan name to Title Case for consistency
-      plan = plan.charAt(0).toUpperCase() + plan.slice(1).toLowerCase();
-      // Map old plan values to new system
-      if (plan === 'Free' || plan === 'Pro' || plan === 'VIP' || plan === 'Creator' || plan === 'Home') {
-        plan = 'Home';
+
+      // Read plan from official field only - use 'track' as default
+      let plan = data.plan || 'track';
+
+      // Validate plan against official plan system
+      if (!window.PlanSystem || !window.PlanSystem.PLANS[plan]) {
+        console.warn('[EQUIPE] Invalid plan value:', plan, 'for user:', doc.id, 'defaulting to track');
+        plan = 'track';
       }
-      
+
       const status = data.status || 'active';
       const paymentOrigin = data.paymentOrigin || null;
       const statusPagamento = data.statusPagamento || null;
       const validadeAcesso = data.validadeAcesso || null;
       const trialExpiresAt = data.trialExpiresAt || null;
-
-      // Check if Studio plan is expired and update Firestore if needed
-      if (plan === 'Studio' && isPlanExpired(data)) {
-        console.log('[EQUIPE] User has expired Studio plan, updating to Home:', doc.id);
-        
-        // Update Firestore immediately
-        window.firebaseDB.updateDoc(
-          window.firebaseDB.doc(window.firebaseDB.db, 'users', doc.id),
-          {
-            plan: 'home',
-            plano: 'home', // Migrate to single field
-            statusPagamento: 'expirado'
-          }
-        ).catch(error => {
-          console.error('[EQUIPE] Failed to update expired plan:', error);
-        });
-        
-        // Update local object for immediate UI feedback
-        plan = 'Home';
-        statusPagamento = 'expirado';
-      }
 
       contasCache.push({
         id: doc.id,
@@ -3456,7 +3461,7 @@ async function loadContas(){
   renderContas(contas);
 }
 
-// Calculate days remaining for Studio users
+// Calculate days remaining for Track Pro users
 function calculateDaysRemaining(validadeAcesso) {
   if (!validadeAcesso) return null;
 
@@ -3514,44 +3519,24 @@ function renderContas(contas){
       rowStyle = 'opacity: 0.6; background: rgba(239, 68, 68, 0.05);';
     }
 
-    // Payment badge for Studio users with site payment
+    // Payment badge for Track Pro users with site payment
     let paymentBadge = '';
-    if (conta.plan === 'Studio' && conta.paymentOrigin === 'site' && conta.statusPagamento === 'ativo') {
+    if (conta.plan === 'track_pro' && conta.paymentOrigin === 'site' && conta.statusPagamento === 'ativo') {
       paymentBadge = '<span class="payment-badge-site">Assinatura Site</span>';
     }
 
     // Days remaining for all users (main feature now)
     let daysRemainingHtml = '';
-    if (conta.plan === 'Studio' && conta.validadeAcesso) {
+    if (conta.plan === 'track_pro' && conta.validadeAcesso) {
       daysRemainingHtml = getDaysRemainingText(conta.validadeAcesso);
-    } else if (conta.plan === 'Home') {
+    } else if (conta.plan === 'track') {
       daysRemainingHtml = '<span style="color: var(--subtle); font-size: 0.75rem;">Plano gratuito</span>';
     } else {
       daysRemainingHtml = '<span style="color: var(--subtle); font-size: 0.75rem;">Sem validade</span>';
     }
 
-    // Renew button for Studio or expired users
+    // Renew button functionality removed - new plan system doesn't use day-based renewals
     let renewButtonHtml = '';
-    if ((conta.plan === 'Studio' || conta.statusPagamento === 'expirado') && conta.status === 'active') {
-      const isAnnualPlan = conta.planType === 'anual';
-      const buttonText = isAnnualPlan ? '+365 Dias' : '+30 Dias';
-      const isAnnualParam = isAnnualPlan ? 'true' : 'false';
-      
-      renewButtonHtml = `
-        <button
-          class="action-btn renew"
-          onclick="renewUserAccess('${conta.id}', '${escapeHtml(conta.displayName)}', '${escapeHtml(conta.email)}', ${isAnnualParam})"
-        >
-          ${buttonText}
-        </button>
-        <button
-          class="action-btn renew"
-          onclick="renewUserAccess('${conta.id}', '${escapeHtml(conta.displayName)}', '${escapeHtml(conta.email)}', ${!isAnnualParam})"
-        >
-          ${isAnnualPlan ? '+30 Dias' : '+365 Dias'}
-        </button>
-      `;
-    }
 
     // Actions based on status
     let actionsHtml = '';
@@ -3586,8 +3571,8 @@ function renderContas(contas){
             style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-card); color: var(--white-dim); font-size: 0.85rem; cursor: pointer;"
             ${conta.status !== 'active' ? 'disabled' : ''}
           >
-            <option value="Home" ${conta.plan === 'Home' ? 'selected' : ''}>Home</option>
-            <option value="Studio" ${conta.plan === 'Studio' ? 'selected' : ''}>Studio</option>
+            <option value="track" ${conta.plan === 'track' ? 'selected' : ''}>Track</option>
+            <option value="track_pro" ${conta.plan === 'track_pro' ? 'selected' : ''}>Track Pro</option>
           </select>
           ${paymentBadge}
         </div>
@@ -3699,14 +3684,65 @@ async function saveCheckoutConfig(){
 
 // Change user plan
 async function changeUserPlan(userId, newPlan){
-  if(!confirm(`Tem certeza que deseja alterar o plano do usuário para ${newPlan}?`)) return;
+  // Get display name for confirmation message
+  const planDisplayName = window.PlanSystem && window.PlanSystem.PLANS[newPlan]
+    ? window.PlanSystem.PLANS[newPlan].displayName
+    : newPlan;
+
+  if(!confirm(`Tem certeza que deseja alterar o plano do usuário para ${planDisplayName}?`)) return;
 
   if (window.firebaseDB) {
     try {
       console.log('[FIREBASE] About to update plan for user:', userId, 'to', newPlan);
+      
+      const updateData = { plan: newPlan };
+      
+      // If upgrading to Track Pro, set up the 30-day system
+      if (newPlan === 'track_pro') {
+        const now = new Date();
+        const planActivatedAt = now.toISOString();
+        const expiryDate = new Date(now);
+        expiryDate.setDate(expiryDate.getDate() + 30);
+        const validadeAcesso = expiryDate.toISOString();
+        
+        updateData.planType = 'mensal';
+        updateData.planActivatedAt = planActivatedAt;
+        updateData.validadeAcesso = validadeAcesso;
+        updateData.paymentOrigin = 'equipe';
+        updateData.statusPagamento = 'ativo';
+        updateData.subscriptionStatus = 'active';
+        updateData.lastPaymentAt = planActivatedAt;
+        updateData.updatedAt = planActivatedAt;
+        
+        // Add to subscription history
+        const conta = contasCache.find(c => c.id === userId);
+        if (conta) {
+          await window.firebaseDB.addDoc(
+            window.firebaseDB.collection(window.firebaseDB.db, 'subscriptionHistory'),
+            {
+              uid: userId,
+              email: conta.email,
+              plan: 'track_pro',
+              planType: 'mensal',
+              paymentOrigin: 'equipe',
+              activatedAt: planActivatedAt,
+              expiresAt: validadeAcesso,
+              transactionId: null,
+              createdAt: planActivatedAt
+            }
+          );
+        }
+      } else if (newPlan === 'track') {
+        // Downgrading to Track, remove Pro-specific fields
+        updateData.planType = null;
+        updateData.validadeAcesso = null;
+        updateData.subscriptionStatus = 'inactive';
+        updateData.statusPagamento = null;
+      }
+      
       await window.firebaseDB.updateDoc(
         window.firebaseDB.doc(window.firebaseDB.db, 'users', userId),
-        { plan: newPlan.toLowerCase() }
+        updateData
       );
       console.log('[FIREBASE] User plan updated successfully:', userId, 'to', newPlan);
       // Real-time listener will update the UI automatically
@@ -3717,66 +3753,222 @@ async function changeUserPlan(userId, newPlan){
   }
 }
 
-// Renew user access for +30 days or +365 days (annual)
-async function renewUserAccess(userId, userName, userEmail, isAnnual = false) {
-  const days = isAnnual ? 365 : 30;
-  const planLabel = isAnnual ? 'plano anual (365 dias)' : '+30 dias';
-  
-  if(!confirm(`Deseja renovar o acesso de ${userName} (${userEmail}) por ${planLabel}?`)) return;
+// Renew user access function removed - new plan system doesn't use day-based renewals
+// To upgrade a user to Track Pro, use the plan selector in the table
 
-  if (window.firebaseDB) {
-    try {
-      console.log('[FIREBASE] Renewing access for user:', userId, 'Days:', days, 'Annual:', isAnnual);
+// ========================================
+// UPGRADE ACCOUNTS MANAGEMENT
+// ========================================
+let upgradeAccountsCache = [];
+let upgradeAccountsUnsubscribeListener = null;
 
-      // Get current user data to check existing validity
-      const userDocRef = window.firebaseDB.doc(window.firebaseDB.db, 'users', userId);
-      const userDoc = await window.firebaseDB.getDoc(userDocRef);
+// Load upgrade accounts from subscriptionHistory and users collection
+async function loadUpgradeAccounts(){
+  const container = document.getElementById('allUpgradeAccounts');
+  container.innerHTML = '<div class="loading">Carregando upgrades...</div>';
 
-      let baseDate = new Date();
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        const currentValidity = userData.validadeAcesso;
+  if (!window.firebaseDB) {
+    console.warn('[FIREBASE] Not available for upgrade accounts');
+    container.innerHTML = '<div class="empty-state"><p>Firebase não disponível</p></div>';
+    return;
+  }
 
-        // If user has existing validity that hasn't expired, use it as base
-        if (currentValidity) {
-          const expiryDate = new Date(currentValidity);
-          const currentDate = new Date();
+  try {
+    const { db, collection, query, orderBy, getDocs, addDoc } = window.firebaseDB;
+    
+    // Load from subscriptionHistory
+    const subscriptionHistoryCollection = collection(db, 'subscriptionHistory');
+    const q = query(subscriptionHistoryCollection, orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
 
-          if (expiryDate > currentDate) {
-            baseDate = expiryDate; // Extend from current expiry date
-            console.log('[FIREBASE] Extending from existing expiry date:', baseDate);
-          } else {
-            console.log('[FIREBASE] Existing validity expired, using current date as base');
-          }
-        }
+    upgradeAccountsCache = [];
+    const historyUids = new Set(); // Track which users already have history records
+
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      historyUids.add(data.uid);
+      
+      // Get user info
+      const userData = contasCache.find(c => c.id === data.uid);
+      const displayName = userData ? userData.displayName : 'N/A';
+      const email = userData ? userData.email : data.email || 'N/A';
+
+      // Format dates
+      const activatedAt = data.activatedAt ? new Date(data.activatedAt) : null;
+      const expiresAt = data.expiresAt ? new Date(data.expiresAt) : null;
+      const formattedActivatedAt = activatedAt ? activatedAt.toLocaleDateString('pt-BR') : '-';
+      const formattedExpiresAt = expiresAt ? expiresAt.toLocaleDateString('pt-BR') : '-';
+
+      // Determine status
+      let status = 'Ativo';
+      if (data.reason === 'expired' || (expiresAt && expiresAt <= new Date())) {
+        status = 'Expirado';
       }
 
-      // Calculate new expiry date
-      const newExpiryDate = new Date(baseDate);
-      newExpiryDate.setDate(newExpiryDate.getDate() + days);
+      // Format origin
+      const originText = data.paymentOrigin === 'site' ? 'Site' : 'Equipe Wtracks';
 
-      console.log('[FIREBASE] New expiry date:', newExpiryDate.toISOString());
-
-      // Update user document
-      await window.firebaseDB.updateDoc(userDocRef, {
-        plan: 'studio',
-        planType: isAnnual ? 'anual' : 'mensal',
-        statusPagamento: 'ativo',
-        validadeAcesso: newExpiryDate.toISOString(),
-        paymentOrigin: 'site'
+      upgradeAccountsCache.push({
+        id: doc.id,
+        uid: data.uid,
+        displayName: displayName,
+        email: email,
+        plan: data.plan,
+        planType: data.planType,
+        paymentOrigin: data.paymentOrigin,
+        activatedAt: activatedAt,
+        expiresAt: expiresAt,
+        formattedActivatedAt: formattedActivatedAt,
+        formattedExpiresAt: formattedExpiresAt,
+        status: status,
+        originText: originText,
+        transactionId: data.transactionId,
+        createdAt: data.createdAt
       });
+    });
 
-      console.log('[FIREBASE] User access renewed successfully:', userId);
+    // Also check users collection for track_pro users without history records
+    contasCache.forEach((conta) => {
+      if (conta.plan === 'track_pro' && !historyUids.has(conta.id)) {
+        // User has track_pro but no history record
+        const activatedAt = conta.planActivatedAt ? new Date(conta.planActivatedAt) : null;
+        const expiresAt = conta.validadeAcesso ? new Date(conta.validadeAcesso) : null;
+        const formattedActivatedAt = activatedAt ? activatedAt.toLocaleDateString('pt-BR') : '-';
+        const formattedExpiresAt = expiresAt ? expiresAt.toLocaleDateString('pt-BR') : '-';
 
-      // Show success notification
-      alert(`Acesso de ${userName} (${userEmail}) renovado por ${planLabel} com sucesso!\nNova validade: ${newExpiryDate.toLocaleDateString('pt-BR')}`);
+        // Determine status
+        let status = 'Ativo';
+        if (expiresAt && expiresAt <= new Date()) {
+          status = 'Expirado';
+        }
 
-      // Real-time listener will update the UI automatically
-    } catch (error) {
-      console.error('[FIREBASE] Error renewing user access:', error);
-      alert('Erro ao renovar acesso: ' + error.message);
-    }
+        // Format origin
+        const originText = conta.paymentOrigin === 'site' ? 'Site' : 'Equipe Wtracks';
+
+        upgradeAccountsCache.push({
+          id: 'current-' + conta.id, // Temporary ID for display
+          uid: conta.id,
+          displayName: conta.displayName,
+          email: conta.email,
+          plan: conta.plan,
+          planType: conta.planType || 'mensal',
+          paymentOrigin: conta.paymentOrigin || 'equipe',
+          activatedAt: activatedAt,
+          expiresAt: expiresAt,
+          formattedActivatedAt: formattedActivatedAt,
+          formattedExpiresAt: formattedExpiresAt,
+          status: status,
+          originText: originText,
+          transactionId: conta.lastTransactionId || null,
+          createdAt: conta.createdAt
+        });
+
+        // Create history record for this user
+        if (activatedAt && expiresAt) {
+          addDoc(subscriptionHistoryCollection, {
+            uid: conta.id,
+            email: conta.email,
+            plan: 'track_pro',
+            planType: conta.planType || 'mensal',
+            paymentOrigin: conta.paymentOrigin || 'equipe',
+            activatedAt: activatedAt.toISOString(),
+            expiresAt: expiresAt.toISOString(),
+            transactionId: conta.lastTransactionId || null,
+            createdAt: new Date().toISOString()
+          }).catch(err => console.warn('[UPGRADE] Could not create history record:', err));
+        }
+      }
+    });
+
+    // Sort by activatedAt descending
+    upgradeAccountsCache.sort((a, b) => {
+      const dateA = a.activatedAt ? new Date(a.activatedAt) : new Date(0);
+      const dateB = b.activatedAt ? new Date(b.activatedAt) : new Date(0);
+      return dateB - dateA;
+    });
+
+    console.log('[UPGRADE] Loaded', upgradeAccountsCache.length, 'upgrade records');
+    renderUpgradeAccounts(upgradeAccountsCache);
+  } catch (error) {
+    console.error('[UPGRADE] Error loading upgrade accounts:', error);
+    container.innerHTML = '<div class="empty-state"><p>Erro ao carregar upgrades</p></div>';
   }
+}
+
+// Render upgrade accounts table
+function renderUpgradeAccounts(accounts){
+  const container = document.getElementById('allUpgradeAccounts');
+  container.innerHTML = '';
+
+  if (accounts.length === 0) {
+    container.innerHTML = '<div class="empty-state"><p>Nenhum upgrade encontrado</p></div>';
+    return;
+  }
+
+  accounts.forEach((account, index) => {
+    const row = document.createElement('div');
+    row.className = 'table-row';
+    row.style.gridTemplateColumns = '60px 1fr 1fr 120px 120px 120px 100px';
+
+    // Status badge
+    let statusBadge = '';
+    if (account.status === 'Ativo') {
+      statusBadge = '<span style="background:#10b981;color:#fff;padding:4px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">Ativo</span>';
+    } else {
+      statusBadge = '<span style="background:#ef4444;color:#fff;padding:4px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;">Expirado</span>';
+    }
+
+    row.innerHTML = `
+      <div class="table-cell id">${index + 1}</div>
+      <div class="table-cell">${escapeHtml(account.displayName)}</div>
+      <div class="table-cell email">${escapeHtml(account.email)}</div>
+      <div class="table-cell date">${account.formattedActivatedAt}</div>
+      <div class="table-cell">${account.originText}</div>
+      <div class="table-cell date">${account.formattedExpiresAt}</div>
+      <div class="table-cell">${statusBadge}</div>
+    `;
+
+    container.appendChild(row);
+  });
+}
+
+// Filter upgrade accounts
+function filterUpgradeAccounts(){
+  const searchTerm = document.getElementById('searchUpgrade').value.toLowerCase();
+  const filtered = upgradeAccountsCache.filter(account =>
+    account.displayName.toLowerCase().includes(searchTerm) ||
+    account.email.toLowerCase().includes(searchTerm) ||
+    account.originText.toLowerCase().includes(searchTerm)
+  );
+  renderUpgradeAccounts(filtered);
+}
+
+// Export upgrade accounts
+async function exportUpgradeAccounts(){
+  if (upgradeAccountsCache.length === 0) {
+    alert('Não há upgrades para exportar');
+    return;
+  }
+
+  const headers = ['#', 'Usuário', 'Email', 'Plano', 'Virou Pro', 'Origem', 'Vencimento', 'Status', 'Transaction ID'];
+  const rows = upgradeAccountsCache.map((account, index) => [
+    index + 1,
+    account.displayName,
+    account.email,
+    account.plan,
+    account.formattedActivatedAt,
+    account.originText,
+    account.formattedExpiresAt,
+    account.status,
+    account.transactionId || 'N/A'
+  ]);
+
+  const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'upgrade_accounts.csv';
+  link.click();
 }
 
 // View conta details

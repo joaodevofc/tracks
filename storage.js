@@ -108,6 +108,16 @@ class Track {
         this.isEffect = data.isEffect || false; // Flag for effect tracks
         this.effectStartTime = data.effectStartTime || null; // Start time for effect tracks
         this.effectDuration = data.effectDuration || null; // Duration for effect tracks
+        
+        // R2/Cloud storage properties
+        this.r2Key = data.r2Key || null; // R2 object key
+        this.r2Version = data.r2Version || 1; // Version for change detection
+        this.cloud = data.cloud || false; // True if track exists in R2
+        this.local = data.local || false; // True if track exists in IndexedDB
+        this.downloading = data.downloading || false; // True if currently downloading
+        this.error = data.error || false; // True if download/upload error
+        this.r2Size = data.r2Size || 0; // Size in R2
+        this.r2UploadedAt = data.r2UploadedAt || null; // Upload timestamp
     }
     
     generateId() {
@@ -144,7 +154,16 @@ class Track {
             offset: this.offset,
             isEffect: this.isEffect,
             effectStartTime: this.effectStartTime,
-            effectDuration: this.effectDuration
+            effectDuration: this.effectDuration,
+            // R2/Cloud storage properties
+            r2Key: this.r2Key,
+            r2Version: this.r2Version,
+            cloud: this.cloud,
+            local: this.local,
+            downloading: this.downloading,
+            error: this.error,
+            r2Size: this.r2Size,
+            r2UploadedAt: this.r2UploadedAt
         };
         
         console.log('[STORAGE] Track.toJSON result has audioFileId:', !!json.audioFileId, 'Value:', json.audioFileId);
@@ -163,9 +182,13 @@ class Track {
             console.log('[STORAGE] Retrieving file from IndexedDB with ID:', json.audioFileId);
             track.file = await audioStorage.getAudioFile(json.audioFileId);
             console.log('[STORAGE] File retrieved from IndexedDB:', !!track.file);
+            
+            // Update local status based on file retrieval
+            track.local = !!track.file;
         }
         
         console.log('[STORAGE] Track.fromJSON result has file:', !!track.file);
+        console.log('[STORAGE] Track.fromJSON - cloud:', track.cloud, 'local:', track.local);
         return track;
     }
 }
@@ -202,6 +225,9 @@ class Project {
         this.loopEnabled = data.loopEnabled || false;
         this.loopStart = data.loopStart || 0;
         this.loopEnd = data.loopEnd || 0;
+        
+        // Firestore sync tracking
+        this.syncedAt = data.syncedAt || null; // Timestamp when project was first synced to Firestore
     }
     
     generateId() {
@@ -216,6 +242,17 @@ class Project {
     }
     
     removeTrack(trackId) {
+        const track = this.tracks.find(t => t.id === trackId);
+        if (track && track.r2Key) {
+            // Delete from R2 if authenticated
+            if (typeof r2Storage !== 'undefined' && r2Storage.authToken) {
+                r2Storage.deleteTrack(track.r2Key).catch(err => {
+                    console.error('[STORAGE] Failed to delete track from R2:', track.r2Key, err);
+                });
+            } else {
+                console.log('[STORAGE] User not authenticated or no authToken, skipping R2 deletion for track:', trackId);
+            }
+        }
         this.tracks = this.tracks.filter(t => t.id !== trackId);
         this.updateTimestamp();
     }
@@ -291,7 +328,8 @@ class Project {
             totalDuration: this.totalDuration,
             loopEnabled: this.loopEnabled,
             loopStart: this.loopStart,
-            loopEnd: this.loopEnd
+            loopEnd: this.loopEnd,
+            syncedAt: this.syncedAt // Include syncedAt field if it exists (from Firestore sync)
         };
     }
     
@@ -337,7 +375,7 @@ class StorageManager {
             
             console.log('[STORAGE] Loading projects for user:', getCurrentUserId());
             
-            // Load projects
+            // Load projects from localStorage first (cache/fallback)
             const data = localStorage.getItem(storageKey);
             if (data) {
                 const parsed = JSON.parse(data);
@@ -350,6 +388,25 @@ class StorageManager {
                 } else {
                     // Handle version migration if needed
                     this.projects = [];
+                }
+            }
+            
+            // If authenticated and has cloud sync access, sync with Firestore
+            if (typeof firestoreSync !== 'undefined' && firestoreSync.isAuthenticated()) {
+                // Check if user has cloud sync access
+                const hasCloudSync = window.PlanSystem ? await window.PlanSystem.hasFeatureAccess(firestoreSync.getCurrentUserId(), 'cloudSync') : false;
+
+                if (hasCloudSync) {
+                    console.log('[STORAGE] User authenticated with cloud sync access, syncing with Firestore');
+                    try {
+                        this.projects = await firestoreSync.performSync(this.projects);
+                        // Save merged result to localStorage as cache
+                        await this.saveToLocalStorageOnly();
+                    } catch (error) {
+                        console.error('[STORAGE] Firestore sync failed, using local data:', error);
+                    }
+                } else {
+                    console.log('[STORAGE] User authenticated but does not have cloud sync access, using local-only storage');
                 }
             }
             
@@ -399,10 +456,65 @@ class StorageManager {
             // Save playlists
             const playlistsData = this.playlists.map(p => p.toJSON());
             localStorage.setItem(playlistsStorageKey, JSON.stringify(playlistsData));
+
+            // If authenticated and has cloud sync access, sync to Firestore
+            if (typeof firestoreSync !== 'undefined' && firestoreSync.isAuthenticated()) {
+                // Check if user has cloud sync access
+                const hasCloudSync = window.PlanSystem ? await window.PlanSystem.hasFeatureAccess(firestoreSync.getCurrentUserId(), 'cloudSync') : false;
+
+                if (hasCloudSync) {
+                    console.log('[STORAGE] User authenticated with cloud sync access, syncing to Firestore');
+                    try {
+                        // Sync all projects to Firestore (async, don't await to avoid blocking)
+                        for (const project of this.projects) {
+                            firestoreSync.saveProjectToFirestore(project).catch(err => {
+                                console.error('[STORAGE] Failed to sync project to Firestore:', project.id, err);
+                            });
+                        }
+                    } catch (error) {
+                        console.error('[STORAGE] Firestore sync failed:', error);
+                    }
+                } else {
+                    console.log('[STORAGE] User authenticated but does not have cloud sync access, skipping Firestore sync');
+                }
+            }
             
             console.log('[STORAGE] save() completed successfully');
         } catch (error) {
             console.error('[STORAGE] Error saving projects:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Save to localStorage only (without Firestore sync)
+     * Used after Firestore merge to avoid circular sync
+     */
+    async saveToLocalStorageOnly() {
+        try {
+            const storageKey = getStorageKey();
+            const playlistsStorageKey = getPlaylistsStorageKey();
+            
+            console.log('[STORAGE] saveToLocalStorageOnly() called, projects:', this.projects.length);
+            const projectsData = [];
+            for (const project of this.projects) {
+                const projectJSON = await project.toJSON();
+                projectsData.push(projectJSON);
+            }
+            
+            const data = {
+                version: STORAGE_VERSION,
+                projects: projectsData
+            };
+            localStorage.setItem(storageKey, JSON.stringify(data));
+            
+            // Save playlists
+            const playlistsData = this.playlists.map(p => p.toJSON());
+            localStorage.setItem(playlistsStorageKey, JSON.stringify(playlistsData));
+            
+            console.log('[STORAGE] saveToLocalStorageOnly() completed successfully');
+        } catch (error) {
+            console.error('[STORAGE] Error saving to localStorage only:', error);
             throw error;
         }
     }
@@ -500,15 +612,49 @@ class StorageManager {
         // Capture version at start of delete operation
         const deleteVersion = ++storageOperationVersion;
         console.log('[STORAGE] DELETE OPERATION VERSION:', deleteVersion, 'for project:', id);
-        
+
         const index = this.projects.findIndex(p => p.id === id);
         if (index !== -1) {
             const project = this.projects[index];
+
+            // Delete tracks from R2 before removing project from local list
+            if (typeof r2Storage !== 'undefined' && r2Storage.authToken) {
+                console.log('[STORAGE] Deleting tracks from R2 for project:', id);
+                for (const track of project.tracks) {
+                    if (track.r2Key) {
+                        try {
+                            await r2Storage.deleteTrack(track.r2Key);
+                            console.log('[STORAGE] Deleted track from R2:', track.r2Key);
+                        } catch (err) {
+                            console.error('[STORAGE] Failed to delete track from R2:', track.r2Key, err);
+                            // Continue with other tracks even if one fails
+                        }
+                    }
+                }
+            } else {
+                console.log('[STORAGE] User not authenticated or no authToken, skipping R2 deletion');
+            }
+
             this.projects.splice(index, 1);
-            
+
             // Save and validate version
             await this.save();
-            
+
+            // Delete from Firestore if authenticated and has cloud sync access
+            if (typeof firestoreSync !== 'undefined' && firestoreSync.isAuthenticated()) {
+                // Check if user has cloud sync access
+                const hasCloudSync = window.PlanSystem ? await window.PlanSystem.hasFeatureAccess(firestoreSync.getCurrentUserId(), 'cloudSync') : false;
+
+                if (hasCloudSync) {
+                    console.log('[STORAGE] Deleting project from Firestore:', id);
+                    firestoreSync.deleteProjectFromFirestore(id).catch(err => {
+                        console.error('[STORAGE] Failed to delete project from Firestore:', id, err);
+                    });
+                } else {
+                    console.log('[STORAGE] User does not have cloud sync access, skipping Firestore deletion');
+                }
+            }
+
             // Validate version before confirming deletion
             if (deleteVersion !== storageOperationVersion) {
                 console.log('[STORAGE] Delete operation stale, may need to reload:', deleteVersion, 'current:', storageOperationVersion);
@@ -516,7 +662,7 @@ class StorageManager {
                 await this.load();
                 return false;
             }
-            
+
             console.log('[STORAGE] Project deleted:', id);
             return true;
         }

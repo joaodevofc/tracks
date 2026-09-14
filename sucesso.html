@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pagamento Aprovado - W.Tracks Studio</title>
-    <meta name="description" content="Plano W.Tracks Studio ativado com sucesso">
+    <title>Pagamento Aprovado - W.Tracks Track Pro</title>
+    <meta name="description" content="Plano W.Tracks Track Pro ativado com sucesso">
     <meta name="theme-color" content="#000000">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -112,7 +112,7 @@
 
       async function updateUserPlan(userId, planType = 'mensal', transactionToken = null) {
         try {
-          console.log('[SUCCESS] Updating user plan to studio for user:', userId, 'Plan type:', planType, 'Token:', transactionToken);
+          console.log('[SUCCESS] Updating user plan to track pro for user:', userId, 'Plan type:', planType, 'Token:', transactionToken);
 
           // Validate transaction token if provided
           if (transactionToken) {
@@ -143,7 +143,7 @@
           const userDoc = await getDoc(userDocRef);
 
           const updateData = {
-            plan: 'studio',
+            plan: 'track_pro',
             planType: planType, // 'mensal' or 'anual'
             planActivatedAt: new Date().toISOString(),
             validadeAcesso: expiryDate.toISOString(),
@@ -159,7 +159,7 @@
           } else {
             updateData.createdAt = new Date().toISOString();
             await setDoc(userDocRef, updateData);
-            console.log('[SUCCESS] User document created with studio plan and expiry date:', expiryDate.toISOString());
+            console.log('[SUCCESS] User document created with track pro plan and expiry date:', expiryDate.toISOString());
           }
 
           return true;
@@ -551,7 +551,7 @@
         </div>
 
         <h1 class="success-title">Pagamento Aprovado!</h1>
-        <p class="success-subtitle">Seu plano W.Tracks Studio está ativo</p>
+        <p class="success-subtitle">Seu plano W.Tracks Track Pro está ativo</p>
 
         <div class="benefits-container">
             <h2 class="benefits-title">Benefícios liberados:</h2>

@@ -651,6 +651,19 @@ class SetlistsManager {
             return;
         }
 
+        // Check setlist limit for Track plan
+        if (window.PlanSystem) {
+            const userPlan = await window.PlanSystem.getUserPlan(userId);
+            const planRules = window.PlanSystem.getPlanRules(userPlan);
+            const currentSetlistCount = this.setlists.length;
+
+            if (currentSetlistCount >= planRules.limits.maxSetlists) {
+                alert(`⚠️ Limite de setlists do plano ${planRules.displayName}\n\nVocê já tem ${currentSetlistCount} setlist(s), mas o plano ${planRules.displayName} permite apenas ${planRules.limits.maxSetlists} setlist(s).\n\nFaça upgrade para o Track Pro para criar mais setlists.`);
+                console.log('[PLAN] Setlist creation blocked for plan:', userPlan);
+                return;
+            }
+        }
+
         try {
             const shareId = this.generateShareId();
 
@@ -1079,14 +1092,28 @@ class SetlistsManager {
     }
     
     async addSongToSetlist(songData) {
+        // Check song limit for Track plan
+        if (window.PlanSystem) {
+            const userId = this.getCurrentUserId();
+            const userPlan = await window.PlanSystem.getUserPlan(userId);
+            const planRules = window.PlanSystem.getPlanRules(userPlan);
+            const currentSongCount = this.currentSetlist.songs.length;
+
+            if (currentSongCount >= planRules.limits.maxSongsPerSetlist) {
+                alert(`⚠️ Limite de músicas do plano ${planRules.displayName}\n\nEsta setlist já tem ${currentSongCount} música(s), mas o plano ${planRules.displayName} permite apenas ${planRules.limits.maxSongsPerSetlist} música(s) por setlist.\n\nFaça upgrade para o Track Pro para adicionar mais músicas.`);
+                console.log('[PLAN] Song addition blocked for plan:', userPlan);
+                return;
+            }
+        }
+
         this.currentSetlist.songs.push(songData);
-        
+
         // Re-render songs
         this.renderSetlistSongs();
-        
+
         // Save to Firebase
         await this.saveSetlist();
-        
+
         console.log('[SETLISTS] Song added to setlist:', songData.title);
     }
     
@@ -1263,26 +1290,6 @@ class SetlistsManager {
         }
 
         return null;
-    }
-
-    async getUserPlan() {
-        const userId = this.getCurrentUserId();
-        if (!userId || !window.firebaseDB) {
-            return 'home'; // Default to home if not logged in or Firebase unavailable
-        }
-
-        try {
-            const { db, doc, getDoc } = window.firebaseDB;
-            const userDoc = await getDoc(doc(db, 'users', userId));
-            if (userDoc.exists()) {
-                const userData = userDoc.data();
-                return userData.plano || 'home';
-            }
-        } catch (error) {
-            console.warn('[SETLISTS] Could not fetch user plan:', error);
-        }
-
-        return 'home'; // Default to home
     }
     
     escapeHtml(text) {

@@ -64,6 +64,9 @@
 
     <script src="communitytracks.js"></script>
     <script src="audiostorage.js"></script>
+    <script src="r2storage.js"></script>
+    <script src="trackhydrator.js"></script>
+    <script src="firestore-sync.js"></script>
     <script src="setlists.js"></script>
     <script>
         // Register Service Worker for PWA with immediate updates
@@ -612,7 +615,13 @@
         <div class="music-grid" id="musicGrid">
             <!-- Music cards will be rendered here -->
         </div>
-        
+
+        <div class="library-loading-container" id="libraryLoadingContainer" style="display: none;">
+            <div class="library-loading">
+                <div class="loading-spinner-large"></div>
+            </div>
+        </div>
+
         <div class="empty-state" id="emptyState">
             <div class="empty-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -1618,6 +1627,7 @@
 
     <script src="storage.js"></script>
     <script src="player.js"></script>
+    <script src="planSystem.js"></script>
     <script src="app.js"></script>
 
     <!-- Google Drive Integration -->

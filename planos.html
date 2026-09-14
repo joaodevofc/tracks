@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Planos - W.Tracks</title>
-<meta name="description" content="Compare os planos W.Tracks Home e W.Tracks Studio">
+<meta name="description" content="Compare os planos W.Tracks Home e W.Tracks Track Pro">
 <meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -347,7 +347,7 @@
       expiryDate.setHours(23, 59, 59, 999);
 
       const updateData = {
-        plan: 'studio',
+        plan: 'track_pro',
         planType: 'trial',
         planActivatedAt: new Date().toISOString(),
         trialExpiresAt: expiryDate.toISOString(),
@@ -429,7 +429,7 @@
         buttonElement.textContent = 'Continuar usando';
       } else {
         // Trial expired
-        messageElement.textContent = 'Seu período de teste terminou. Você aproveitou os 7 dias de acesso ao W.Tracks Studio.';
+        messageElement.textContent = 'Seu período de teste terminou. Você aproveitou os 7 dias de acesso ao W.Tracks Track Pro.';
         buttonElement.textContent = 'Ver planos';
         buttonElement.onclick = function() {
           window.closeTrialUsedModal();
@@ -437,7 +437,7 @@
         };
       }
     } else {
-      messageElement.textContent = 'Você já aproveitou os 7 dias de teste do W.Tracks Studio.';
+      messageElement.textContent = 'Você já aproveitou os 7 dias de teste do W.Tracks Track Pro.';
       buttonElement.textContent = 'Continuar usando o W.Tracks';
     }
 
@@ -627,7 +627,7 @@
             console.log('[PLANS] User has already used free trial');
           }
           
-          if (currentPlan === 'studio' && userData.validadeAcesso) {
+          if (currentPlan === 'track pro' && userData.validadeAcesso) {
             planExpiryDate = new Date(userData.validadeAcesso);
             const currentDate = new Date();
             
@@ -644,14 +644,14 @@
     }
 
     // Update monthly plan price
-    const monthlyPriceAmount = document.querySelector('.plan-card.studio .plan-price .amount');
+    const monthlyPriceAmount = document.querySelector('.plan-card.track-pro .plan-price .amount');
     if (monthlyPriceAmount && window.precoMensal) {
       const priceValue = window.precoMensal.split('/')[0].replace('R$', '').trim();
       monthlyPriceAmount.innerHTML = priceValue;
     }
 
     // Update monthly plan button link and text
-    const monthlyBtn = document.getElementById('btnUpgradeStudio');
+    const monthlyBtn = document.getElementById('btnUpgradeTrackPro');
     if (monthlyBtn && window.linkMensal) {
       // Check if user has active monthly plan
       if (isPlanActive && userPlanType === 'mensal') {
@@ -1074,7 +1074,7 @@
     border-color:var(--line-strong);
     transform:translateY(-4px);
   }
-  .plan-card.studio{background:var(--surface-2);border-color:var(--line-strong);}
+  .plan-card.track-pro{background:var(--surface-2);border-color:var(--line-strong);}
   .plan-card.annual{background:var(--surface-2);border-style:dashed;border-color:var(--line-strong);}
   .plan-card.annual:hover{border-style:solid;}
 
@@ -1265,7 +1265,7 @@
     text-align:center;
     color:var(--text);
   }
-  .compare-table thead th.col-plan.studio-col{color:var(--white);}
+  .compare-table thead th.col-plan.track-pro-col{color:var(--white);}
 
   .compare-table tbody td{
     padding:16px 22px;
@@ -1867,18 +1867,18 @@
       <div class="fader-track"></div><div class="fader-cap"></div>
       <div class="plan-tag">Teste grátis</div>
       <div class="plan-name">Período de teste</div>
-      <div class="plan-title">W.Tracks Studio</div>
+      <div class="plan-title">W.Tracks Track Pro</div>
       <div class="plan-price">
         <span class="currency">R$</span>
         <span class="amount">0</span>
         <span class="period">/7 dias</span>
       </div>
-      <div class="plan-sub">Teste todos os recursos do Studio por 7 dias gratuitamente</div>
+      <div class="plan-sub">Teste todos os recursos do Track Pro por 7 dias gratuitamente</div>
 
       <button class="plan-cta upgrade" id="btnStartTrial">Começar teste grátis</button>
 
       <ul class="features">
-        <li><svg class="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg><span class="feature-text">Acesso completo ao <strong>Studio</strong> por 7 dias</span></li>
+        <li><svg class="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg><span class="feature-text">Acesso completo ao <strong>Track Pro</strong> por 7 dias</span></li>
         <li><svg class="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg><span class="feature-text">Setlists e músicas <strong>ilimitadas</strong></span></li>
         <li><svg class="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg><span class="feature-text"><strong>Faders ilimitados</strong></span></li>
         <li><svg class="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg><span class="feature-text">Duração <strong>sem limite</strong></span></li>
@@ -1890,12 +1890,12 @@
       </ul>
     </div>
 
-    <!-- STUDIO -->
-    <div class="plan-card studio reveal" style="transition-delay:.2s;">
+    <!-- TRACK PRO -->
+    <div class="plan-card track-pro reveal" style="transition-delay:.2s;">
       <div class="fader-track"></div><div class="fader-cap"></div>
       <div class="plan-tag">Recomendado</div>
-      <div class="plan-name">Studio</div>
-      <div class="plan-title">W.Tracks Studio</div>
+      <div class="plan-name">Track Pro</div>
+      <div class="plan-title">W.Tracks Track Pro</div>
       <div class="plan-price">
         <span class="currency">R$</span>
         <span class="amount"><div class="price-spinner"></div></span>
@@ -1903,7 +1903,7 @@
       </div>
       <div class="plan-sub">Para quem toca com regularidade e em equipe, sem limitações</div>
 
-      <button class="plan-cta upgrade" id="btnUpgradeStudio">
+      <button class="plan-cta upgrade" id="btnUpgradeTrackPro">
         <div class="price-spinner" style="width: 16px; height: 16px; border-width: 2px;"></div>
       </button>
 
@@ -1924,14 +1924,14 @@
     <div class="plan-card annual reveal" style="transition-delay:.3s;">
       <div class="fader-track"></div><div class="fader-cap"></div>
       <div class="plan-tag">Economize 62%</div>
-      <div class="plan-name">Studio anual</div>
-      <div class="plan-title">W.Tracks Studio/Anual</div>
+      <div class="plan-name">Track Pro anual</div>
+      <div class="plan-title">W.Tracks Track Pro/Anual</div>
       <div class="plan-price">
         <span class="currency">R$</span>
         <span class="amount"><div class="price-spinner"></div></span>
         <span class="period">/ano</span>
       </div>
-      <div class="plan-sub">Equivalente a R$ 7,49/mês. Mesmos recursos do Studio, cobrança única anual</div>
+      <div class="plan-sub">Equivalente a R$ 7,49/mês. Mesmos recursos do Track Pro, cobrança única anual</div>
 
       <button class="plan-cta upgrade" id="btnUpgradeAnnual">
         <div class="price-spinner" style="width: 16px; height: 16px; border-width: 2px;"></div>
@@ -1965,8 +1965,8 @@
           <th>Recurso</th>
           <th class="col-plan">Home</th>
           <th class="col-plan">Teste</th>
-          <th class="col-plan studio-col">Studio</th>
-          <th class="col-plan studio-col">Studio anual</th>
+          <th class="col-plan studio-col">Track Pro</th>
+          <th class="col-plan studio-col">Track Pro anual</th>
         </tr>
       </thead>
       <tbody>
@@ -2045,7 +2045,7 @@
   </section>
 
   <section class="note-section reveal">
-    <p>O upgrade é aplicado imediatamente à sua conta. Você pode cancelar quando quiser, mantendo o acesso ao Studio até o fim do período já pago.</p>
+    <p>O upgrade é aplicado imediatamente à sua conta. Você pode cancelar quando quiser, mantendo o acesso ao Track Pro até o fim do período já pago.</p>
   </section>
 
   <footer class="app-footer">
@@ -2064,8 +2064,8 @@
     // The old event listener has been removed to use the modal-based flow
 
     document.getElementById('btnUpgradeAnnual').addEventListener('click', function () {
-      // TODO: abrir checkout/pagamento do plano anual e, após confirmação, atualizar o campo "plano" do usuário no Firestore para "studio_anual"
-      console.log('Upgrade para Studio anual solicitado');
+      // TODO: abrir checkout/pagamento do plano anual e, após confirmação, atualizar o campo "plano" do usuário no Firestore para "track_pro_anual"
+      console.log('Upgrade para Track Pro anual solicitado');
     });
 
     // Medidor de progresso de scroll (estilo VU meter)
@@ -2396,14 +2396,14 @@
       <p class="feedback-modal-subtitle">Você está no modo teste por 7 dias.</p>
       
       <div class="trial-welcome-content">
-        <p class="trial-welcome-text">Durante esse período, você terá acesso a todos os benefícios do W.Tracks Studio para conhecer a plataforma e aproveitar todos os recursos.</p>
+        <p class="trial-welcome-text">Durante esse período, você terá acesso a todos os benefícios do W.Tracks Track Pro para conhecer a plataforma e aproveitar todos os recursos.</p>
         
         <div class="trial-benefits">
           <div class="trial-benefit-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
-            <span>Acesso completo aos recursos do Studio</span>
+            <span>Acesso completo aos recursos do Track Pro</span>
           </div>
           <div class="trial-benefit-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2450,7 +2450,7 @@
           </svg>
         </div>
         <h2 class="feedback-modal-title">Seu teste grátis já foi utilizado</h2>
-        <p class="feedback-modal-subtitle" id="trialUsedMessage">Você já aproveitou os 7 dias de teste do W.Tracks Studio.</p>
+        <p class="feedback-modal-subtitle" id="trialUsedMessage">Você já aproveitou os 7 dias de teste do W.Tracks Track Pro.</p>
       </div>
 
       <div class="feedback-modal-footer">
@@ -2458,6 +2458,101 @@
       </div>
     </div>
   </div>
+
+
+<!-- ======================================== -->
+<!-- DOCUMENTAÇÃO DO SISTEMA DE PLANOS -->
+<!-- ======================================== -->
+<script>
+/**
+ * DOCUMENTAÇÃO DO SISTEMA DE PLANOS W.TRACKS
+ * 
+ * Este arquivo serve como documentação oficial das regras dos planos.
+ * 
+ * PLANOS DISPONÍVEIS:
+ * - Track (Free)
+ * - Track Pro (futuro)
+ */
+
+const PLANOS_DOCUMENTATION = {
+  /**
+   * TRACK — FREE
+   * 
+   * Limitações:
+   * - O usuário pode adicionar tracks com qualquer tamanho de arquivo (MB/GB)
+   * - NÃO existe limite de tamanho do arquivo
+   * - Existe limite de duração: o áudio pode ter no máximo 5 minutos
+   * - Se uma track tiver mais de 5 minutos, ela não poderá ser utilizada
+   * - O usuário pode trabalhar com no máximo 5 faders utilizáveis
+   * - Se uma música tiver mais de 5 tracks/faders, somente 5 poderão ser controlados/utilizados
+   * - Os faders acima do limite devem ficar bloqueados
+   * - O usuário pode criar no máximo 1 setlist
+   * - Cada setlist pode ter no máximo 5 músicas
+   * 
+   * Recursos bloqueados:
+   * - Loop
+   * - Pads no player
+   * - Efeitos no Canvas
+   * - Salvamento/sincronização de projetos na nuvem
+   * 
+   * IMPORTANTE SOBRE FADERS:
+   * - Exemplo: Uma música possui 14 tracks
+   * - No plano Track: tracks 1–5 → utilizáveis, tracks 6–14 → bloqueadas
+   * - O usuário NÃO pode controlar mais de 5 faders
+   * - Não delete as tracks, não altere os arquivos, não faça o player pensar que as tracks não existem
+   * - Apenas impeça o uso dos faders que ultrapassarem o limite do plano e mostre visualmente que estão bloqueados
+   * 
+   * IMPORTANTE SOBRE DURAÇÃO:
+   * - Não confundir tamanho do arquivo com duração
+   * - O usuário pode enviar um arquivo grande em MB/GB, desde que a duração do áudio seja de até 5 minutos
+   * - Se a duração for superior a 5 minutos: impedir a utilização daquela track no plano Track, informar claramente o motivo ao usuário
+   * - Não corromper o arquivo, não apagar o arquivo automaticamente, não alterar o sistema de áudio existente
+   * - Validar pela duração real do áudio usando o mecanismo que o Wtracks já utiliza para obter a duração
+   * - Não criar limite artificial baseado em MB
+   * 
+   * IMPORTANTE SOBRE SETLISTS:
+   * - No plano Track: máximo de 1 setlist, máximo de 5 músicas dentro dessa setlist
+   * - Quando o usuário tentar ultrapassar os limites: impedir a ação, mostrar uma mensagem clara, não apagar conteúdo existente
+   * 
+   * REGRA CENTRAL DE FADERS:
+   * - TRACK_MAX_FADERS = 5
+   * - Essa regra deve existir em UM único lugar
+   * - Não espalhar números `5` pelo projeto em dezenas de arquivos
+   * - O restante do código deve consultar a regra central
+   * 
+   * REGRA CENTRAL DE SETLISTS:
+   * - TRACK_MAX_SETLISTS = 1
+   * - TRACK_MAX_SONGS_PER_SETLIST = 5
+   * - Essas regras devem existir em UM único lugar
+   * - Não espalhar `1` e `5` aleatoriamente pelo código
+   * 
+   * TRACK PRO:
+   * - Existe apenas como plano reconhecido pelo sistema, mas suas regras ainda NÃO serão implementadas
+   * - Futuramente o Track Pro poderá liberar os recursos atualmente bloqueados no Track
+   * 
+   * FONTE OFICIAL DO PLANO:
+   * - userData.plan (único campo oficial)
+   * - Valores: "track", "track_pro"
+   * - Não criar: plano, subscription, userPlan, currentPlan, planType, isStudio, isHome, etc.
+   * 
+   * UMA ÚNICA FONTE DE VERDADE:
+   * - PLANS = { track: { ... }, track_pro: { ... } }
+   * - O restante do sistema consulta essa estrutura central
+   * - Não criar verificações independentes espalhadas pelo projeto
+   * 
+   * ESTRUTURA FIREBASE:
+   * - users/{uid}
+   * - { plan: "track" }
+   * - Plano pode ser alterado manualmente pelo Firebase Console
+   * 
+   * ARQUITETURA PARA FUTURAS ALTERAÇÕES:
+   * - Deve ser fácil descobrir: quais planos existem, qual é o plano atual do usuário, quais limites cada plano possui
+   * - Onde alterar os limites, onde adicionar futuramente uma nova feature
+   * - Não espalhar regras de plano por: app.js, player.js, storage.js, setlist.js, canvas.js, etc
+   * - Cada componente deve consultar o sistema central de planos
+   */
+};
+</script>
 
 </body>
 </html>

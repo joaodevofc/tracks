@@ -439,6 +439,51 @@ service cloud.firestore {
 
 
     // ============================================================
+    // ADMINS (Verificação de Admin para Painel da Equipe)
+    // ============================================================
+
+    match /admins/{adminId} {
+
+      // Admin pode ler sua própria entrada na coleção admins.
+      // Isso permite que o painel da equipe verifique se um usuário é admin.
+      allow read: if request.auth != null
+                  && (
+                    isAdmin()
+                    || request.auth.uid == adminId
+                  );
+
+      // Apenas admin (definido pela função isAdmin) pode criar/alterar admins.
+      allow write: if isAdmin();
+    }
+
+
+    // ============================================================
+    // SUBSCRIPTION HISTORY (Histórico de Assinaturas)
+    // ============================================================
+
+    match /subscriptionHistory/{historyId} {
+      // Admin pode ler todos os históricos
+      allow read: if isAdmin();
+      
+      // Admin pode criar novos registros
+      allow create: if isAdmin();
+      
+      // Bloqueia escrita (os registros são imutáveis)
+      allow update, delete: if false;
+    }
+
+    // ============================================================
+    // TRIAL TOKENS
+    // ============================================================
+
+    match /trialTokens/{tokenId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ============================================================
     // BLOQUEIO PADRÃO
     // ============================================================
 

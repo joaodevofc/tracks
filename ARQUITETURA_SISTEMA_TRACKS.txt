@@ -1,0 +1,260 @@
+# ARQUITETURA TÉCNICA DO SISTEMA W.TRACKS (TRACK E TRACK PRO)
+
+## OVERVIEW DO SISTEMA
+
+Este documento descreve a arquitetura técnica do sistema de planos W.Tracks (Track e Track Pro), que substituiu o antigo sistema separado de Home e Studio por uma arquitetura unificada baseada em planos.
+
+## COMPONENTES PRINCIPAIS
+
+### 1. Sistema de Planos (planSystem.js)
+- **Função**: Define regras e limites para cada plano
+- **Estrutura**: Objeto PLANS com configurações para 'track' e 'track_pro'
+- **Limites por plano**:
+  - Track: maxFaders=5, maxSetlists=1, maxSongsPerSetlist=5, maxDurationSeconds=300
+  - Track Pro: limites infinitos
+- **Features por plano**:
+  - Track: loops=false, pads=false, canvasEffects=false, cloudSync=false, cloudStorage=false
+  - Track Pro: cloudSync=true, cloudStorage=true (outras features futuras)
+- **Integração**: Consultado por todos os componentes para verificar permissões
+
+### 2. Storage System (storage.js)
+- **Função**: Gerencia persistência de projetos e tracks
+- **Arquitetura**:
+  - localStorage para metadados de projetos (rápido, cache)
+  - IndexedDB para arquivos de áudio (grandes)
+  - Firestore para sincronização em nuvem (usuários autenticados)
+- **Classes principais**:
+  - Track: Gerencia dados de tracks com propriedades R2 (r2Key, r2Version, cloud, local)
+  - Project: Container de tracks com metadados
+  - Playlist: Coleção de projetos
+  - StorageManager: Orquestra operações de persistência
+- **Versionamento**: storageOperationVersion previne race conditions
+- **Keys dinâmicas**: multracks_projects_{userId} para isolamento por usuário
+
+### 3. Audio Storage (audiostorage.js)
+- **Função**: Gerencia armazenamento de arquivos de áudio no IndexedDB
+- **Características**:
+  - Usa IndexedDB porque localStorage tem limite de 5-10MB
+  - Suporta solicitação de persistent storage para evitar limpeza automática
+  - Isolamento por userId nos registros
+  - Verificação de espaço disponível antes de salvar
+  - Formatação de bytes para leitura humana
+- **Métodos principais**:
+  - saveAudioFile(id, file): Salva com verificação de espaço
+  - getAudioFile(id): Recupera com verificação de userId
+  - deleteAudioFile(id): Remove arquivo
+  - getTotalSize(): Calcula tamanho total usado
+  - getStorageInfo(): Estimativa de uso e quota
+
+### 4. R2 Storage (r2storage.js)
+- **Função**: Interface cliente para comunicação com Cloudflare R2 via Worker
+- **Arquitetura**:
+  - Todas as operações R2 passam pelo Worker para segurança
+  - Worker valida Firebase Auth antes de permitir acesso
+  - Usa presigned URLs para upload direto ao R2
+- **Key format**: users/{userId}/projects/{projectId}/tracks/{trackId}/{fileName}
+- **Métodos principais**:
+  - uploadTrack(file, metadata, onProgress): Upload via presigned URL
+  - downloadTrack(r2Key, onProgress): Download com streaming e progresso
+  - deleteTrack(r2Key): Remove do R2
+  - getTrackMetadata(r2Key): Obtém metadados (versão, tamanho)
+  - trackExists(r2Key): Verifica existência
+- **Sanitização**: remove caracteres especiais de nomes de arquivos
+- **Retry com backoff**: Operações falhas são retentadas automaticamente
+
+### 5. R2 Worker (r2-worker.js)
+- **Função**: Cloudflare Worker que valida Firebase Auth e opera R2
+- **Autenticação**:
+  - Valida tokens Firebase ID Token usando Web Crypto API
+  - Usa JWK format do endpoint oficial do Firebase
+  - Cache de chaves públicas com TTL baseado em Cache-Control
+  - Verifica: assinatura, expiração, issuer, audience, subject
+- **Rotas**:
+  - /presigned-url: Gera URL assinada para upload direto ao R2
+  - /upload: Upload via Worker (legado, substituído por presigned)
+  - /download: Download com streaming
+  - /delete: Remove objeto do R2
+  - /metadata: Obtém metadados do objeto
+  - /health: Health check
+- **Segurança**:
+  - Valida userId no r2Key contra userId autenticado
+  - Sanitização de nomes de arquivos
+  - CORS configurado para origens permitidas
+- **Bindings**:
+  - R2 bucket binding named "R2"
+  - Environment variables: FIREBASE_PROJECT_ID, R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY
+
+### 6. Track Hydrator (trackhydrator.js)
+- **Função**: Orquestra download de tracks do R2 para IndexedDB
+- **Arquitetura**:
+  - Fila de downloads com controle de concorrência (MAX_CONCURRENT_DOWNLOADS=2)
+  - Verificação de versão para evitar downloads desnecessários
+  - Detecção de offline para evitar falhas
+- **Fluxo de hidratação**:
+  1. Verifica se track tem arquivo local válido
+  2. Se sim e está em R2, verifica versão
+  3. Se versão desatualizada, adiciona à fila de download
+  4. Se não tem arquivo e está em R2, adiciona à fila
+  5. Processa fila com controle de concorrência
+  6. Salva no IndexedDB após download
+- **Progress tracking**: Callbacks para progresso individual e geral
+- **Estatísticas**: Retorna total, local, downloaded, error, skipped
+
+### 7. Firestore Sync (firestore-sync.js)
+- **Função**: Sincroniza metadados de projetos com Firestore
+- **Arquitetura**:
+  - Firestore é fonte de verdade para usuários autenticados
+  - localStorage serve como cache/fallback
+  - Arquivos de áudio permanecem no IndexedDB
+  - Nenhum File/Blob é armazenado no Firestore
+- **Rotas Firestore**:
+  - users/{userId}/projects/{projectId}
+- **Conflict resolution**: Compara updatedAt, usa versão mais recente
+- **Sync workflow**:
+  1. Carrega projetos locais do localStorage
+  2. Carrega projetos do Firestore
+  3. Merge com resolução de conflitos
+  4. Salva resultado no localStorage
+  5. Migra projetos locais para Firestore
+- **Feature gating**: Verifica plano do usuário antes de sincronizar
+
+### 8. Aplicação Principal (app.js)
+- **Função**: Coordena todos os componentes
+- **Inicialização**:
+  1. Inicializa AudioStorage
+  2. Inicializa R2Storage
+  3. Inicializa TrackHydrator
+  4. Inicializa FirestoreSync (condicional, baseado no plano)
+  5. Carrega storage
+  6. Verifica estado de autenticação
+  7. Configura R2 auth token
+- **Gerenciamento de estado**:
+  - storageReady: flag para controlar quando storage está carregado
+  - loadGeneration: contador para prevenir race conditions
+  - libraryPreparationState: cache de preparação de projetos
+- **Integração com planos**:
+  - Carrega plano do usuário do Firebase
+  - Verifica acesso a features antes de permitir operações
+  - Aplica limites de acordo com o plano
+
+## FLUXO DE DADOS
+
+### Upload de Track
+1. Usuário seleciona arquivo
+2. App verifica limite de duração do plano
+3. R2Storage solicita presigned URL ao Worker
+4. Worker valida Firebase Auth e gera URL
+5. Cliente faz upload direto ao R2 usando presigned URL
+6. R2 retorna sucesso com metadados (versão, tamanho)
+7. TrackHydrator salva arquivo no IndexedDB
+8. StorageManager salva metadados no localStorage
+9. Se usuário tem cloudSync, FirestoreSync salva no Firestore
+
+### Download de Track
+1. App precisa reproduzir track
+2. TrackHydrator verifica se arquivo está local
+3. Se não, verifica se está em R2
+4. Se sim, adiciona à fila de download
+5. R2Storage solicita download ao Worker
+6. Worker valida Firebase Auth e userId no r2Key
+7. Worker streama arquivo do R2
+8. R2Storage recebe stream com progress tracking
+9. TrackHydrator salva no IndexedDB
+10. Track atualizado com local=true
+
+### Sincronização de Projetos
+1. Usuário faz login
+2. App carrega plano do usuário
+3. Se plano tem cloudSync, inicializa FirestoreSync
+4. FirestoreSync carrega projetos do Firestore
+5. StorageManager carrega projetos do localStorage
+6. Merge com resolução de conflitos (updatedAt)
+7. Resultado salvo no localStorage
+8. Projetos locais-only migrados para Firestore
+
+## SEGURANÇA
+
+### Autenticação
+- Firebase ID Token validado pelo Worker usando Web Crypto API
+- Cache de chaves públicas com TTL dinâmico
+- Verificação de assinatura, expiração, issuer, audience, subject
+
+### Autorização
+- userId extraído do token validado
+- r2Key validado para garantir que userId na key corresponde ao userId autenticado
+- Sanitização de nomes de arquivos para evitar path traversal
+
+### Isolamento de Dados
+- Keys dinâmicas por userId: multracks_projects_{userId}
+- IndexedDB records incluem userId para isolamento
+- Firestore estrutura: users/{userId}/projects/{projectId}
+- R2 key format: users/{userId}/projects/{projectId}/tracks/{trackId}/{fileName}
+
+## PERFORMANCE
+
+### IndexedDB
+- Usado para arquivos grandes (áudio)
+- Persistent storage solicitado para evitar limpeza
+- Verificação de espaço disponível antes de salvar
+- Limite muito maior que localStorage (~GB vs ~5-10MB)
+
+### R2 Storage
+- Presigned URLs para upload direto (bypass Worker para grandes arquivos)
+- Streaming para downloads com progress tracking
+- Cache de metadados para evitar requisições repetidas
+- Retry com backoff exponencial para falhas
+
+### Firestore
+- Apenas metadados (sem arquivos de áudio)
+- Async sync para não bloquear UI
+- Cache local para reduzir latência
+- Conflict resolution automática
+
+## INTEGRAÇÃO COM PLANOS
+
+### Verificação de Features
+```javascript
+if (await PlanSystem.hasFeatureAccess(userId, 'cloudSync')) {
+    // Habilita sincronização
+}
+```
+
+### Verificação de Limites
+```javascript
+if (await PlanSystem.exceedsFaderLimit(userId, trackCount)) {
+    // Bloqueia operação
+}
+```
+
+### Gating de Operações
+- cloudSync: FirestoreSync só inicializa se plano permite
+- cloudStorage: R2Storage só usado se plano permite
+- Limites de duração: Verificados antes de upload
+- Limites de quantidade: Verificados antes de criar tracks/setlists
+
+## MIGRAÇÃO DO SISTEMA ANTIGO
+
+### Substituição de Home/Studio
+- Antigo: Páginas separadas com funcionalidades diferentes
+- Novo: Arquitetura unificada com gating por plano
+- Benefício: Código compartilhado, manutenção simplificada
+
+### Implementação
+- planSystem.js define regras centralizadas
+- Todos os componentes consultam planSystem antes de operações
+- UI se adapta dinamicamente baseado no plano
+- Storage e auth unchanged, apenas adicionado gating
+
+## CONCLUSÃO
+
+O sistema de planos W.Tracks implementa uma arquitetura unificada que:
+
+1. Centraliza regras de negócio em planSystem.js
+2. Separa concerns: metadados (localStorage/Firestore), áudio (IndexedDB/R2)
+3. Usa Cloudflare Worker para segurança e offloading
+4. Implementa sync robusto com conflict resolution
+5. Isola dados por userId para multi-tenancy
+6. Otimiza performance com caching, streaming, e presigned URLs
+7. Permite fácil adição de novos planos e features
+
+Esta arquitetura substitui o sistema antigo de Home/Studio por uma abordagem mais escalável e manutenível, onde a funcionalidade é determinada pelo plano do usuário através de verificações centralizadas.

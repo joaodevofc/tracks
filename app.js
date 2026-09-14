@@ -31,6 +31,9 @@ class MultracksApp {
         
         // Cached user ID to avoid repeated Firebase Auth queries
         this.cachedUserId = undefined;
+
+        // User plan (track, track_pro)
+        this.userPlan = 'track'; // Default to track
         
         // Storage state management
         this.storageReady = false; // Track when storage is fully loaded
@@ -41,13 +44,37 @@ class MultracksApp {
         this.deletedProjectIds = new Set();
         
         // Active uploads tracking - centralizes loading card state
-        this.activeUploads = new Map(); // tempId -> { projectName, trackCount, saved, total }
+        this.activeUploads = new Map(); // tempId -> { projectName, trackCount, saved, total, statusInterval, currentStatus }
+        
+        // Load generation system for race condition prevention
+        this.loadGeneration = 0; // Counter for load operations
+        this.currentLoadGeneration = null; // Current active load generation
+        this.pendingLoadCleanup = new Map(); // generation -> cleanup function
+        
+        // Library preparation system for caching tracks locally
+        this.libraryPreparationState = new Map(); // projectId -> { preparing, progress, prepared }
+        this.preparingProjects = new Set(); // Set of project IDs currently being prepared
+        this.libraryPreparationPromises = new Map(); // projectId -> Promise (to avoid duplicate preparations)
         
         // Initialize audio storage
         this.audioStorage = new AudioStorage();
         
         // Make audioStorage globally accessible for storage.js
         window.audioStorage = this.audioStorage;
+        
+        // Initialize R2 storage
+        this.r2Storage = r2Storage;
+        
+        // Initialize track hydrator
+        this.trackHydrator = trackHydrator;
+        this.trackHydrator.init(this.r2Storage, this.audioStorage);
+
+        // Initialize Firestore sync (only if user has cloud sync access)
+        if (typeof firestoreSync !== 'undefined') {
+            // Check if user has cloud sync access (deferred until user is loaded)
+            // Actual initialization happens in monitorAuthState after user plan is loaded
+            console.log('[APP] Firestore sync module loaded, will initialize after user plan check');
+        }
         
         // Pad system
         this.availablePads = [
@@ -228,16 +255,29 @@ class MultracksApp {
         // Initialize speed modal controls
         this.initSpeedModalControls();
 
+        // Show loading state while storage is loading
+        this.showLibraryLoading();
+
         // Wait for storage to load before rendering
         console.log('[APP] Starting initial storage load...');
         this.storageLoadPromise = storage.load();
         await this.storageLoadPromise;
         this.storageReady = true;
         console.log('[APP] Storage loaded, now rendering library');
-        this.renderLibrary();
+
+        // Show loading before rendering
+        this.showLibraryLoading();
+
+        // Small delay to ensure loading spinner is visible
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        await this.renderLibrary();
 
         // Check auth state
         this.checkAuthState();
+        
+        // Set up R2 auth token from Firebase
+        this.setupR2Auth();
 
         // Load payment URL from Firestore for dynamic buttons
         this.loadPaymentUrl();
@@ -791,158 +831,7 @@ class MultracksApp {
         this.cachedUserId = undefined;
     }
 
-    async getUserPlan() {
-        const userId = this.getCurrentUserId();
-        if (!userId || !window.firebaseDB) {
-            return 'Home'; // Default to Home if not logged in or Firebase unavailable
-        }
 
-        try {
-            const { db, doc, getDoc, collection, query, where, getDocs, updateDoc } = window.firebaseDB;
-            // First try to get by UID (new method)
-            const userDoc = await getDoc(doc(db, 'users', userId));
-            if (userDoc.exists()) {
-                const userData = userDoc.data();
-                
-                // TEMPORARY LOG: Debug plan field inconsistency
-                console.log('[getUserPlan] DEBUG - userData.plan:', userData.plan, 'userData.plano:', userData.plano);
-                
-                // Check both 'plan' and 'plano' fields for compatibility
-                let plan = userData.plan || userData.plano || 'Home';
-                // Map old plan values to new system
-                if (plan === 'Free' || plan === 'Pro' || plan === 'VIP' || plan === 'Creator' || plan === 'home') {
-                    plan = 'Home';
-                }
-                
-                // Check plan validity based on expiration dates (source of truth)
-                const isExpired = this.isPlanExpired(userData);
-                if (isExpired && plan === 'Studio') {
-                    console.log('[getUserPlan] Plan expired based on date, returning Home');
-                    plan = 'Home';
-                    
-                    // Update Firestore asynchronously to sync the plan field
-                    // Don't await to avoid blocking - this is a background sync
-                    updateDoc(doc(db, 'users', userId), {
-                        plan: 'home',
-                        plano: 'home', // Migrate to single field
-                        statusPagamento: 'expirado'
-                    }).catch(error => {
-                        console.warn('[getUserPlan] Failed to update expired plan in Firestore:', error);
-                    });
-                }
-                
-                return plan;
-            } else {
-                // Fallback: try to find by uid field (old method with auto-generated IDs)
-                const q = query(collection(db, 'users'), where('uid', '==', userId));
-                const querySnapshot = await getDocs(q);
-                if (!querySnapshot.empty) {
-                    const userData = querySnapshot.docs[0].data();
-                    // Check both 'plan' and 'plano' fields for compatibility
-                    let plan = userData.plan || userData.plano || 'Home';
-                    // Map old plan values to new system
-                    if (plan === 'Free' || plan === 'Pro' || plan === 'VIP' || plan === 'Creator' || plan === 'home') {
-                        plan = 'Home';
-                    }
-                    
-                    // Check plan validity based on expiration dates (source of truth)
-                    const isExpired = this.isPlanExpired(userData);
-                    if (isExpired && plan === 'Studio') {
-                        console.log('[getUserPlan] Plan expired based on date, returning Home');
-                        plan = 'Home';
-                        
-                        // Update Firestore asynchronously to sync the plan field
-                        const userRef = querySnapshot.docs[0].ref;
-                        updateDoc(userRef, {
-                            plan: 'home',
-                            plano: 'home', // Migrate to single field
-                            statusPagamento: 'expirado'
-                        }).catch(error => {
-                            console.warn('[getUserPlan] Failed to update expired plan in Firestore:', error);
-                        });
-                    }
-                    
-                    return plan;
-                }
-            }
-        } catch (error) {
-            console.warn('[APP] Could not fetch user plan:', error);
-        }
-
-        return 'Home'; // Default to Home
-    }
-
-    isPlanExpired(userData) {
-        // Check if the plan is expired based on expiration dates (source of truth)
-        const currentPlan = (userData.plan || userData.plano || 'home').toLowerCase();
-        const validadeAcesso = userData.validadeAcesso;
-        const trialExpiresAt = userData.trialExpiresAt;
-        const paymentOrigin = userData.paymentOrigin;
-        const currentDate = new Date();
-        
-        if (currentPlan !== 'studio') {
-            return false; // Only Studio plans can expire
-        }
-        
-        // Check if this is a paid subscription (not trial)
-        const isPaidSubscription = paymentOrigin === 'site' && validadeAcesso;
-        
-        if (isPaidSubscription) {
-            const expiryDate = new Date(validadeAcesso);
-            return currentDate > expiryDate;
-        } else if (trialExpiresAt) {
-            // Check trial validity
-            const trialExpiryDate = new Date(trialExpiresAt);
-            return currentDate > trialExpiryDate;
-        }
-        
-        // If no expiration date exists, consider it not expired
-        // (this handles edge cases where the plan field might be out of sync)
-        return false;
-    }
-
-    async isStudioPlan() {
-        const plan = await this.getUserPlan();
-        return plan === 'Studio';
-    }
-
-    async requireStudioPlan(featureName = 'este recurso') {
-        const plan = await this.getUserPlan();
-        if (plan === 'Home') {
-            this.showUpgradeModal(featureName);
-            return false;
-        }
-        return true;
-    }
-
-    showUpgradeModal(featureName) {
-        const upgradeModal = document.getElementById('upgradeModal');
-        if (upgradeModal) {
-            upgradeModal.classList.add('active');
-            
-            // Update the message based on the feature
-            const upgradeTitle = document.getElementById('upgradeTitle');
-            const upgradeMessage = document.getElementById('upgradeMessage');
-            
-            if (upgradeTitle && upgradeMessage) {
-                upgradeTitle.textContent = 'Recurso Exclusivo Studio';
-                upgradeMessage.textContent = `A funcionalidade "${featureName}" está disponível apenas para usuários do plano Studio.`;
-            }
-            
-            console.log('[APP] Upgrade modal shown for:', featureName);
-        }
-    }
-
-    hideUpgradeModal() {
-        const upgradeModal = document.getElementById('upgradeModal');
-        if (upgradeModal) {
-            upgradeModal.classList.remove('active');
-        }
-    }
-
-    navigateToPlans() {
-        window.location.href = 'planos.html';
-    }
 
     navigateToOurProjects() {
         this.closeSettingsModal();
@@ -950,7 +839,7 @@ class MultracksApp {
     }
 
     async switchView(viewName) {
-        // Note: Setlists view is now accessible to Home users (limit: 1 setlist)
+        // Note: Setlists view is now accessible to Track users (limit: 1 setlist)
         // The restriction is applied when creating setlists, not when viewing
 
         // Hide all views
@@ -1174,14 +1063,40 @@ class MultracksApp {
             this.libraryStateVersion++;
             console.log('[APP] Library state version incremented to:', this.libraryStateVersion);
             alert(`${musica.nome} salva em Minhas músicas!`);
-            this.renderLibrary();
+            await this.renderLibrary();
         } catch (error) {
             console.error('[APP] Error saving explore music:', error);
             alert('Erro ao salvar música');
         }
     }
-    
-    renderLibrary(filter = 'all', searchTerm = '') {
+
+    showLibraryLoading() {
+        console.log('[LOADING] SHOW - Setting loading spinner');
+        // Show loading spinner in separate container
+        const loadingContainer = document.getElementById('libraryLoadingContainer');
+        if (loadingContainer) {
+            loadingContainer.style.display = 'flex';
+        }
+        this.musicGrid.style.display = 'none';
+        this.emptyState.classList.remove('visible');
+        console.log('[LOADING] SHOW - loadingContainer display:', loadingContainer?.style.display);
+        console.log('[LOADING] SHOW - musicGrid display:', this.musicGrid.style.display);
+        console.log('[LOADING] SHOW - emptyState visible:', this.emptyState.classList.contains('visible'));
+    }
+
+    hideLibraryLoading() {
+        console.log('[LOADING] HIDE - Removing loading spinner');
+        // Hide loading container
+        const loadingContainer = document.getElementById('libraryLoadingContainer');
+        if (loadingContainer) {
+            loadingContainer.style.display = 'none';
+            console.log('[LOADING] HIDE - Loading container hidden');
+        } else {
+            console.log('[LOADING] HIDE - No loading container found');
+        }
+    }
+
+    async renderLibrary(filter = 'all', searchTerm = '') {
         console.log('[LIBRARY] =======================================');
         console.log('[LIBRARY] RENDER START');
         console.log('[LIBRARY] RENDER VERSION:', this.libraryStateVersion);
@@ -1190,12 +1105,15 @@ class MultracksApp {
         console.log('[LIBRARY] Search term:', searchTerm);
         console.log('[LIBRARY] DELETED IDS:', Array.from(this.deletedProjectIds));
         console.log('[LIBRARY] ACTIVE UPLOADS:', Array.from(this.activeUploads.keys()));
-        
+
         // Guard: don't render if storage is not ready
         if (!this.storageReady) {
             console.log('[LIBRARY] Storage not ready, skipping render');
             return;
         }
+
+        // Small delay to ensure loading is visible if present
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         let projects = storage.getProjectsByFilter(filter);
         console.log('[LIBRARY] PROJECT IDS FROM STORAGE:', projects.map(p => p.id));
@@ -1222,6 +1140,30 @@ class MultracksApp {
         console.log('[LIBRARY] FINAL PROJECT IDS TO RENDER:', projects.map(p => p.id));
         console.log('[LIBRARY] Final projects count:', projects.length);
 
+        // Check preparation status for all cloud projects
+        console.log('[LIBRARY] Checking preparation status for projects...');
+        for (const project of projects) {
+            const isPrepared = await this.isProjectPrepared(project);
+            const existingStatus = this.libraryPreparationState.get(project.id) || { prepared: false, preparing: false, progress: 0 };
+
+            // Update status if project is prepared and not currently preparing
+            if (isPrepared && !existingStatus.preparing) {
+                this.libraryPreparationState.set(project.id, {
+                    prepared: true,
+                    preparing: false,
+                    progress: 100
+                });
+                console.log('[LIBRARY] Project is prepared:', project.name);
+            } else if (!isPrepared && !existingStatus.preparing) {
+                this.libraryPreparationState.set(project.id, {
+                    prepared: false,
+                    preparing: false,
+                    progress: 0
+                });
+                console.log('[LIBRARY] Project is not prepared:', project.name);
+            }
+        }
+
         // Update title and count text based on filter
         const libraryTitle = document.querySelector('.library-title');
         if (filter === 'favorites') {
@@ -1247,9 +1189,14 @@ class MultracksApp {
         console.log('[LIBRARY] Has persisted projects:', hasProjects);
 
         if (!hasProjects && !hasActiveUploads) {
-            console.log('[LIBRARY] No projects and no uploads, showing empty state');
+            console.log('[LIBRARY] No projects and no uploads, showing empty state after delay');
+            // Wait a bit more to ensure loading was visible
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            this.hideLibraryLoading();
             this.musicGrid.style.display = 'none';
             this.emptyState.classList.add('visible');
+            console.log('[LIBRARY] Empty state visible, musicGrid display:', this.musicGrid.style.display);
             
             // Update empty state message for search
             if (searchTerm) {
@@ -1297,27 +1244,33 @@ class MultracksApp {
             console.log('[LIBRARY] Projects or uploads found, showing music grid');
             this.musicGrid.style.display = 'grid';
             this.emptyState.classList.remove('visible');
-            
+
             // Render active uploads first (loading cards)
             this.activeUploads.forEach((uploadData, tempId) => {
                 const loadingCard = this.createLoadingCard(tempId, uploadData.projectName, uploadData.trackCount);
                 this.musicGrid.appendChild(loadingCard);
                 console.log('[LIBRARY] Rendered loading card for:', tempId);
             });
-            
+
             // Then render persisted projects
             this.renderMusicCards(projects);
         }
-        
-        console.log('[LIBRARY] FINAL DOM CARD IDS:', Array.from(this.musicGrid.children).map(child => 
+
+        // Hide loading spinner after rendering is complete
+        this.hideLibraryLoading();
+
+        console.log('[LIBRARY] FINAL DOM CARD IDS:', Array.from(this.musicGrid.children).map(child =>
             child.dataset.tempId || child.dataset.projectId || 'unknown'
         ));
         console.log('[LIBRARY] RENDER COMPLETE');
     }
     
     renderPlaylists(searchTerm = '') {
+        // Show loading spinner
+        this.showLibraryLoading();
+
         let playlists = storage.getAllPlaylists();
-        
+
         // Apply search filter if search term is provided
         if (searchTerm) {
             playlists = playlists.filter(playlist => {
@@ -1325,21 +1278,22 @@ class MultracksApp {
                 return name.includes(searchTerm);
             });
         }
-        
+
         this.libraryCount.textContent = `${playlists.length} playlist${playlists.length !== 1 ? 's' : ''}`;
-        
+
         if (playlists.length === 0) {
+            this.hideLibraryLoading();
             this.musicGrid.style.display = 'none';
             this.emptyState.classList.add('visible');
-            
+
             // Update empty state message for playlists
             const emptyTitle = this.emptyState.querySelector('.empty-title');
             const emptyDescription = this.emptyState.querySelector('.empty-description');
             const emptyCta = this.emptyState.querySelector('.empty-cta');
-            
+
             if (emptyTitle) emptyTitle.textContent = 'Nenhuma playlist ainda';
             if (emptyDescription) emptyDescription.textContent = 'Crie sua primeira playlist para organizar suas músicas';
-            
+
             // Add create playlist button to empty state
             if (emptyCta) {
                 emptyCta.textContent = 'Criar Playlist';
@@ -1350,14 +1304,14 @@ class MultracksApp {
             this.musicGrid.style.display = 'grid';
             this.emptyState.classList.remove('visible');
             this.renderPlaylistCards(playlists);
-            
+
             // Add create playlist button to grid header
             this.addCreatePlaylistButton();
         }
     }
 
-    searchLibrary(searchTerm) {
-        this.renderLibrary(this.currentFilter, searchTerm);
+    async searchLibrary(searchTerm) {
+        await this.renderLibrary(this.currentFilter, searchTerm);
     }
     
     async createNewPlaylist() {
@@ -1505,7 +1459,7 @@ class MultracksApp {
             this.closeCreatePlaylistModal();
             
             // Switch to playlists view
-            this.switchToPlaylistsFilter();
+            await this.switchToPlaylistsFilter();
             
             // Show success message
             alert('Playlist "' + name + '" criada com sucesso!');
@@ -1516,7 +1470,7 @@ class MultracksApp {
         }
     }
     
-    switchToPlaylistsFilter() {
+    async switchToPlaylistsFilter() {
         // Update filter buttons
         const filterBtns = document.querySelectorAll('.filter-btn');
         filterBtns.forEach(btn => {
@@ -1528,7 +1482,7 @@ class MultracksApp {
         
         // Update current filter and render
         this.currentFilter = 'playlists';
-        this.renderLibrary('playlists');
+        await this.renderLibrary('playlists');
     }
     
     async playPlaylist(playlistId) {
@@ -1553,13 +1507,8 @@ class MultracksApp {
             const firstProject = projects[0];
             
             // Hydrate audio files before loading to player
-            console.log('[APP] Hydrating audio files for first project:', firstProject.name);
-            const hydrationResult = await this.hydrateProjectFiles(firstProject);
-            
-            if (hydrationResult.missingCount > 0) {
-                console.warn('[APP] Some tracks have missing audio files:', hydrationResult.missingCount);
-                alert(`Aviso: ${hydrationResult.missingCount} faixas não têm arquivos de áudio disponíveis.`);
-            }
+            console.log('[APP] NO LONGER hydrating here - Library handles preparation');
+            console.log('[APP] Assuming files are already available locally for:', firstProject.name);
             
             await this.loadProjectToPlayer(firstProject);
             
@@ -1583,6 +1532,31 @@ class MultracksApp {
     
     async loadProjectToPlayer(project) {
         console.log('[APP] Loading project to player:', project.name);
+        
+        // Increment load generation for this load operation
+        const currentGeneration = ++this.loadGeneration;
+        this.currentLoadGeneration = currentGeneration;
+        
+        console.log('[APP] [PROJECT LOAD] generation:', currentGeneration, 'projectId:', project.id, 'projectName:', project.name, 'started (loadProjectToPlayer)');
+        
+        // Register cleanup function for this generation
+        this.pendingLoadCleanup.set(currentGeneration, () => {
+            console.log('[APP] [PROJECT LOAD] generation:', currentGeneration, 'executing cleanup (loadProjectToPlayer)');
+            // Stop player if it's still loading
+            if (this.audioPlayer && this.audioPlayer.isLoading) {
+                this.audioPlayer.stop();
+            }
+        });
+        
+        // Cancel any pending cleanup from previous loads
+        if (this.pendingLoadCleanup.has(currentGeneration - 1)) {
+            const previousCleanup = this.pendingLoadCleanup.get(currentGeneration - 1);
+            if (previousCleanup) {
+                console.log('[APP] [PROJECT LOAD] Executing pending cleanup for previous generation:', currentGeneration - 1);
+                previousCleanup();
+                this.pendingLoadCleanup.delete(currentGeneration - 1);
+            }
+        }
         
         // Reset loop state when loading new project
         this.loops = [];
@@ -1621,14 +1595,15 @@ class MultracksApp {
             this.setupPlayerCallbacks();
         }
         
-        // Hydrate audio files before loading to player (if not already hydrated)
-        console.log('[APP] Checking audio file hydration for project:', project.name);
-        const hydrationResult = await this.hydrateProjectFiles(project);
-        
-        if (hydrationResult.missingCount > 0) {
-            console.warn('[APP] Some tracks have missing audio files:', hydrationResult.missingCount);
-            // Don't alert here to avoid spam during playlist playback
+        // Verify this is still the current generation
+        if (currentGeneration !== this.currentLoadGeneration) {
+            console.log('[APP] [PROJECT LOAD] generation:', currentGeneration, 'cancelled/stale before hydration');
+            return;
         }
+        
+        // NO LONGER hydrate here - Library handles preparation
+        console.log('[APP] NO LONGER hydrating here - Library handles preparation');
+        console.log('[APP] Assuming files are already available locally for:', project.name);
         
         // Filter out tracks without audio files to prevent playback failures
         const originalTrackCount = project.tracks.length;
@@ -1644,14 +1619,24 @@ class MultracksApp {
             console.warn('[APP] Filtered out', originalTrackCount - filteredTrackCount, 'tracks without audio files');
         }
         
-        // Load project into player
-        await this.audioPlayer.loadProject(project);
+        // Load project into player with generation token
+        await this.audioPlayer.loadProject(project, currentGeneration);
+        
+        // Verify this is still the current generation after player load
+        if (currentGeneration !== this.currentLoadGeneration) {
+            console.log('[APP] [PROJECT LOAD] generation:', currentGeneration, 'cancelled/stale after player load');
+            return;
+        }
         
         // Update UI
         this.renderMixer();
         this.renderProjectInfo();
         
+        console.log('[APP] [PROJECT LOAD] generation:', currentGeneration, 'completed (loadProjectToPlayer)');
         console.log('[APP] Project loaded successfully to player with', filteredTrackCount, 'valid tracks');
+        
+        // Remove cleanup function for completed load
+        this.pendingLoadCleanup.delete(currentGeneration);
     }
     
     setupPlayerCallbacks() {
@@ -1698,13 +1683,9 @@ class MultracksApp {
         this.currentPlaylistIndex++;
         
         try {
-            // Hydrate audio files for the next project
-            console.log('[APP] Hydrating audio files for next project:', nextProject.name);
-            const hydrationResult = await this.hydrateProjectFiles(nextProject);
-            
-            if (hydrationResult.missingCount > 0) {
-                console.warn('[APP] Some tracks have missing audio files:', hydrationResult.missingCount);
-            }
+            // NO LONGER hydrate here - Library handles preparation
+            console.log('[APP] NO LONGER hydrating here - Library handles preparation');
+            console.log('[APP] Assuming files are already available locally for:', nextProject.name);
             
             await this.loadProjectToPlayer(nextProject);
             
@@ -1795,7 +1776,7 @@ class MultracksApp {
         
         try {
             await storage.deletePlaylist(playlistId);
-            this.renderLibrary('playlists');
+            await this.renderLibrary('playlists');
             console.log('[APP] Playlist deleted:', playlistId);
         } catch (error) {
             console.error('[APP] Error deleting playlist:', error);
@@ -1838,19 +1819,19 @@ class MultracksApp {
     renderMusicCards(projects) {
         console.log('[LIBRARY] Rendering music cards, count:', projects.length);
         // Don't clear DOM here - renderLibrary() handles it
-        
+
         projects.forEach(project => {
             const card = this.createMusicCard(project);
             this.musicGrid.appendChild(card);
         });
-        
+
         console.log('[LIBRARY] Music cards rendered');
     }
     
     renderPlaylistCards(playlists) {
         // Clear DOM before rendering (renderPlaylists handles this separately)
         this.musicGrid.innerHTML = '';
-        
+
         playlists.forEach(playlist => {
             const card = this.createPlaylistCard(playlist);
             this.musicGrid.appendChild(card);
@@ -1966,6 +1947,18 @@ class MultracksApp {
         const isEdited = project.isEdited || false;
         const editedBadge = isEdited ? '<span class="music-card-edited-badge">✏️ Editado</span>' : '';
         
+        // Check preparation status for cloud projects
+        const isCloudProject = project.tracks && project.tracks.some(track => track.cloud && track.r2Key);
+        const preparationStatus = isCloudProject ? this.getProjectPreparationStatus(project) : { prepared: true, preparing: false, progress: 100 };
+        const isPrepared = preparationStatus.prepared;
+        const isPreparing = preparationStatus.preparing;
+        const progress = preparationStatus.progress;
+        
+        // Add dimmed class if not prepared
+        if (!isPrepared) {
+            card.classList.add('library-card-dimmed');
+        }
+        
         card.innerHTML = `
             <div class="music-card-cover">
                 ${coverHtml}
@@ -1988,6 +1981,7 @@ class MultracksApp {
                     <div class="music-card-date">Última alteração: ${date}</div>
                 </div>
             </div>
+            ${isPreparing ? `<div class="library-preparation-progress"><span class="progress-percent">${progress}%</span></div>` : ''}
         `;
         
         card.addEventListener('click', async (e) => {
@@ -2019,19 +2013,66 @@ class MultracksApp {
         if (project) {
             console.log('[APP] Found project:', project.name);
 
+            // Check if project needs preparation
+            const isPrepared = await this.isProjectPrepared(project);
+            console.log('[APP] Project prepared:', isPrepared);
+            
+            if (!isPrepared) {
+                console.log('[APP] Project not prepared, starting preparation');
+                
+                // Show loading UI
+                const card = document.querySelector(`[data-project-id="${projectId}"]`);
+                if (card) {
+                    this.updateProjectCardNotPrepared(projectId);
+                }
+                
+                // Prepare the project
+                try {
+                    await this.prepareProject(project, (progressPercent, currentBytes, totalBytes, trackName) => {
+                        console.log('[APP] Preparation progress:', progressPercent + '%', '-', trackName);
+                    });
+                    
+                    // After preparation, load files from IndexedDB and continue to Player
+                    console.log('[APP] Preparation complete, loading files from IndexedDB');
+                    
+                    // Load files from IndexedDB into project tracks
+                    for (const track of project.tracks) {
+                        if (track.cloud && track.r2Key && track.audioFileId) {
+                            const file = await this.audioStorage.getAudioFile(track.audioFileId);
+                            if (file) {
+                                track.file = file;
+                                track.local = true;
+                                console.log('[APP] Loaded file from IndexedDB for track:', track.name);
+                            }
+                        }
+                    }
+                    
+                    console.log('[APP] Files loaded from IndexedDB, continuing to Player');
+                } catch (error) {
+                    console.error('[APP] Preparation failed:', error);
+                    alert('Erro ao preparar música: ' + error.message);
+                    return;
+                }
+            } else {
+                console.log('[APP] Project already prepared, loading files from IndexedDB');
+                
+                // Load files from IndexedDB for already prepared project
+                for (const track of project.tracks) {
+                    if (track.cloud && track.r2Key && track.audioFileId) {
+                        const file = await this.audioStorage.getAudioFile(track.audioFileId);
+                        if (file) {
+                            track.file = file;
+                            track.local = true;
+                            console.log('[APP] Loaded file from IndexedDB for track:', track.name);
+                        }
+                    }
+                }
+            }
+            
             // Stop current playback before opening new project
             if (this.audioPlayer && this.audioPlayer.isPlaying) {
                 console.log('[APP] Stopping current playback before opening new project');
                 this.audioPlayer.stop();
-            }
-            
-            // Hydrate audio files before loading
-            console.log('[APP] Hydrating audio files for project:', project.name);
-            const hydrationResult = await this.hydrateProjectFiles(project);
-            
-            if (hydrationResult.missingCount > 0) {
-                console.warn('[APP] Some tracks have missing audio files:', hydrationResult.missingCount);
-                alert(`Aviso: ${hydrationResult.missingCount} faixas não têm arquivos de áudio disponíveis.`);
             }
             
             // Filter out tracks without audio files (use local copy to avoid mutating original project)
@@ -2093,7 +2134,7 @@ class MultracksApp {
         this.renderPlayer();
     }
     
-    switchToLibrary() {
+    async switchToLibrary() {
         this.currentView = 'library';
         
         const playerView = document.getElementById('playerView');
@@ -2140,7 +2181,7 @@ class MultracksApp {
         // Deactivate idle wave when leaving player
         this.deactivateIdleWave();
         
-        this.renderLibrary();
+        await this.renderLibrary();
     }
 
     switchToExplore() {
@@ -2395,13 +2436,13 @@ class MultracksApp {
         }
     }
     
-    renderPlayer() {
+    async renderPlayer() {
         if (!this.currentProject) return;
         
         this.renderMusicSelector();
         this.renderProjectInfo();
         this.renderMixer();
-        this.loadProjectAudio();
+        await this.loadProjectAudio();
     }
     
     renderMusicSelector() {
@@ -2473,7 +2514,7 @@ class MultracksApp {
         });
     }
     
-    switchToSong(projectId) {
+    async switchToSong(projectId) {
         console.log('[APP] =======================================');
         console.log('[APP] switchToSong() called with projectId:', projectId);
         
@@ -2499,7 +2540,7 @@ class MultracksApp {
             this.renderMixer();
             
             console.log('[APP] Loading audio for new project:', project.name);
-            this.loadProjectAudio();
+            await this.loadProjectAudio();
             storage.incrementPlayCount(projectId);
         } else {
             console.warn('[APP] Project not found in session:', projectId);
@@ -2508,7 +2549,7 @@ class MultracksApp {
         console.log('[APP] =======================================');
     }
     
-    removeFromSession(projectId) {
+    async removeFromSession(projectId) {
         // Remove from session
         this.playerSession = this.playerSession.filter(p => p.id !== projectId);
         
@@ -2518,7 +2559,7 @@ class MultracksApp {
                 this.currentProject = this.playerSession[0];
                 this.renderProjectInfo();
                 this.renderMixer();
-                this.loadProjectAudio();
+                await this.loadProjectAudio();
             } else {
                 // No songs left, go back to library
                 this.switchToLibrary();
@@ -2539,14 +2580,9 @@ class MultracksApp {
     async renderMixer() {
         this.mixerTracks.innerHTML = '';
 
-        // Get user plan for fader limit
-        const userPlan = await this.getUserPlan();
-        const isHomePlan = userPlan === 'Home';
-        const faderLimit = isHomePlan ? 5 : Infinity;
-
         // Render regular tracks
         this.currentProject.tracks.forEach((track, index) => {
-            const channel = this.createTrackChannel(track, index, isHomePlan, index >= faderLimit);
+            const channel = this.createTrackChannel(track, index, false, false);
             this.mixerTracks.appendChild(channel);
         });
 
@@ -2578,34 +2614,44 @@ class MultracksApp {
         });
     }
     
-    createTrackChannel(track, index, isHomePlan = false, isLocked = false) {
+    createTrackChannel(track, index) {
         const channel = document.createElement('div');
         channel.className = 'track-channel';
-        if (isLocked) {
-            channel.classList.add('track-locked');
-        }
         channel.dataset.trackId = track.id;
-        
+
+        // Check if this fader should be locked based on plan
+        let isFaderLocked = false;
+        if (window.PlanSystem && this.currentProject) {
+            const plan = window.PlanSystem.getPlanRules(this.userPlan);
+            const totalTracks = this.currentProject.tracks.length;
+            const maxFaders = plan.limits.maxFaders;
+            if (maxFaders !== Infinity && index >= maxFaders) {
+                isFaderLocked = true;
+                channel.classList.add('fader-locked');
+            }
+        }
+
         // Convert gain to position for display
         const position = this.gainToPosition(track.volume);
         const volumePercent = Math.round(position * 100);
         const db = this.positionToDb(position);
-        
+
         // Calculate pan rotation (-135deg to +135deg)
         const panRotation = track.pan * 135;
         const panLabel = this.formatPanLabel(track.pan);
-        
+
         channel.innerHTML = `
             <div class="track-header">
                 <div class="track-name">${this.escapeHtml(track.name)}</div>
                 ${track.isEffect ? `<button class="track-remove-btn" data-track-id="${track.id}" title="Remover efeito">×</button>` : ''}
+                ${isFaderLocked ? `<div class="track-lock-badge" title="Fader bloqueado no plano Track">🔒</div>` : ''}
             </div>
             <div class="track-controls">
-                <button class="track-btn mute-btn ${track.mute ? 'active' : ''}" data-action="mute" ${isLocked ? 'disabled' : ''}>M</button>
-                <button class="track-btn solo-btn ${track.solo ? 'active' : ''}" data-action="solo" ${isLocked ? 'disabled' : ''}>S</button>
+                <button class="track-btn mute-btn ${track.mute ? 'active' : ''}" data-action="mute" ${isFaderLocked ? 'disabled' : ''}>M</button>
+                <button class="track-btn solo-btn ${track.solo ? 'active' : ''}" data-action="solo" ${isFaderLocked ? 'disabled' : ''}>S</button>
             </div>
-            <div class="track-fader ${isLocked ? 'fader-locked' : ''}">
-                <input type="range" class="fader-input" min="0" max="100" value="${volumePercent}" data-action="volume" ${isLocked ? 'disabled' : ''}>
+            <div class="track-fader">
+                <input type="range" class="fader-input" min="0" max="100" value="${volumePercent}" data-action="volume" ${isFaderLocked ? 'disabled' : ''}>
                 <div class="fader-track">
                     <div class="fader-fill" style="height: ${volumePercent}%"></div>
                     <div class="track-level-bar" id="trackLevelBar_${track.id}" style="height: 0%"></div>
@@ -2615,54 +2661,54 @@ class MultracksApp {
             </div>
             <div class="track-db-value">${this.formatDbValue(db)}</div>
             <div class="track-pan-container">
-                <input type="range" class="track-pan-input" min="-100" max="100" value="${Math.round(track.pan * 100)}" data-track-id="${track.id}" data-action="pan" ${isLocked ? 'disabled' : ''}>
+                <input type="range" class="track-pan-input" min="-100" max="100" value="${Math.round(track.pan * 100)}" data-track-id="${track.id}" data-action="pan" ${isFaderLocked ? 'disabled' : ''}>
             </div>
         `;
         
         // Event listeners
         const muteBtn = channel.querySelector('.mute-btn');
-        if (muteBtn && !isLocked) {
-            muteBtn?.addEventListener('click', () => this.toggleTrackMute(track.id));
-        } else if (muteBtn && isLocked) {
-            muteBtn.addEventListener('click', () => this.showUpgradeModal('Faders adicionais (limite de 5 no plano Home)'));
-        }
-        
+        muteBtn?.addEventListener('click', () => {
+            if (!isFaderLocked) {
+                this.toggleTrackMute(track.id);
+            }
+        });
+
         const soloBtn = channel.querySelector('.solo-btn');
-        if (soloBtn && !isLocked) {
-            soloBtn?.addEventListener('click', () => this.toggleTrackSolo(track.id));
-        } else if (soloBtn && isLocked) {
-            soloBtn.addEventListener('click', () => this.showUpgradeModal('Faders adicionais (limite de 5 no plano Home)'));
-        }
-        
+        soloBtn?.addEventListener('click', () => {
+            if (!isFaderLocked) {
+                this.toggleTrackSolo(track.id);
+            }
+        });
+
         // Pan slider interaction
         const panSlider = channel.querySelector('.track-pan-input');
-        if (panSlider && !isLocked) {
-            panSlider.addEventListener('input', (e) => {
+        panSlider.addEventListener('input', (e) => {
+            if (!isFaderLocked) {
                 const panValue = parseInt(e.target.value) / 100; // Convert -100 to 100 range to -1 to 1
                 this.setTrackPan(track.id, panValue);
-            });
-        } else if (panSlider && isLocked) {
-            panSlider.addEventListener('click', () => this.showUpgradeModal('Faders adicionais (limite de 5 no plano Home)'));
-        }
-        
+            }
+        });
+
         const volumeInput = channel.querySelector('.fader-input');
         const faderContainer = channel.querySelector('.track-fader');
-        
+
         // Custom fader interaction - calculate volume from click position
         const handleFaderInteraction = (clientY) => {
+            if (isFaderLocked) return; // Don't allow interaction if locked
+
             const rect = faderContainer.getBoundingClientRect();
             const clickY = clientY - rect.top;
             const percentage = 1 - (clickY / rect.height); // Top = 1.0, Bottom = 0.0
             const position = Math.max(0, Math.min(1, percentage));
             const volumePercent = Math.round(position * 100);
-            
+
             // Convert position to dB gain
             const db = this.positionToDb(position);
             const gain = this.dbToGain(db);
-            
+
             // Update audio player with gain (not linear volume)
             this.setTrackVolume(track.id, gain);
-            
+
             // Update visual feedback (thumb and fader fill)
             const thumb = channel.querySelector('.fader-thumb');
             const faderFill = channel.querySelector('.fader-fill');
@@ -2674,56 +2720,52 @@ class MultracksApp {
 
             // Update input value for consistency
             volumeInput.value = volumePercent;
-            
+
             // Check if faders are modified to update indicator light
             this.checkFadersModified();
         };
-        
+
         // Mouse events on entire fader container
         faderContainer?.addEventListener('mousedown', (e) => {
-            if (isLocked) {
-                this.showUpgradeModal('Faders adicionais (limite de 5 no plano Home)');
-                return;
-            }
+            if (isFaderLocked) return; // Don't allow interaction if locked
+
             handleFaderInteraction(e.clientY);
-            
+
             const handleMouseMove = (moveEvent) => {
                 handleFaderInteraction(moveEvent.clientY);
             };
-            
+
             const handleMouseUp = () => {
                 document.removeEventListener('mousemove', handleMouseMove);
                 document.removeEventListener('mouseup', handleMouseUp);
             };
-            
+
             document.addEventListener('mousemove', handleMouseMove);
             document.addEventListener('mouseup', handleMouseUp);
         });
         
         // Touch events for mobile with reduced sensitivity
         faderContainer.addEventListener('touchstart', (e) => {
-            if (isLocked) {
-                this.showUpgradeModal('Faders adicionais (limite de 5 no plano Home)');
-                return;
-            }
+            if (isFaderLocked) return; // Don't allow interaction if locked
+
             const startX = e.touches[0].clientX;
             const startY = e.touches[0].clientY;
             let gestureDecided = false;
             let isVerticalDrag = false;
             const threshold = 6;
-            
+
             const handleTouchMove = (moveEvent) => {
                 if (!gestureDecided) {
                     const deltaX = Math.abs(moveEvent.touches[0].clientX - startX);
                     const deltaY = Math.abs(moveEvent.touches[0].clientY - startY);
-                    
+
                     if (deltaX < threshold && deltaY < threshold) {
                         return;
                     }
-                    
+
                     gestureDecided = true;
                     isVerticalDrag = deltaY > deltaX;
-                    
+
                     if (isVerticalDrag) {
                         moveEvent.preventDefault();
                         handleFaderInteraction(moveEvent.touches[0].clientY);
@@ -2736,30 +2778,32 @@ class MultracksApp {
                     handleFaderInteraction(moveEvent.touches[0].clientY);
                 }
             };
-            
+
             const handleTouchEnd = () => {
                 document.removeEventListener('touchmove', handleTouchMove);
                 document.removeEventListener('touchend', handleTouchEnd);
             };
-            
+
             document.addEventListener('touchmove', handleTouchMove);
             document.addEventListener('touchend', handleTouchEnd);
         });
-        
+
         // Prevent default input event to avoid conflicts with custom handling
         volumeInput?.addEventListener('input', (e) => {
+            if (isFaderLocked) return; // Don't allow interaction if locked
+
             e.preventDefault();
             const newVolume = e.target.value / 100;
             this.setTrackVolume(track.id, newVolume);
-            
+
             // Update visual feedback immediately during drag
             const thumb = channel.querySelector('.fader-thumb');
             const fill = channel.querySelector('.track-meter-fill');
             const volumePercent = Math.round(newVolume * 100);
-            
+
             if (thumb) thumb.style.bottom = `${volumePercent}%`;
             if (fill) fill.style.height = `${volumePercent}%`;
-            
+
             // Check if faders are modified to update indicator light
             this.checkFadersModified();
         });
@@ -2919,14 +2963,364 @@ class MultracksApp {
     }
     
     /**
-     * Hydrate project files from IndexedDB
+     * Check if a project is fully prepared (all audio files available locally in IndexedDB)
+     * @param {Object} project - Project to check
+     * @returns {Promise<boolean>} True if all tracks have local files
+     */
+    async isProjectPrepared(project) {
+        if (!project || !project.tracks || project.tracks.length === 0) {
+            return false;
+        }
+        
+        console.log('[LIBRARY PREP] Checking preparation status for:', project.name, 'tracks:', project.tracks.length);
+        
+        // Check if project has cloud tracks that need local files
+        const hasCloudTracks = project.tracks.some(track => track.cloud && track.r2Key);
+        if (!hasCloudTracks) {
+            // Local-only project, check if all tracks have files
+            const allHaveFiles = project.tracks.every(track => track.file && (track.file instanceof Blob || track.file instanceof File));
+            console.log('[LIBRARY PREP] Local-only project, all have files:', allHaveFiles);
+            return allHaveFiles;
+        }
+        
+        // For cloud tracks, check if all audioFileIds have files in IndexedDB
+        let allPrepared = true;
+        for (const track of project.tracks) {
+            if (track.cloud && track.r2Key && track.audioFileId) {
+                const file = await this.audioStorage.getAudioFile(track.audioFileId);
+                if (!file) {
+                    console.log('[LIBRARY PREP] Track not prepared:', track.name, 'audioFileId:', track.audioFileId);
+                    allPrepared = false;
+                    break;
+                }
+            }
+        }
+        
+        console.log('[LIBRARY PREP] Project prepared:', allPrepared);
+        return allPrepared;
+    }
+    
+    /**
+     * Get preparation status for a project
+     * @param {Object} project - Project to check
+     * @returns {Object} Preparation status { prepared, preparing, progress }
+     */
+    getProjectPreparationStatus(project) {
+        if (!project) {
+            return { prepared: false, preparing: false, progress: 0 };
+        }
+        
+        const status = this.libraryPreparationState.get(project.id) || {
+            prepared: false,
+            preparing: false,
+            progress: 0
+        };
+        
+        return status;
+    }
+    
+    /**
+     * Prepare a project by downloading missing cloud tracks to IndexedDB
+     * This is a Library-only operation that does NOT touch the Player or waveform
+     * @param {Object} project - Project to prepare
+     * @param {Function} onProgress - Progress callback (progressPercent, currentBytes, totalBytes, trackName)
+     * @returns {Promise<Object>} Preparation result
+     */
+    async prepareProject(project, onProgress) {
+        console.log('[LIBRARY PREPARATION] =======================================');
+        console.log('[LIBRARY PREPARATION] Start');
+        console.log('[LIBRARY PREPARATION] Project:', project.name);
+        console.log('[LIBRARY PREPARATION] Tracks total:', project.tracks.length);
+        console.log('[LIBRARY PREPARATION] =======================================');
+        
+        // Check if preparation is already in progress
+        if (this.libraryPreparationPromises.has(project.id)) {
+            console.log('[LIBRARY PREPARATION] Preparation already in progress, returning existing promise:', project.id);
+            return this.libraryPreparationPromises.get(project.id);
+        }
+        
+        // Check if user has cloud storage access
+        const hasCloudAccess = window.PlanSystem ? await window.PlanSystem.hasCloudStorageAccess(this.getCurrentUserId()) : false;
+        if (!hasCloudAccess) {
+            console.log('[LIBRARY PREPARATION] User does not have cloud access, cannot prepare');
+            return { prepared: false, preparing: false, progress: 0 };
+        }
+        
+        // Identify tracks that need downloading
+        const tracksToDownload = [];
+        let totalBytes = 0;
+        
+        for (const track of project.tracks) {
+            console.log('[LIBRARY PREPARATION] Checking track:', track.name);
+            console.log('[LIBRARY PREPARATION] - Cloud:', track.cloud);
+            console.log('[LIBRARY PREPARATION] - R2 Key:', track.r2Key);
+            console.log('[LIBRARY PREPARATION] - AudioFileId:', track.audioFileId);
+            
+            if (track.cloud && track.r2Key && track.audioFileId) {
+                // Check if file exists in IndexedDB
+                const existingFile = await this.audioStorage.getAudioFile(track.audioFileId);
+                
+                if (!existingFile) {
+                    console.log('[LIBRARY PREPARATION] Track missing locally, needs download:', track.name);
+                    tracksToDownload.push(track);
+                    
+                    // Get file size from R2 metadata
+                    try {
+                        const metadata = await this.r2Storage.getTrackMetadata(track.r2Key);
+                        if (metadata && metadata.size) {
+                            totalBytes += metadata.size;
+                            console.log('[LIBRARY PREPARATION] Track size from metadata:', metadata.size, 'bytes');
+                        }
+                    } catch (error) {
+                        console.warn('[LIBRARY PREPARATION] Could not get metadata for track:', track.name, error);
+                    }
+                } else {
+                    console.log('[LIBRARY PREPARATION] Track already exists locally:', track.name);
+                }
+            }
+        }
+        
+        console.log('[LIBRARY PREPARATION] Tracks missing locally:', tracksToDownload.length);
+        console.log('[LIBRARY PREPARATION] Total bytes to download:', totalBytes);
+        
+        if (tracksToDownload.length === 0) {
+            console.log('[LIBRARY PREPARATION] All tracks already available locally');
+            this.libraryPreparationState.set(project.id, {
+                prepared: true,
+                preparing: false,
+                progress: 100
+            });
+            this.updateProjectCardPrepared(project.id);
+            return { prepared: true, preparing: false, progress: 100 };
+        }
+        
+        // Mark as preparing
+        this.preparingProjects.add(project.id);
+        this.libraryPreparationState.set(project.id, {
+            prepared: false,
+            preparing: true,
+            progress: 0
+        });
+        
+        // Create and store the preparation promise
+        const preparationPromise = (async () => {
+            try {
+                let downloadedBytes = 0;
+                let downloadedCount = 0;
+                
+                for (const track of tracksToDownload) {
+                    console.log('[LIBRARY PREPARATION] Download start:', track.name);
+                    
+                    // Download with byte-level progress
+                    const file = await this.r2Storage.retryWithBackoff(async () => {
+                        return await this.r2Storage.downloadTrack(track.r2Key, (downloaded, trackTotal, trackName) => {
+                            console.log('[LIBRARY PREPARATION] Chunk:', `${downloaded}/${trackTotal}`);
+                            
+                            // Calculate global progress
+                            const currentProgress = downloadedBytes + downloaded;
+                            const progressPercent = totalBytes > 0 ? Math.round((currentProgress / totalBytes) * 100) : 0;
+                            
+                            console.log('[LIBRARY PREPARATION] Global:', `${currentProgress}/${totalBytes} (${progressPercent}%)`);
+                            console.log('[LIBRARY PREPARATION] Track:', trackName);
+                            
+                            // Update preparation state
+                            this.libraryPreparationState.set(project.id, {
+                                prepared: false,
+                                preparing: true,
+                                progress: progressPercent
+                            });
+                            
+                            // Update card UI
+                            this.updateProjectCardProgress(project.id, progressPercent);
+                            
+                            // Call progress callback
+                            if (onProgress) {
+                                onProgress(progressPercent, currentProgress, totalBytes, trackName);
+                            }
+                        });
+                    }, 3, 1000);
+                    
+                    if (file) {
+                        console.log('[LIBRARY PREPARATION] Download complete:', track.name, 'Size:', file.size);
+                        
+                        // Save to IndexedDB
+                        await this.audioStorage.saveAudioFile(track.audioFileId, file);
+                        console.log('[LIBRARY PREPARATION] IndexedDB save complete:', track.name);
+                        
+                        downloadedBytes += file.size;
+                        downloadedCount++;
+                        
+                        // Update final progress
+                        const finalProgress = totalBytes > 0 ? Math.round((downloadedBytes / totalBytes) * 100) : 100;
+                        console.log('[LIBRARY PREPARATION] Track complete:', track.name, 'Final progress:', finalProgress + '%');
+                        
+                        this.libraryPreparationState.set(project.id, {
+                            prepared: false,
+                            preparing: true,
+                            progress: finalProgress
+                        });
+                        
+                        this.updateProjectCardProgress(project.id, finalProgress);
+                        
+                        if (onProgress) {
+                            onProgress(finalProgress, downloadedBytes, totalBytes, track.name);
+                        }
+                    } else {
+                        console.error('[LIBRARY PREPARATION] Failed to download track:', track.name);
+                    }
+                }
+                
+                // Mark as prepared
+                this.libraryPreparationState.set(project.id, {
+                    prepared: true,
+                    preparing: false,
+                    progress: 100
+                });
+                
+                console.log('[LIBRARY PREPARATION] =======================================');
+                console.log('[LIBRARY PREPARATION] Project complete:', project.name);
+                console.log('[LIBRARY PREPARATION] Tracks downloaded:', downloadedCount);
+                console.log('[LIBRARY PREPARATION] Total bytes:', downloadedBytes);
+                console.log('[LIBRARY PREPARATION] =======================================');
+                
+                // Update card UI to show normal state
+                this.updateProjectCardPrepared(project.id);
+                
+                return { 
+                    prepared: true, 
+                    preparing: false, 
+                    progress: 100,
+                    downloaded: downloadedCount,
+                    total: tracksToDownload.length
+                };
+            } catch (error) {
+                console.error('[LIBRARY PREPARATION] Preparation failed:', error);
+                
+                // Mark as not preparing on error
+                this.libraryPreparationState.set(project.id, {
+                    prepared: false,
+                    preparing: false,
+                    progress: 0
+                });
+                
+                throw error;
+            } finally {
+                // Remove from preparing set and promise map
+                this.preparingProjects.delete(project.id);
+                this.libraryPreparationPromises.delete(project.id);
+            }
+        })();
+        
+        // Store the promise
+        this.libraryPreparationPromises.set(project.id, preparationPromise);
+        
+        return preparationPromise;
+    }
+    
+    /**
+     * Update project card progress display
+     * @param {string} projectId - Project ID
+     * @param {number} progress - Progress percentage (0-100)
+     */
+    updateProjectCardProgress(projectId, progress) {
+        const card = document.querySelector(`[data-project-id="${projectId}"]`);
+        if (!card) return;
+        
+        let progressElement = card.querySelector('.library-preparation-progress');
+        if (!progressElement) {
+            // Create progress element
+            progressElement = document.createElement('div');
+            progressElement.className = 'library-preparation-progress';
+            progressElement.innerHTML = `<span class="progress-percent">${progress}%</span>`;
+            card.appendChild(progressElement);
+        } else {
+            progressElement.innerHTML = `<span class="progress-percent">${progress}%</span>`;
+        }
+    }
+    
+    /**
+     * Update project card to show prepared state
+     * @param {string} projectId - Project ID
+     */
+    updateProjectCardPrepared(projectId) {
+        const card = document.querySelector(`[data-project-id="${projectId}"]`);
+        if (!card) return;
+        
+        // Remove progress element
+        const progressElement = card.querySelector('.library-preparation-progress');
+        if (progressElement) {
+            progressElement.remove();
+        }
+        
+        // Remove dimmed state
+        card.classList.remove('library-card-dimmed');
+    }
+    
+    /**
+     * Update project card to show not prepared state
+     * @param {string} projectId - Project ID
+     */
+    updateProjectCardNotPrepared(projectId) {
+        const card = document.querySelector(`[data-project-id="${projectId}"]`);
+        if (!card) return;
+        
+        // Add dimmed state
+        card.classList.add('library-card-dimmed');
+    }
+
+    /**
+     * Hydrate project files using TrackHydrator
      * This ensures tracks loaded from storage have their actual audio files
+     * Downloads from R2 if necessary, with version checking
      * Can be called independently or is automatically called in loadProjectAudio()
      */
     async hydrateProjectFiles(project) {
         console.log('[HYDRATE] =======================================');
         console.log('[HYDRATE] hydrateProjectFiles() called for:', project.name);
         console.log('[HYDRATE] Total tracks to hydrate:', project.tracks.length);
+
+        // Check if user has cloud storage access
+        const hasCloudAccess = window.PlanSystem ? await window.PlanSystem.hasCloudStorageAccess(this.getCurrentUserId()) : false;
+
+        if (!hasCloudAccess) {
+            console.log('[HYDRATE] User does not have cloud storage access, using local-only hydration (IndexedDB)');
+            return this.fallbackHydrateProjectFiles(project);
+        }
+
+        if (!this.trackHydrator) {
+            console.error('[HYDRATE] trackHydrator not available, falling back to basic hydration');
+            return this.fallbackHydrateProjectFiles(project);
+        }
+
+        try {
+            // Use TrackHydrator for R2-aware hydration
+            const stats = await this.trackHydrator.hydrateProject(project, (current, total, trackName, progress) => {
+                console.log(`[HYDRATE] Progress: ${current}/${total} - ${trackName} - ${Math.round(progress * 100)}%`);
+                // TODO: Update UI with progress if needed
+            });
+
+            console.log('[HYDRATE] Hydration summary:', stats);
+            console.log('[HYDRATE] =======================================');
+
+            // Return compatible format for existing code
+            return {
+                hydratedCount: stats.downloaded,
+                missingCount: stats.error,
+                alreadyHadFileCount: stats.local - stats.downloaded,
+                invalidIdCount: 0
+            };
+        } catch (error) {
+            console.error('[HYDRATE] Error in TrackHydrator, falling back:', error);
+            return this.fallbackHydrateProjectFiles(project);
+        }
+    }
+
+    /**
+     * Fallback hydration for when TrackHydrator is not available
+     * Original IndexedDB-only hydration logic
+     */
+    async fallbackHydrateProjectFiles(project) {
+        console.log('[HYDRATE] Using fallback hydration (IndexedDB only)');
         
         if (!this.audioStorage) {
             console.error('[HYDRATE] audioStorage not available, cannot hydrate files');
@@ -2954,6 +3348,7 @@ class MultracksApp {
                     
                     if (file) {
                         track.file = file;
+                        track.local = true;
                         hydratedCount++;
                         console.log('[HYDRATE] ✅ Loaded audio for track:', track.name, 'File size:', file.size);
                     } else {
@@ -2966,6 +3361,7 @@ class MultracksApp {
                 }
             } else if (hasValidFile) {
                 alreadyHadFileCount++;
+                track.local = true;
                 console.log('[HYDRATE] Track already has valid file, skipping hydration:', track.name);
             } else if (track.file && !hasValidFile) {
                 // Corrupted file object (e.g., {} from old localStorage)
@@ -2978,6 +3374,7 @@ class MultracksApp {
                         const file = await this.audioStorage.getAudioFile(track.audioFileId);
                         if (file) {
                             track.file = file;
+                            track.local = true;
                             hydratedCount++;
                             console.log('[HYDRATE] ✅ Rehydrated corrupted file for track:', track.name);
                         } else {
@@ -3226,7 +3623,7 @@ class MultracksApp {
         // Save project and reload
         storage.updateProject(this.currentProject.id, this.currentProject);
         this.renderMixer();
-        this.loadProjectAudio();
+        await this.loadProjectAudio();
         
         console.log('[APP] Files added to project successfully');
     }
@@ -3254,6 +3651,31 @@ class MultracksApp {
             return;
         }
         
+        // Increment load generation for this load operation
+        const currentGeneration = ++this.loadGeneration;
+        this.currentLoadGeneration = currentGeneration;
+        
+        console.log('[APP] [PROJECT LOAD] generation:', currentGeneration, 'projectId:', this.currentProject.id, 'projectName:', this.currentProject.name, 'started');
+        
+        // Register cleanup function for this generation
+        this.pendingLoadCleanup.set(currentGeneration, () => {
+            console.log('[APP] [PROJECT LOAD] generation:', currentGeneration, 'executing cleanup');
+            // Stop player if it's still loading
+            if (this.audioPlayer && this.audioPlayer.isLoading) {
+                this.audioPlayer.stop();
+            }
+        });
+        
+        // Cancel any pending cleanup from previous loads
+        if (this.pendingLoadCleanup.has(currentGeneration - 1)) {
+            const previousCleanup = this.pendingLoadCleanup.get(currentGeneration - 1);
+            if (previousCleanup) {
+                console.log('[APP] [PROJECT LOAD] Executing pending cleanup for previous generation:', currentGeneration - 1);
+                previousCleanup();
+                this.pendingLoadCleanup.delete(currentGeneration - 1);
+            }
+        }
+        
         // Check if player is already loading
         if (this.audioPlayer.isLoading) {
             console.warn('[APP] Player is already loading a project, waiting for it to complete...');
@@ -3264,17 +3686,17 @@ class MultracksApp {
             console.log('[APP] Previous loading completed, proceeding with new project');
         }
         
+        // Verify this is still the current generation after waiting
+        if (currentGeneration !== this.currentLoadGeneration) {
+            console.log('[APP] [PROJECT LOAD] generation:', currentGeneration, 'cancelled/stale after wait');
+            return;
+        }
+        
         console.log('[APP] Player state before load - isLoading:', this.audioPlayer.isLoading, 'isReady:', this.audioPlayer.isReady);
         console.log('[APP] Total tracks in project:', this.currentProject.tracks.length);
         
-        // HYDRATE PROJECT FILES BEFORE LOADING
-        console.log('[APP] Hydrating project files before loading...');
-        const hydrationResult = await this.hydrateProjectFiles(this.currentProject);
-        
-        if (hydrationResult.missingCount > 0) {
-            console.warn('[APP] ⚠️ Some tracks are missing files, playback may be incomplete');
-            this.showMissingFilesWarning(hydrationResult.missingCount);
-        }
+        // NO LONGER hydrate here - Library handles preparation
+        // Assume files are already available locally
         
         // Show loading screen
         this.showPlayerLoading();
@@ -3293,7 +3715,14 @@ class MultracksApp {
         
         try {
             console.log('[APP] Calling audioPlayer.loadProject() for:', this.currentProject.name);
-            await this.audioPlayer.loadProject(this.currentProject);
+            await this.audioPlayer.loadProject(this.currentProject, currentGeneration);
+            
+            // Verify this is still the current generation after player load
+            if (currentGeneration !== this.currentLoadGeneration) {
+                console.log('[APP] [PROJECT LOAD] generation:', currentGeneration, 'cancelled/stale after player load');
+                return;
+            }
+            
             console.log('[APP] ✅ Project audio loaded successfully');
             
             // Reset playback speed to 1.0x when loading new project audio
@@ -3305,20 +3734,35 @@ class MultracksApp {
             
             // Load loop state after project is loaded
             this.loadLoopState();
+            
+            console.log('[APP] [PROJECT LOAD] generation:', currentGeneration, 'completed');
+            
+            // Remove cleanup function for completed load
+            this.pendingLoadCleanup.delete(currentGeneration);
         } catch (error) {
             console.error('[APP] ❌ Error loading project audio:', error);
             console.error('[APP] Error details:', error.name, error.message);
-            this.hidePlayerLoading();
-            this.renderWaveform();
             
-            // Check if the error is due to missing files
-            if (hydrationResult.missingCount > 0) {
-                this.showMissingFilesWarning(hydrationResult.missingCount);
-            }
-            
-            // Check if it's a quota exceeded error
-            if (error.message && error.message.includes('quota')) {
-                this.showQuotaExceededWarning();
+            // Only show error if this is still the current generation
+            if (currentGeneration === this.currentLoadGeneration) {
+                this.hidePlayerLoading();
+                this.renderWaveform();
+                
+                // Check if it's a quota exceeded error
+                if (error.message && error.message.includes('quota')) {
+                    this.showQuotaExceededWarning();
+                }
+                
+                // Remove cleanup function for failed load
+                this.pendingLoadCleanup.delete(currentGeneration);
+            } else {
+                console.log('[APP] [PROJECT LOAD] generation:', currentGeneration, 'error ignored (stale load)');
+                // Execute cleanup for stale failed load
+                const cleanup = this.pendingLoadCleanup.get(currentGeneration);
+                if (cleanup) {
+                    cleanup();
+                    this.pendingLoadCleanup.delete(currentGeneration);
+                }
             }
         }
         
@@ -3355,6 +3799,17 @@ class MultracksApp {
         const ctx = canvas.getContext('2d');
         const loadingIndicator = document.getElementById('waveformLoading');
         
+        // Capture current project and generation at start of waveform generation
+        const waveformProject = this.currentProject;
+        const waveformGeneration = this.currentLoadGeneration;
+        
+        if (!waveformProject) {
+            console.log('[APP] No project for waveform generation');
+            return;
+        }
+        
+        console.log('[APP] [WAVEFORM] generation:', waveformGeneration, 'projectId:', waveformProject.id, 'started');
+        
         // Set loading state
         this.waveformLoading = true;
         if (loadingIndicator) {
@@ -3377,14 +3832,14 @@ class MultracksApp {
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
         // Check if we have cached waveform data
-        if (this.currentProject.waveformData) {
+        if (waveformProject.waveformData) {
             this.drawWaveformFromCache(ctx, canvas.width, canvas.height);
             this.hideWaveformLoading();
             return;
         }
         
         // Check if project has any tracks with files
-        const tracksWithFiles = this.currentProject.tracks.filter(t => t.file);
+        const tracksWithFiles = waveformProject.tracks.filter(t => t.file);
         if (tracksWithFiles.length === 0) {
             // No files available, draw placeholder
             this.drawPlaceholderWaveform(ctx, canvas.width, canvas.height);
@@ -3394,7 +3849,15 @@ class MultracksApp {
         
         // Generate waveform asynchronously
         try {
-            const waveformData = await this.generateWaveformData(canvas.width);
+            const waveformData = await this.generateWaveformData(canvas.width, waveformGeneration);
+            
+            // Verify this is still the current generation before updating state
+            if (waveformGeneration !== this.currentLoadGeneration || this.currentProject?.id !== waveformProject.id) {
+                console.log('[APP] [WAVEFORM] generation:', waveformGeneration, 'cancelled/stale, not updating project');
+                this.drawPlaceholderWaveform(ctx, canvas.width, canvas.height);
+                this.hideWaveformLoading();
+                return;
+            }
             
             // Cache the waveform data
             this.currentProject.waveformData = waveformData;
@@ -3404,6 +3867,8 @@ class MultracksApp {
             
             // Save project with cached waveform
             await storage.updateProject(this.currentProject.id, { waveformData: waveformData });
+            
+            console.log('[APP] [WAVEFORM] generation:', waveformGeneration, 'completed');
         } catch (error) {
             console.error('[APP] Error generating waveform:', error);
             this.drawPlaceholderWaveform(ctx, canvas.width, canvas.height);
@@ -3506,11 +3971,15 @@ class MultracksApp {
         console.log('[EFFECTS] Updated effect markers on timeline');
     }
     
-    async generateWaveformData(width) {
+    async generateWaveformData(width, generation) {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         
-        // Concurrency limit for parallel processing - reduced to 1 to prevent memory spikes on tablets
-        const CONCURRENCY = 1;
+        // Concurrency limit for parallel processing
+        // Increased to 2 after fixing WAV file detection to avoid unnecessary MP3 decoder attempts
+        // Can be adjusted up to 3 if memory usage remains stable on mobile devices
+        const CONCURRENCY = 2;
+        
+        console.log('[APP] [WAVEFORM GENERATE] generation:', generation, 'started');
         
         try {
             // Get all tracks with files from the current project
@@ -3534,7 +4003,7 @@ class MultracksApp {
                 
                 // Process all tracks in this batch in parallel
                 const batchResults = await Promise.all(
-                    batch.map(track => this.processTrackForWaveform(track, width))
+                    batch.map(track => this.processTrackForWaveform(track, width, generation))
                 );
                 
                 // Add the results from this batch to mixed peaks
@@ -3565,9 +4034,11 @@ class MultracksApp {
             );
             
             console.log('[APP] Waveform generation complete, processed', processedCount, 'of', totalTracks, 'tracks');
+            console.log('[APP] [WAVEFORM GENERATE] generation:', generation, 'completed');
             return normalizedPeaks;
         } catch (error) {
             console.error('[APP] Fatal error in waveform generation:', error);
+            console.log('[APP] [WAVEFORM GENERATE] generation:', generation, 'failed');
             throw error;
         }
     }
@@ -3652,33 +4123,47 @@ class MultracksApp {
         return result;
     }
 
-    async processTrackForWaveform(track, width) {
+    async processTrackForWaveform(track, width, generation) {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         let audioContext = null;
 
         try {
-            // Check if we can use streaming decode
+            // Check file type to avoid unnecessary streaming attempts for WAV files
+            const fileType = track.file.type || '';
+            const fileName = track.file.name || '';
+            const isWavFile = fileType.includes('wav') || fileName.toLowerCase().endsWith('.wav');
+
+            // For WAV files, skip streaming entirely and go directly to legacy decode
+            // This avoids the guaranteed failure of MP3 decoder on WAV files
+            if (isWavFile) {
+                console.log('[APP] WAV file detected, using legacy decode directly');
+                return await this.processTrackForWaveformLegacy(track, width, generation);
+            }
+
+            // For non-WAV files, check if we can use streaming decode
             const useStreaming = await this.supportsAudioDecoder();
             
             if (useStreaming) {
-                return await this.processTrackForWaveformStreaming(track, width);
+                return await this.processTrackForWaveformStreaming(track, width, generation);
             } else {
                 console.log('[APP] WebCodecs not supported, falling back to legacy decode');
-                return await this.processTrackForWaveformLegacy(track, width);
+                return await this.processTrackForWaveformLegacy(track, width, generation);
             }
         } catch (error) {
             console.warn('[APP] Error in streaming decode, falling back to legacy:', error);
-            return await this.processTrackForWaveformLegacy(track, width);
+            return await this.processTrackForWaveformLegacy(track, width, generation);
         }
     }
 
-    async processTrackForWaveformStreaming(track, width) {
+    async processTrackForWaveformStreaming(track, width, generation) {
         const peaks = new Array(width).fill(0);
         let elapsedTime = 0;
         let totalSamples = 0;
         let leftover = new Uint8Array(0);
         let decodeComplete = false;
         let pendingFrames = 0;
+        
+        console.log('[APP] [WAVEFORM STREAMING] generation:', generation, 'trackId:', track.id, 'started');
         
         return new Promise((resolve, reject) => {
             try {
@@ -3781,9 +4266,11 @@ class MultracksApp {
         });
     }
 
-    async processTrackForWaveformLegacy(track, width) {
+    async processTrackForWaveformLegacy(track, width, generation) {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         let audioContext = null;
+        
+        console.log('[APP] [WAVEFORM LEGACY] generation:', generation, 'trackId:', track.id, 'started');
         
         try {
             // Create AudioContext with low sample rate for waveform generation
@@ -3898,7 +4385,19 @@ class MultracksApp {
     // ========================================
     // EFFECTS MANAGEMENT
     // ========================================
-    async showEffectPopover(clientX, clientY, timeInSeconds, clickX, canvasWidth) {
+    showEffectPopover(clientX, clientY, timeInSeconds, clickX, canvasWidth) {
+        // Check if user has access to canvas effects
+        if (window.PlanSystem) {
+            const plan = window.PlanSystem.getPlanRules(this.userPlan);
+            const hasAccess = plan.features.canvasEffects || false;
+            if (!hasAccess) {
+                const planName = plan.displayName || 'Track';
+                alert(`⚠️ Recurso indisponível no plano ${planName}\n\nA funcionalidade de Efeitos no Canvas está disponível apenas no plano Track Pro.\n\nFaça upgrade para o Track Pro para usar efeitos.`);
+                console.log('[PLAN] Canvas effects popover blocked for', this.userPlan);
+                return;
+            }
+        }
+
         // Store current click time
         this.currentClickTime = timeInSeconds;
 
@@ -3946,7 +4445,20 @@ class MultracksApp {
     
     async handleEffectFileUpload(file) {
         if (!file) return;
-        
+
+        // Check if user has access to canvas effects
+        if (window.PlanSystem) {
+            const plan = window.PlanSystem.getPlanRules(this.userPlan);
+            const hasAccess = plan.features.canvasEffects || false;
+            if (!hasAccess) {
+                const planName = plan.displayName || 'Track';
+                alert(`⚠️ Recurso indisponível no plano ${planName}\n\nA funcionalidade de Efeitos no Canvas está disponível apenas no plano Track Pro.\n\nFaça upgrade para o Track Pro para usar efeitos.`);
+                console.log('[PLAN] Canvas effects feature blocked for', this.userPlan);
+                this.hideEffectPopover();
+                return;
+            }
+        }
+
         try {
             console.log('[EFFECTS] Processing effect file:', file.name);
             
@@ -4251,17 +4763,22 @@ class MultracksApp {
     // ========================================
     // LOOP POINT MARKING
     // ========================================
-    async handleLoopMarking(x, canvasWidth) {
-        // Check if user is on home plan
-        const userPlan = await this.getUserPlan();
-        if (userPlan === 'Home') {
-            this.showUpgradeModal('Loop e seções');
-            return;
+    handleLoopMarking(x, canvasWidth) {
+        // Check if user has access to loops
+        if (window.PlanSystem) {
+            const plan = window.PlanSystem.getPlanRules(this.userPlan);
+            const hasAccess = plan.features.loops || false;
+            if (!hasAccess) {
+                const planName = plan.displayName || 'Track';
+                alert(`⚠️ Recurso indisponível no plano ${planName}\n\nA funcionalidade de Loop está disponível apenas no plano Track Pro.\n\nFaça upgrade para o Track Pro para usar loops.`);
+                console.log('[PLAN] Loop feature blocked for', this.userPlan);
+                return;
+            }
         }
-        
+
         const percentage = x / canvasWidth;
         const timeInSeconds = percentage * this.totalDuration;
-        
+
         console.log('[LOOP] Loop marking triggered at time:', timeInSeconds, 'seconds');
         
         // Estado temporário de marcação em andamento
@@ -4554,20 +5071,24 @@ class MultracksApp {
     }
     
     async toggleLoopEnabled(loopId) {
-        // Check if user is on home plan
-        const userPlan = await this.getUserPlan();
-        if (userPlan === 'Home') {
-            // Trying to enable loop on home plan
-            this.showUpgradeModal('Loop e seções');
-            return;
+        // Check if user has access to loops
+        if (window.PlanSystem) {
+            const plan = window.PlanSystem.getPlanRules(this.userPlan);
+            const hasAccess = plan.features.loops || false;
+            if (!hasAccess) {
+                const planName = plan.displayName || 'Track';
+                alert(`⚠️ Recurso indisponível no plano ${planName}\n\nA funcionalidade de Loop está disponível apenas no plano Track Pro.\n\nFaça upgrade para o Track Pro para usar loops.`);
+                console.log('[PLAN] Loop toggle blocked for', this.userPlan);
+                return;
+            }
         }
-        
+
         // Find the loop and toggle its enabled state
         const loop = this.loops.find(l => l.id === loopId);
         if (loop) {
             loop.enabled = !loop.enabled;
             console.log('[LOOP] Loop', loopId, 'enabled:', loop.enabled);
-            
+
             // Update the toggle button visual
             const toggle = document.getElementById(`loopToggle-${loopId}`);
             if (toggle) {
@@ -4579,12 +5100,12 @@ class MultracksApp {
                     toggle.style.borderColor = '#e8e6e0';
                 }
             }
-            
+
             // Update audio player
             if (this.audioPlayer) {
                 this.audioPlayer.setLoops(this.loops);
             }
-            
+
             // Save loop state
             this.saveLoopState();
         }
@@ -4889,16 +5410,6 @@ class MultracksApp {
     async loadLoopState() {
         if (!this.currentProject) return;
         
-        // Check if user is on home plan - disable loop features
-        const userPlan = await this.getUserPlan();
-        if (userPlan === 'Home') {
-            this.loops = [];
-            this.pendingLoopStart = null;
-            this.updateLoopIndicatorBtn();
-            console.log('[LOOP] Loop features disabled for home user');
-            return;
-        }
-        
         // Migration: convert old single loop format to new array format
         if (!this.currentProject.loops && this.currentProject.loopEnd) {
             this.currentProject.loops = [{
@@ -4994,19 +5505,9 @@ class MultracksApp {
         }
     }
     
-    async updateTimeDisplay(time) {
+    updateTimeDisplay(time) {
         this.currentTime = time;
         this.currentTimeDisplay.textContent = this.formatTime(time);
-        
-        // Check for 10-minute limit for home users
-        const userPlan = await this.getUserPlan();
-        if (userPlan === 'Home' && time >= 600) { // 600 seconds = 10 minutes
-            console.log('[APP] 10-minute limit reached for home user, pausing playback');
-            this.audioPlayer.pause();
-            alert('Limite de 10 minutos do plano Home atingido');
-            this.showUpgradeModal('Reprodução superior a 10 minutos');
-            return;
-        }
         
         // Update playhead position
         if (this.totalDuration > 0) {
@@ -6411,7 +6912,7 @@ class MultracksApp {
         // Save project and re-render mixer
         storage.updateProject(this.currentProject.id, this.currentProject);
         this.renderMixer();
-        this.loadProjectAudio();
+        await this.loadProjectAudio();
     }
     
     // ========================================
@@ -6655,7 +7156,7 @@ class MultracksApp {
                 // Increment version after successful update
                 this.libraryStateVersion++;
                 console.log('[LIBRARY] Library state version incremented to:', this.libraryStateVersion);
-                this.renderLibrary(this.currentFilter);
+                await this.renderLibrary(this.currentFilter);
             }
             document.body.removeChild(modal);
         });
@@ -6809,7 +7310,7 @@ class MultracksApp {
                 // Increment version after successful update
                 this.libraryStateVersion++;
                 console.log('[LIBRARY] Library state version incremented to:', this.libraryStateVersion);
-                this.renderLibrary(this.currentFilter);
+                await this.renderLibrary(this.currentFilter);
                 document.body.removeChild(modal);
             });
         }
@@ -6824,7 +7325,7 @@ class MultracksApp {
                     // Increment version after successful update
                     this.libraryStateVersion++;
                     console.log('[LIBRARY] Library state version incremented to:', this.libraryStateVersion);
-                    this.renderLibrary(this.currentFilter);
+                    await this.renderLibrary(this.currentFilter);
                     document.body.removeChild(modal);
                 };
                 reader.readAsDataURL(file);
@@ -6851,7 +7352,7 @@ class MultracksApp {
         // Increment version after successful toggle
         this.libraryStateVersion++;
         console.log('[LIBRARY] Library state version incremented to:', this.libraryStateVersion);
-        this.renderLibrary(this.currentFilter);
+        await this.renderLibrary(this.currentFilter);
     }
     
     async duplicateProject(projectId) {
@@ -6860,7 +7361,7 @@ class MultracksApp {
         // Increment version after successful duplication
         this.libraryStateVersion++;
         console.log('[LIBRARY] Library state version incremented to:', this.libraryStateVersion);
-        this.renderLibrary(this.currentFilter);
+        await this.renderLibrary(this.currentFilter);
     }
     
     exportProject(projectId) {
@@ -6884,15 +7385,6 @@ class MultracksApp {
         if (!projectId) {
             console.error('[APP] No project ID provided to openTrackEditor');
             this.showToast('Erro: ID do projeto não encontrado');
-            return;
-        }
-
-        // Check if user has Studio plan using the same logic as the player
-        const userPlan = await this.getUserPlan();
-        console.log('[APP] User plan for track editor:', userPlan);
-
-        if (userPlan === 'Home') {
-            this.showUpgradeModal('Edição de Tracks (Playlist)');
             return;
         }
 
@@ -7026,7 +7518,7 @@ class MultracksApp {
             console.log('[LIBRARY] Current deleted IDs:', Array.from(this.deletedProjectIds));
             
             // Re-render immediately to reflect deletion
-            this.renderLibrary(this.currentFilter);
+            await this.renderLibrary(this.currentFilter);
             
             // Then perform the actual storage deletion
             await storage.deleteProject(projectId);
@@ -7041,7 +7533,7 @@ class MultracksApp {
             console.log('[LIBRARY] PROJECTS AFTER DELETE:', storage.getProjectsByFilter('all').map(p => p.id));
             
             // Final render to ensure consistency
-            this.renderLibrary(this.currentFilter);
+            await this.renderLibrary(this.currentFilter);
         }
     }
     
@@ -7303,26 +7795,26 @@ class MultracksApp {
             const docSnap = await window.firebaseDB.getDoc(userDocRef);
 
             if (docSnap.exists()) {
-                // Update existing document, preserving plan field
+                // Update existing document, migrating to new plan system
                 const existingData = docSnap.data();
-                // Check both 'plan' and 'plano' fields for compatibility
-                let existingPlan = existingData.plan || existingData.plano;
+                // Check only 'plan' field (official field)
+                let existingPlan = existingData.plan;
                 if (existingPlan) {
                     // Map old plan values to new system
                     let plan = existingPlan;
-                    if (plan === 'Free' || plan === 'Pro' || plan === 'VIP' || plan === 'Creator' || plan === 'home') {
-                        plan = 'Home';
+                    if (plan === 'studio' || plan === 'Studio' || plan === 'home' || plan === 'Home' || plan === 'Free' || plan === 'Pro' || plan === 'VIP' || plan === 'Creator') {
+                        plan = 'track'; // Migrate all old plans to track
                     }
                     profileData.plan = plan;
                 } else {
-                    profileData.plan = 'Home'; // Set default plan if missing
+                    profileData.plan = 'track'; // Set default plan if missing
                 }
                 await window.firebaseDB.updateDoc(userDocRef, profileData);
                 console.log('[PROFILE] Profile updated:', currentUser.uid);
             } else {
                 // Create new document with default plan
                 profileData.createdAt = window.firebaseDB.serverTimestamp();
-                profileData.plan = 'Home';
+                profileData.plan = 'track';
                 await window.firebaseDB.setDoc(userDocRef, profileData);
                 console.log('[PROFILE] Profile created:', currentUser.uid);
             }
@@ -7457,7 +7949,6 @@ class MultracksApp {
 
             if (userDoc.exists()) {
                 const userData = userDoc.data();
-                this.updateSettingsExpirationBanner(userData);
             }
         } catch (error) {
             console.error('[SETTINGS] Error loading user data for expiration banner:', error);
@@ -7672,7 +8163,7 @@ class MultracksApp {
             displayName: displayName,
             email: email,
             profilePhoto: profilePhoto,
-            plan: 'Home', // Migrate to single field
+            plan: 'track', // Default plan
             accountType: 'Usuário'
         }, user);
     }
@@ -7684,19 +8175,15 @@ class MultracksApp {
         let email = userData.email || user.email;
         let profilePhoto = userData.profilePhoto || null;
 
-        // TEMPORARY LOG: Debug plan field inconsistency
-        console.log('[SETTINGS] DEBUG - userData.plan:', userData.plan, 'userData.plano:', userData.plano);
-
-        // Map old plan values to new system - prioritize 'plan' field
-        let plan = userData.plan || userData.plano || 'Home';
-        console.log('[SETTINGS] Raw plan from Firestore:', userData.plan, userData.plano, 'Final plan:', plan);
-
-        if (plan === 'Free' || plan === 'Pro' || plan === 'VIP' || plan === 'Creator' || plan === 'home') {
-            plan = 'Home';
-        }
-
         const accountType = userData.accountType || user.accountType || 'Usuário';
-        const statusPagamento = userData.statusPagamento || null;
+
+        // Get plan from userData
+        const plan = userData.plan || 'track';
+        const planDisplayName = window.PlanSystem ? window.PlanSystem.PLANS[plan]?.displayName || 'Track' : 'Track';
+
+        // Update app's userPlan
+        this.userPlan = plan;
+        console.log('[SETTINGS] Updated userPlan from settings:', this.userPlan);
 
         // Fallback to email only if displayName is still null/undefined (not empty string)
         if (!displayName || displayName.trim() === '') {
@@ -7710,8 +8197,11 @@ class MultracksApp {
         const settingsAccountType = document.getElementById('settingsAccountType');
         const settingsAccountPlan = document.getElementById('settingsAccountPlan');
 
-        // Handle expiration banner in settings
-        this.updateSettingsExpirationBanner(userData);
+        // Hide expiration banner
+        const settingsExpirationBanner = document.getElementById('settingsExpirationBanner');
+        if (settingsExpirationBanner) {
+            settingsExpirationBanner.style.display = 'none';
+        }
 
         if (settingsUserInitial) {
             if (profilePhoto) {
@@ -7740,135 +8230,22 @@ class MultracksApp {
         }
 
         if (settingsAccountPlan) {
-            settingsAccountPlan.textContent = plan.toUpperCase();
-            settingsAccountPlan.className = 'account-plan-value ' + plan.toLowerCase();
-            console.log('[SETTINGS] Plan updated in UI:', plan);
+            settingsAccountPlan.textContent = planDisplayName;
         }
 
-        // Show/hide upgrade button based on plan status
+        // Show upgrade button only for Track plan users
         const settingsUpgradeBtn = document.getElementById('settingsUpgradeBtn');
         if (settingsUpgradeBtn) {
-            const currentPlan = (userData.plan || userData.plano || 'home').toLowerCase();
-            const statusPagamento = userData.statusPagamento || null;
-
-            // Show upgrade button for Home users or expired Studio users
-            if (currentPlan === 'home' || (currentPlan === 'home' && statusPagamento === 'expirado')) {
+            if (plan === 'track' || (window.PlanSystem && !window.PlanSystem.PLANS[plan])) {
                 settingsUpgradeBtn.style.display = 'inline-block';
                 settingsUpgradeBtn.textContent = 'Fazer Upgrade';
-                settingsUpgradeBtn.href = 'planos.html'; // Go to plans page
-                console.log('[SETTINGS] Upgrade button shown for Home user pointing to planos.html');
-            } else if (currentPlan === 'studio' && statusPagamento === 'expirado') {
-                settingsUpgradeBtn.style.display = 'inline-block';
-                settingsUpgradeBtn.textContent = 'Renovar Studio';
-                settingsUpgradeBtn.href = 'planos.html'; // Go to plans page for renewal
-                console.log('[SETTINGS] Renew button shown for expired Studio user pointing to planos.html');
             } else {
                 settingsUpgradeBtn.style.display = 'none';
-                console.log('[SETTINGS] Upgrade button hidden (user has active Studio plan)');
             }
         }
     }
 
-    updateSettingsExpirationBanner(userData) {
-        const settingsExpirationBanner = document.getElementById('settingsExpirationBanner');
-        const settingsDaysRemaining = document.getElementById('settingsDaysRemaining');
-        const daysRemainingValue = document.getElementById('daysRemainingValue');
 
-        if (!settingsExpirationBanner) return;
-
-        const statusPagamento = userData.statusPagamento || null;
-        const currentPlan = (userData.plan || userData.plano || 'home').toLowerCase();
-        const validadeAcesso = userData.validadeAcesso;
-        const trialExpiresAt = userData.trialExpiresAt;
-        const paymentOrigin = userData.paymentOrigin;
-
-        // Calculate days remaining
-        let daysRemaining = null;
-        let expiryDate = null;
-        let planType = 'mensal'; // Default to monthly
-
-        if (currentPlan === 'studio' && validadeAcesso && paymentOrigin === 'site') {
-            expiryDate = new Date(validadeAcesso);
-            const currentDate = new Date();
-            // Use Math.floor to count complete days remaining (not partial days)
-            daysRemaining = Math.floor((expiryDate - currentDate) / (1000 * 60 * 60 * 24));
-            // Check if it's an annual plan (by checking planType field or expiry duration)
-            if (userData.planType === 'anual') {
-                planType = 'anual';
-            }
-        } else if (currentPlan === 'studio' && trialExpiresAt) {
-            expiryDate = new Date(trialExpiresAt);
-            const currentDate = new Date();
-            // Use Math.floor to count complete days remaining (not partial days)
-            daysRemaining = Math.floor((expiryDate - currentDate) / (1000 * 60 * 60 * 24));
-        }
-
-        // Update days remaining display - always hidden
-        if (settingsDaysRemaining) {
-            settingsDaysRemaining.style.display = 'none';
-        }
-
-        const bannerContent = settingsExpirationBanner.querySelector('.expiration-banner-content');
-        const bannerText = settingsExpirationBanner.querySelector('.expiration-banner-text');
-        const bannerBtn = settingsExpirationBanner.querySelector('.expiration-banner-btn');
-        const bannerIcon = settingsExpirationBanner.querySelector('.expiration-banner-icon');
-
-        // Show different banners based on status
-        if (statusPagamento === 'expirado' && currentPlan === 'home') {
-            // Expired banner
-            settingsExpirationBanner.style.display = 'block';
-            settingsExpirationBanner.style.background = 'linear-gradient(135deg, rgba(255, 59, 47, 0.1), rgba(255, 59, 47, 0.05))';
-            settingsExpirationBanner.style.borderColor = 'rgba(255, 59, 47, 0.3)';
-
-            if (bannerText) {
-                bannerText.querySelector('h4').textContent = 'Sua assinatura Studio venceu';
-                const planLabel = planType === 'anual' ? 'plano anual' : 'assinatura Studio';
-                bannerText.querySelector('p').textContent = `Renove ${planLabel} para reativar faders ilimitados e loops.`;
-                bannerText.querySelector('h4').style.color = '#ff3b2f';
-            }
-
-            if (bannerBtn) {
-                const priceText = planType === 'anual' 
-                    ? (window.precoAnual ? window.precoAnual.split('/')[0] : 'R$ 99,00')
-                    : (window.precoMensal ? window.precoMensal.split('/')[0] : 'R$ 9,90');
-                bannerBtn.textContent = `Renovar (${priceText})`;
-                bannerBtn.style.background = 'var(--color-white)';
-                bannerBtn.style.color = '#ff3b2f';
-                
-                // Get current user ID and add to payment URL
-                const userId = window.firebaseAuth?.auth?.currentUser?.uid;
-                const paymentUrl = planType === 'anual' 
-                    ? (window.linkAnual || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm')
-                    : (window.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm');
-                
-                // Generate and save payment token
-                const paymentToken = userId ? this.generatePaymentToken() : null;
-                if (userId && paymentToken) {
-                    this.savePaymentToken(userId, paymentToken).catch(error => {
-                        console.error('[PAYMENT] Background token save failed:', error);
-                    });
-                }
-                
-                let finalPaymentUrl = paymentUrl;
-                if (userId) {
-                    // Encode plan type and token in custom_id: {userId}|{planType}|{token}
-                    finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}|${planType}|${paymentToken}`;
-                }
-                bannerBtn.href = finalPaymentUrl;
-            }
-
-            if (bannerIcon) {
-                bannerIcon.style.background = 'rgba(255, 59, 47, 0.2)';
-                bannerIcon.style.color = '#ff3b2f';
-            }
-
-            console.log('[SETTINGS] Expiration banner shown for expired user');
-        } else {
-            // Hide banner
-            settingsExpirationBanner.style.display = 'none';
-            console.log('[SETTINGS] Expiration banner hidden (no warning condition met)');
-        }
-    }
 
     async updateStorageInfo() {
         // Storage info display removed - function kept for compatibility but does nothing
@@ -8207,27 +8584,6 @@ class MultracksApp {
             return;
         }
         
-        // Check duration limit for Home plan
-        const userPlan = await this.getUserPlan();
-        if (userPlan === 'Home') {
-            const MAX_DURATION = 600; // 10 minutes in seconds
-            
-            for (const file of audioFiles) {
-                try {
-                    const duration = await this.getAudioFileDuration(file);
-                    if (duration > MAX_DURATION) {
-                        const durationStr = this.formatTime(duration);
-                        alert(`O arquivo "${file.name}" tem duração de ${durationStr}, que excede o limite de 10 minutos do plano Home.\n\nPara importar arquivos mais longos, faça upgrade para o plano Studio.`);
-                        this.showUpgradeModal('Arquivos com duração superior a 10 minutos');
-                        return;
-                    }
-                } catch (error) {
-                    console.warn('[IMPORT] Could not check duration for file:', file.name, error);
-                    // Allow import if duration check fails
-                }
-            }
-        }
-        
         // Calculate total size of files to be imported
         const totalSize = audioFiles.reduce((sum, file) => sum + file.size, 0);
         
@@ -8254,18 +8610,38 @@ class MultracksApp {
             }
         }
         
-        audioFiles.forEach(file => {
+        for (const file of audioFiles) {
             console.log('[IMPORT] File:', {
                 name: file.name,
                 size: file.size,
                 type: file.type,
                 lastModified: file.lastModified
             });
-            
+
             if (!this.selectedFiles.find(f => f.name === file.name)) {
                 const suggestedName = this.suggestTrackName(file.name);
                 console.log('[IMPORT] Suggested track name:', suggestedName);
-                
+
+                // Check duration limit based on plan
+                if (window.PlanSystem) {
+                    try {
+                        const duration = await this.getAudioFileDuration(file);
+                        const plan = window.PlanSystem.getPlanRules(this.userPlan);
+                        const exceedsLimit = duration > plan.limits.maxDurationSeconds;
+
+                        if (exceedsLimit) {
+                            const durationMinutes = (duration / 60).toFixed(2);
+                            const planName = plan.displayName || 'Track';
+                            alert(`⚠️ Limite de duração do plano ${planName}\n\nO arquivo "${file.name}" tem ${durationMinutes} minutos, mas o plano ${planName} permite apenas áudios de até 5 minutos.\n\nEste arquivo não será adicionado ao projeto.`);
+                            console.log('[PLAN] File exceeds duration limit:', file.name, duration, 'seconds');
+                            continue; // Skip this file
+                        }
+                    } catch (error) {
+                        console.warn('[PLAN] Could not check file duration:', error);
+                        // Allow file if duration check fails
+                    }
+                }
+
                 this.selectedFiles.push({
                     file: file,
                     name: suggestedName
@@ -8277,8 +8653,8 @@ class MultracksApp {
                     hasFile: !!file
                 });
             }
-        });
-        
+        }
+
         this.renderSelectedFiles();
         this.updateWizardUI();
         
@@ -8497,10 +8873,12 @@ class MultracksApp {
                 });
                 
                 return {
+                    id: this.generateTrackId(),
                     name: item.name,
                     originalFileName: item.file.name,
                     fileSize: item.file.size,
-                    file: item.file
+                    file: item.file,
+                    audioFileId: null // Will be set during project creation
                 };
             });
             
@@ -8509,11 +8887,10 @@ class MultracksApp {
             
             // Disable button and show initial loading state
             this.wizardCreate.disabled = true;
-            this.wizardCreate.textContent = `Criando... 0 de ${tracks.length} tracks`;
-            
+            this.wizardCreate.textContent = 'Processando...';
+
             // Create progress callback
             const onProgress = (saved, total) => {
-                this.wizardCreate.textContent = `Criando... ${saved} de ${total} tracks`;
                 // Update loading card progress
                 this.updateLoadingCardProgress(tempId, saved, total);
             };
@@ -8528,16 +8905,54 @@ class MultracksApp {
             console.log('[UPLOAD] Added to active uploads:', tempId);
             
             // Render library to show loading card
-            this.renderLibrary();
+            await this.renderLibrary();
             
             // Close modal to show the loading card
             this.closeModal();
             
+            // Create project first to get the projectId
             const project = await storage.createProject({
                 name: projectName,
                 key: this.projectKey.value,
                 tracks: tracks
             }, onProgress);
+            
+            console.log('[UPLOAD] Project created with ID:', project.id);
+
+            // Upload tracks to R2 if user has cloud storage access
+            let tracksForProject = tracks;
+            const hasCloudAccess = window.PlanSystem ? await window.PlanSystem.hasCloudStorageAccess(this.getCurrentUserId()) : false;
+
+            if (hasCloudAccess) {
+                try {
+                    tracksForProject = await this.uploadTracksToR2(tracks, project.id, onProgress);
+                    
+                    // Check if any uploads succeeded
+                    const successfulUploads = tracksForProject.filter(t => t.cloud && !t.error);
+                    if (successfulUploads.length > 0) {
+                        console.log('[UPLOAD] R2 upload completed successfully:', successfulUploads.length, 'tracks uploaded');
+                    } else {
+                        console.warn('[UPLOAD] R2 upload failed for all tracks, project will be local-only');
+                    }
+
+                    // Update project with R2 metadata
+                    project.tracks = tracksForProject;
+                    await storage.save();
+                } catch (error) {
+                    console.warn('[UPLOAD] R2 upload failed, continuing with local-only:', error);
+                    // Continue with local-only tracks if R2 upload fails
+                }
+            } else {
+                console.log('[UPLOAD] User does not have cloud storage access, using local-only storage');
+                // Mark tracks as local-only
+                tracksForProject = tracks.map(track => ({
+                    ...track,
+                    cloud: false,
+                    local: true
+                }));
+                project.tracks = tracksForProject;
+                await storage.save();
+            }
             
             // Validate version before applying results
             if (uploadVersion !== this.libraryStateVersion) {
@@ -8551,8 +8966,6 @@ class MultracksApp {
             console.log('[IMPORT] Project created:', project.name);
             console.log('[IMPORT] Project tracks after creation:', project.tracks.length);
             console.log('[IMPORT] First track in project:', project.tracks[0]);
-            
-            // createProject already saves, no need to save again
             console.log('[IMPORT] Project saved to storage');
             
             // Verify project is available in storage
@@ -8569,18 +8982,131 @@ class MultracksApp {
             this.removeLoadingCard(tempId);
             console.log('[UPLOAD] Library will be rendered by removeLoadingCard');
             
+            // Start background preparation for cloud projects
+            if (hasCloudAccess && project.tracks.some(track => track.cloud && track.r2Key)) {
+                console.log('[UPLOAD] Starting background preparation for project:', project.name);
+                // Don't await - let it run in background
+                this.prepareProject(project, (progressPercent, currentBytes, totalBytes, trackName) => {
+                    console.log('[UPLOAD] Background preparation progress:', progressPercent + '%', '-', trackName);
+                }).catch(error => {
+                    console.error('[UPLOAD] Background preparation failed:', error);
+                });
+            }
+            
         } catch (error) {
             console.error('[IMPORT] Error creating project:', error);
             alert('Erro ao criar projeto: ' + error.message);
             // Remove loading card on error
             this.removeLoadingCard(tempId);
-            this.renderLibrary();
+            await this.renderLibrary();
         } finally {
             // Always re-enable button and reset state
             this.isCreatingProject = false;
             this.wizardCreate.disabled = originalDisabled;
             this.wizardCreate.textContent = originalButtonText;
         }
+    }
+
+    /**
+     * Upload tracks to R2 and update track metadata
+     * @param {Array} tracks - Array of track objects with file property
+     * @param {string} projectId - Project ID
+     * @param {Function} onProgress - Progress callback
+     * @returns {Promise<Array>} Updated tracks with R2 metadata
+     */
+    async uploadTracksToR2(tracks, projectId, onProgress) {
+        console.log('[R2 UPLOAD] Starting R2 upload for', tracks.length, 'tracks');
+        
+        // Check if user is authenticated
+        const user = window.firebaseAuth?.auth?.currentUser;
+        if (!user) {
+            console.log('[R2 UPLOAD] User not authenticated, skipping R2 upload');
+            // Return tracks without R2 metadata (local-only)
+            return tracks.map(track => ({
+                ...track,
+                cloud: false,
+                local: true
+            }));
+        }
+
+        // Get fresh ID token before upload
+        const idToken = await user.getIdToken(true);
+        console.log('[R2 UPLOAD] Got fresh ID token');
+        this.r2Storage.setAuthToken(idToken);
+
+        const userId = user.uid;
+        const updatedTracks = [];
+        let successCount = 0;
+        let failureCount = 0;
+        
+        for (let i = 0; i < tracks.length; i++) {
+            const track = tracks[i];
+            
+            try {
+                console.log('[R2 UPLOAD] Uploading track:', track.name, 'Size:', track.file.size);
+                
+                // Upload to R2
+                const r2Result = await this.r2Storage.uploadTrack(track.file, {
+                    userId,
+                    projectId,
+                    trackId: track.id || this.generateTrackId(),
+                    fileName: track.originalFileName || track.name
+                }, (uploaded, total) => {
+                    if (onProgress) {
+                        onProgress(i + 1, tracks.length);
+                    }
+                });
+
+                // Update track with R2 metadata
+                const updatedTrack = {
+                    ...track,
+                    r2Key: r2Result.r2Key,
+                    r2Version: r2Result.version || 1,
+                    cloud: true,
+                    local: true, // Still save locally
+                    r2Size: r2Result.size,
+                    r2UploadedAt: r2Result.uploadedAt
+                };
+
+                // Save to IndexedDB (local cache)
+                if (track.audioFileId) {
+                    await this.audioStorage.saveAudioFile(track.audioFileId, track.file);
+                }
+
+                updatedTracks.push(updatedTrack);
+                successCount++;
+                console.log('[R2 UPLOAD] Track uploaded successfully:', track.name);
+            } catch (error) {
+                console.error('[R2 UPLOAD] Upload failed for track:', track.name, error);
+                failureCount++;
+                // Track without R2 upload (local-only)
+                updatedTracks.push({
+                    ...track,
+                    cloud: false,
+                    local: true,
+                    error: true
+                });
+            }
+        }
+
+        console.log('[R2 UPLOAD] Completed:', successCount, 'success /', failureCount, 'failures');
+        
+        if (successCount === 0) {
+            console.warn('[R2 UPLOAD] All uploads failed, project will be local-only');
+        } else if (failureCount > 0) {
+            console.warn('[R2 UPLOAD] Some uploads failed, project has partial cloud access');
+        } else {
+            console.log('[R2 UPLOAD] R2 upload completed successfully');
+        }
+        
+        return updatedTracks;
+    }
+
+    /**
+     * Generate a track ID
+     */
+    generateTrackId() {
+        return 'track_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     }
 
     createLoadingCard(tempId, projectName, trackCount) {
@@ -8604,7 +9130,7 @@ class MultracksApp {
                         <span class="music-card-date">Carregando...</span>
                     </div>
                     <div class="loading-progress-text" id="progress-${tempId}">
-                        Preparando upload...
+                        Processando
                     </div>
                 </div>
             </div>
@@ -8620,23 +9146,45 @@ class MultracksApp {
             uploadData.saved = saved;
             uploadData.total = total;
             console.log('[UPLOAD] Updated progress for:', tempId, saved, total);
-        }
-        
-        // Also update DOM if element exists (for immediate feedback)
-        const progressText = document.getElementById(`progress-${tempId}`);
-        if (progressText) {
-            const percentage = Math.round((saved / total) * 100);
-            progressText.textContent = `Processando: ${saved}/${total} tracks (${percentage}%)`;
+
+            // Start status rotation if not already started
+            if (!uploadData.statusInterval) {
+                const statuses = ['Processando', 'Mixando', 'Salvando'];
+                let statusIndex = 0;
+
+                const updateStatus = () => {
+                    const progressText = document.getElementById(`progress-${tempId}`);
+                    if (progressText) {
+                        progressText.textContent = statuses[statusIndex];
+                    }
+                    statusIndex = (statusIndex + 1) % statuses.length;
+                };
+
+                // Initial status
+                updateStatus();
+
+                // Rotate status every 7 seconds
+                uploadData.statusInterval = setInterval(updateStatus, 7000);
+            }
         }
     }
 
-    removeLoadingCard(tempId) {
+    async removeLoadingCard(tempId) {
         console.log('[UPLOAD] Removing loading card from state:', tempId);
+
+        // Clear status interval if exists
+        if (this.activeUploads.has(tempId)) {
+            const uploadData = this.activeUploads.get(tempId);
+            if (uploadData.statusInterval) {
+                clearInterval(uploadData.statusInterval);
+            }
+        }
+
         this.activeUploads.delete(tempId);
         console.log('[UPLOAD] Active uploads after removal:', Array.from(this.activeUploads.keys()));
-        
+
         // Render library to reflect the removal
-        this.renderLibrary();
+        await this.renderLibrary();
     }
     
     // ========================================
@@ -8669,11 +9217,11 @@ class MultracksApp {
         // Filter buttons
         const filterBtns = document.querySelectorAll('.filter-btn');
         filterBtns.forEach(btn => {
-            btn?.addEventListener('click', () => {
+            btn?.addEventListener('click', async () => {
                 filterBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 this.currentFilter = btn.dataset.filter;
-                this.renderLibrary(this.currentFilter);
+                await this.renderLibrary(this.currentFilter);
             });
         });
 
@@ -8733,13 +9281,13 @@ class MultracksApp {
         const searchBtn = document.getElementById('searchBtn');
         const searchInput = document.getElementById('searchInput');
 
-        searchBtn?.addEventListener('click', () => {
+        searchBtn?.addEventListener('click', async () => {
             searchInput.classList.toggle('active');
             if (searchInput.classList.contains('active')) {
                 searchInput.focus();
             } else {
                 searchInput.value = '';
-                this.renderLibrary(this.currentFilter);
+                await this.renderLibrary(this.currentFilter);
             }
         });
 
@@ -8748,20 +9296,20 @@ class MultracksApp {
             this.searchLibrary(searchTerm);
         });
 
-        searchInput?.addEventListener('keydown', (e) => {
+        searchInput?.addEventListener('keydown', async (e) => {
             if (e.key === 'Escape') {
                 searchInput.classList.remove('active');
                 searchInput.value = '';
-                this.renderLibrary(this.currentFilter);
+                await this.renderLibrary(this.currentFilter);
             }
         });
 
         // Close search when clicking outside (library)
-        document.addEventListener('click', (e) => {
+        document.addEventListener('click', async (e) => {
             if (!e.target.closest('.search-container') && searchInput?.classList.contains('active')) {
                 searchInput.classList.remove('active');
                 searchInput.value = '';
-                this.renderLibrary(this.currentFilter);
+                await this.renderLibrary(this.currentFilter);
             }
         });
 
@@ -8775,7 +9323,7 @@ class MultracksApp {
         //         playerSearchInput.focus();
         //     } else {
         //         playerSearchInput.value = '';
-        //         this.renderLibrary(this.currentFilter);
+        //         await this.renderLibrary(this.currentFilter);
         //     }
         // });
 
@@ -8788,7 +9336,7 @@ class MultracksApp {
         //     if (e.key === 'Escape') {
         //         playerSearchInput.classList.remove('active');
         //         playerSearchInput.value = '';
-        //         this.renderLibrary(this.currentFilter);
+        //         await this.renderLibrary(this.currentFilter);
         //     }
         // });
 
@@ -8797,7 +9345,7 @@ class MultracksApp {
         //     if (!e.target.closest('.search-container') && playerSearchInput?.classList.contains('active')) {
         //         playerSearchInput.classList.remove('active');
         //         playerSearchInput.value = '';
-        //         this.renderLibrary(this.currentFilter);
+        //         await this.renderLibrary(this.currentFilter);
         //     }
         // });
 
@@ -8941,7 +9489,7 @@ class MultracksApp {
                 return;
             }
 
-            // Home users can add music - no plan restriction
+            // Track users can add music - no plan restriction
             this.openModal();
         };
 
@@ -9116,16 +9664,9 @@ class MultracksApp {
             this.handleTimelineSeek(x, rect.width, e.clientX, e.clientY);
             
             // Start hold timer for loop marking
-            this.loopHoldTimer = setTimeout(async () => {
+            this.loopHoldTimer = setTimeout(() => {
                 // Check if still in pressing state (not already dragging)
                 if (this.pointerState === 'pressing') {
-                    // Check if user is on home plan before allowing loop marking
-                    const userPlan = await this.getUserPlan();
-                    if (userPlan === 'Home') {
-                        this.showUpgradeModal('Loop e seções');
-                        this.resetPointerState();
-                        return;
-                    }
                     // This is a long press - enter loop marking mode
                     this.pointerState = 'loop_marking';
                     this.handleLoopMarking(x, rect.width);
@@ -9752,10 +10293,71 @@ class MultracksApp {
                         this.updateUserProfile(user);
                         this.updateProfileButtonForLoggedIn(user);
 
+                        // Ensure user document exists with plan
+                        if (window.firebaseDB) {
+                            try {
+                                const { db, doc, getDoc, setDoc, updateDoc, serverTimestamp } = window.firebaseDB;
+                                const userDoc = await getDoc(doc(db, 'users', user.uid));
+
+                                if (!userDoc.exists()) {
+                                    // Create user document with default plan
+                                    console.log('[AUTH] Creating user document for new user with plan: track');
+                                    await setDoc(doc(db, 'users', user.uid), {
+                                        uid: user.uid,
+                                        email: user.email,
+                                        displayName: user.displayName || user.email.split('@')[0],
+                                        plan: 'track',
+                                        createdAt: serverTimestamp()
+                                    }, { merge: true });
+                                } else {
+                                    // Migrate existing user to new plan system
+                                    const userData = userDoc.data();
+                                    let needsMigration = false;
+                                    let newPlan = userData.plan;
+
+                                    // Check if plan needs migration
+                                    if (!newPlan) {
+                                        newPlan = 'track';
+                                        needsMigration = true;
+                                    } else if (newPlan === 'studio' || newPlan === 'Studio' || newPlan === 'home' || newPlan === 'Home' || newPlan === 'Free' || newPlan === 'Pro' || newPlan === 'VIP' || newPlan === 'Creator') {
+                                        newPlan = 'track';
+                                        needsMigration = true;
+                                    }
+
+                                    if (needsMigration) {
+                                        console.log('[AUTH] Migrating user from old plan system to new plan:', newPlan);
+                                        await updateDoc(doc(db, 'users', user.uid), {
+                                            plan: newPlan
+                                        });
+                                        console.log('[AUTH] User plan migrated to:', newPlan);
+                                    }
+                                }
+                            } catch (error) {
+                                console.warn('[AUTH] Could not ensure user document exists:', error);
+                            }
+                        }
+
+                        // Load user plan from Firebase
+                        if (window.PlanSystem) {
+                            this.userPlan = await window.PlanSystem.getUserPlan(user.uid);
+                            console.log('[AUTH] User plan loaded:', this.userPlan);
+                        }
+
                         // Load community favorites for this user (async from Firestore)
                         await this.loadCommunityFavorites();
 
-                        // Reload storage with new user's data
+                        // Initialize Firestore sync only if user has cloud sync access
+                        if (typeof firestoreSync !== 'undefined' && !firestoreSync.initialized) {
+                            const hasCloudSync = window.PlanSystem ? await window.PlanSystem.hasFeatureAccess(user.uid, 'cloudSync') : false;
+                            if (hasCloudSync) {
+                                firestoreSync.init();
+                                console.log('[AUTH] Firestore sync initialized for user with cloud sync access');
+                            } else {
+                                console.log('[AUTH] User does not have cloud sync access, skipping Firestore sync');
+                            }
+                        }
+
+                        // Reload storage with new user's data (this will trigger Firestore sync)
                         if (typeof storage !== 'undefined') {
                             console.log('[AUTH] Reloading storage for user:', user.uid);
                             // Capture version before auth reload
@@ -9778,7 +10380,8 @@ class MultracksApp {
                             }
 
                             console.log('[AUTH] Storage reloaded, refreshing UI');
-                            this.renderLibrary();
+                            this.showLibraryLoading();
+                            await this.renderLibrary();
                         }
                     } else {
                         console.log('[AUTH] User is logged out');
@@ -9787,14 +10390,14 @@ class MultracksApp {
 
                         // Clear community favorites on logout
                         this.communityFavorites = [];
-                        
-                        // Reload storage with guest user's data
+
+                        // Reload storage with guest user's data (no Firestore sync)
                         if (typeof storage !== 'undefined') {
                             console.log('[AUTH] Reloading storage for guest user');
                             // Capture version before auth reload
                             const authReloadVersion = ++this.libraryStateVersion;
                             console.log('[AUTH] AUTH RELOAD VERSION:', authReloadVersion);
-                            
+
                             // Wait for any existing storage load to complete before starting a new one
                             if (this.storageLoadPromise) {
                                 await this.storageLoadPromise;
@@ -9803,15 +10406,16 @@ class MultracksApp {
                             this.storageLoadPromise = storage.load();
                             await this.storageLoadPromise;
                             this.storageReady = true;
-                            
+
                             // Validate version before applying results
                             if (authReloadVersion !== this.libraryStateVersion) {
                                 console.log('[AUTH] Auth reload stale, ignoring results:', authReloadVersion, 'current:', this.libraryStateVersion);
                                 return;
                             }
-                            
+
                             console.log('[AUTH] Storage reloaded, refreshing UI');
-                            this.renderLibrary();
+                            this.showLibraryLoading();
+                            await this.renderLibrary();
                             this.renderCommunity(); // Update community cards
                         }
                     }
@@ -9955,6 +10559,42 @@ class MultracksApp {
         this.updateProfileButtonBasedOnAuth();
     }
 
+    /**
+     * Set up R2 authentication with Firebase token
+     */
+    setupR2Auth() {
+        if (!window.firebaseAuth || !window.firebaseAuth.auth) {
+            console.log('[R2 AUTH] Firebase Auth not available, R2 will work in guest mode');
+            return;
+        }
+
+        const { auth, onAuthStateChanged } = window.firebaseAuth;
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                // Check if user has cloud storage access before setting R2 auth
+                const hasCloudAccess = window.PlanSystem ? await window.PlanSystem.hasCloudStorageAccess(user.uid) : false;
+
+                if (hasCloudAccess) {
+                    // User is logged in and has cloud access, get FRESH ID token for R2
+                    user.getIdToken(true).then((token) => {
+                        console.log('[R2 AUTH] Setting fresh auth token for R2');
+                        this.r2Storage.setAuthToken(token);
+                    }).catch((error) => {
+                        console.error('[R2 AUTH] Error getting ID token:', error);
+                    });
+                } else {
+                    console.log('[R2 AUTH] User does not have cloud storage access, skipping R2 auth');
+                    this.r2Storage.setAuthToken(null);
+                }
+            } else {
+                // User is logged out, clear auth token
+                console.log('[R2 AUTH] User logged out, clearing auth token');
+                this.r2Storage.setAuthToken(null);
+            }
+        });
+    }
+
     handleLogout() {
         if (!window.firebaseAuth) {
             console.error('Firebase não está disponível. Verifique se os scripts foram carregados.');
@@ -10083,12 +10723,11 @@ class MultracksApp {
                         }
 
                         if (userData) {
-                            // Ensure user has a plan, set to 'home' if missing
+                            // Ensure user has a plan, set to 'track' if missing
                             if (!userData.plan) {
                                 try {
-                                    await window.firebaseDB.updateDoc(userDoc, { 
-                                        plan: 'home',
-                                        plano: 'home' // Migrate to single field
+                                    await window.firebaseDB.updateDoc(userDoc, {
+                                        plan: 'track'
                                     });
                                     console.log('[AUTH] Default plan set for existing user:', user.uid);
                                 } catch (error) {
@@ -10278,10 +10917,10 @@ class MultracksApp {
                         displayName: name,
                         email: email,
                         accountType: finalAccountType,
-                        plan: 'home', // Default plan for new users (migrated from 'plano')
+                        plan: 'track', // Default plan for new users
                         createdAt: serverTimestamp()
-                    }).then(() => {
-                        console.log('[AUTH] User data stored in Firestore with default plan: home');
+                    }, { merge: true }).then(() => {
+                        console.log('[AUTH] User data stored in Firestore with default plan: track');
                     }).catch((error) => {
                         console.warn('[AUTH] Could not store user data in Firestore:', error);
                     });
@@ -10328,7 +10967,6 @@ class MultracksApp {
             // Try to get displayName from Firestore first
             let displayName = user.displayName;
             let email = user.email;
-            let planExpired = false;
 
             try {
                 if (window.firebaseDB) {
@@ -10338,123 +10976,6 @@ class MultracksApp {
                     if (userDoc.exists()) {
                         const userData = userDoc.data();
                         displayName = userData.displayName || displayName;
-
-                        // Check plan validity
-                        const currentPlan = (userData.plan || userData.plano || 'home').toLowerCase();
-                        const validadeAcesso = userData.validadeAcesso;
-                        const trialExpiresAt = userData.trialExpiresAt;
-                        const paymentOrigin = userData.paymentOrigin;
-                        const statusPagamento = userData.statusPagamento;
-
-                        // Check if this is a paid subscription (not trial)
-                        const isPaidSubscription = paymentOrigin === 'site' && validadeAcesso;
-
-                        if (currentPlan === 'studio' && isPaidSubscription) {
-                            const expiryDate = new Date(validadeAcesso);
-                            const currentDate = new Date();
-
-                            if (currentDate > expiryDate) {
-                                console.log('[PLAN VALIDITY] Studio plan expired for user:', user.uid);
-                                console.log('[PLAN VALIDITY] Expiry date:', expiryDate, 'Current date:', currentDate);
-
-                                // Calculate days since expiration
-                                const daysSinceExpiration = Math.floor((currentDate - expiryDate) / (1000 * 60 * 60 * 24));
-                                console.log('[PLAN VALIDITY] Days since expiration:', daysSinceExpiration);
-
-                                // Update user plan to home and mark as expired
-                                await updateDoc(doc(db, 'users', user.uid), {
-                                    plan: 'home',
-                                    plano: 'home', // Migrate to single field
-                                    statusPagamento: 'expirado'
-                                });
-
-                                planExpired = true;
-
-                                // Only show floating notification if expired within 7 days
-                                if (daysSinceExpiration <= 7) {
-                                    this.showPlanExpiredNotification(userData);
-                                } else {
-                                    console.log('[PLAN VALIDITY] Expiration older than 7 days, skipping floating notification');
-                                }
-                            } else {
-                                console.log('[PLAN VALIDITY] Studio plan is still valid for user:', user.uid);
-                                console.log('[PLAN VALIDITY] Expiry date:', expiryDate, 'Current date:', currentDate);
-
-                                // Check for pre-expiration warnings
-                                const daysRemaining = Math.floor((expiryDate - currentDate) / (1000 * 60 * 60 * 24));
-                                console.log('[PLAN VALIDITY] Days remaining:', daysRemaining);
-
-                                // Show 15-day warning (11-15 days remaining)
-                                if (daysRemaining >= 11 && daysRemaining <= 15) {
-                                    this.showPreExpirationWarning(daysRemaining, userData);
-                                }
-                                // Show 5-day critical warning (1-5 days remaining)
-                                else if (daysRemaining >= 1 && daysRemaining <= 5) {
-                                    this.showCriticalExpirationWarning(daysRemaining, userData);
-                                }
-                            }
-                        } else if (currentPlan === 'studio' && trialExpiresAt) {
-                            // Check trial validity (7 days)
-                            const trialExpiryDate = new Date(trialExpiresAt);
-                            const currentDate = new Date();
-
-                            if (currentDate > trialExpiryDate) {
-                                console.log('[PLAN VALIDITY] Studio trial expired for user:', user.uid);
-                                console.log('[PLAN VALIDITY] Trial expiry date:', trialExpiryDate, 'Current date:', currentDate);
-
-                                // Calculate days since expiration
-                                const daysSinceExpiration = Math.floor((currentDate - trialExpiryDate) / (1000 * 60 * 60 * 24));
-                                console.log('[PLAN VALIDITY] Days since trial expiration:', daysSinceExpiration);
-
-                                // Update user plan to home and mark as expired
-                                await updateDoc(doc(db, 'users', user.uid), {
-                                    plan: 'home',
-                                    plano: 'home', // Migrate to single field
-                                    statusPagamento: 'expirado'
-                                });
-
-                                planExpired = true;
-
-                                // Only show floating notification if expired within 7 days
-                                if (daysSinceExpiration <= 7) {
-                                    this.showTrialExpiredNotification();
-                                } else {
-                                    console.log('[PLAN VALIDITY] Trial expiration older than 7 days, skipping floating notification');
-                                }
-                            } else {
-                                console.log('[PLAN VALIDITY] Studio trial is still valid for user:', user.uid);
-                                console.log('[PLAN VALIDITY] Trial expiry date:', trialExpiryDate, 'Current date:', currentDate);
-
-                                // Check for trial pre-expiration warnings
-                                const daysRemaining = Math.floor((trialExpiryDate - currentDate) / (1000 * 60 * 60 * 24));
-                                console.log('[PLAN VALIDITY] Trial days remaining:', daysRemaining);
-
-                                // Show trial warning when 2-3 days remaining
-                                if (daysRemaining >= 2 && daysRemaining <= 3) {
-                                    this.showTrialExpirationWarning(daysRemaining);
-                                }
-                            }
-                        } else if (statusPagamento === 'expirado') {
-                            // User already has expired status, check if within 7-day window
-                            const expiryDate = validadeAcesso ? new Date(validadeAcesso) : trialExpiresAt ? new Date(trialExpiresAt) : null;
-
-                            if (expiryDate) {
-                                const currentDate = new Date();
-                                const daysSinceExpiration = Math.floor((currentDate - expiryDate) / (1000 * 60 * 60 * 24));
-
-                                // Show floating notification if expired within 7 days
-                                if (daysSinceExpiration <= 7) {
-                                    console.log('[PLAN VALIDITY] User has expired status within 7-day window, showing notification');
-                                    if (paymentOrigin === 'site') {
-                                        this.showPlanExpiredNotification(userData);
-                                    } else {
-                                        this.showTrialExpiredNotification();
-                                    }
-                                } else {
-                                    console.log('[PLAN VALIDITY] Expired status older than 7 days, skipping floating notification');
-                                }
-                            }
-                        }
                     } else {
                         // Fallback: try to find by uid field (old method with auto-generated IDs)
                         const q = query(collection(db, 'users'), where('uid', '==', user.uid));
@@ -10497,16 +11018,6 @@ class MultracksApp {
             }
 
             console.log('[AUTH] User profile updated:', displayName);
-
-            // If plan expired, reload storage to apply Home plan restrictions
-            if (planExpired && typeof storage !== 'undefined') {
-                console.log('[PLAN VALIDITY] Reloading storage to apply Home plan restrictions');
-                this.storageReady = false;
-                this.storageLoadPromise = storage.load();
-                await this.storageLoadPromise;
-                this.storageReady = true;
-                this.renderLibrary();
-            }
         }
 
         // Store user info in localStorage
@@ -10515,674 +11026,6 @@ class MultracksApp {
             email: user.email,
             displayName: user.displayName
         }));
-    }
-
-    showPlanExpiredNotification(userData = null) {
-        // Check if notification was already shown today
-        const userId = window.firebaseAuth?.auth?.currentUser?.uid;
-        if (userId) {
-            const today = new Date().toDateString();
-            const storageKey = `warning_shown_${userId}_planExpired_${today}`;
-            if (localStorage.getItem(storageKey)) {
-                console.log('[NOTIFICATION] Plan expired notification already shown today, skipping');
-                return;
-            }
-            localStorage.setItem(storageKey, 'true');
-        }
-
-        // Get user data to determine plan type
-        let planType = 'mensal'; // Default to monthly
-        if (userData && userData.planType) {
-            planType = userData.planType;
-        }
-
-        // Create and show a notification about expired plan
-        const notification = document.createElement('div');
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: linear-gradient(135deg, #ff3b2f, #cc2d23);
-            color: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(255, 59, 47, 0.3);
-            z-index: 10000;
-            max-width: 400px;
-            font-family: 'Inter', sans-serif;
-            animation: slideIn 0.3s ease;
-        `;
-
-        const planLabel = planType === 'anual' ? 'plano anual' : 'assinatura Studio';
-        notification.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="12" y1="8" x2="12" y2="12"></line>
-                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                </svg>
-                <strong style="font-size: 16px;">Assinatura Expirada</strong>
-            </div>
-            <p style="margin: 0; font-size: 14px; line-height: 1.5; opacity: 0.9;">
-                Seu ${planLabel} venceu. Faça a renovação para reativar todos os recursos.
-            </p>`;
-
-        const paymentUrl = planType === 'anual' 
-            ? (window.linkAnual || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm')
-            : (window.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm');
-        const priceText = planType === 'anual' 
-            ? (window.precoAnual ? window.precoAnual.split('/')[0] : 'R$ 99,00')
-            : (window.precoMensal ? window.precoMensal.split('/')[0] : 'R$ 9,90');
-        
-        // Generate and save payment token
-        const paymentToken = userId ? this.generatePaymentToken() : null;
-        if (userId && paymentToken) {
-            this.savePaymentToken(userId, paymentToken).catch(error => {
-                console.error('[PAYMENT] Background token save failed:', error);
-            });
-        }
-        
-        let finalPaymentUrl = paymentUrl;
-        if (userId) {
-            // Encode plan type and token in custom_id: {userId}|{planType}|{token}
-            finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}|${planType}|${paymentToken}`;
-        }
-
-        const renewButton = document.createElement('button');
-        renewButton.onclick = () => window.location.href = finalPaymentUrl;
-        renewButton.style.cssText = `
-            margin-top: 16px;
-            padding: 10px 20px;
-            background: white;
-            color: #ff3b2f;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s ease;
-        `;
-        renewButton.onmouseover = () => renewButton.style.transform = 'translateY(-2px)';
-        renewButton.onmouseout = () => renewButton.style.transform = 'translateY(0)';
-        renewButton.textContent = `Renovar Agora (${priceText})`;
-        notification.appendChild(renewButton);
-
-        const closeButton = document.createElement('button');
-        closeButton.onclick = () => notification.remove();
-        closeButton.style.cssText = `
-            margin-top: 8px;
-            padding: 8px 16px;
-            background: transparent;
-            color: white;
-            border: 1px solid rgba(255,255,255,0.3);
-            border-radius: 8px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background 0.2s ease;
-        `;
-        closeButton.onmouseover = () => closeButton.style.background = 'rgba(255,255,255,0.1)';
-        closeButton.onmouseout = () => closeButton.style.background = 'transparent';
-        closeButton.textContent = 'Fechar';
-        notification.appendChild(closeButton);
-
-        // Add animation keyframes
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes slideIn {
-                from {
-                    transform: translateX(400px);
-                    opacity: 0;
-                }
-                to {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-            }
-        `;
-        document.head.appendChild(style);
-
-        document.body.appendChild(notification);
-
-        // Auto-remove after 10 seconds
-        setTimeout(() => {
-            if (notification.parentElement) {
-                notification.style.animation = 'slideIn 0.3s ease reverse';
-                setTimeout(() => notification.remove(), 300);
-            }
-        }, 10000);
-    }
-
-    showTrialExpiredNotification() {
-        // Check if notification was already shown today
-        const userId = window.firebaseAuth?.auth?.currentUser?.uid;
-        if (userId) {
-            const today = new Date().toDateString();
-            const storageKey = `warning_shown_${userId}_trialExpired_${today}`;
-            if (localStorage.getItem(storageKey)) {
-                console.log('[NOTIFICATION] Trial expired notification already shown today, skipping');
-                return;
-            }
-            localStorage.setItem(storageKey, 'true');
-        }
-
-        // Create and show a notification about expired trial
-        const notification = document.createElement('div');
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: linear-gradient(135deg, #f59e0b, #d97706);
-            color: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(245, 158, 11, 0.3);
-            z-index: 10000;
-            max-width: 400px;
-            font-family: 'Inter', sans-serif;
-            animation: slideIn 0.3s ease;
-        `;
-
-        notification.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="12" y1="8" x2="12" y2="12"></line>
-                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                </svg>
-                <strong style="font-size: 16px;">Teste Grátis Expirado</strong>
-            </div>
-            <p style="margin: 0; font-size: 14px; line-height: 1.5; opacity: 0.9;">
-                Seu período de teste de 7 dias do Studio acabou. Assine o plano para continuar aproveitando todos os recursos.
-            </p>`;
-
-        const paymentUrl = window.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
-        const priceText = window.precoMensal ? window.precoMensal.split('/')[0] : 'R$ 9,90';
-        
-        // Generate and save payment token
-        const paymentToken = userId ? this.generatePaymentToken() : null;
-        if (userId && paymentToken) {
-            this.savePaymentToken(userId, paymentToken).catch(error => {
-                console.error('[PAYMENT] Background token save failed:', error);
-            });
-        }
-        
-        let finalPaymentUrl = paymentUrl;
-        if (userId) {
-            // Encode plan type and token in custom_id: {userId}|{planType}|{token}
-            finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}|mensal|${paymentToken}`;
-        }
-
-        const subscribeButton = document.createElement('button');
-        subscribeButton.onclick = () => window.location.href = finalPaymentUrl;
-        subscribeButton.style.cssText = `
-            margin-top: 16px;
-            padding: 10px 20px;
-            background: white;
-            color: #f59e0b;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s ease;
-        `;
-        subscribeButton.onmouseover = () => subscribeButton.style.transform = 'translateY(-2px)';
-        subscribeButton.onmouseout = () => subscribeButton.style.transform = 'translateY(0)';
-        subscribeButton.textContent = `Assinar Studio (${priceText})`;
-        notification.appendChild(subscribeButton);
-
-        const closeButton = document.createElement('button');
-        closeButton.onclick = () => notification.remove();
-        closeButton.style.cssText = `
-            margin-top: 8px;
-            padding: 8px 16px;
-            background: transparent;
-            color: white;
-            border: 1px solid rgba(255,255,255,0.3);
-            border-radius: 8px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background 0.2s ease;
-        `;
-        closeButton.onmouseover = () => closeButton.style.background = 'rgba(255,255,255,0.1)';
-        closeButton.onmouseout = () => closeButton.style.background = 'transparent';
-        closeButton.textContent = 'Fechar';
-        notification.appendChild(closeButton);
-
-        // Add animation keyframes
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes slideIn {
-                from {
-                    transform: translateX(400px);
-                    opacity: 0;
-                }
-                to {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-            }
-        `;
-        document.head.appendChild(style);
-
-        document.body.appendChild(notification);
-
-        // Auto-remove after 10 seconds
-        setTimeout(() => {
-            if (notification.parentElement) {
-                notification.style.animation = 'slideIn 0.3s ease reverse';
-                setTimeout(() => notification.remove(), 300);
-            }
-        }, 10000);
-    }
-
-    showPreExpirationWarning(daysRemaining, userData = null) {
-        // Check if notification was already shown today
-        const userId = window.firebaseAuth?.auth?.currentUser?.uid;
-        if (userId) {
-            const today = new Date().toDateString();
-            const storageKey = `warning_shown_${userId}_preExpiration_${today}`;
-            if (localStorage.getItem(storageKey)) {
-                console.log('[NOTIFICATION] Pre-expiration warning already shown today, skipping');
-                return;
-            }
-            localStorage.setItem(storageKey, 'true');
-        }
-
-        // Get user data to determine plan type
-        let planType = 'mensal'; // Default to monthly
-        if (userData && userData.planType) {
-            planType = userData.planType;
-        }
-
-        // Create and show a pre-expiration warning (15 days)
-        const notification = document.createElement('div');
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
-            color: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
-            z-index: 10000;
-            max-width: 400px;
-            font-family: 'Inter', sans-serif;
-            animation: slideIn 0.3s ease;
-        `;
-
-        const planLabel = planType === 'anual' ? 'plano anual' : 'assinatura W.Tracks Studio';
-        notification.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <polyline points="12 6 12 12 16 14"></polyline>
-                </svg>
-                <strong style="font-size: 16px;">Lembrete de Renovação</strong>
-            </div>
-            <p style="margin: 0; font-size: 14px; line-height: 1.5; opacity: 0.9;">
-                Faltam ${daysRemaining} dias para o vencimento da sua ${planLabel}. Prepare-se para renovar e continue aproveitando os recursos sem interrupção!
-            </p>`;
-
-        const paymentUrl = planType === 'anual' 
-            ? (window.linkAnual || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm')
-            : (window.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm');
-        const priceText = planType === 'anual' 
-            ? (window.precoAnual ? window.precoAnual.split('/')[0] : 'R$ 99,00')
-            : (window.precoMensal ? window.precoMensal.split('/')[0] : 'R$ 9,90');
-        
-        // Generate and save payment token
-        const paymentToken = userId ? this.generatePaymentToken() : null;
-        if (userId && paymentToken) {
-            this.savePaymentToken(userId, paymentToken).catch(error => {
-                console.error('[PAYMENT] Background token save failed:', error);
-            });
-        }
-        
-        let finalPaymentUrl = paymentUrl;
-        if (userId) {
-            // Encode plan type and token in custom_id: {userId}|{planType}|{token}
-            finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}|${planType}|${paymentToken}`;
-        }
-
-        const renewButton = document.createElement('button');
-        renewButton.onclick = () => window.location.href = finalPaymentUrl;
-        renewButton.style.cssText = `
-            margin-top: 16px;
-            padding: 10px 20px;
-            background: white;
-            color: #3b82f6;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s ease;
-        `;
-        renewButton.onmouseover = () => renewButton.style.transform = 'translateY(-2px)';
-        renewButton.onmouseout = () => renewButton.style.transform = 'translateY(0)';
-        renewButton.textContent = `Renovar Agora (${priceText})`;
-        notification.appendChild(renewButton);
-
-        const closeButton = document.createElement('button');
-        closeButton.onclick = () => notification.remove();
-        closeButton.style.cssText = `
-            margin-top: 8px;
-            padding: 8px 16px;
-            background: transparent;
-            color: white;
-            border: 1px solid rgba(255,255,255,0.3);
-            border-radius: 8px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background 0.2s ease;
-        `;
-        closeButton.onmouseover = () => closeButton.style.background = 'rgba(255,255,255,0.1)';
-        closeButton.onmouseout = () => closeButton.style.background = 'transparent';
-        closeButton.textContent = 'Fechar';
-        notification.appendChild(closeButton);
-
-        // Add animation keyframes
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes slideIn {
-                from {
-                    transform: translateX(400px);
-                    opacity: 0;
-                }
-                to {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-            }
-        `;
-        document.head.appendChild(style);
-
-        document.body.appendChild(notification);
-
-        // Auto-remove after 15 seconds (longer for informational warning)
-        setTimeout(() => {
-            if (notification.parentElement) {
-                notification.style.animation = 'slideIn 0.3s ease reverse';
-                setTimeout(() => notification.remove(), 300);
-            }
-        }, 15000);
-    }
-
-    showCriticalExpirationWarning(daysRemaining, userData = null) {
-        // Check if notification was already shown today
-        const userId = window.firebaseAuth?.auth?.currentUser?.uid;
-        if (userId) {
-            const today = new Date().toDateString();
-            const storageKey = `warning_shown_${userId}_criticalExpiration_${today}`;
-            if (localStorage.getItem(storageKey)) {
-                console.log('[NOTIFICATION] Critical expiration warning already shown today, skipping');
-                return;
-            }
-            localStorage.setItem(storageKey, 'true');
-        }
-
-        // Get user data to determine plan type
-        let planType = 'mensal'; // Default to monthly
-        if (userData && userData.planType) {
-            planType = userData.planType;
-        }
-
-        // Create and show a critical expiration warning (5 days)
-        const notification = document.createElement('div');
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: linear-gradient(135deg, #f59e0b, #d97706);
-            color: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(245, 158, 11, 0.3);
-            z-index: 10000;
-            max-width: 400px;
-            font-family: 'Inter', sans-serif;
-            animation: slideIn 0.3s ease;
-        `;
-
-        const planLabel = planType === 'anual' ? 'plano anual' : 'assinatura Studio';
-        notification.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                    <line x1="12" y1="9" x2="12" y2="13"></line>
-                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                </svg>
-                <strong style="font-size: 16px;">Atenção: Vencimento Próximo</strong>
-            </div>
-            <p style="margin: 0; font-size: 14px; line-height: 1.5; opacity: 0.9;">
-                Seu ${planLabel} vence em ${daysRemaining} dia${daysRemaining > 1 ? 's' : ''}! Renove agora para evitar o bloqueio dos faders e loops.
-            </p>`;
-
-        const paymentUrl = planType === 'anual' 
-            ? (window.linkAnual || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm')
-            : (window.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm');
-        const priceText = planType === 'anual' 
-            ? (window.precoAnual ? window.precoAnual.split('/')[0] : 'R$ 99,00')
-            : (window.precoMensal ? window.precoMensal.split('/')[0] : 'R$ 9,90');
-        
-        // Generate and save payment token
-        const paymentToken = userId ? this.generatePaymentToken() : null;
-        if (userId && paymentToken) {
-            this.savePaymentToken(userId, paymentToken).catch(error => {
-                console.error('[PAYMENT] Background token save failed:', error);
-            });
-        }
-        
-        let finalPaymentUrl = paymentUrl;
-        if (userId) {
-            // Encode plan type and token in custom_id: {userId}|{planType}|{token}
-            finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}|${planType}|${paymentToken}`;
-        }
-
-        const renewButton = document.createElement('button');
-        renewButton.onclick = () => window.location.href = finalPaymentUrl;
-        renewButton.style.cssText = `
-            margin-top: 16px;
-            padding: 10px 20px;
-            background: white;
-            color: #f59e0b;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s ease;
-        `;
-        renewButton.onmouseover = () => renewButton.style.transform = 'translateY(-2px)';
-        renewButton.onmouseout = () => renewButton.style.transform = 'translateY(0)';
-        renewButton.textContent = `Renovar Assinatura (${priceText})`;
-        notification.appendChild(renewButton);
-
-        const closeButton = document.createElement('button');
-        closeButton.onclick = () => notification.remove();
-        closeButton.style.cssText = `
-            margin-top: 8px;
-            padding: 8px 16px;
-            background: transparent;
-            color: white;
-            border: 1px solid rgba(255,255,255,0.3);
-            border-radius: 8px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background 0.2s ease;
-        `;
-        closeButton.onmouseover = () => closeButton.style.background = 'rgba(255,255,255,0.1)';
-        closeButton.onmouseout = () => closeButton.style.background = 'transparent';
-        closeButton.textContent = 'Fechar';
-        notification.appendChild(closeButton);
-
-        // Add animation keyframes
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes slideIn {
-                from {
-                    transform: translateX(400px);
-                    opacity: 0;
-                }
-                to {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-            }
-        `;
-        document.head.appendChild(style);
-
-        document.body.appendChild(notification);
-
-        // Auto-remove after 20 seconds (longer for critical warning)
-        setTimeout(() => {
-            if (notification.parentElement) {
-                notification.style.animation = 'slideIn 0.3s ease reverse';
-                setTimeout(() => notification.remove(), 300);
-            }
-        }, 20000);
-    }
-
-    showTrialExpirationWarning(daysRemaining) {
-        // Check if notification was already shown today
-        const userId = window.firebaseAuth?.auth?.currentUser?.uid;
-        if (userId) {
-            const today = new Date().toDateString();
-            const storageKey = `warning_shown_${userId}_trialExpiration_${today}`;
-            if (localStorage.getItem(storageKey)) {
-                console.log('[NOTIFICATION] Trial expiration warning already shown today, skipping');
-                return;
-            }
-            localStorage.setItem(storageKey, 'true');
-        }
-
-        // Create and show a trial expiration warning
-        const notification = document.createElement('div');
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
-            color: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(139, 92, 246, 0.3);
-            z-index: 10000;
-            max-width: 400px;
-            font-family: 'Inter', sans-serif;
-            animation: slideIn 0.3s ease;
-        `;
-
-        notification.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <polyline points="12 6 12 12 16 14"></polyline>
-                </svg>
-                <strong style="font-size: 16px;">Teste Grátis Acabando</strong>
-            </div>
-            <p style="margin: 0; font-size: 14px; line-height: 1.5; opacity: 0.9;">
-                Seu teste grátis do Studio acaba em ${daysRemaining} dia${daysRemaining > 1 ? 's' : ''}! Assine o plano para continuar aproveitando todos os recursos.
-            </p>`;
-
-        const paymentUrl = window.linkMensal || 'https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm';
-        const priceText = window.precoMensal ? window.precoMensal.split('/')[0] : 'R$ 9,90';
-        
-        // Generate and save payment token
-        const paymentToken = userId ? this.generatePaymentToken() : null;
-        if (userId && paymentToken) {
-            this.savePaymentToken(userId, paymentToken).catch(error => {
-                console.error('[PAYMENT] Background token save failed:', error);
-            });
-        }
-        
-        let finalPaymentUrl = paymentUrl;
-        if (userId) {
-            // Encode plan type and token in custom_id: {userId}|{planType}|{token}
-            finalPaymentUrl += `${paymentUrl.includes('?') ? '&' : '?'}custom_id=${userId}|mensal|${paymentToken}`;
-        }
-
-        const subscribeButton = document.createElement('button');
-        subscribeButton.onclick = () => window.location.href = finalPaymentUrl;
-        subscribeButton.style.cssText = `
-            margin-top: 16px;
-            padding: 10px 20px;
-            background: white;
-            color: #8b5cf6;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s ease;
-        `;
-        subscribeButton.onmouseover = () => subscribeButton.style.transform = 'translateY(-2px)';
-        subscribeButton.onmouseout = () => subscribeButton.style.transform = 'translateY(0)';
-        subscribeButton.textContent = 'Assinar Studio';
-        notification.appendChild(subscribeButton);
-
-        const closeButton = document.createElement('button');
-        closeButton.onclick = () => notification.remove();
-        closeButton.style.cssText = `
-            margin-top: 8px;
-            padding: 8px 16px;
-            background: transparent;
-            color: white;
-            border: 1px solid rgba(255,255,255,0.3);
-            border-radius: 8px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background 0.2s ease;
-        `;
-        closeButton.onmouseover = () => closeButton.style.background = 'rgba(255,255,255,0.1)';
-        closeButton.onmouseout = () => closeButton.style.background = 'transparent';
-        closeButton.textContent = 'Fechar';
-        notification.appendChild(closeButton);
-
-        // Add animation keyframes
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes slideIn {
-                from {
-                    transform: translateX(400px);
-                    opacity: 0;
-                }
-                to {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-            }
-        `;
-        document.head.appendChild(style);
-
-        document.body.appendChild(notification);
-
-        // Auto-remove after 15 seconds
-        setTimeout(() => {
-            if (notification.parentElement) {
-                notification.style.animation = 'slideIn 0.3s ease reverse';
-                setTimeout(() => notification.remove(), 300);
-            }
-        }, 15000);
-    }
-
-    updateProfileButtonForLoggedOut() {
-        const userInitial = document.getElementById('userInitial');
-        const profileBtn = document.getElementById('profileBtn');
-
-        if (userInitial) {
-            userInitial.style.display = 'none';
-        }
-
-        if (profileBtn) {
-            profileBtn.setAttribute('aria-label', 'Perfil');
-        }
-
-        // Clear dropdown info
-        const dropdownUserInitial = document.getElementById('dropdownUserInitial');
-        const profileName = document.getElementById('profileName');
-        const profileEmail = document.getElementById('profileEmail');
-
-        if (dropdownUserInitial) dropdownUserInitial.textContent = '';
-        if (profileName) profileName.textContent = '';
-        if (profileEmail) profileEmail.textContent = '';
     }
 
     calculatePasswordStrength(password) {
@@ -11350,7 +11193,17 @@ class MultracksApp {
         const padBtn = document.getElementById('padBtn');
         if (padBtn) {
             padBtn.addEventListener('click', async () => {
-                // PAD is now available for Home users
+                // Check if user has access to pads
+                if (window.PlanSystem) {
+                    const plan = window.PlanSystem.getPlanRules(this.userPlan);
+                    const hasAccess = plan.features.pads || false;
+                    if (!hasAccess) {
+                        const planName = plan.displayName || 'Track';
+                        alert(`⚠️ Recurso indisponível no plano ${planName}\n\nA funcionalidade de Pads está disponível apenas no plano Track Pro.\n\nFaça upgrade para o Track Pro para usar pads.`);
+                        console.log('[PLAN] Pad feature blocked for', this.userPlan);
+                        return;
+                    }
+                }
                 this.showPadSelectionModal();
             });
         }
@@ -11976,13 +11829,6 @@ class MultracksApp {
     }
 
     async openCreatorSignupModal() {
-        // Check user plan before allowing creator signup
-        const userPlan = await this.getUserPlan();
-        if (userPlan === 'Home') {
-            this.showUpgradeModal('Criar conta no Minhas Tracks');
-            return;
-        }
-
         if (this.creatorSignupModal) {
             this.creatorSignupModal.classList.add('active');
             // Reset form
@@ -12009,13 +11855,6 @@ class MultracksApp {
     }
 
     async handleCreatorSignup() {
-        // Check user plan before allowing creator signup
-        const userPlan = await this.getUserPlan();
-        if (userPlan === 'Home') {
-            this.showUpgradeModal('Criar conta no Minhas Tracks');
-            return;
-        }
-
         const displayName = this.creatorDisplayName?.value?.trim();
         const termsAgreed = this.creatorTermsAgreement?.checked;
 

@@ -128,10 +128,12 @@ class MultitrackPlayer {
     
     /**
      * Load a project into the player
+     * @param {Object} project - Project to load
+     * @param {number} generation - Load generation token for race condition prevention
      */
-    async loadProject(project) {
+    async loadProject(project, generation) {
         console.log('[PLAYER] =======================================');
-        console.log('[PLAYER] Loading project:', project.name);
+        console.log('[PLAYER] [PLAYER LOAD] generation:', generation, 'projectId:', project.id, 'projectName:', project.name, 'started');
         console.log('[PLAYER] Project has', project.tracks.length, 'tracks');
         console.log('[PLAYER] =======================================');
         
@@ -217,10 +219,16 @@ class MultitrackPlayer {
         
         console.log('[PLAYER] Essential track indices for early readiness:', essentialTrackIndices);
         
-        // Load tracks individually with progress callback
+        // Load tracks individually with progress callback and generation verification
         const loadPromises = project.tracks.map(async (track, index) => {
             console.log('[PLAYER] Starting load for track', index + 1, 'of', totalTracks, ':', track.name);
-            const result = await this.loadTrack(track);
+            const result = await this.loadTrack(track, generation);
+            
+            // Verify this is still the current generation before proceeding
+            if (generation !== window.currentApp?.currentLoadGeneration) {
+                console.log('[PLAYER] [PLAYER LOAD] generation:', generation, 'stale load ignored for track:', track.name);
+                return false;
+            }
             
             if (result) {
                 tracksLoaded++;
@@ -266,6 +274,14 @@ class MultitrackPlayer {
         
         // Continue loading all tracks in background
         const results = await Promise.all(loadPromises);
+        
+        // Final verification before updating state
+        if (generation !== window.currentApp?.currentLoadGeneration) {
+            console.log('[PLAYER] [PLAYER LOAD] generation:', generation, 'cancelled after track loading');
+            this.isLoading = false;
+            return null;
+        }
+        
         const successfulLoads = results.filter(r => r).length;
         
         console.log('[PLAYER] Load results - Successful:', successfulLoads, 'Failed:', totalTracks - successfulLoads);
@@ -307,7 +323,7 @@ class MultitrackPlayer {
         }
         
         console.log('[PLAYER] =======================================');
-        console.log('[PLAYER] Project load complete');
+        console.log('[PLAYER] [PLAYER LOAD] generation:', generation, 'completed');
         console.log('[PLAYER] Final state - isLoading:', this.isLoading, 'isReady:', this.isReady, 'trackNodes:', this.trackNodes.size);
         console.log('[PLAYER] =======================================');
         
@@ -316,14 +332,17 @@ class MultitrackPlayer {
     
     /**
      * Load a single track and create audio nodes using streaming
+     * @param {Object} track - Track to load
+     * @param {number} generation - Load generation token for race condition prevention
      */
-    async loadTrack(track) {
+    async loadTrack(track, generation) {
         if (!this.audioContext) {
             console.log('[PLAYER] AudioContext not initialized, cannot load track');
             return false;
         }
         
         try {
+            console.log('[PLAYER] [PLAYER TRACK] generation:', generation, 'trackId:', track.id, 'trackName:', track.name, 'started');
             console.log('[PLAYER] Loading track with streaming:', track.name);
             console.log('[PLAYER] Track has file:', !!track.file);
             console.log('[PLAYER] Track has audioFileId:', !!track.audioFileId);
@@ -338,6 +357,7 @@ class MultitrackPlayer {
             // Create HTMLAudioElement for streaming
             const audioElement = new Audio();
             const objectUrl = URL.createObjectURL(track.file);
+            console.log('[PLAYER] [PLAYER TRACK] generation:', generation, 'trackId:', track.id, 'objectUrl created');
             audioElement.src = objectUrl;
             
             // Set preservesPitch to false to prevent audio overlap/echo issues during speed changes
@@ -422,6 +442,19 @@ class MultitrackPlayer {
             this.trackEndedHandlers.set(track.id, endedHandler);
             console.log('[PLAYER] Added ended event listener for track:', track.name);
             
+            // Verify generation before adding to trackNodes
+            if (generation !== window.currentApp?.currentLoadGeneration) {
+                console.log('[PLAYER] [PLAYER TRACK] generation:', generation, 'stale load, cleaning up track:', track.name);
+                // Cleanup resources for stale load
+                audioElement.removeEventListener('ended', endedHandler);
+                this.trackEndedHandlers.delete(track.id);
+                URL.revokeObjectURL(objectUrl);
+                console.log('[PLAYER] [PLAYER TRACK] generation:', generation, 'objectUrl revoked (stale)');
+                audioElement.pause();
+                audioElement.src = '';
+                return false;
+            }
+            
             this.trackNodes.set(track.id, {
                 audioElement: audioElement,
                 objectUrl: objectUrl,
@@ -453,6 +486,17 @@ class MultitrackPlayer {
         } catch (error) {
             console.error('[PLAYER] ❌ Error loading track', track.name, ':', error);
             console.error('[PLAYER] Error details:', error.name, error.message);
+            
+            // Cleanup object URL if it was created
+            if (typeof objectUrl !== 'undefined') {
+                try {
+                    URL.revokeObjectURL(objectUrl);
+                    console.log('[PLAYER] [PLAYER TRACK] generation:', generation, 'objectUrl revoked (error cleanup)');
+                } catch (e) {
+                    console.warn('[PLAYER] Error revoking object URL:', e);
+                }
+            }
+            
             return false;
         }
     }

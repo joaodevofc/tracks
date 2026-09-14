@@ -1,0 +1,2126 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Central de Ajuda - W.Tracks</title>
+    <meta name="description" content="Central de ajuda e documentação do W.Tracks">
+    <meta name="theme-color" content="#000000">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="mobile.css" media="(max-width: 768px)">
+    <link rel="icon" type="image/png" href="icon-black-transparent.png">
+    
+    <style>
+        /* ========================================
+           CENTRAL DE AJUDA - ESTILOS ESPECÍFICOS
+           ======================================== */
+        
+        .help-center {
+            min-height: 100vh;
+            background: var(--color-black);
+            padding-top: 60px;
+        }
+        
+        .help-header {
+            background: var(--color-black-elevated);
+            border-bottom: 1px solid var(--border-subtle);
+            padding: var(--spacing-xl) var(--spacing-2xl);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+        
+        .help-header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .help-title {
+            font-size: var(--font-size-3xl);
+            font-weight: 700;
+            color: var(--color-white);
+            margin-bottom: var(--spacing-lg);
+            letter-spacing: -0.02em;
+        }
+        
+        .help-search-container {
+            position: relative;
+            max-width: 600px;
+        }
+        
+        .help-search-input {
+            width: 100%;
+            padding: var(--spacing-md) var(--spacing-lg);
+            padding-left: 48px;
+            background: var(--color-black-card);
+            border: 1px solid var(--border-medium);
+            border-radius: var(--radius-lg);
+            color: var(--color-white);
+            font-size: var(--font-size-base);
+            font-family: var(--font-family);
+            outline: none;
+            transition: all var(--transition-fast);
+        }
+        
+        .help-search-input:focus {
+            border-color: var(--border-strong);
+            background: var(--color-black-hover);
+        }
+        
+        .help-search-input::placeholder {
+            color: var(--color-white-muted);
+        }
+        
+        .help-search-icon {
+            position: absolute;
+            left: var(--spacing-md);
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--color-white-muted);
+            pointer-events: none;
+        }
+        
+        .help-search-icon svg {
+            width: 20px;
+            height: 20px;
+        }
+        
+        .help-search-results {
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 0;
+            right: 0;
+            background: var(--color-black-elevated);
+            border: 1px solid var(--border-medium);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            max-height: 400px;
+            overflow-y: auto;
+            display: none;
+            z-index: 100;
+        }
+        
+        .help-search-results.active {
+            display: block;
+        }
+        
+        .help-search-result-item {
+            padding: var(--spacing-md) var(--spacing-lg);
+            border-bottom: 1px solid var(--border-subtle);
+            cursor: pointer;
+            transition: background var(--transition-fast);
+        }
+        
+        .help-search-result-item:hover {
+            background: var(--color-black-hover);
+        }
+        
+        .help-search-result-item:last-child {
+            border-bottom: none;
+        }
+        
+        .help-result-title {
+            font-size: var(--font-size-base);
+            font-weight: 600;
+            color: var(--color-white);
+            margin-bottom: var(--spacing-xs);
+        }
+        
+        .help-result-topic {
+            font-size: var(--font-size-sm);
+            color: var(--color-accent);
+            margin-bottom: var(--spacing-xs);
+        }
+        
+        .help-result-excerpt {
+            font-size: var(--font-size-sm);
+            color: var(--color-white-muted);
+            line-height: 1.4;
+        }
+        
+        .help-no-results {
+            padding: var(--spacing-xl);
+            text-align: center;
+            color: var(--color-white-muted);
+        }
+        
+        .help-main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            gap: 0;
+            min-height: calc(100vh - 200px);
+        }
+        
+        .help-sidebar {
+            width: 280px;
+            background: var(--color-black-elevated);
+            border-right: 1px solid var(--border-subtle);
+            padding: var(--spacing-lg);
+            position: sticky;
+            top: 60px;
+            height: calc(100vh - 60px);
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+        
+        .help-sidebar-section {
+            margin-bottom: var(--spacing-lg);
+        }
+        
+        .help-sidebar-title {
+            font-size: var(--font-size-sm);
+            font-weight: 600;
+            color: var(--color-white-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: var(--spacing-md);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            user-select: none;
+        }
+        
+        .help-sidebar-title:hover {
+            color: var(--color-white);
+        }
+        
+        .help-sidebar-title svg {
+            width: 16px;
+            height: 16px;
+            transition: transform var(--transition-fast);
+        }
+        
+        .help-sidebar-title.expanded svg {
+            transform: rotate(180deg);
+        }
+        
+        .help-sidebar-questions {
+            display: none;
+            margin-left: var(--spacing-sm);
+        }
+        
+        .help-sidebar-questions.expanded {
+            display: block;
+        }
+        
+        .help-sidebar-question {
+            display: block;
+            padding: var(--spacing-sm) var(--spacing-md);
+            color: var(--color-white-muted);
+            font-size: var(--font-size-sm);
+            border-radius: var(--radius-sm);
+            margin-bottom: var(--spacing-xs);
+            transition: all var(--transition-fast);
+            cursor: pointer;
+        }
+        
+        .help-sidebar-question:hover {
+            background: var(--color-black-hover);
+            color: var(--color-white);
+        }
+        
+        .help-sidebar-question.active {
+            background: var(--color-accent);
+            color: var(--color-black);
+            font-weight: 500;
+        }
+        
+        .help-content {
+            flex: 1;
+            padding: var(--spacing-2xl) var(--spacing-3xl);
+            max-width: 900px;
+        }
+        
+        .help-article {
+            display: none;
+        }
+        
+        .help-article.active {
+            display: block;
+        }
+        
+        .help-article-title {
+            font-size: var(--font-size-2xl);
+            font-weight: 700;
+            color: var(--color-white);
+            margin-bottom: var(--spacing-lg);
+            line-height: 1.3;
+        }
+        
+        .help-article-content {
+            color: var(--color-white-dim);
+            line-height: 1.8;
+            font-size: var(--font-size-base);
+        }
+        
+        .help-article-content p {
+            margin-bottom: var(--spacing-lg);
+        }
+        
+        .help-article-content h3 {
+            font-size: var(--font-size-lg);
+            font-weight: 600;
+            color: var(--color-white);
+            margin: var(--spacing-xl) 0 var(--spacing-md);
+        }
+        
+        .help-article-content ul {
+            margin: var(--spacing-md) 0 var(--spacing-lg);
+            padding-left: var(--spacing-lg);
+        }
+        
+        .help-article-content li {
+            margin-bottom: var(--spacing-sm);
+            color: var(--color-white-dim);
+        }
+        
+        .help-article-content strong {
+            color: var(--color-white);
+            font-weight: 600;
+        }
+        
+        .help-article-content code {
+            background: var(--color-black-card);
+            padding: 2px 6px;
+            border-radius: var(--radius-sm);
+            font-family: 'Courier New', monospace;
+            font-size: var(--font-size-sm);
+        }
+        
+        .help-article-content .warning-box {
+            background: rgba(255, 59, 47, 0.1);
+            border: 1px solid rgba(255, 59, 47, 0.3);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-md) var(--spacing-lg);
+            margin: var(--spacing-lg) 0;
+        }
+        
+        .help-article-content .warning-box strong {
+            color: #ff3b2f;
+        }
+        
+        .help-article-content .info-box {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-md) var(--spacing-lg);
+            margin: var(--spacing-lg) 0;
+        }
+        
+        .help-article-content .info-box strong {
+            color: #60a5fa;
+        }
+        
+        .help-contact-section {
+            margin-top: var(--spacing-3xl);
+            padding: var(--spacing-2xl);
+            background: var(--color-black-elevated);
+            border: 1px solid var(--border-medium);
+            border-radius: var(--radius-lg);
+            text-align: center;
+        }
+        
+        .help-contact-title {
+            font-size: var(--font-size-xl);
+            font-weight: 600;
+            color: var(--color-white);
+            margin-bottom: var(--spacing-md);
+        }
+        
+        .help-contact-text {
+            color: var(--color-white-muted);
+            margin-bottom: var(--spacing-lg);
+        }
+        
+        .help-contact-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            padding: var(--spacing-md) var(--spacing-xl);
+            background: var(--color-accent);
+            color: var(--color-black);
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            font-size: var(--font-size-base);
+            transition: all var(--transition-fast);
+        }
+        
+        .help-contact-btn:hover {
+            background: var(--color-white);
+            transform: translateY(-2px);
+        }
+        
+        .help-back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            padding: var(--spacing-sm) var(--spacing-md);
+            color: var(--color-white-muted);
+            font-size: var(--font-size-sm);
+            margin-bottom: var(--spacing-lg);
+            cursor: pointer;
+            transition: color var(--transition-fast);
+        }
+        
+        .help-back-btn:hover {
+            color: var(--color-white);
+        }
+        
+        .help-back-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+        
+        /* Mobile Menu Toggle */
+        .help-mobile-menu-toggle {
+            display: none;
+            position: fixed;
+            top: 70px;
+            left: var(--spacing-md);
+            z-index: 60;
+            background: var(--color-black-elevated);
+            border: 1px solid var(--border-medium);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-sm) var(--spacing-md);
+            color: var(--color-white);
+            font-size: var(--font-size-sm);
+            cursor: pointer;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+        
+        .help-mobile-menu-toggle svg {
+            width: 16px;
+            height: 16px;
+        }
+        
+        /* MOBILE STYLES */
+        @media (max-width: 768px) {
+            .help-header {
+                padding: var(--spacing-lg) var(--spacing-md);
+            }
+            
+            .help-title {
+                font-size: var(--font-size-2xl);
+            }
+            
+            .help-search-container {
+                max-width: 100%;
+            }
+            
+            .help-main-container {
+                flex-direction: column;
+            }
+            
+            .help-sidebar {
+                width: 100%;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 100vh;
+                z-index: 200;
+                transform: translateX(-100%);
+                transition: transform var(--transition-normal);
+                border-right: none;
+            }
+            
+            .help-sidebar.open {
+                transform: translateX(0);
+            }
+            
+            .help-mobile-menu-toggle {
+                display: flex;
+            }
+            
+            .help-content {
+                padding: var(--spacing-lg) var(--spacing-md);
+            }
+            
+            .help-article-title {
+                font-size: var(--font-size-xl);
+            }
+            
+            .help-contact-section {
+                padding: var(--spacing-lg);
+            }
+            
+            .help-contact-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+        
+        /* Overlay for mobile sidebar */
+        .help-sidebar-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 150;
+        }
+        
+        .help-sidebar-overlay.active {
+            display: block;
+        }
+        
+        @media (max-width: 768px) {
+            .help-sidebar-overlay.active {
+                display: block;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- HEADER -->
+    <header class="header">
+        <div class="header-container">
+            <div class="logo">
+                <a href="index.html" style="display: flex; align-items: center; gap: var(--spacing-sm); text-decoration: none;">
+                    <img src="icon-white-transparent.png" alt="W.Tracks" class="logo-icon">
+                    <span class="logo-text">W.Tracks</span>
+                </a>
+            </div>
+            
+            <nav class="nav">
+                <a href="index.html" class="nav-link">Biblioteca</a>
+                <a href="index.html" class="nav-link">Setlists</a>
+                <a href="index.html" class="nav-link">Comunidade</a>
+            </nav>
+            
+            <div class="header-actions">
+                <a href="central-ajuda.html" class="nav-link active">Ajuda</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- HELP CENTER -->
+    <div class="help-center">
+        <!-- Header com Busca -->
+        <div class="help-header">
+            <div class="help-header-content">
+                <h1 class="help-title">Central de Ajuda</h1>
+                <div class="help-search-container">
+                    <div class="help-search-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <path d="m21 21-4.35-4.35"></path>
+                        </svg>
+                    </div>
+                    <input type="text" class="help-search-input" id="helpSearchInput" placeholder="Pesquisar na central de ajuda...">
+                    <div class="help-search-results" id="helpSearchResults"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mobile Menu Toggle -->
+        <button class="help-mobile-menu-toggle" id="helpMobileMenuToggle">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 12h18M3 6h18M3 18h18"/>
+            </svg>
+            Menu
+        </button>
+        
+        <!-- Overlay -->
+        <div class="help-sidebar-overlay" id="helpSidebarOverlay"></div>
+        
+        <!-- Main Container -->
+        <div class="help-main-container">
+            <!-- Sidebar -->
+            <aside class="help-sidebar" id="helpSidebar">
+                <!-- Tópicos serão inseridos via JavaScript -->
+            </aside>
+            
+            <!-- Content Area -->
+            <main class="help-content" id="helpContent">
+                <!-- Artigos serão inseridos via JavaScript -->
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // ========================================
+        // DADOS DA CENTRAL DE AJUDA
+        // ========================================
+        const helpData = {
+            topics: [
+                {
+                    id: 'conta-login',
+                    title: 'Conta e Login',
+                    questions: [
+                        {
+                            id: 'criar-conta',
+                            title: 'Como criar uma conta?',
+                            content: `
+                                <p>Criar uma conta no W.Tracks é o primeiro passo para começar a usar todos os recursos da plataforma. A conta serve como sua identidade digital dentro do sistema — é através dela que seus projetos, configurações e preferências ficam salvos e associados a você, permitindo que você acesse tudo de qualquer dispositivo.</p>
+                                
+                                <h3>Processo de criação de conta</h3>
+                                <p>Para criar sua conta, siga estes passos:</p>
+                                <ul>
+                                    <li>Acesse o site do W.Tracks e clique no botão de perfil no canto superior direito da tela</li>
+                                    <li>Selecione a opção "Criar conta" no menu que aparecer</li>
+                                    <li>Preencha seu endereço de e-mail — este será seu identificador principal e também o canal para comunicações importantes</li>
+                                    <li>Crie uma senha segura, preferencialmente com letras maiúsculas, minúsculas, números e caracteres especiais</li>
+                                    <li>Confirme a criação da conta através do e-mail de verificação que será enviado para você</li>
+                                </ul>
+                                
+                                <h3>Por que a verificação por e-mail?</h3>
+                                <p>O envio do e-mail de verificação é uma medida de segurança importante. Ele garante que você realmente tem acesso ao endereço de e-mail informado, o que evita que outras pessoas criem contas usando seu e-mail sem sua permissão. Além disso, esse processo confirma que o e-mail está funcionando corretamente, garantindo que você possa receber recuperações de senha e outras comunicações importantes no futuro.</p>
+                                
+                                <h3>E se eu não receber o e-mail de verificação?</h3>
+                                <p>Caso não receba o e-mail de verificação dentro de alguns minutos, verifique primeiro sua pasta de spam ou lixo eletrônico — às vezes o sistema de e-mail pode classificar mensagens automáticas como spam. Se ainda assim não encontrar, tente solicitar um novo e-mail de verificação. Certifique-se também de que digitou o endereço de e-mail corretamente durante o cadastro.</p>
+                                
+                                <h3>Após a confirmação</h3>
+                                <p>Depois de confirmar sua conta através do link no e-mail, você já pode fazer login e começar a usar o W.Tracks imediatamente. Seu perfil será criado com configurações padrão, que você pode personalizar depois nas configurações da conta. Lembre-se de guardar suas credenciais em local seguro e nunca compartilhar sua senha com outras pessoas.</p>
+                            `
+                        },
+                        {
+                            id: 'fazer-login',
+                            title: 'Como fazer login?',
+                            content: `
+                                <p>Fazer login no W.Tracks é o processo que autentica sua identidade e dá acesso a todos os seus projetos e configurações salvos. O login é necessário porque o sistema precisa saber quem é você para mostrar apenas seus projetos, manter suas preferências pessoais e permitir que você use recursos que dependem de uma conta ativa.</p>
+                                
+                                <h3>Como acessar sua conta</h3>
+                                <p>Para fazer login, siga estes passos:</p>
+                                <ul>
+                                    <li>Abra o site do W.Tracks no seu navegador</li>
+                                    <li>Clique no botão de perfil no canto superior direito da tela</li>
+                                    <li>Insira o endereço de e-mail que você usou para criar a conta</li>
+                                    <li>Digite sua senha</li>
+                                    <li>Clique no botão "Entrar" para completar o processo</li>
+                                </ul>
+                                
+                                <h3>Como funciona a sessão de login</h3>
+                                <p>Após fazer login, você permanecerá autenticado enquanto não clicar em "Sair" nas configurações do perfil. Isso significa que você pode fechar o navegador, desligar o computador e voltar depois — o sistema se lembrará de você através de um acesso temporário seguro que fica salvo no seu dispositivo. Esse acesso temporário pode expirar após um período de inatividade por segurança, o que é normal e exige apenas um novo login.</p>
+                                
+                                <h3>Funciona em qualquer dispositivo?</h3>
+                                <p>Sim, você pode fazer login no W.Tracks de qualquer dispositivo — computador, tablet ou celular — usando as mesmas credenciais (e-mail e senha). Ao fazer login em um novo dispositivo, você terá acesso a todos os seus projetos e configurações, pois eles ficam salvos na nuvem associados à sua conta, não ao aparelho específico.</p>
+                                
+                                <h3>Problemas com login</h3>
+                                <p>Se você tiver dificuldade para fazer login, verifique primeiro se está digitando o e-mail e a senha corretamente, observando maiúsculas e minúsculas. Se esqueceu sua senha, use a opção "Esqueceu a senha?" na tela de login para iniciar o processo de recuperação. Se o problema persistir, pode ser que sua conta tenha sido temporariamente bloqueada por tentativas incorretas — nesse caso, aguarde alguns minutos antes de tentar novamente.</p>
+                            `
+                        },
+                        {
+                            id: 'recuperar-senha',
+                            title: 'Esqueci minha senha. Como recuperar?',
+                            content: `
+                                <p>Esquecer a senha é uma situação comum e o W.Tracks possui um processo seguro para ajudá-lo a recuperar o acesso à sua conta. Por motivos de segurança, não é possível ver sua senha atual — o sistema apenas permite criar uma nova senha através de um processo de verificação que confirma que você é o titular da conta.</p>
+                                
+                                <h3>Processo de recuperação de senha</h3>
+                                <p>Para recuperar sua senha, siga estes passos:</p>
+                                <ul>
+                                    <li>Na tela de login, clique no link "Esqueceu a senha?" abaixo do campo de senha</li>
+                                    <li>Insira o endereço de e-mail cadastrado na sua conta</li>
+                                    <li>Verifique sua caixa de entrada para um e-mail com o link de redefinição</li>
+                                    <li>Clique no link desse e-mail — ele levará você a uma página segura onde poderá criar uma nova senha</li>
+                                    <li>Digite sua nova senha, confirme e salve as alterações</li>
+                                </ul>
+                                
+                                <h3>Por que o link expira?</h3>
+                                <p>O link de redefinição de senha expira em 24 horas por segurança. Isso impede que alguém que tenha acesso antigo ao seu e-mail possa usar um link antigo para redefinir sua senha sem seu conhecimento. Se o link expirar antes de você usá-lo, basta solicitar um novo link de redefinição — o processo é o mesmo.</p>
+                                
+                                <h3>E se eu não receber o e-mail?</h3>
+                                <p>Caso não receba o e-mail de redefinição dentro de alguns minutos, verifique sua pasta de spam ou lixo eletrônico. Se não estiver lá, confirme que você digitou o e-mail corretamente — lembre-se de usar o mesmo endereço que cadastrou na conta. Se o problema persistir, pode haver algum problema temporário com o envio de e-mails; tente novamente após alguns minutos.</p>
+                                
+                                <h3> Criando uma senha segura</h3>
+                                <p>Ao criar sua nova senha, siga as boas práticas de segurança: use pelo menos 8 caracteres, combine letras maiúsculas e minúsculas, inclua números e caracteres especiais, e evite usar informações óbvias como datas de aniversário ou nomes de familiares. Não reutilize senhas de outros sites, pois isso pode comprometer a segurança de múltiplas contas se uma delas for comprometida.</p>
+                                
+                                <h3>Após redefinir a senha</h3>
+                                <p>Depois de redefinir sua senha com sucesso, você poderá fazer login imediatamente usando a nova senha. Sua sessão antiga em outros dispositivos será encerrada automaticamente por segurança, então você precisará fazer login novamente em cada aparelho onde usa o W.Tracks. Isso protege sua conta caso alguém tenha tido acesso à sua senha antiga.</p>
+                            `
+                        },
+                        {
+                            id: 'por-que-login',
+                            title: 'Por que preciso estar logado?',
+                            content: `
+                                <p>O login no W.Tracks não é apenas uma formalidade — ele é fundamental para o funcionamento da plataforma e para a sua experiência como usuário. Sem estar logado, o sistema não consegue associar suas ações a uma identidade específica, o que torna impossível salvar projetos, manter configurações personalizadas ou oferecer uma experiência personalizada.</p>
+                                
+                                <h3>Salvamento de projetos e músicas</h3>
+                                <p>A principal razão para o login é permitir que seus projetos e músicas sejam salvos na nuvem associados à sua conta. Quando você cria um projeto, adiciona músicas, configura o mixer e ajusta preferências, tudo isso fica vinculado ao seu perfil de usuário. Sem login, qualquer trabalho que você fizesse seria perdido ao fechar o navegador, pois não haveria como saber a quem aquele projeto pertence.</p>
+                                
+                                <h3>Acesso multi-dispositivo</h3>
+                                <p>Estar logado também é essencial para acessar seus projetos de qualquer dispositivo. Como seus dados ficam salvos na nuvem associados à sua conta, você pode começar um projeto no computador, continuar no tablet e finalizar no celular — basta fazer login com as mesmas credenciais em cada aparelho. Sem login, cada dispositivo funcionaria de forma isolada, sem compartilhar dados entre si.</p>
+                                
+                                <h3>Configurações personalizadas</h3>
+                                <p>Suas preferências pessoais — como volume padrão, configurações de mixer, organização da biblioteca e outras escolhas — ficam salvas na sua conta. Isso significa que quando você faz login em um novo dispositivo, o W.Tracks se configura automaticamente de acordo com suas preferências, sem precisar reconfigurar tudo manualmente. Essa personalização só é possível porque o sistema sabe quem é você através do login.</p>
+                                
+                                <h3>Recursos avançados</h3>
+                                <p>Muitos recursos avançados do W.Tracks dependem de uma conta ativa. A sincronização entre dispositivos, por exemplo, só funciona se você estiver logado, pois o sistema precisa saber quais projetos pertencem a você para sincronizá-los corretamente. Recursos de colaboração, compartilhamento e funcionalidades premium também requerem identificação do usuário.</p>
+                                
+                                <h3>Segurança e privacidade</h3>
+                                <p>O login também protege sua privacidade e a de outros usuários. Ao exigir autenticação, o W.Tracks garante que cada pessoa só tenha acesso aos próprios projetos e configurações. Sem login, qualquer pessoa poderia acessar projetos de outros usuários, o que violaria a privacidade e a segurança dos dados de todos.</p>
+                                
+                                <h3>Limitações sem login</h3>
+                                <p>Embora o W.Tracks permita explorar algumas funcionalidades sem login, a experiência é limitada. Você não conseguirá salvar projetos de forma permanente, suas configurações não serão mantidas entre sessões, e muitos recursos estarão indisponíveis. Para aproveitar plenamente tudo que o W.Tracks oferece, o login é indispensável.</p>
+                            `
+                        }
+                    ]
+                },
+                {
+                    id: 'projetos-tracks',
+                    title: 'Projetos e Tracks',
+                    questions: [
+                        {
+                            id: 'adicionar-musicas',
+                            title: 'Como adicionar músicas/stems a um projeto?',
+                            content: `
+                                <p>Adicionar músicas e stems ao seu projeto é o coração do processo de criação no W.Tracks. Um projeto pode conter múltiplas tracks — cada track representa um arquivo de áudio individual, como voz, guitarra, bateria ou baixo. Quando você adiciona várias tracks ao mesmo projeto, cria um arranjo completo que pode ser mixado e manipulado como se fosse uma música profissional.</p>
+                                
+                                <h3>Processo de adição de músicas</h3>
+                                <p>Para adicionar músicas ao seu projeto, siga estes passos:</p>
+                                <ul>
+                                    <li>Crie um novo projeto clicando no botão de criação ou abra um projeto existente da sua biblioteca</li>
+                                    <li>Dentro do projeto, localize o botão "+" ou "Adicionar track" no mixer ou na área de tracks</li>
+                                    <li>Clique nesse botão para abrir o seletor de arquivos</li>
+                                    <li>Navegue até o local no seu computador onde estão os arquivos de áudio</li>
+                                    <li>Selecione o arquivo desejado — pode ser MP3, WAV, FLAC ou outros formatos compatíveis</li>
+                                    <li>Aguarde enquanto o arquivo é processado e adicionado ao mixer</li>
+                                </ul>
+                                
+                                <h3>O que acontece durante o processamento?</h3>
+                                <p>Quando você seleciona um arquivo de áudio, o W.Tracks processa-o automaticamente. Isso inclui analisar o arquivo para criar a representação visual (waveform), preparar o áudio para reprodução em tempo real e garantir que ele esteja otimizado para uso no mixer. Esse processo geralmente é rápido, mas arquivos muito grandes ou de alta qualidade podem levar mais tempo.</p>
+                                
+                                <h3>Formatos suportados</h3>
+                                <p>O W.Tracks suporta os principais formatos de áudio, incluindo MP3, WAV, FLAC, AAC e outros. Se você tiver arquivos em formatos menos comuns, tente convertê-los para um dos formatos mais populares antes de adicionar ao projeto. A qualidade do áudio é preservada durante o processamento, então você não precisa se preocupar com perda de qualidade.</p>
+                                
+                                <h3>Adicionando múltiplas tracks</h3>
+                                <p>Você pode adicionar quantas tracks precisar ao seu projeto (dependendo do seu plano). Cada track aparecerá como um canal separado no mixer, permitindo controlar o volume, pan, mute e solo individualmente. Para criar arranjos completos, adicione os stems individuais — bateria, baixo, instrumentos, voz — e depois use o mixer para equilibrar tudo.</p>
+                                
+                                <h3>Organização das tracks</h3>
+                                <p>À medida que você adiciona tracks, é útil organizá-las. Você pode renomear cada track para identificar facilmente o que é (por exemplo, "Voz Principal", "Guitarra Solo", "Bateria Kick"). Isso facilita muito o trabalho no mixer, especialmente em projetos com muitas tracks.</p>
+                                
+                                <h3>E se o arquivo não carregar?</h3>
+                                <p>Se um arquivo não carregar, verifique se o formato é compatível. Arquivos corrompidos ou com problemas de codificação também podem causar dificuldades. Tente usar outro arquivo para testar, e se o problema persistir apenas com um arquivo específico, pode haver um problema com o próprio arquivo — tente abri-lo em outro player de áudio para confirmar.</p>
+                            `
+                        },
+                        {
+                            id: 'importar-google-drive',
+                            title: 'Como importar do Google Drive?',
+                            content: `
+                                <p>A importação do Google Drive é uma funcionalidade conveniente que permite acessar arquivos de áudio que você já tem armazenados na nuvem do Google, sem precisar baixá-los manualmente para o seu computador primeiro. Isso é especialmente útil se você trabalha com colaboradores que compartilham arquivos pelo Google Drive ou se mantém sua biblioteca de áudios organizada na nuvem.</p>
+                                
+                                <h3>Processo de importação</h3>
+                                <p>Para importar arquivos do Google Drive, siga estes passos:</p>
+                                <ul>
+                                    <li>Dentro do seu projeto no W.Tracks, clique no botão de importação</li>
+                                    <li>Selecione a opção "Google Drive" no menu de importação</li>
+                                    <li>Uma janela do Google aparecerá pedindo autorização para acessar seu Drive</li>
+                                    <li>Revise as permissões solicitadas e autorize o acesso se concordar</li>
+                                    <li>Navegue pelas pastas do seu Google Drive para encontrar os arquivos desejados</li>
+                                    <li>Selecione os arquivos que deseja importar — você pode selecionar múltiplos arquivos de uma vez</li>
+                                    <li>Confirme a importação e aguarde enquanto os arquivos são baixados e processados</li>
+                                </ul>
+                                
+                                <h3>Como funciona a autorização?</h3>
+                                <p>A primeira vez que você usa a importação do Google Drive, precisa autorizar o W.Tracks a acessar seus arquivos. Essa autorização é padrão do Google e segue suas políticas de segurança. O W.Tracks só acessa os arquivos que você explicitamente seleciona — não tem acesso automático a todo o seu Drive. Você pode revogar essa autorização a qualquer momento nas configurações da sua conta do Google.</p>
+                                
+                                <h3>Download e processamento</h3>
+                                <p>Após selecionar os arquivos, o W.Tracks os baixa automaticamente do Google Drive e processa para uso no projeto. Esse processo pode levar mais tempo do que adicionar arquivos locais, pois depende da velocidade da sua conexão com a internet. Arquivos grandes podem demorar vários minutos para serem baixados completamente.</p>
+                                
+                                <h3>Limitações e considerações</h3>
+                                <p>Importar do Google Drive requer uma conexão ativa com a internet durante todo o processo. Se a conexão cair durante o download, o arquivo pode ficar incompleto. Além disso, arquivos muito grandes podem exceder limites de tempo de download — nesse caso, considere baixar o arquivo manualmente para o computador primeiro e depois adicionar ao projeto.</p>
+                                
+                                <h3>Privacidade e segurança</h3>
+                                <p>O W.Tracks não armazena suas credenciais do Google e não acessa seus arquivos sem sua permissão explícita. A conexão entre o W.Tracks e o Google Drive é criptografada e segue os padrões de segurança do Google. Seus arquivos são baixados diretamente para o processamento local e não ficam armazenados nos servidores do Google além do necessário para a operação.</p>
+                                
+                                <h3>Outros serviços de nuvem</h3>
+                                <p>Atualmente o W.Tracks suporta importação direta do Google Drive. Se você usa outros serviços como Dropbox, OneDrive ou iCloud, a solução é baixar os arquivos manualmente para o computador primeiro e depois adicioná-los ao projeto pelo método tradicional. Isso também funciona bem e dá mais controle sobre o processo.</p>
+                            `
+                        },
+                        {
+                            id: 'editar-projeto',
+                            title: 'Como editar um projeto?',
+                            content: `
+                                <p>Editar um projeto no W.Tracks envolve modificar suas informações básicas — como nome, capa e descrição — e também pode incluir ajustes nas configurações do projeto. Diferente de editar o conteúdo das tracks (que é feito no mixer), editar o projeto significa alterar os metadados e configurações que definem como o projeto aparece na sua biblioteca e como ele se comporta.</p>
+                                
+                                <h3>Informações básicas do projeto</h3>
+                                <p>Para editar as informações básicas do projeto:</p>
+                                <ul>
+                                    <li>Na biblioteca de projetos, encontre o projeto que deseja editar</li>
+                                    <li>Passe o mouse sobre o card do projeto para revelar os botões de ação</li>
+                                    <li>Clique no ícone de edição (geralmente representado por um lápis)</li>
+                                    <li>Uma janela ou painel se abrirá com as informações editáveis do projeto</li>
+                                    <li>Você pode alterar o nome do projeto, que é como ele aparece na sua biblioteca</li>
+                                    <li>Também pode mudar a capa/arte do projeto, seja fazendo upload de uma imagem ou escolhendo entre opções</li>
+                                    <li>Adicione ou edite a descrição do projeto para ajudar a identificá-lo depois</li>
+                                    <li>Quando terminar, clique em "Salvar" ou "Aplicar" para confirmar as alterações</li>
+                                </ul>
+                                
+                                <h3>Por que editar as informações do projeto?</h3>
+                                <p>Manter as informações do projeto atualizadas é importante para organização, especialmente quando você tem muitos projetos. Nomes descritivos ajudam a encontrar projetos específicos rapidamente, e capas visuais tornam a biblioteca mais agradável e fácil de navegar. Descrições podem conter informações úteis como tempo, tom, instrumentos usados ou notas sobre o arranjo.</p>
+                                
+                                <h3>Capas e imagens do projeto</h3>
+                                <p>A capa do projeto serve como identificação visual rápida. Você pode usar qualquer imagem — foto da banda, arte do álbum, ou algo criado especificamente para o projeto. Imagens muito grandes podem demorar mais para carregar, então tente usar imagens otimizadas para web. O W.Tracks aceita os principais formatos de imagem (JPG, PNG, etc.).</p>
+                                
+                                <h3>Configurações avançadas do projeto</h3>
+                                <p>Além das informações básicas, alguns projetos podem ter configurações avançadas dependendo do seu plano e dos recursos que está usando. Isso pode incluir configurações de privacidade (se o projeto é público ou privado), permissões de compartilhamento, configurações de sincronização e outras opções específicas do tipo de projeto.</p>
+                                
+                                <h3>Salvamento automático</h3>
+                                <p>As alterações nas informações do projeto são salvas automaticamente na nuvem assim que você confirma. Isso significa que as mudanças ficam disponíveis imediatamente em todos os dispositivos onde você está logado. Não é necessário fazer nada adicional para sincronizar — o processo é automático e transparente.</p>
+                                
+                                <h3>Edição de conteúdo vs edição de projeto</h3>
+                                <p>É importante distinguir entre editar o projeto (metadados) e editar o conteúdo (o áudio em si). Para alterar o áudio — ajustar volumes, adicionar efeitos, cortar trechos — você usa o mixer e as ferramentas de edição de áudio dentro do projeto. A edição de projeto descrita aqui é apenas para as informações que definem o projeto, não o conteúdo musical.</p>
+                                
+                                <h3>Desfazer alterações</h3>
+                                <p>Se você cometer um erro ao editar as informações do projeto, geralmente pode cancelar antes de salvar. Após salvar, não há uma função "desfazer" automática para metadados, mas você pode simplesmente editar novamente e corrigir as informações. Para alterações mais complexas ou críticas, considere fazer anotações antes de editar grandes quantidades de projetos.</p>
+                            `
+                        },
+                        {
+                            id: 'duplicar-projeto',
+                            title: 'Como duplicar um projeto?',
+                            content: `
+                                <p>A duplicação de projetos é uma ferramenta poderosa que permite criar cópias exatas de um projeto existente. Isso é útil em diversas situações: quando você quer experimentar diferentes arranjos sem perder o original, quando precisa criar versões alternativas (como versão ao vivo vs versão de estúdio), ou quando quer usar um projeto como template para novos projetos.</p>
+                                
+                                <h3>Processo de duplicação</h3>
+                                <p>Para duplicar um projeto, siga estes passos:</p>
+                                <ul>
+                                    <li>Na biblioteca de projetos, encontre o projeto que deseja duplicar</li>
+                                    <li>Passe o mouse sobre o card do projeto para revelar os botões de ação</li>
+                                    <li>Clique no menu de opções (geralmente representado por três pontos ou ícone de menu)</li>
+                                    <li>Selecione a opção "Duplicar" no menu que aparecer</li>
+                                    <li>O sistema criará uma cópia completa do projeto, incluindo todas as tracks e configurações</li>
+                                    <li>A cópia receberá automaticamente um sufixo como "-cópia" ou similar no nome</li>
+                                    <li>Você pode então renomear a cópia para algo mais descritivo se desejar</li>
+                                </ul>
+                                
+                                <h3>O que é incluído na duplicação?</h3>
+                                <p>Quando você duplica um projeto, a cópia inclui tudo: todas as tracks com seus arquivos de áudio, configurações do mixer (volumes, pan, mute, solo), configurações de efeitos, capa do projeto, descrição e quaisquer outras configurações específicas daquele projeto. A cópia é essencialmente idêntica ao original, funcionando como um clone completo.</p>
+                                
+                                <h3>Uso de memória e armazenamento</h3>
+                                <p>É importante considerar que duplicar um projeto consome espaço adicional, pois os arquivos de áudio são copiados. Se o projeto original tem tracks grandes, a duplicação dobrará o uso de armazenamento para aquele conteúdo. Se você tem muitos projetos grandes, fique atento aos limites de armazenamento do seu plano.</p>
+                                
+                                <h3>Cenários de uso da duplicação</h3>
+                                <p>A duplicação é especialmente útil em vários cenários:</p>
+                                <ul>
+                                    <li><strong>Experimentação:</strong> Duplice o projeto antes de fazer alterações drásticas no mixer ou nos efeitos, assim você sempre pode voltar ao original se não gostar do resultado</li>
+                                    <li><strong>Versões alternativas:</strong> Crie versões diferentes da mesma música — uma com voz, outra instrumental, uma ao vivo, outra de estúdio</li>
+                                    <li><strong>Templates:</strong> Crie um projeto com configurações padrão que você usa frequentemente e duplique para começar novos projetos</li>
+                                    <li><strong>Colaboração:</strong> Duplice um projeto para enviar a um colaborador sem modificar o original</li>
+                                </ul>
+                                
+                                <h3>Duplicação vs salvar como</h3>
+                                <p>Alguns softwares têm a função "salvar como", que é similar à duplicação. No W.Tracks, a duplicação funciona exatamente como um "salvar como" — cria um novo projeto independente baseado no existente. A diferença é que o original permanece intacto e disponível, enquanto a cópia é um projeto separado com sua própria identidade.</p>
+                                
+                                <h3>Organização após duplicação</h3>
+                                <p>Após duplicar, é boa prática renomear a cópia imediatamente para algo que reflita seu propósito. Por exemplo, se duplicou para criar uma versão instrumental, renomeie para "Nome da Música - Instrumental". Isso evita confusão na biblioteca e facilita encontrar o projeto certo depois.</p>
+                                
+                                <h3>Limitações de duplicação</h3>
+                                <p>Verifique se o seu plano permite a quantidade de projetos que você terá após as duplicações. Planos gratuitos geralmente têm limites no número de projetos, enquanto planos pagos podem permitir projetos ilimitados. Também considere o tempo de duplicação — projetos muito grandes podem levar vários minutos para serem duplicados completamente.</p>
+                            `
+                        },
+                        {
+                            id: 'favoritar-projeto',
+                            title: 'Como favoritar um projeto?',
+                            content: `
+                                <p>Favoritar projetos é uma funcionalidade de organização que permite marcar seus projetos mais importantes ou mais usados como favoritos. Isso facilita o acesso rápido aos projetos que você usa com frequência, sem precisar procurar em toda a biblioteca cada vez. Projetos favoritos ficam destacados e podem ser filtrados ou exibidos em uma seção separada.</p>
+                                
+                                <h3>Processo de favoritamento</h3>
+                                <p>Para marcar um projeto como favorito, siga estes passos:</p>
+                                <ul>
+                                    <li>Na biblioteca de projetos, passe o mouse sobre o card do projeto que deseja favoritar</li>
+                                    <li>Procure o ícone de estrela — geralmente fica em um canto do card do projeto</li>
+                                    <li>Clique na estrela para marcar o projeto como favorito</li>
+                                    <li>A estrela mudará de aparência (geralmente ficará preenchida ou destacada) para indicar que o projeto está favoritado</li>
+                                    <li>Para remover o favorito, basta clicar na estrela novamente</li>
+                                </ul>
+                                
+                                <h3>Como funcionam os favoritos</h3>
+                                <p>Quando você marca um projeto como favorito, ele é adicionado à sua lista de favoritos, que é mantida separadamente da lista principal de projetos. Essa lista de favoritos fica sincronizada na nuvem, então você verá os mesmos favoritos em todos os dispositivos onde está logado. Os favoritos são uma camada de organização adicional que não afeta o projeto em si — é apenas uma marcação para facilitar o acesso.</p>
+                                
+                                <h3>Benefícios de usar favoritos</h3>
+                                <p>Usar favoritos traz vários benefícios práticos:</p>
+                                <ul>
+                                    <li><strong>Acesso rápido:</strong> Projetos favoritos ficam mais acessíveis, muitas vezes em uma seção dedicada ou no topo da biblioteca</li>
+                                    <li><strong>Filtragem:</strong> Você pode filtrar a biblioteca para mostrar apenas favoritos, o que é útil quando tem muitos projetos</li>
+                                    <li><strong>Identificação visual:</strong> A estrela destacada torna fácil identificar visualmente quais projetos são mais importantes</li>
+                                    <li><strong>Organização:</strong> Ajuda a separar projetos ativos de projetos arquivados ou menos usados</li>
+                                </ul>
+                                
+                                <h3>Quando usar favoritos</h3>
+                                <p>Favorite projetos que você usa com frequência ou que são especialmente importantes. Por exemplo:</p>
+                                <ul>
+                                    <li>Projetos que você está trabalhando ativamente no momento</li>
+                                    <li>Projetos que usa regularmente em apresentações ao vivo</li>
+                                    <li>Projetos que servem como referência ou templates</li>
+                                    <li>Projetos colaborativos que precisa acompanhar de perto</li>
+                                </ul>
+                                
+                                <h3>Favoritos vs pastas</h3>
+                                <p>Alguns sistemas usam pastas para organização. No W.Tracks, os favoritos funcionam como uma marcação rápida sem precisar criar uma estrutura de pastas complexa. É uma forma mais simples de destacar itens importantes sem precisar reorganizar toda a biblioteca. Você pode combinar favoritos com outras formas de organização, como busca e filtros, para criar um sistema personalizado.</p>
+                                
+                                <h3>Sincronização entre dispositivos</h3>
+                                <p>Seus favoritos ficam sincronizados automaticamente entre todos os dispositivos onde você está logado. Se você favoritar um projeto no computador, ele aparecerá como favorito no celular e no tablet também. Isso garante que sua organização seja consistente não importa qual dispositivo esteja usando.</p>
+                                
+                                <h3>Gerenciamento de favoritos</h3>
+                                <p>Periodicamente revise seus favoritos para manter a lista útil. Projetos que não são mais usados podem ter o favorito removido para dar lugar a outros mais atuais. Uma lista de favoritos bem gerenciada é mais eficiente do que uma lista muito longa com projetos que não são mais relevantes.</p>
+                            `
+                        },
+                        {
+                            id: 'excluir-projeto',
+                            title: 'Como excluir um projeto?',
+                            content: `
+                                <div class="warning-box">
+                                    <strong>Atenção:</strong> A exclusão de um projeto é uma ação permanente e irreversível. Uma vez excluído, o projeto e todas as suas tracks não podem ser recuperados. Certifique-se de realmente querer excluir antes de confirmar.
+                                </div>
+                                
+                                <p>Excluir um projeto remove-o permanentemente da sua biblioteca e dos servidores do W.Tracks. Isso é diferente de arquivar ou esconder um projeto — a exclusão é definitiva. Por isso, é importante entender completamente o que acontece antes de prosseguir.</p>
+                                
+                                <h3>Processo de exclusão</h3>
+                                <p>Para excluir um projeto, siga estes passos:</p>
+                                <ul>
+                                    <li>Na biblioteca de projetos, encontre o projeto que deseja excluir</li>
+                                    <li>Passe o mouse sobre o card do projeto para revelar os botões de ação</li>
+                                    <li>Clique no menu de opções (geralmente representado por três pontos ou ícone de menu)</li>
+                                    <li>Selecione a opção "Excluir" ou "Deletar" no menu que aparecer</li>
+                                    <li>O sistema mostrará uma mensagem de confirmação avisando que a ação é permanente</li>
+                                    <li>Leia atentamente a mensagem de confirmação e clique em "Confirmar" se tiver certeza</li>
+                                    <li>O projeto será removido da sua biblioteca e de todos os dispositivos onde estava sincronizado</li>
+                                </ul>
+                                
+                                <h3>O que é excluído exatamente?</h3>
+                                <p>Quando você exclui um projeto, tudo relacionado a ele é removido permanentemente:</p>
+                                <ul>
+                                    <li>O projeto em si desaparece da sua biblioteca</li>
+                                    <li>Todas as tracks associadas ao projeto são excluídas</li>
+                                    <li>Os arquivos de áudio das tracks são removidos dos servidores</li>
+                                    <li>Configurações do mixer, efeitos e preferências específicas do projeto são perdidas</li>
+                                    <li>Capa, descrição e outros metadados são eliminados</li>
+                                </ul>
+                                
+                                <h3>Por que a exclusão é permanente?</h3>
+                                <p>A exclusão permanente é uma medida de segurança e privacidade. Se os projetos pudessem ser recuperados facilmente após a exclusão, isso representaria um risco de privacidade — alguém poderia recuperar projetos que você deliberadamente excluiu. Além disso, manter cópias de segurança de todos os projetos excluídos consumiria uma quantidade enorme de armazenamento, o que elevaria os custos para todos os usuários.</p>
+                                
+                                <h3>Considerações antes de excluir</h3>
+                                <p>Antes de excluir um projeto, considere o seguinte:</p>
+                                <ul>
+                                    <li>Você tem certeza de que não precisará mais deste projeto?</li>
+                                    <li>Existem cópias de backup em algum lugar (computador local, outro serviço)?</li>
+                                    <li>O projeto contém trabalho original ou único que seria impossível recriar?</li>
+                                    <li>Você está excluindo por engano ou porque realmente não precisa mais?</li>
+                                </ul>
+                                
+                                <h3>Alternativas à exclusão</h3>
+                                <p>Se você não tem certeza sobre excluir, considere alternativas:</p>
+                                <ul>
+                                    <li><strong>Arquivar:</strong> Se o projeto não é mais usado mas você quer mantê-lo, considere apenas movê-lo para uma categoria de arquivado (se disponível)</li>
+                                    <li><strong>Duplicar antes de excluir:</strong> Se quer fazer alterações drásticas, duplique o projeto primeiro e trabalhe na cópia</li>
+                                    <li><strong>Exportar:</strong> Se possível, exporte o projeto ou seus arquivos para outro formato antes de excluir</li>
+                                </ul>
+                                
+                                <h3>Backup antes de excluir</h3>
+                                <p>Se o projeto contém trabalho importante, faça backup antes de excluir. Isso pode significar baixar os arquivos de áudio para o computador, exportar configurações do mixer, ou fazer uma cópia em outro serviço. Embora exija trabalho extra, o backup pode salvar você de perder trabalho irreversível.</p>
+                                
+                                <h3>Exclusão em massa</h3>
+                                <p>Se você precisa excluir múltiplos projetos, verifique se o W.Tracks oferece exclusão em massa. Se não disponível, você precisará excluir cada projeto individualmente. Tome o mesmo cuidado com cada exclusão — a irreversibilidade se aplica a cada uma.</p>
+                                
+                                <h3>Após a exclusão</h3>
+                                <p>Uma vez excluído, o projeto desaparece imediatamente da sua biblioteca. Se você estava logado em múltiplos dispositivos, o projeto também será removido deles na próxima sincronização. Não há forma de "desfazer" a exclusão através da interface — se cometeu um erro, a única opção seria contactar o suporte, mas mesmo assim não há garantia de recuperação.</p>
+                            `
+                        }
+                    ]
+                },
+                {
+                    id: 'player-mixagem',
+                    title: 'Player e Mixagem',
+                    questions: [
+                        {
+                            id: 'o-que-waveform',
+                            title: 'O que é a waveform e para que serve?',
+                            content: `
+                                <p>A waveform (ou forma de onda) é a representação visual do áudio — é como o som "parece" quando desenhado como um gráfico. Ela mostra a intensidade do som ao longo do tempo, permitindo que você "veja" a música em vez de apenas ouvi-la. Essa representação visual é fundamental para profissionais de áudio e músicos, pois fornece informações instantâneas sobre a estrutura e o conteúdo do áudio.</p>
+                                
+                                <h3>O que a waveform mostra</h3>
+                                <p>A waveform revela várias características importantes do áudio:</p>
+                                <ul>
+                                    <li><strong>Intensidade do som:</strong> A altura das ondas indica o volume — ondas altas representam sons fortes, ondas baixas representam sons suaves</li>
+                                    <li><strong>Momentos de pico:</strong> Os pontos mais altos da waveform mostram onde estão os momentos de maior volume na música</li>
+                                    <li><strong>Trechos silenciosos:</strong> Áreas quase planas indicam passagens calmas ou silêncio</li>
+                                    <li><strong>Estrutura geral:</strong> Você pode identificar visualmente onde começa e termina cada seção — intro, verso, refrão, ponte, final</li>
+                                    <li><strong>Dinâmica:</strong> A variação entre ondas altas e baixas mostra a dinâmica da música — se é constante ou varia muito</li>
+                                </ul>
+                                
+                                <h3>Waveform única por projeto</h3>
+                                <p>No W.Tracks, a waveform é única por projeto — ela representa todas as tracks juntas, não cada track individualmente. Isso significa que a waveform mostra a soma de todas as tracks combinadas, como se você estivesse ouvindo a mixagem completa. Essa abordagem é intencional: ela ajuda você a entender rapidamente onde cada parte da música está no contexto do arranjo completo, sem precisar tocar tudo para descobrir.</p>
+                                
+                                <h3>Por que waveform por projeto e não por track?</h3>
+                                <p>Ter uma waveform combinada é mais útil para navegação e edição porque mostra a estrutura real da música como ela será ouvida. Se cada track tivesse sua própria waveform separada, você teria que mentaisomar todas elas para entender a estrutura completa — a waveform combinada já faz isso automaticamente. Para detalhes específicos de cada track, você ainda pode ouvi-las individualmente usando solo e mute.</p>
+                                
+                                <h3>Performance e carregamento</h3>
+                                <p>A waveform é calculada uma vez quando você adiciona as músicas ao projeto e depois é reaproveitada. Isso significa que o projeto abre mais rápido nas vezes subsequentes, pois não precisa processar tudo novamente toda vez que você o abre. O sistema analisa os arquivos de áudio, gera a representação visual e a salva como parte do projeto. Esse processo de cálculo inicial pode levar alguns segundos em projetos grandes, mas o ganho de performance depois vale a pena.</p>
+                                
+                                <h3>Navegação pela waveform</h3>
+                                <p>A waveform não é apenas decorativa — ela é interativa. Você pode clicar em qualquer ponto da waveform para pular diretamente para aquele momento da música. Isso é muito mais preciso do que tentar encontrar um trecho arrastando o progresso linearmente. Além disso, a waveform mostra marcadores visuais para loops, cortes e outros pontos de interesse que você possa ter definido.</p>
+                                
+                                <h3>Edição baseada em waveform</h3>
+                                <p>Muitas operações de edição são baseadas na waveform. Quando você quer definir um loop, por exemplo, você seleciona visualmente o início e fim observando a waveform para identificar exatamente onde começa e termina o trecho desejado. A precisão visual que a waveform proporciona é especialmente valiosa para edições que exigem sincronização perfeita.</p>
+                                
+                                <h3>Limitações da waveform</h3>
+                                <p>É importante entender que a waveform mostra amplitude (volume), mas não frequência (altura das notas). Você não pode ver se uma nota é dó ou mi apenas olhando a waveform — para isso você precisaria de análise espectral ou outras ferramentas. A waveform é excelente para estrutura e dinâmica, mas não substitui o ouvido para análise musical detalhada.</p>
+                                
+                                <h3>Waveform em diferentes contextos</h3>
+                                <p>A waveform aparece em vários lugares do W.Tracks: na timeline principal do projeto, em visualizações de edição, e às vezes em interfaces de exportação. Em cada contexto, ela serve a propósitos ligeiramente diferentes, mas o princípio fundamental é o mesmo: representação visual do áudio para auxiliar navegação e edição.</p>
+                            `
+                        },
+                        {
+                            id: 'como-funciona-mixer',
+                            title: 'Como funciona o mixer?',
+                            content: `
+                                <p>O mixer do W.Tracks funciona como um console de áudio profissional, permitindo controlar individualmente cada track da sua mixagem. É no mixer que você equilibra os volumes, posiciona os sons no espaço estéreo, decide quais instrumentos ouvir em cada momento, e aplica controles básicos que definem como cada track se comporta na mixagem final.</p>
+                                
+                                <h3>Estrutura do mixer</h3>
+                                <p>O mixer é organizado em canais verticais, onde cada canal representa uma track do seu projeto. Da esquerda para a direita, você geralmente encontra os canais na ordem em que as tracks foram adicionadas ao projeto, embora você possa reorganizá-los conforme sua preferência. Cada canal contém controles específicos para aquela track, permitindo manipulação independente.</p>
+                                
+                                <h3>Faders (controles de volume)</h3>
+                                <p>Os faders são os controles deslizantes verticais que regulam o volume de cada track. Puxar o fader para cima aumenta o volume daquela track, puxar para baixo diminui. A posição do fader é mostrada em decibéis (dB) — valores positivos aumentam o volume, valores negativos diminuem. O fader principal controla o volume de toda a mixagem combinada.</p>
+                                
+                                <p>Os faders permitem equilibrar os volumes relativos das tracks — você pode, por exemplo, aumentar o volume da voz principal em relação aos instrumentos de acompanhamento, ou diminuir o volume de uma track que está predominando demais. Esse equilíbrio é fundamental para uma mixagem agradável onde todos os elementos podem ser ouvidos claramente.</p>
+                                
+                                <h3>Mute (silenciamento)</h3>
+                                <p>O botão Mute silencia completamente a track correspondente. Quando ativado, o som daquela track não é reproduzido, mas a track continua ativa no projeto — ela não é removida, apenas temporariamente silenciada. O Mute é diferente de diminuir o volume com o fader; com Mute, o som é completamente cortado, independentemente da posição do fader.</p>
+                                
+                                <p>O Mute é útil em várias situações: quando você quer ouvir como a música soa sem um determinado instrumento, quando está focando em editar uma track específica e quer ouvir só ela, ou quando precisa remover temporariamente um elemento que está causando problemas na mixagem. A track mutada permanece visível no mixer e pode ser reativada instantaneamente.</p>
+                                
+                                <h3>Solo (isolamento)</h3>
+                                <p>O botão Solo isola apenas a track selecionada, silenciando automaticamente todas as outras tracks do projeto. Quando você ativa Solo em uma track, você ouve apenas aquela track, mesmo que outras estejam com faders levantados. Se ativar Solo em múltiplas tracks, você ouvirá apenas as tracks que estão em Solo, todas as outras ficarão silenciadas.</p>
+                                
+                                <p>O Solo é extremamente útil para análise detalhada e edição. Você pode isolar a bateria para ajustar os ritmos, isolar a voz para corrigir problemas de pitch, ou isolar um instrumento solo para trabalhar em detalhes específicos. O Solo permite focar em um elemento por vez sem a confusão auditiva de todos os outros instrumentos tocando simultaneamente.</p>
+                                
+                                <h3>Pan (posicionamento estéreo)</h3>
+                                <p>O controle Pan determina a posição estéreo de cada track — você pode posicionar o som totalmente à esquerda, totalmente à direita, ou em qualquer ponto intermediário. O centro é a posição padrão, onde o som parece vir de ambos os lados igualmente. Pan é especialmente importante para criar paisagens sonoras imersivas e para separar instrumentos que ocupam frequências similares.</p>
+                                
+                                <p>Por exemplo, você pode posicionar as guitarras rítmicas levemente à esquerda e à direita para criar um estéreo mais largo, ou colocar a voz no centro enquanto os backing vocals ficam paneados para os lados. O Pan ajuda a criar profundidade e separação na mixagem, evitando que todos os instrumentos soem como se estivessem no mesmo lugar.</p>
+                                
+                                <h3>Interação entre controles</h3>
+                                <p>Os controles do mixer interagem entre si. Por exemplo, se você usar Solo em uma track, o Mute das outras tracks é ativado automaticamente, mas suas posições de Pan e Fader são preservadas. Quando você desativa o Solo, tudo volta ao estado anterior. O sistema é projetado para preservar suas configurações enquanto usa funções temporárias como Solo e Mute.</p>
+                                
+                                <h3>Salvamento de configurações</h3>
+                                <p>Todas as configurações do mixer — posições de faders, estados de Mute e Solo, posições de Pan — são salvas automaticamente com o projeto. Quando você fecha e reabre o projeto, o mixer exatamente como você deixou. Isso permite que você trabalhe em uma mixagem ao longo de múltiplas sessões sem perder o progresso.</p>
+                                
+                                <h3>Mixagem como processo criativo</h3>
+                                <p>O mixer não é apenas técnico — é uma ferramenta criativa. A forma como você equilibra os volumes, posiciona os instrumentos e decide o que ouvir em cada momento afeta profundamente como a música é percebida. Uma boa mixagem pode transformar uma gravação comum em algo profissional e envolvente, enquanto uma mixagem ruim pode prejudicar até mesmo uma gravação excelente.</p>
+                            `
+                        },
+                        {
+                            id: 'loops-pads-efeitos',
+                            title: 'Loops, pads e efeitos - o que cada um faz?',
+                            content: `
+                                <p>Loops, pads e efeitos são ferramentas poderosas que expandem as possibilidades criativas do W.Tracks. Enquanto o mixer controla os aspectos básicos de volume e posicionamento, essas ferramentas permitem manipular o áudio de formas mais avançadas e criativas, adicionando texturas, repetições e transformações sonoras que vão além do que é possível apenas com gravação estática.</p>
+                                
+                                <h3>Loops (repetição de trechos)</h3>
+                                <p>Loops permitem repetir um trecho específico da música continuamente. Você define um ponto de início e um ponto de fim, e o W.Tracks repete esse trecho indefinidamente até você parar o loop. Os loops são ferramentas extremamente versáteis com múltiplos usos:</p>
+                                
+                                <ul>
+                                    <li><strong>Prática:</strong> Músicos podem usar loops para praticar partes difíceis repetidamente até dominá-las</li>
+                                    <li><strong>Arranjos:</strong> Produtores podem criar arranjos baseados em loops, repetindo padrões rítmicos ou melódicos</li>
+                                    <li><strong>Performance ao vivo:</strong> Loops permitem criar bases musicais para improvisação ao vivo</li>
+                                    <li><strong>Edição:</strong> Editores podem isolar problemas específicos repetindo trechos problemáticos</li>
+                                </ul>
+                                
+                                <p>Os loops podem ser de qualquer tamanho — desde uma fração de segundo até vários minutos. Loops curtos criam efeitos rítmicos interessantes, enquanto loops longos podem estruturar seções inteiras de uma música. O W.Tracks permite sobrepor múltiplos loops, criar loops aninhados e sincronizar loops com o tempo da música.</p>
+                                
+                                <h3>Pads (triggers de som)</h3>
+                                <p>Pads são superfícies sensíveis ao toque ou clicáveis que disparam sons ou efeitos instantaneamente quando ativados. Imagine um teclado onde cada tecla toca um som diferente — os pads funcionam de forma similar, mas são mais flexíveis e podem ser configurados para diversos propósitos:</p>
+                                
+                                <ul>
+                                    <li><strong>Percussão:</strong> Pads podem tocar sons de bateria, percussão ou efeitos sonoros ritmados</li>
+                                    <li><strong>Frases:</strong> Alguns pads podem disparar frases musicais completas ou acordes</li>
+                                    <li><strong>Efeitos:</strong> Pads podem ativar efeitos instantâneos como risadas, aplausos ou sons ambiente</li>
+                                    <li><strong>Controle:</strong> Pads podem servir como controles para iniciar ou parar loops, mudar seções ou disparar automações</li>
+                                </ul>
+                                
+                                <p>Os pads são especialmente valiosos em performances ao vivo, onde o músico precisa adicionar elementos sonoros de forma espontânea e precisa. Ao contrário de pré-gravações fixas, os pads permitem interatividade — o músico decide quando e como cada som é adicionado à performance.</p>
+                                
+                                <h3>Efeitos (processamento de áudio)</h3>
+                                <p>Efeitos processam o áudio para criar sonoridades diferentes. Eles podem transformar sons simples em texturas complexas, adicionar profundidade e espaço, ou corrigir problemas na gravação original. O W.Tracks oferece diversos efeitos com propósitos específicos:</p>
+                                
+                                <h4>Reverb (reverberação)</h4>
+                                <p>O Reverb simula a reverberação natural de ambientes físicos — desde pequenos quartos até grandes catedrais. Quando você adiciona reverb a um som, ele passa a ter características acústicas do ambiente simulado, como caudas longas e reflexões. O Reverb é usado para:</p>
+                                <ul>
+                                    <li>Adicionar profundidade e espaço a sons secos</li>
+                                    <li>Criar sensação de ambiente (por exemplo, fazer a voz soar como se estivesse em um estádio)</li>
+                                    <li>Unir elementos da mixagem através de um "espaço acústico" comum</li>
+                                    <li>Criar efeitos especiais como reverb inverso ou gates de reverb</li>
+                                </ul>
+                                
+                                <h4>Delay (eco)</h4>
+                                <p>O Delay cria ecos repetitivos do som original. O som é reproduzido, depois reproduzido novamente após um intervalo de tempo, e esse processo se repite criando um padrão de eco. O Delay pode ser:</p>
+                                <ul>
+                                    <li><strong>Curto:</strong> Cria ecos rápidos que se fundem com o som original, criando textura</li>
+                                    <li><strong>Longo:</strong> Cria ecos distintos que se repetem várias vezes, criando padrões rítmicos</li>
+                                    <li><strong>Sincronizado:</strong> O tempo do eco é sincronizado com o tempo da música para manter ritmo consistente</li>
+                                    <li><strong>Feedback:</strong> Controla quantas vezes o eco se repete antes de desaparecer</li>
+                                </ul>
+                                
+                                <h4>EQ (equalização)</h4>
+                                <p>O EQ ajusta o equilíbrio de frequências do áudio — permite aumentar ou diminuir graves, médios e agudos independentemente. É uma das ferramentas mais importantes na mixagem porque permite:</p>
+                                <ul>
+                                    <li>Corrigir problemas na gravação (por exemplo, reduzir chiudo em agudos)</li>
+                                    <li>Separar instrumentos que ocupam frequências similares (puxar graves do baixo, cortar graves da voz)</li>
+                                    <li>Ajustar o tom geral (tornar mais brilhante ou mais escuro)</li>
+                                    <li>Compensar características de microfones ou ambientes de gravação</li>
+                                </ul>
+                                
+                                <h4>Compressor</h4>
+                                <p>O Compressor controla a dinâmica do volume — ele reduz a diferença entre os sons mais fortes e mais fracos. Quando uma passagem fica muito alta, o compressor a reduz; quando fica muito baixa, ele pode aumentá-la. O Compressor serve para:</p>
+                                <ul>
+                                    <li>Evitar que sons fiquem distorcidos por ficarem muito altos</li>
+                                    <li>Tornar performances mais consistentes em volume</li>
+                                    <li>Fazer com que instrumentos fiquem mais presentes na mixagem</li>
+                                    <li>Criar efeitos especiais como "pumping" rítmico</li>
+                                </ul>
+                                
+                                <h3>Combinação de ferramentas</h3>
+                                <p>Loops, pads e efeitos podem ser combinados de formas criativas. Por exemplo, você pode criar um loop de bateria, adicionar reverb para dar profundidade, e usar pads para disparar efeitos sincronizados em pontos específicos. A combinação dessas ferramentas é o que permite criar produções complexas e interessantes no W.Tracks.</p>
+                                
+                                <h3>Performance vs estúdio</h3>
+                                <p>Essas ferramentas têm usos diferentes em contexto de estúdio versus performance ao vivo. Em estúdio, o foco é na precisão e na perfeição técnica — loops perfeitamente sincronizados, efeitos cuidadosamente ajustados. Ao vivo, o foco é na espontaneidade e na interatividade — pads disparados no momento certo, efeitos que respondem à energia da performance. O W.Tracks serve bem a ambos os contextos.</p>
+                            `
+                        }
+                    ]
+                },
+
+                {
+                    id: 'planos',
+                    title: 'Planos',
+                    questions: [
+                        {
+                            id: 'diferencas-planos',
+                            title: 'Quais as diferenças entre os planos?',
+                            content: `
+                                <p>O W.Tracks oferece dois planos principais — Gratuito e Track Pro — cada um projetado para atender diferentes necessidades e níveis de uso. Entender as diferenças entre os planos ajuda você a escolher o que melhor se adapta ao seu fluxo de trabalho, ao seu orçamento e aos seus objetivos musicais.</p>
+                                
+                                <h3>Plano Gratuito</h3>
+                                <p>O plano gratuito é projetado para usuários casuais, experimentação e uso básico. Ele oferece acesso às funcionalidades principais do W.Tracks sem custo financeiro, permitindo que você explore a plataforma e determine se ela atende às suas necessidades antes de considerar um plano pago.</p>
+                                
+                                <p>Características do plano gratuito:</p>
+                                <ul>
+                                    <li><strong>Limitação de faders:</strong> Até 8 faders no mixer. Isso significa que você pode ter até 8 tracks em um projeto simultaneamente. Para muitos usuários, isso é suficiente para arranjos básicos, mas projetos complexos podem exigir mais</li>
+                                    <li><strong>Setlists limitadas:</strong> Até 3 setlists. Setlists são coleções organizadas de projetos para apresentações ao vivo. Com 3 setlists, você pode ter algumas playlists preparadas, mas não um número ilimitado</li>
+                                    <li><strong>Duração limitada por projeto:</strong> Há um limite na duração total dos arquivos de áudio por projeto. Isso significa que projetos muito longos podem não ser possíveis no plano gratuito</li>
+                                    <li><strong>Sem sincronização na nuvem:</strong> Este é o recurso mais significativo que falta no plano gratuito. Sem sincronização, seus projetos ficam salvos apenas localmente no dispositivo onde foram criados. Você não pode acessá-los de outros dispositivos automaticamente</li>
+                                    <li><strong>Recursos básicos:</strong> Acesso ao mixer, edição básica, loops, pads e efeitos fundamentais</li>
+                                    <li><strong>Suporte padrão:</strong> Acesso a suporte por e-mail com tempos de resposta padrão</li>
+                                </ul>
+                                
+                                <h3>Plano Track Pro</h3>
+                                <p>O plano Track Pro é projetado para usuários sérios, profissionais e qualquer pessoa que precise dos recursos mais avançados do W.Tracks. Ele remove as limitações do plano gratuito e adiciona funcionalidades poderosas que transformam a plataforma em uma ferramenta profissional completa.</p>
+                                
+                                <p>Características do plano Track Pro:</p>
+                                <ul>
+                                    <li><strong>Faders ilimitados:</strong> Sem limite no número de faders no mixer. Você pode criar projetos com dezenas ou até centenas de tracks, permitindo arranjos extremamente complexos e detalhados</li>
+                                    <li><strong>Setlists ilimitadas:</strong> Crie quantas setlists precisar. Ideal para músicos que tocam em diferentes contextos e precisam de playlists variadas para cada situação</li>
+                                    <li><strong>Duração ilimitada por projeto:</strong> Sem restrições na duração dos arquivos. Você pode trabalhar com músicas longas, álbuns completos ou projetos de duração estendida sem preocupações</li>
+                                    <li><strong>Sincronização automática na nuvem:</strong> Este é o recurso mais valioso do Track Pro. Seus projetos ficam salvos na nuvem e acessíveis de qualquer dispositivo. Comece no computador, continue no celular, finalize no tablet — tudo sincronizado automaticamente</li>
+                                    <li><strong>Recursos avançados:</strong> Acesso a efeitos premium, ferramentas de edição avançadas, recursos de colaboração (quando disponíveis) e funcionalidades experimentais antes dos usuários gratuitos</li>
+                                    <li><strong>Suporte prioritário:</strong> Tempos de resposta mais rápidos, suporte por chat quando disponível, e prioridade na resolução de problemas</li>
+                                    <li><strong>Armazenamento aumentado:</strong> Mais espaço para armazenar seus projetos e arquivos na nuvem</li>
+                                    <li><strong>Exportação avançada:</strong> Opções adicionais de exportação em diferentes formatos e qualidades</li>
+                                </ul>
+                                
+                                <h3>Comparação direta</h3>
+                                <p>Para visualizar as diferenças principais:</p>
+                                <ul>
+                                    <li><strong>Acesso multi-dispositivo:</strong> Gratuito (não disponível) vs Track Pro (disponível)</li>
+                                    <li><strong>Complexidade de projetos:</strong> Gratuito (até 8 tracks) vs Track Pro (ilimitado)</li>
+                                    <li><strong>Organização ao vivo:</strong> Gratuito (até 3 setlists) vs Track Pro (ilimitado)</li>
+                                    <li><strong>Duração de projetos:</strong> Gratuito (limitada) vs Track Pro (ilimitada)</li>
+                                    <li><strong>Nível de suporte:</strong> Gratuito (padrão) vs Track Pro (prioritário)</li>
+                                </ul>
+                                
+                                <h3>Quem deve usar cada plano?</h3>
+                                <p><strong>Plano Gratuito é ideal para:</strong></p>
+                                <ul>
+                                    <li>Usuários que estão experimentando o W.Tracks pela primeira vez</li>
+                                    <li>Músicos casuais que não precisam de recursos avançados</li>
+                                    <li>Quem usa apenas um dispositivo e não precisa de sincronização</li>
+                                    <li>Estudantes ou iniciantes que estão aprendendo mixagem básica</li>
+                                    <li>Projetos simples com poucas tracks</li>
+                                </ul>
+                                
+                                <p><strong>Track Pro é ideal para:</strong></p>
+                                <ul>
+                                    <li>Músicos profissionais que dependem do W.Tracks para trabalho</li>
+                                    <li>Usuários que trabalham em múltiplos dispositivos regularmente</li>
+                                    <li>Projetos complexos com muitas tracks e arranjos elaborados</li>
+                                    <li>Músicos ao vivo que precisam de setlists variadas e organizadas</li>
+                                    <li>Quem precisa acessar projetos de qualquer lugar, a qualquer momento</li>
+                                    <li>Produtores e engenheiros que usam o W.Tracks como ferramenta principal</li>
+                                </ul>
+                                
+                                <h3>Custo-benefício</h3>
+                                <p>O plano Track Pro tem um custo mensal, mas para usuários sérios, o investimento geralmente vale a pena. A sincronização na nuvem sozinha pode economizar horas de trabalho que seriam gastas transferindo arquivos manualmente. A remoção de limites permite trabalhar sem restrições criativas, e o suporte prioritário pode ser crucial quando problemas técnicos ameaçam prazos ou apresentações.</p>
+                                
+                                <h3>Upgrade e downgrade</h3>
+                                <p>Você pode mudar entre planos a qualquer momento. Se começar no gratuito e decidir que precisa dos recursos do Pro, pode fazer upgrade instantaneamente. Se fizer upgrade e depois decidir que não precisa mais, pode fazer downgrade — seus projetos e dados são preservados, apenas os recursos ficam limitados novamente.</p>
+                                
+                                <h3>Planos empresariais</h3>
+                                <p>Para equipes, estúdios ou organizações que precisam de múltiplas contas com gerenciamento centralizado, o W.Tracks pode oferecer planos empresariais personalizados. Esses planos incluem recursos como gestão de usuários, faturamento consolidado, contratos de nível de serviço (SLAs) e suporte dedicado. Entre em contato com a equipe comercial para discutir opções empresariais.</p>
+                                
+                                <h3>Períodos experimentais</h3>
+                                <p>O W.Tracks pode oferecer períodos experimentais gratuitos do Track Pro, permitindo que você teste os recursos premium antes de se comprometer com uma assinatura. Aproveite esses períodos para explorar a sincronização na nuvem, testar projetos com muitas tracks e experimentar os recursos avançados para determinar se valem o investimento.</p>
+                            `
+                        },
+                        {
+                            id: 'fazer-upgrade',
+                            title: 'Como fazer upgrade para o Track Pro?',
+                            content: `
+                                <p>Fazer upgrade para o plano Track Pro é um processo simples e direto que pode ser concluído em poucos minutos. O upgrade dá acesso imediato a todos os recursos premium, permitindo que você comece a usar as funcionalidades avançadas sem delay ou período de espera.</p>
+                                
+                                <h3>Processo de upgrade</h3>
+                                <p>Para fazer upgrade para o Track Pro, siga estes passos:</p>
+                                <ul>
+                                    <li>Faça login na sua conta do W.Tracks</li>
+                                    <li>Acesse as configurações do seu perfil — geralmente através do botão de perfil no canto superior direito</li>
+                                    <li>Encontre a seção "Plano", "Assinatura" ou "Upgrade" nas configurações</li>
+                                    <li>Revise as opções disponíveis e os preços dos planos Track Pro</li>
+                                    <li>Clique em "Fazer upgrade", "Assinar Track Pro" ou botão similar</li>
+                                    <li>Escolha o método de pagamento preferido — cartão de crédito, débito, ou outras opções disponíveis na sua região</li>
+                                    <li>Preencha as informações de pagamento necessárias</li>
+                                    <li>Revise os termos do serviço e a política de privacidade</li>
+                                    <li>Confirme a assinatura clicando no botão de confirmação</li>
+                                    <li>Aguarde a confirmação do pagamento — geralmente instantâneo para cartões</li>
+                                </ul>
+                                
+                                <h3>Ativação imediata</h3>
+                                <p>Após a confirmação do pagamento, todos os recursos do Track Pro são ativados imediatamente na sua conta. Você não precisa fazer logout e login novamente, nem precisa reiniciar o navegador. A mudança é instantânea — os limites do plano gratuito são removidos e os recursos premium ficam disponíveis imediatamente.</p>
+                                
+                                <h3>O que acontece com seus projetos existentes?</h3>
+                                <p>Seus projetos existentes não são afetados negativamente pelo upgrade. Pelo contrário, eles se beneficiam:</p>
+                                <ul>
+                                    <li>Projetos que atingiram o limite de 8 faders no plano gratuito agora podem ter mais tracks</li>
+                                    <li>Se você tinha 3 setlists no limite, agora pode criar setlists adicionais</li>
+                                    <li>Projetos que estavam limitados em duração agora podem ter duração estendida</li>
+                                    <li>A sincronização na nuvem começa a funcionar imediatamente — seus projetos começam a ser salvos na nuvem</li>
+                                </ul>
+                                
+                                <h3>Opções de pagamento</h3>
+                                <p>O W.Tracks oferece várias opções de pagamento para acomodar diferentes preferências:</p>
+                                <ul>
+                                    <li><strong>Cartão de crédito/débito:</strong> Visa, Mastercard, American Express e outras bandeiras principais</li>
+                                    <li><strong>PayPal:</strong> Para quem prefere usar PayPal como intermediário de pagamento</li>
+                                    <li><strong>PIX:</strong> Para usuários no Brasil que preferem pagamento instantâneo via PIX</li>
+                                    <li><strong>Boleto:</strong> Opção para quem não tem cartão ou prefere pagamento bancário</li>
+                                    <li><strong>Outros métodos locais:</strong> Dependendo da sua região, podem estar disponíveis métodos adicionais</li>
+                                </ul>
+                                
+                                <h3>Ciclo de cobrança</h3>
+                                <p>A assinatura do Track Pro é geralmente cobrada mensalmente, embora opções anuais com desconto possam estar disponíveis. O ciclo de cobrança começa no momento do upgrade e se renova automaticamente no mesmo dia de cada mês subsequente. Você recebe um recibo por e-mail após cada cobrança.</p>
+                                
+                                <h3>Cancelamento e reembolso</h3>
+                                <p>Você pode cancelar sua assinatura Track Pro a qualquer momento. Ao cancelar:</p>
+                                <ul>
+                                    <li>Você continua tendo acesso aos recursos premium até o final do período já pago</li>
+                                    <li>Não há cobranças adicionais após o cancelamento</li>
+                                    <li>Seus projetos e dados são preservados — você não perde nada ao cancelar</li>
+                                    <li>Sua conta volta ao plano gratuito com as limitações correspondentes</li>
+                                </ul>
+                                
+                                <p>Políticas de reembolso variam dependendo do período de uso e das circunstâncias. Em geral, reembolsos parciais não são oferecidos para períodos já utilizados, mas você pode entrar em contato com o suporte para discussar situações específicas.</p>
+                                
+                                <h3>Gerenciamento da assinatura</h3>
+                                <p>Após fazer upgrade, você pode gerenciar sua assinatura através das configurações da conta:</p>
+                                <ul>
+                                    <li>Ver histórico de pagamentos e faturas</li>
+                                    <li>Atualizar informações de pagamento</li>
+                                    <li>Mudar entre ciclos de cobrança (mensal/anual) se disponível</li>
+                                    <li>Cancelar a assinatura quando desejar</li>
+                                    <li>Ver data da próxima cobrança</li>
+                                </ul>
+                                
+                                <h3>Problemas durante o upgrade</h3>
+                                <p>Se você encontrar problemas durante o processo de upgrade:</p>
+                                <ul>
+                                    <li>Verifique se suas informações de pagamento estão corretas e válidas</li>
+                                    <li>Confirme que não há bloqueios no seu cartão ou conta bancária</li>
+                                    <li>Tente usar um navegador diferente ou limpar o cache do navegador atual</li>
+                                    <li>Se o problema persistir, entre em contato com o suporte com detalhes do erro</li>
+                                </ul>
+                                
+                                <h3>Upgrade de conta compartilhada</h3>
+                                <p>Se você estiver usando uma conta compartilhada (por exemplo, em um estúdio ou banda), o upgrade afeta toda a conta. Todos os usuários daquela conta terão acesso aos recursos do Track Pro. Para contas individuais onde cada pessoa tem sua própria conta, cada um precisa fazer seu próprio upgrade separadamente.</p>
+                                
+                                <h3>Vantagens do upgrade imediato</h3>
+                                <p>Assim que você faz o upgrade, pode começar a usar os recursos premium imediatamente:</p>
+                                <ul>
+                                    <li>Comece a sincronizar seus projetos na nuvem para acesso multi-dispositivo</li>
+                                    <li>Crie projetos mais complexos com muitas tracks</li>
+                                    <li>Organize suas apresentações com setlists ilimitadas</li>
+                                    <li>Experimente os efeitos e recursos avançados</li>
+                                    <li>Aproveite o suporte prioritário se precisar de ajuda</li>
+                                </ul>
+                                
+                                <h3>Notificações sobre a assinatura</h3>
+                                <p>O W.Tracks envia notificações por e-mail sobre sua assinatura:</p>
+                                <ul>
+                                    <li>Confirmação quando você faz o upgrade</li>
+                                    <li>Recibo após cada cobrança mensal</li>
+                                    <li>Aviso antes de renovações automáticas</li>
+                                    <li>Notificação se o pagamento falhar por algum motivo</li>
+                                    <li>Confirmação quando você cancela a assinatura</li>
+                                </ul>
+                                
+                                <p>Manter seu e-mail atualizado nas configurações da conta garante que você receba todas essas notificações importantes.</p>
+                            `
+                        }
+                    ]
+                },
+                {
+                    id: 'problemas-comuns',
+                    title: 'Problemas Comuns',
+                    questions: [
+                        {
+                            id: 'musica-nao-carrega',
+                            title: 'O que fazer se uma música não carrega?',
+                            content: `
+                                <p>Quando uma música não carrega no W.Tracks, pode ser frustrante, mas geralmente há causas identificáveis e soluções disponíveis. O problema pode estar no arquivo em si, na sua conexão, no navegador ou em uma combinação de fatores. Entender a causa raiz ajuda a resolver o problema mais rapidamente e evitar que ele se repita.</p>
+                                
+                                <h3>Causas comuns de não-carregamento</h3>
+                                <p>As causas mais frequentes para músicas não carregarem incluem:</p>
+                                <ul>
+                                    <li><strong>Problemas de conexão:</strong> Conexão instável, lenta ou interrompida durante o upload/download</li>
+                                    <li><strong>Formato incompatível:</strong> Arquivo em formato não suportado ou corrompido</li>
+                                    <li><strong>Arquivo corrompido:</strong> O arquivo de áudio está danificado ou incompleto</li>
+                                    <li><strong>Problemas de navegador:</strong> Cache antigo, extensões conflitantes ou versão desatualizada</li>
+                                    <li><strong>Limitações de recursos:</strong> Memória insuficiente ou processamento sobrecarregado</li>
+                                    <li><strong>Problemas temporários do sistema:</strong> Falhas momentâneas nos servidores ou na comunicação</li>
+                                </ul>
+                                
+                                <h3>Soluções passo a passo</h3>
+                                <p>Quando uma música não carrega, siga estes passos de solução de problemas:</p>
+                                
+                                <p><strong>1. Verifique sua conexão com a internet</strong></p>
+                                <ul>
+                                    <li>Teste se outros sites funcionam normalmente</li>
+                                    <li>Se estiver em Wi-Fi, tente conectar por cabo se possível</li>
+                                    <li>Se estiver em dados móveis, verifique se tem sinal suficiente</li>
+                                    <li>Reinicie seu roteador ou modem se suspeitar de problemas de rede</li>
+                                </ul>
+                                
+                                <p><strong>2. Tente recarregar a página</strong></p>
+                                <ul>
+                                    <liÀs vezes um simples refresh resolve problemas temporários de comunicação</li>
+                                    <li>Se estiver usando o W.Tracks em uma aba específica, tente abrir em uma nova aba</li>
+                                    <li>Limpe o cache do navegador para eliminar dados antigos que possam causar conflitos</li>
+                                </ul>
+                                
+                                <p><strong>3. Verifique o formato do arquivo</strong></p>
+                                <ul>
+                                    <li>O W.Tracks suporta MP3, WAV, FLAC, AAC e outros formatos principais</li>
+                                    <li>Formatos menos comuns podem não ser compatíveis — tente converter para MP3 ou WAV</li>
+                                    <li>Arquivos com extensões muito incomuns ou proprietárias podem não funcionar</li>
+                                    <li>Use um conversor de áudio confiável se precisar mudar o formato</li>
+                                </ul>
+                                
+                                <p><strong>4. Teste o arquivo em outro player</strong></p>
+                                <ul>
+                                    <li>Abra o arquivo em outro player de áudio (VLC, Windows Media Player, etc.)</li>
+                                    <li>Se não tocar em nenhum player, o arquivo provavelmente está corrompido</li>
+                                    <li>Se toca em outros players mas não no W.Tracks, pode ser um problema de compatibilidade específico</li>
+                                </ul>
+                                
+                                <p><strong>5. Tente fazer upload novamente</strong></p>
+                                <ul>
+                                    <li>Às vezes o upload é interrompido sem aviso claro</li>
+                                    <li>Exclua o arquivo que não carregou e tente fazer upload novamente</li>
+                                    <li>Se estiver fazendo upload de múltiplos arquivos, tente um por vez para identificar qual está causando problema</li>
+                                </ul>
+                                
+                                <p><strong>6. Verifique o navegador</strong></p>
+                                <ul>
+                                    <li>Tente usar um navegador diferente (Chrome, Firefox, Safari, Edge)</li>
+                                    <li>Verifique se há atualizações disponíveis para seu navegador</li>
+                                    <li>Desative extensões temporariamente — algumas podem interferir com o funcionamento</li>
+                                    <li>No modo privado/incógnito, extensões são desativadas automaticamente — teste nesse modo</li>
+                                </ul>
+                                
+                                <h3>Problemas específicos por plataforma</h3>
+                                <p><strong>Em computadores:</strong></p>
+                                <ul>
+                                    <li>Verifique se há espaço suficiente em disco para o processamento de arquivos grandes</li>
+                                    <li>Feche outros programas que possam estar consumindo muitos recursos</li>
+                                    <li>Verifique se seu antivírus está bloqueando alguma operação do W.Tracks</li>
+                                </ul>
+                                
+                                <p><strong>Em dispositivos móveis:</strong></p>
+                                <ul>
+                                    <li>Verifique se o aplicativo tem permissão para acessar armazenamento</li>
+                                    <li>Certifique-se de que há espaço suficiente no dispositivo</li>
+                                    <li>Em iOS, verifique as configurações de privacidade do aplicativo</li>
+                                    <li>Em Android, verifique as permissões de armazenamento nas configurações do app</li>
+                                </ul>
+                                
+                                <h3>Quando entrar em contato com o suporte</h3>
+                                <p>Se você tentou todas as soluções acima e o problema persiste, entre em contato com o suporte. Para ajudar a resolver o problema mais rapidamente, forneça estas informações:</p>
+                                <ul>
+                                    <li>Qual navegador e versão você está usando</li>
+                                    <li>Qual sistema operacional (Windows, Mac, Linux, iOS, Android, etc.)</li>
+                                    <li>O formato do arquivo que não está carregando</li>
+                                    <li>O tamanho do arquivo</li>
+                                    <li>Se o problema acontece com todos os arquivos ou apenas com arquivos específicos</li>
+                                    <li>Se o problema começou recentemente ou sempre existiu desde que você começou a usar</li>
+                                    <li>Qualquer mensagem de erro que você tenha visto</li>
+                                </ul>
+                                
+                                <h3>Prevenção de problemas futuros</h3>
+                                <p>Para evitar problemas de não-carregamento no futuro:</p>
+                                <ul>
+                                    <li>Use sempre formatos de áudio amplamente compatíveis (MP3, WAV)</li>
+                                    <li>Mantenha seu navegador e sistema operacional atualizados</li>
+                                    <li>Use conexões de internet estáveis para uploads e downloads</li>
+                                    <li>Verifique a integridade dos arquivos antes de fazer upload</li>
+                                    <li>Mantenha espaço livre suficiente em disco para processamento</li>
+                                </ul>
+                            `
+                        },
+                        {
+                            id: 'app-fecha-sozinho',
+                            title: 'O que fazer se o app fechar sozinho?',
+                            content: `
+                                <p>Quando o W.Tracks fecha sozinho inesperadamente, geralmente é devido a problemas de recursos — especifically memória ou processamento. O W.Tracks é uma aplicação intensiva em recursos, especialmente quando trabalha com projetos grandes, muitos arquivos de áudio simultâneos, ou processamento complexo de efeitos. Entender por que isso acontece ajuda a resolver o problema e melhorar a estabilidade.</p>
+                                
+                                <h3>Causas principais de fechamento inesperado</h3>
+                                <p>As causas mais comuns para o app fechar sozinho incluem:</p>
+                                <ul>
+                                    <li><strong>Excesso de memória:</strong> O projeto requer mais memória RAM do que está disponível</li>
+                                    <li><strong>Processamento sobrecarregado:</strong> Muitas tracks simultâneas exigindo processamento em tempo real</li>
+                                    <li><strong>Arquivos muito grandes:</strong> Arquivos de áudio de alta qualidade consomem muitos recursos</li>
+                                    <li><strong>Conflitos de software:</strong> Outros programas competindo pelos mesmos recursos</li>
+                                    <li><strong>Problemas de navegador:</strong> Versões desatualizadas ou bugs específicos de certos navegadores</li>
+                                    <li><strong>Dispositivo insuficiente:</strong> Hardware muito antigo ou abaixo dos requisitos mínimos</li>
+                                </ul>
+                                
+                                <h3>Soluções imediatas</h3>
+                                <p>Quando o app fecha sozinho, tente estas soluções imediatas:</p>
+                                
+                                <p><strong>1. Feche outros programas e abas</strong></p>
+                                <ul>
+                                    <li>Feche outras abas do navegador que não esteja usando</li>
+                                    <li>Feche outros programas pesados (editores de vídeo, jogos, etc.)</li>
+                                    <li>No gerenciador de tarefas, verifique quais programas estão consumindo mais recursos</li>
+                                    <li>Desative temporariamente antivírus ou firewalls se suspeitar que estão interferindo</li>
+                                </ul>
+                                
+                                <p><strong>2. Reduza a complexidade do projeto</strong></p>
+                                <ul>
+                                    <li>Se o projeto tem muitas tracks, considere dividir em projetos menores</li>
+                                    <li>Use mute em tracks que não está ouvindo para reduzir processamento</li>
+                                    <li>Reduza o número de efeitos ativos simultaneamente</li>
+                                    <li>Use arquivos de áudio com menor qualidade se possível (MP3 em vez de WAV)</li>
+                                </ul>
+                                
+                                <p><strong>3. Otimize seu dispositivo</strong></p>
+                                <ul>
+                                    <li>Reinicie seu computador ou dispositivo móvel para liberar recursos</li>
+                                    <li>Verifique se há atualizações de sistema disponíveis</li>
+                                    <li>Em computadores, considere adicionar mais memória RAM se possível</li>
+                                    <li>Verifique o espaço em disco — pouco espaço livre pode causar problemas de performance</li>
+                                </ul>
+                                
+                                <p><strong>4. Ajuste as configurações do navegador</strong></p>
+                                <ul>
+                                    <li>Aumente o limite de memória do navegador se a opção estiver disponível</li>
+                                    <li>Desabilite aceleração de hardware se estiver causando problemas</li>
+                                    <li>Use um navegador mais eficiente (Chrome geralmente gerencia memória melhor que outros)</li>
+                                    <li>Limpe o cache e cookies do navegador</li>
+                                </ul>
+                                
+                                <h3>Soluções específicas por plataforma</h3>
+                                <p><strong>Em computadores Windows:</strong></p>
+                                <ul>
+                                    <li>Abra o Gerenciador de Tarefas para ver o uso de recursos</li>
+                                    <li>Verifique se há atualizações de drivers disponíveis</li>
+                                    <li>Desabilite programas de inicialização automática que não são necessários</li>
+                                    <li>Execute uma verificação de malware para garantir que não há programas maliciosos consumindo recursos</li>
+                                </ul>
+                                
+                                <p><strong>Em computadores Mac:</strong></p>
+                                <ul>
+                                    <li>Abra o Monitor de Atividade para ver o uso de recursos</li>
+                                    <li>Verifique se há atualizações de macOS disponíveis</li>
+                                    <li>Gerencie itens de login para reduzir programas em execução automática</li>
+                                    <li>Reinicie em modo de segurança para testar se o problema persiste</li>
+                                </ul>
+                                
+                                <p><strong>Em dispositivos móveis (iOS/Android):</strong></p>
+                                <ul>
+                                    <li>Feche todos os outros aplicativos em segundo plano</li>
+                                    <li>Reinicie o dispositivo completamente</li>
+                                    <li>Verifique se há atualizações do sistema disponíveis</li>
+                                    <li>Em Android, verifique as configurações de desenvolvedor para limites de memória</li>
+                                    <li>Considere usar um dispositivo mais potente se o problema for recorrente</li>
+                                </ul>
+                                
+                                <h3>Prevenção de fechamentos futuros</h3>
+                                <p>Para evitar que o app feche sozinho no futuro:</p>
+                                <ul>
+                                    <li>Gerencie seus projetos para não ficarem excessivamente grandes</li>
+                                    <li>Use formatos de áudio otimizados (MP3 em vez de WAV quando possível)</li>
+                                    <li>Mantenha seu dispositivo limpo de programas desnecessários</li>
+                                    <li>Atualize regularmente navegador, sistema e drivers</li>
+                                    <li>Monitore o uso de recursos enquanto trabalha para identificar padrões</li>
+                                </ul>
+                                
+                                <h3>Quando o problema indica hardware insuficiente</h3>
+                                <p>Se você consistentemente enfrenta fechamentos mesmo após otimizações, pode ser que seu hardware não seja adequado para o tipo de trabalho que está tentando fazer:</p>
+                                <ul>
+                                    <li>Considere usar um computador mais potente para projetos grandes</li>
+                                    <li>Para projetos profissionais, verifique os requisitos recomendados do W.Tracks</li>
+                                    <li>Em alguns casos, usar a versão desktop do aplicativo (se disponível) pode ser mais estável que a versão web</li>
+                                </ul>
+                                
+                                <h3>Relatando o problema ao suporte</h3>
+                                <p>Se o problema persistir mesmo após tentar todas as soluções, entre em contato com o suporte com estas informações:</p>
+                                <ul>
+                                    <li>Seu hardware (modelo de computador/dispositivo, quantidade de RAM, processador)</li>
+                                    <li>Seu sistema operacional e versão</li>
+                                    <li>Navegador e versão</li>
+                                    <li>Tamanho e complexidade do projeto (número de tracks, tamanho dos arquivos)</li>
+                                    <li>Se o problema acontece com todos os projetos ou apenas com projetos específicos</li>
+                                    <li>Se há algum padrão (por exemplo, sempre acontece quando você adiciona uma nova track)</li>
+                                </ul>
+                                
+                                <h3>Salvamento automático</h3>
+                                <p>O W.Tracks implementa salvamento automático para minimizar perdas de trabalho em caso de fechamentos inesperados. Se o app fechar sozinho, geralmente seu trabalho mais recente é preservado. Ao reabrir o projeto, verifique se há um aviso sobre recuperação de trabalho não salvo — isso indica que o sistema detectou o fechamento anormal e preservou seu progresso.</p>
+                            `
+                        },
+                        {
+                            id: 'modo-offline',
+                            title: 'Como funciona o modo offline?',
+                            content: `
+                                <p>O modo offline do W.Tracks permite que você continue trabalhando mesmo sem conexão com a internet, embora com algumas limitações. Esta funcionalidade é especialmente útil para músicos que trabalham em locais com conectividade instável, em viagens, ou simplesmente preferem ter a opção de trabalhar desconectados. Entender como funciona o modo offline ajuda a gerenciar expectativas e aproveitar melhor essa funcionalidade.</p>
+                                
+                                <h3>O que funciona offline</h3>
+                                <p>Quando você está sem conexão com a internet, várias funcionalidades continuam disponível:</p>
+                                <ul>
+                                    <li><strong>Projetos já baixados:</strong> Projetos que você já acessou anteriormente e foram baixados para seu dispositivo ficam disponíveis offline</li>
+                                    <li><strong>Reprodução de áudio:</strong> Você pode ouvir músicas que já estão em cache local</li>
+                                    <li><strong>Controles do mixer:</strong> Faders, pan, mute e solo funcionam normalmente em projetos baixados</li>
+                                    <li><strong>Loops e efeitos básicos:</strong> Funcionalidades que não dependem de comunicação com servidores continuam operando</li>
+                                    <li><strong>Edição local:</strong> Alterações que ficam salvas localmente podem ser feitas e sincronizadas depois</li>
+                                </ul>
+                                
+                                <h3>O que não funciona offline</h3>
+                                <p>Algumas funcionalidades requerem conexão e ficam indisponíveis offline:</p>
+                                <ul>
+                                    <li><strong>Novos uploads:</strong> Você não pode fazer upload de novos arquivos de áudio sem conexão</li>
+                                    <li><strong>Download de projetos:</strong> Projetos que ainda não foram baixados não ficam disponíveis</li>
+                                    <li><strong>Sincronização:</strong> Alterações feitas offline não são sincronizadas até a conexão voltar</li>
+                                    <li><strong>Recursos de nuvem:</strong> Funcionalidades que dependem da nuvem ficam limitadas</li>
+                                    <li><strong>Atualizações:</strong> O app não pode verificar por atualizações ou baixar novas versões</li>
+                                    <li><strong>Colaboração:</strong> Recursos que envolvem comunicação com outros usuários não funcionam</li>
+                                </ul>
+                                
+                                <h3>Como o cache local funciona</h3>
+                                <p>O W.Tracks usa um sistema inteligente de cache para permitir funcionamento offline:</p>
+                                <ul>
+                                    <li>Quando você acessa um projeto pela primeira vez, os arquivos são baixados para cache local</li>
+                                    <li>Esse cache persiste mesmo quando você fecha o navegador ou o app</li>
+                                    <li>O sistema gerencia automaticamente o espaço do cache, removendo arquivos antigos quando necessário</li>
+                                    <li>Projetos que você usa com frequência tendem a permanecer mais tempo no cache</li>
+                                    <li>Você pode controlar manualmente quais projetos manter offline (se essa opção estiver disponível)</li>
+                                </ul>
+                                
+                                <h3>Sincronização quando a conexão volta</h3>
+                                <p>Quando você reconecta à internet, a sincronização ocorre automaticamente:</p>
+                                <ul>
+                                    <li>Alterações feitas offline são enviadas para a nuvem</li>
+                                    <li>Atualizações feitas em outros dispositivos são baixadas</li>
+                                    <li>Conflitos são resolvidos automaticamente quando possível</li>
+                                    <li>O sistema notifica se houver problemas que precisem de atenção manual</li>
+                                </ul>
+                                
+                                <h3>Gerenciamento de cache offline</h3>
+                                <p>Para otimizar o funcionamento offline:</p>
+                                <ul>
+                                    <li>Antes de ficar offline, acesse os projetos que você pretende usar para garantir que estejam em cache</li>
+                                    <li>Se você tem muitos projetos, priorize os mais importantes para manter offline</li>
+                                    <li>Em dispositivos com pouco armazenamento, o cache pode ser limitado — gerencie conscientemente</li>
+                                    <li>Limpe o cache periodicamente se estiver ocupando muito espaço</li>
+                                </ul>
+                                
+                                <h3>Limitações do modo offline</h3>
+                                <p>É importante entender as limitações do modo offline:</p>
+                                <ul>
+                                    <li>O espaço disponível em cache é limitado pelo armazenamento do dispositivo</li>
+                                    <li>Projetos muito grandes podem não caber completamente no cache</li>
+                                    <li>A funcionalidade offline é complementar, não substituta completa para uso conectado</li>
+                                    <li>Alguns recursos avançados podem estar sempre indisponíveis offline</li>
+                                </ul>
+                                
+                                <h3>Uso prático do modo offline</h3>
+                                <p>Cenários onde o modo offline é especialmente útil:</p>
+                                <ul>
+                                    <li><strong>Viagens:</strong> Trabalhar em aviões, trens ou locais com Wi-Fi instável</li>
+                                    <li><strong>Apresentações ao vivo:</strong> Ter certeza de que o material estará disponível mesmo se a rede falhar</li>
+                                    <li><strong>Áreas remotas:</strong> Trabalhar em locais com conectividade limitada ou inexistente</li>
+                                    <li><strong>Economia de dados:</strong> Pré-baixar projetos para usar depois sem consumir dados móveis</li>
+                                </ul>
+                                
+                                <h3>Recomendações para melhor experiência offline</h3>
+                                <p>Para aproveitar ao máximo o modo offline:</p>
+                                <ul>
+                                    <li>Planeje antecipadamente — baixe os projetos necessários antes de ficar offline</li>
+                                    <li>Gerencie o espaço de armazenamento do dispositivo para ter cache suficiente</li>
+                                    <li>Teste o funcionamento offline antes de situações críticas (apresentações, etc.)</li>
+                                    <li>Mantenha uma conexão estável sempre que possível para sincronização regular</li>
+                                    <li>Entenda quais funcionalidades são essenciais offline e quais podem esperar</li>
+                                </ul>
+                                
+                                <h3>Desempenho offline vs online</h3>
+                                <p>Geralmente, o desempenho offline é excelente ou até melhor que online, pois:</p>
+                                <ul>
+                                    <li>Não há latência de rede — tudo é carregado localmente</li>
+                                    <li>Não há dependência da velocidade da conexão</li>
+                                    <li>O processamento é inteiramente local, sem comunicação com servidores</li>
+                                </ul>
+                                
+                                <p>No entanto, você perde os benefícios da nuvem — sincronização, backup automático, acesso multi-dispositivo. Por isso, o modo offline é ideal para situações temporárias, mas o uso conectado continua sendo recomendado para a experiência completa do W.Tracks.</p>
+                                
+                                <h3>Futuro do modo offline</h3>
+                                <p>O sistema offline do W.Tracks está em constante evolução. Recursos futuros podem incluir:</p>
+                                <ul>
+                                    <li>Controle mais granular sobre quais projetos manter offline</li>
+                                    <li>Indicadores claros de quais projetos estão disponíveis offline</li>
+                                    <li>Sincronização seletiva (escolher o que sincronizar quando a conexão voltar)</li>
+                                    <li>Melhor gerenciamento de espaço e priorização de cache</li>
+                                </ul>
+                            `
+                        }
+                    ]
+                },
+                {
+                    id: 'sincronizacao',
+                    title: 'Sincronização entre Dispositivos',
+                    questions: [
+                        {
+                            id: 'como-funciona-sync',
+                            title: 'Como funciona a sincronização?',
+                            content: `
+                                <div class="info-box">
+                                    <strong>Recurso Track Pro:</strong> A sincronização na nuvem está disponível exclusivamente no plano Track Pro. Usuários do plano gratuito não têm acesso a este recurso.
+                                </div>
+                                
+                                <p>A sincronização entre dispositivos é uma das funcionalidades mais poderosas do W.Tracks, permitindo que você acesse seus projetos e músicas de qualquer lugar, em qualquer dispositivo, sem precisar transferir arquivos manualmente. Esta funcionalidade transforma o W.Tracks de uma simples ferramenta de reprodução em um ecossistema completo onde seu trabalho musical acompanha você para onde quer que vá.</p>
+                                
+                                <h3>Conceito fundamental: nuvem vinculada à conta</h3>
+                                <p>A sincronização funciona através de um conceito simples mas poderoso: seus dados ficam salvos na nuvem associados à sua conta de usuário, não ao aparelho específico que você está usando. Isso significa que seus projetos não ficam "presos" no computador onde foram criados — eles existem independentemente de qualquer dispositivo físico, acessíveis sempre que você fizer login.</p>
+                                
+                                <p>Quando você cria um projeto, adiciona músicas ou faz alterações no mixer, tudo isso é enviado automaticamente para a nuvem e vinculado ao seu perfil. A nuvem funciona como um repositório central que mantém seus dados seguros e disponíveis, servindo como fonte única de verdade para suas informações.</p>
+                                
+                                <h3>Processo de salvamento na nuvem</h3>
+                                <p>O salvamento na nuvem acontece de forma automática e transparente. Sempre que você faz uma alteração significativa — cria um projeto, adiciona uma track, ajusta o mixer — o sistema envia essas informações para a nuvem em tempo real. Você não precisa clicar em "salvar" ou "sincronizar" manualmente; o processo é contínuo e acontece nos bastidores enquanto você trabalha.</p>
+                                
+                                <p>Esse salvamento automático inclui todas as informações do projeto: metadados (nome, capa, descrição), configurações do mixer (volumes, pan, mute, solo), e os próprios arquivos de áudio das tracks. Tudo é enviado de forma segura e criptografada, garantindo que seus dados estejam protegidos durante o trânsito e no armazenamento.</p>
+                                
+                                <h3>Acesso em outros dispositivos</h3>
+                                <p>A mágica da sincronização acontece quando você acessa o W.Tracks em outro dispositivo. O processo é surpreendentemente simples:</p>
+                                <ul>
+                                    <li>Abra o W.Tracks no novo dispositivo (computador, tablet ou celular)</li>
+                                    <li>Faça login com as mesmas credenciais (e-mail e senha) que você usa no dispositivo original</li>
+                                    <li>O sistema reconhece sua conta e conecta-se à nuvem onde seus dados estão salvos</li>
+                                    <li>Sua biblioteca de projetos aparece automaticamente, exatamente como você deixou no outro dispositivo</li>
+                                    <li>Todas as configurações e preferências também são carregadas</li>
+                                </ul>
+                                
+                                <p>Não há necessidade de configurar nada adicional, não há necessidade de transferir arquivos manualmente, e não há necessidade de escolher quais projetos sincronizar — tudo acontece automaticamente e de forma inteligente.</p>
+                                
+                                <h3>Download sob demanda (sob demanda)</h3>
+                                <p>Um aspecto crucial da sincronização do W.Tracks é o sistema de download sob demanda. Quando você troca de dispositivo, o app baixa localmente apenas o que você for usar naquele momento, não todos os seus arquivos de uma vez. Esta abordagem inteligente traz vários benefícios importantes:</p>
+                                
+                                <ul>
+                                    <li><strong>Economia de espaço:</strong> Se você tem muitos projetos com arquivos grandes, baixar tudo de uma vez encheria rapidamente o armazenamento do dispositivo. Com download sob demanda, apenas os projetos que você realmente usa ocupam espaço local</li>
+                                    <li><strong>Economia de dados:</strong> Em conexões móveis com limite de dados, baixar tudo consumiria sua cota rapidamente. O download sob demanda usa dados apenas quando necessário</li>
+                                    <li><strong>Velocidade:</strong> Baixar apenas o essencial significa que o app fica disponível para uso mais rápido, sem esperar grandes downloads completos</li>
+                                    <li><strong>Flexibilidade:</strong> Você pode ter milhares de projetos na nuvem, mas apenas alguns ocupam espaço no seu dispositivo</li>
+                                </ul>
+                                
+                                <h3>Como funciona o download sob demanda?</h3>
+                                <p>O sistema funciona de forma inteligente e previsível:</p>
+                                <ul>
+                                    <li>Quando você abre um projeto pela primeira vez em um novo dispositivo, os metadados (nome, capa, configurações) são baixados imediatamente — isso é rápido pois são apenas informações textuais</li>
+                                    <li>Os arquivos de áudio só são baixados quando você realmente precisa tocá-los — ou seja, quando você dá play naquele projeto</li>
+                                    <li>Se você tem um projeto com 10 tracks, o sistema pode baixar apenas as tracks que você realmente ouve, deixando as outras para baixar apenas se você decidir tocá-las</li>
+                                    <li>Arquivos baixados ficam em cache local, então se você ouvir o mesmo projeto novamente, não precisará baixar de novo</li>
+                                    <li>O sistema gerencia automaticamente o cache, removendo arquivos antigos não usados quando o espaço começa a ficar escasso</li>
+                                </ul>
+                                
+                                <h3>Sincronização bidirecional</h3>
+                                <p>A sincronização não é apenas de nuvem para dispositivo — ela funciona nos dois sentidos. Se você fizer alterações no celular, essas alterações são enviadas para a nuvem e ficam disponíveis no computador. Se você criar um novo projeto no tablet, ele aparecerá no computador e no celular. Todos os dispositivos sincronizados com sua conta ficam consistentes entre si, com a nuvem servindo como ponto central de coordenação.</p>
+                                
+                                <h3>Resolução de conflitos</h3>
+                                <p>Em situações raras onde você edita o mesmo projeto em dois dispositivos simultaneamente sem conexão, o sistema de sincronização precisa resolver conflitos. O W.Tracks usa estratégias inteligentes para isso, geralmente priorizando a versão mais recente ou mesclando alterações quando possível. Em casos extremos, você pode ser solicitado a escolher qual versão manter, mas o sistema é projetado para minimizar essas situações.</p>
+                                
+                                <h3>Segurança na sincronização</h3>
+                                <p>Toda a comunicação entre seu dispositivo e a nuvem é criptografada, garantindo que seus dados estejam protegidos durante o trânsito. Além disso, o acesso à nuvem é controlado estritamente pela sua autenticação — apenas dispositivos onde você faz login com suas credenciais podem acessar seus dados. Se você perder um dispositivo, pode revogar o acesso remotamente através das configurações da conta.</p>
+                                
+                                <h3>Benefícios práticos do dia a dia</h3>
+                                <p>A sincronização transforma o fluxo de trabalho musical:</p>
+                                <ul>
+                                    <li>Comece um projeto no computador em casa, continue no tablet durante o trajeto, finalize no celular no estúdio</li>
+                                    <li>Compartilhe projetos com colaboradores sem precisar enviar arquivos grandes por e-mail</li>
+                                    <li>Backup automático — seus projetos estão sempre seguros na nuvem, mesmo se seu computador falhar</li>
+                                    <li>Acesse sua biblioteca completa de qualquer lugar, sem precisar carregar HDs externos</li>
+                                    <li>Trabalhe em múltiplos projetos simultaneamente em diferentes dispositivos sem conflitos</li>
+                                </ul>
+                                
+                                <h3>Limitações e considerações</h3>
+                                <p>Embora poderosa, a sincronização tem algumas limitações a considerar:</p>
+                                <ul>
+                                    <li>Requer conexão com internet para funcionar — sem conexão, você só acessa o que já foi baixado localmente</li>
+                                    <li>Grandes projetos podem demorar para baixar na primeira vez, dependendo da velocidade da conexão</li>
+                                    <li>O plano gratuito não inclui sincronização — este é um recurso exclusivo do Track Pro</li>
+                                    <li>Dispositivos muito antigos podem ter dificuldade com projetos muito grandes</li>
+                                </ul>
+                                
+                                <h3>Futuro da sincronização</h3>
+                                <p>O sistema de sincronização do W.Tracks está em constante evolução. Recursos futuros podem incluir sincronização seletiva (escolher quais projetos sincronizar), compartilhamento colaborativo em tempo real, e otimizações ainda mais inteligentes de cache e download. A infraestrutura está sendo construída para escalar conforme mais usuários adotam o recurso.</p>
+                            `
+                        }
+                    ]
+                },
+                {
+                    id: 'seguranca-privacidade',
+                    title: 'Segurança e Privacidade',
+                    questions: [
+                        {
+                            id: 'como-funciona-login',
+                            title: 'Como funciona o login?',
+                            content: `
+                                <p>O sistema de login do W.Tracks é projetado com segurança como prioridade absoluta, usando autenticação robusta por e-mail e senha combinada com práticas modernas de proteção de identidade. O login não é apenas uma porta de entrada — é um sistema completo de segurança que protege sua conta, seus dados e sua privacidade em múltiplas camadas.</p>
+                                
+                                <h3>Processo de autenticação</h3>
+                                <p>Quando você faz login no W.Tracks, ocorre um processo de autenticação em várias etapas:</p>
+                                <ul>
+                                    <li>Você insere seu e-mail e senha na interface de login</li>
+                                    <li>O sistema criptografa essas informações antes de enviá-las pela rede</li>
+                                    <li>As credenciais criptografadas são enviadas para os servidores do W.Tracks</li>
+                                    <li>O sistema verifica se o e-mail corresponde a uma conta existente</li>
+                                    <li>A senha é comparada com a versão criptografada armazenada — nunca com a senha em texto original</li>
+                                    <li>Se as credenciais estiverem corretas, o sistema cria um acesso temporário seguro</li>
+                                    <li>Esse acesso temporário é enviado de volta ao seu dispositivo e armazenado localmente</li>
+                                </ul>
+                                
+                                <h3>O acesso temporário (sessão)</h3>
+                                <p>Após o login bem-sucedido, o sistema cria um acesso temporário que funciona como sua identidade durante o uso. Esse acesso temporário tem várias características importantes:</p>
+                                <ul>
+                                    <li><strong>É exclusivo para seu dispositivo:</strong> Cada login gera um acesso temporário único que só funciona naquele dispositivo específico</li>
+                                    <li><strong>Tem validade limitada:</strong> O acesso expira após um período de inatividade por segurança — se você não usar por um tempo, precisa fazer login novamente</li>
+                                    <li><strong>É revogável:</strong> Se você fizer logout ou se houver suspeita de comprometimento, o acesso pode ser revogado imediatamente</li>
+                                    <li><strong>Contém informações limitadas:</strong> O acesso temporário não contém sua senha, apenas informações mínimas necessárias para identificar você</li>
+                                </ul>
+                                
+                                <p>Esse sistema de acesso temporário permite que você continue usando o W.Tracks sem precisar digitar a senha toda vez, ao mesmo tempo em que mantém segurança — se alguém obtiver acesso ao seu dispositivo, não conseguirá usar suas credenciais em outros dispositivos, e o acesso expirará automaticamente após um período.</p>
+                                
+                                <h3>Proteção da senha</h3>
+                                <div class="info-box">
+                                    <strong>Crucial:</strong> Sua senha nunca é armazenada em texto puro ou visível. Ela é protegida com técnicas de segurança avançadas que impedem que alguém possa vê-la, mesmo que tenha acesso físico aos sistemas internos ou aos bancos de dados.
+                                </div>
+                                
+                                <p>A proteção da senha funciona através de um processo chamado "hashing". Quando você cria sua conta ou altera sua senha:</p>
+                                <ul>
+                                    <li>A senha é transformada matematicamente em uma sequência de caracteres aparentemente aleatória (o hash)</li>
+                                    <li>Essa transformação é unidirecional — não é possível reverter o hash para obter a senha original</li>
+                                    <li>Apenas o hash é armazenado nos sistemas do W.Tracks, nunca a senha em si</li>
+                                    <li>Quando você faz login, a senha que você digita passa pelo mesmo processo de hashing</li>
+                                    <li>O sistema compara os hashes — se forem idênticos, a senha está correta</li>
+                                </ul>
+                                
+                                <p>Isso significa que mesmo se alguém obtivesse acesso aos bancos de dados do W.Tracks, não conseguiria descobrir sua senha, pois apenas o hash estaria disponível, e não é possível reverter o hash para obter a senha original.</p>
+                                
+                                <h3>Expiração por segurança</h3>
+                                <p>O acesso temporário expira por segurança — isso é normal e intencional. A expiração ocorre em várias situações:</p>
+                                <ul>
+                                    <li><strong>Inatividade:</strong> Se você não usar o W.Tracks por um período prolongado (geralmente dias ou semanas), o acesso expira automaticamente</li>
+                                    <li><strong>Logout manual:</strong> Quando você clica em "Sair", o acesso é revogado imediatamente</li>
+                                    <li><strong>Mudança de senha:</strong> Se você alterar sua senha, todos os acessos temporários existentes são invalidados</li>
+                                    <li><strong>Suspeita de comprometimento:</strong> Se o sistema detectar atividade suspeita, pode revogar acessos preventivamente</li>
+                                </ul>
+                                
+                                <p>Quando o acesso expira, você só precisa fazer login novamente. Isso pode parecer inconveniente, mas é uma medida importante de segurança que protege sua conta contra uso não autorizado.</p>
+                                
+                                <h3>Detecção de atividades suspeitas</h3>
+                                <p>O sistema de login monitora atividades para detectar comportamentos anormais que possam indicar comprometimento da conta. Isso inclui:</p>
+                                <ul>
+                                    <li>Tentativas de login de locais geográficos incomuns</li>
+                                    <li>Múltiplas tentativas de login falhas consecutivas</li>
+                                    <li>Login em dispositivos completamente diferentes dos usuais</li>
+                                    <li>Padrões de uso que diferem drasticamente do normal</li>
+                                </ul>
+                                
+                                <p>Quando o sistema detecta algo suspeito, pode tomar medidas como exigir verificação adicional, bloquear temporariamente o acesso, ou notificar você sobre a atividade incomum.</p>
+                                
+                                <h3>Recuperação de conta</h3>
+                                <p>Se você esquecer sua senha ou suspeitar que sua conta foi comprometida, o processo de recuperação é seguro:</p>
+                                <ul>
+                                    <li>A recuperação é iniciada através do e-mail cadastrado na conta</li>
+                                    <li>Um link seguro é enviado para seu e-mail, válido por tempo limitado</li>
+                                    <li>Apenas alguém com acesso ao e-mail pode recuperar a conta</li>
+                                    <li>Após a recuperação, todos os acessos temporários existentes são revogados</li>
+                                    <li>Você é incentivado a criar uma nova senha forte</li>
+                                </ul>
+                                
+                                <h3>Boas práticas de segurança</h3>
+                                <p>Embora o W.Tracks implemente robustas medidas de segurança, sua própria segurança também depende de boas práticas:</p>
+                                <ul>
+                                    <li>Use senhas fortes e únicas para o W.Tracks — não reutilize senhas de outros sites</li>
+                                    <li>Nunca compartilhe sua senha com outras pessoas</li>
+                                    <li>Seja cauteloso com e-mails de phishing que parecem ser do W.Tracks mas não são</li>
+                                    <li>Mantenha seu e-mail de recuperação seguro e atualizado</li>
+                                    <li>Se você notar atividade incomum na sua conta, altere a senha imediatamente</li>
+                                </ul>
+                                
+                                <h3>Segurança em múltiplos dispositivos</h3>
+                                <p>Quando você faz login em múltiplos dispositivos, cada um recebe seu próprio acesso temporário independente. Isso significa que você pode revogar o acesso de um dispositivo específico sem afetar os outros. Se você perder um dispositivo ou vender um aparelho, pode remover o acesso daquele dispositivo especificamente através das configurações da conta.</p>
+                            `
+                        },
+                        {
+                            id: 'musicas-protegidas',
+                            title: 'Como as músicas ficam protegidas?',
+                            content: `
+                                <p>A proteção das suas músicas no W.Tracks é implementada através de múltiplas camadas de segurança que trabalham juntas para garantir que seus arquivos de áudio permaneçam privados, seguros e acessíveis apenas para você. Essa proteção abrange desde o momento em que você faz upload dos arquivos até o armazenamento de longo prazo, passando pelo trânsito pela rede e pelo acesso em múltiplos dispositivos.</p>
+                                
+                                <h3>Criptografia durante o upload</h3>
+                                <p>Quando você faz upload de arquivos de áudio para o W.Tracks, a proteção começa imediatamente. Os arquivos são criptografados antes mesmo de deixarem seu dispositivo. Isso significa que:</p>
+                                <ul>
+                                    <li>O conteúdo dos arquivos é transformado em um formato codificado que não pode ser lido sem a chave de descriptografia correta</li>
+                                    <li>A criptografia acontece no seu dispositivo, antes do envio pela rede</li>
+                                    <li>Mesmo se alguém interceptasse a comunicação durante o upload, não conseguiria ler o conteúdo dos arquivos</li>
+                                    <li>A chave de descriptografia nunca é enviada junto com os arquivos — ela permanece separada e protegida</li>
+                                </ul>
+                                
+                                <h3>Criptografia da conexão (trânsito)</h3>
+                                <p>A conexão entre seu dispositivo e os servidores do W.Tracks é criptografada usando os mesmos padrões de segurança que bancos e serviços financeiros usam. É esse o famoso "cadeado" que você vê no navegador — ele indica que toda a comunicação está protegida.</p>
+                                
+                                <p>Essa criptografia de trânsito significa que:</p>
+                                <ul>
+                                    <li>Todos os dados enviados e recebidos são codificados durante a viagem pela internet</li>
+                                    <li>Mesmo que alguém conseguisse interceptar a comunicação (por exemplo, em uma rede Wi-Fi pública), não conseguiria ler o conteúdo</li>
+                                    <li>A criptografia é negociada automaticamente entre seu navegador e os servidores — você não precisa configurar nada</li>
+                                    <li>Certificados digitais garantem que você está realmente se comunicando com os servidores do W.Tracks e não com um impostor</li>
+                                </ul>
+                                
+                                <h3>Criptografia no armazenamento</h3>
+                                <p>Depois que os arquivos chegam aos servidores do W.Tracks, eles continuam criptografados. O armazenamento em disco também é protegido:</p>
+                                <ul>
+                                    <li>Os arquivos são armazenados em formato criptografado nos servidores</li>
+                                    <li>Apenas o sistema do W.Tracks tem acesso às chaves necessárias para descriptografar os arquivos quando necessário</li>
+                                    <li>Mesmo alguém com acesso físico aos servidores não conseguiria ler o conteúdo dos arquivos sem as chaves apropriadas</li>
+                                    <li>Backups e cópias de segurança também são criptografados usando as mesmas chaves</li>
+                                </ul>
+                                
+                                <h3>Isolamento de contas (segregação de dados)</h3>
+                                <p>Uma das proteções mais importantes é o isolamento completo entre contas de usuários. Cada usuário só tem acesso às próprias músicas e projetos:</p>
+                                <ul>
+                                    <li>Os dados de cada conta são segregados — não há banco de dados compartilhado onde alguém poderia ver projetos de outros usuários</li>
+                                    <li>O sistema de autenticação garante que cada solicitação de acesso seja verificada contra a identidade do usuário</li>
+                                    <li>Mesmo administradores do sistema não têm acesso aos arquivos de áudio dos usuários sem autorização explícita</li>
+                                    <li>Projetos são vinculados matematicamente à conta do criador — não é possível "acidentalmente" acessar projetos de outra pessoa</li>
+                                </ul>
+                                
+                                <p>Isso significa que ninguém mais consegue ver, baixar ou tocar as tracks de outra pessoa, mesmo estando logado no site. Cada conta é completamente isolada — seus projetos são visíveis apenas para você, e os projetos de outras pessoas são invisíveis para você.</p>
+                                
+                                <h3>Controle de acesso granular</h3>
+                                <p>O sistema de controle de acesso é granular e específico. Quando você faz uma solicitação — por exemplo, abrir um projeto — o sistema verifica:</p>
+                                <ul>
+                                    <li>Quem está fazendo a solicitação (sua identidade)</li>
+                                    <li>Se essa identidade tem permissão para acessar o recurso específico solicitado</li>
+                                    <li>Se a solicitação está dentro de padrões normais de uso</li>
+                                    <li>Se não há bloqueios ou restrições na conta</li>
+                                </ul>
+                                
+                                <p>Essa verificação acontece para cada operação, não apenas no login. Mesmo que alguém obtivesse seu acesso temporário, não conseguiria acessar projetos de outros usuários porque o sistema verificaria que aquele acesso não tem permissão para aqueles recursos específicos.</p>
+                                
+                                <h3>Privacidade dos arquivos de áudio</h3>
+                                <div class="info-box">
+                                    <strong>Privacidade garantida:</strong> Seus arquivos de áudio são privados. Não compartilhamos suas músicas com outros usuários, elas não ficam visíveis em nenhum lugar público do site, e não são usados para treinamento de sistemas ou outros propósitos sem seu consentimento explícito.
+                                </div>
+                                
+                                <p>Além da segurança técnica, há garantias de privacidade:</p>
+                                <ul>
+                                    <li>Seus arquivos não são indexados por mecanismos de busca públicos</li>
+                                    <li>Não há galerias ou bibliotecas públicas onde outros usuários possam ver seus projetos</li>
+                                    <li>O W.Tracks não vende ou compartilha seus dados com terceiros</li>
+                                    <li>Você tem controle completo sobre quem pode acessar seus projetos (no futuro, recursos de compartilhamento permitirão convidar colaboradores específicos)</li>
+                                </ul>
+                                
+                                <h3>Proteção contra acesso não autorizado</h3>
+                                <p>O sistema implementa múltiplas proteções contra acesso não autorizado:</p>
+                                <ul>
+                                    <li><strong>Rate limiting:</strong> Limita o número de tentativas de acesso para evitar ataques de força bruta</li>
+                                    <li><strong>Validação de entrada:</strong> Todas as entradas são validadas para evitar injeção de código ou outros ataques</li>
+                                    <li><strong>Monitoramento:</strong> Atividades suspeitas são detectadas e podem bloquear acessos automaticamente</li>
+                                    <li><strong>Revisão de segurança:</strong> O sistema é regularmente auditado por especialistas em segurança</li>
+                                </ul>
+                                
+                                <h3>Backup e recuperação</h3>
+                                <p>Seus arquivos são protegidos contra perda através de sistemas robustos de backup:</p>
+                                <ul>
+                                    <li>Backups automáticos são feitos regularmente em múltiplas localizações</li>
+                                    <li>Os backups também são criptografados usando as mesmas chaves</li>
+                                    <li>Em caso de falha de hardware, seus dados podem ser restaurados dos backups</li>
+                                    <li>O sistema é projetado para alta disponibilidade — é improvável que você perca dados devido a falhas técnicas</li>
+                                </ul>
+                                
+                                <h3>Seus direitos sobre seus dados</h3>
+                                <p>Você mantém direitos completos sobre seus arquivos de áudio:</p>
+                                <ul>
+                                    <li>Você pode baixar seus arquivos a qualquer momento (recursos de exportação)</li>
+                                    <li>Você pode excluir seus projetos e arquivos quando desejar</li>
+                                    <li>Se você excluir sua conta, todos os seus dados são removidos dos servidores</li>
+                                    <li>Você pode solicitar uma cópia dos seus dados para portabilidade</li>
+                                </ul>
+                                
+                                <h3>Transparência sobre segurança</h3>
+                                <p>O W.Tracks é transparente sobre suas práticas de segurança:</p>
+                                <ul>
+                                    <li>Políticas de privacidade claras explicam como seus dados são usados</li>
+                                    <li>Notificações são enviadas sobre alterações significativas nas políticas</li>
+                                    <li>Você pode entrar em contato com a equipe de segurança para dúvidas específicas</li>
+                                    <li>Vulnerabilidades de segurança são tratadas com prioridade máxima</li>
+                                </ul>
+                                
+                                <h3>Compartilhamento e colaboração (futuro)</h3>
+                                <p>No futuro, o W.Tracks pode implementar recursos de compartilhamento e colaboração. Quando isso acontecer, a segurança permanecerá prioritária:</p>
+                                <ul>
+                                    <li>Compartilhamento será explícito — você terá que conviar pessoas específicas</li>
+                                    <li>Você poderá definir níveis de permissão (visualização, edição, download)</li>
+                                    <li>Poderá revogar acesso a qualquer momento</li>
+                                    <li>Logs de atividade mostrarão quem acessou seus projetos e quando</li>
+                                </ul>
+                                
+                                <p>Até que esses recursos estejam disponíveis, seus projetos permanecem completamente privados e acessíveis apenas para você.</p>
+                            `
+                        }
+                    ]
+                }
+            ]
+        };
+
+        // ========================================
+        // RENDERIZAÇÃO DA SIDEBAR
+        // ========================================
+        function renderSidebar() {
+            const sidebar = document.getElementById('helpSidebar');
+            sidebar.innerHTML = '';
+            
+            helpData.topics.forEach(topic => {
+                const section = document.createElement('div');
+                section.className = 'help-sidebar-section';
+                
+                const title = document.createElement('div');
+                title.className = 'help-sidebar-title';
+                title.innerHTML = `
+                    ${topic.title}
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M6 9l6 6 6-6"/>
+                    </svg>
+                `;
+                title.onclick = () => toggleTopic(topic.id);
+                
+                const questionsList = document.createElement('div');
+                questionsList.className = 'help-sidebar-questions';
+                questionsList.id = `questions-${topic.id}`;
+                
+                topic.questions.forEach(question => {
+                    const questionLink = document.createElement('a');
+                    questionLink.className = 'help-sidebar-question';
+                    questionLink.textContent = question.title;
+                    questionLink.onclick = () => showQuestion(question.id);
+                    questionLink.dataset.questionId = question.id;
+                    questionsList.appendChild(questionLink);
+                });
+                
+                section.appendChild(title);
+                section.appendChild(questionsList);
+                sidebar.appendChild(section);
+            });
+        }
+
+        // ========================================
+        // RENDERIZAÇÃO DO CONTEÚDO
+        // ========================================
+        function renderContent() {
+            const content = document.getElementById('helpContent');
+            content.innerHTML = '';
+            
+            helpData.topics.forEach(topic => {
+                topic.questions.forEach(question => {
+                    const article = document.createElement('article');
+                    article.className = 'help-article';
+                    article.id = `article-${question.id}`;
+                    
+                    article.innerHTML = `
+                        <div class="help-back-btn" onclick="showDefaultView()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 12H5M12 19l-7-7 7-7"/>
+                            </svg>
+                            Voltar
+                        </div>
+                        <h2 class="help-article-title">${question.title}</h2>
+                        <div class="help-article-content">${question.content}</div>
+                    `;
+                    
+                    content.appendChild(article);
+                });
+            });
+            
+            // Tela inicial
+            const defaultView = document.createElement('div');
+            defaultView.className = 'help-article active';
+            defaultView.id = 'default-view';
+            defaultView.innerHTML = `
+                <h2 class="help-article-title">Bem-vindo à Central de Ajuda</h2>
+                <div class="help-article-content">
+                    <p>Selecione um tópico na barra lateral para encontrar respostas para suas dúvidas sobre o W.Tracks.</p>
+                    <p>Você também pode usar a barra de busca acima para encontrar informações específicas rapidamente.</p>
+                </div>
+            `;
+            content.appendChild(defaultView);
+        }
+
+        // ========================================
+        // NAVEGAÇÃO
+        // ========================================
+        function toggleTopic(topicId) {
+            const questionsList = document.getElementById(`questions-${topicId}`);
+            const title = questionsList.previousElementSibling;
+            
+            questionsList.classList.toggle('expanded');
+            title.classList.toggle('expanded');
+        }
+
+        function showQuestion(questionId) {
+            // Remove active de todos
+            document.querySelectorAll('.help-sidebar-question').forEach(q => q.classList.remove('active'));
+            document.querySelectorAll('.help-article').forEach(a => a.classList.remove('active'));
+            
+            // Adiciona active ao selecionado
+            const questionLink = document.querySelector(`[data-question-id="${questionId}"]`);
+            if (questionLink) questionLink.classList.add('active');
+            
+            const article = document.getElementById(`article-${questionId}`);
+            if (article) article.classList.add('active');
+            
+            // Fecha sidebar no mobile
+            closeMobileSidebar();
+        }
+
+        function showDefaultView() {
+            document.querySelectorAll('.help-sidebar-question').forEach(q => q.classList.remove('active'));
+            document.querySelectorAll('.help-article').forEach(a => a.classList.remove('active'));
+            
+            const defaultView = document.getElementById('default-view');
+            if (defaultView) defaultView.classList.add('active');
+        }
+
+        // ========================================
+        // BUSCA
+        // ========================================
+        const searchInput = document.getElementById('helpSearchInput');
+        const searchResults = document.getElementById('helpSearchResults');
+
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            
+            if (query.length < 2) {
+                searchResults.classList.remove('active');
+                return;
+            }
+            
+            const results = [];
+            
+            helpData.topics.forEach(topic => {
+                topic.questions.forEach(question => {
+                    const titleMatch = question.title.toLowerCase().includes(query);
+                    const contentMatch = question.content.toLowerCase().includes(query);
+                    
+                    if (titleMatch || contentMatch) {
+                        // Criar excerpt do conteúdo
+                        const plainContent = question.content.replace(/<[^>]*>/g, '');
+                        let excerpt = plainContent;
+                        
+                        if (contentMatch) {
+                            const index = plainContent.toLowerCase().indexOf(query);
+                            if (index !== -1) {
+                                const start = Math.max(0, index - 50);
+                                const end = Math.min(plainContent.length, index + 100);
+                                excerpt = '...' + plainContent.substring(start, end) + '...';
+                            }
+                        } else {
+                            excerpt = plainContent.substring(0, 150) + '...';
+                        }
+                        
+                        results.push({
+                            id: question.id,
+                            title: question.title,
+                            topic: topic.title,
+                            excerpt: excerpt
+                        });
+                    }
+                });
+            });
+            
+            if (results.length === 0) {
+                searchResults.innerHTML = `
+                    <div class="help-no-results">
+                        <p>Nenhum resultado encontrado para "${query}"</p>
+                        <p style="margin-top: 8px; font-size: 14px;">Tente outros termos ou entre em contato conosco.</p>
+                    </div>
+                `;
+            } else {
+                searchResults.innerHTML = results.map(result => `
+                    <div class="help-search-result-item" onclick="showQuestion('${result.id}'); searchInput.value = ''; searchResults.classList.remove('active');">
+                        <div class="help-result-title">${result.title}</div>
+                        <div class="help-result-topic">${result.topic}</div>
+                        <div class="help-result-excerpt">${result.excerpt}</div>
+                    </div>
+                `).join('');
+            }
+            
+            searchResults.classList.add('active');
+        });
+
+        // Fechar busca ao clicar fora
+        document.addEventListener('click', (e) => {
+            if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                searchResults.classList.remove('active');
+            }
+        });
+
+        // ========================================
+        // MOBILE SIDEBAR
+        // ========================================
+        const mobileMenuToggle = document.getElementById('helpMobileMenuToggle');
+        const sidebar = document.getElementById('helpSidebar');
+        const sidebarOverlay = document.getElementById('helpSidebarOverlay');
+
+        mobileMenuToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('open');
+            sidebarOverlay.classList.toggle('active');
+        });
+
+        sidebarOverlay.addEventListener('click', closeMobileSidebar);
+
+        function closeMobileSidebar() {
+            sidebar.classList.remove('open');
+            sidebarOverlay.classList.remove('active');
+        }
+
+        // ========================================
+        // INICIALIZAÇÃO
+        // ========================================
+        document.addEventListener('DOMContentLoaded', () => {
+            renderSidebar();
+            renderContent();
+        });
+    </script>
+</body>
+</html>
