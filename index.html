@@ -19,7 +19,7 @@
     <script type="module">
       import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
       import { getFirestore, collection, getDocs, query, orderBy, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, where, setDoc, getDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-      import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+      import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
       const firebaseConfig = {
         apiKey: "AIzaSyDW6P_V4_LRLRg6-FEe2E7QJa9J3oidY5g",
@@ -56,10 +56,12 @@
         createUserWithEmailAndPassword,
         signInWithEmailAndPassword,
         signOut,
-        onAuthStateChanged
+        onAuthStateChanged,
+        GoogleAuthProvider,
+        signInWithPopup
       };
 
-      console.log('[FIREBASE] Firebase initialized (Firestore + Auth)');
+      console.log('[FIREBASE] Firebase initialized (Firestore + Auth + Google)');
     </script>
 
     <script src="communitytracks.js"></script>
@@ -1199,24 +1201,24 @@
                             <span class="import-label">Adicionar tracks</span>
                             <span class="import-description">Selecione os arquivos um por um</span>
                         </button>
-                        
-                        <button class="import-option" data-method="studio">
-                            <div class="import-icon">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                                    <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"></path>
-                                    <path d="M10 8l6 4-6 4V8z"></path>
-                                </svg>
-                            </div>
-                            <span class="import-label">Criar no Studio</span>
-                            <span class="import-description">Crie e edite as tracks no Studio (suporte só pra desktop)</span>
-                        </button>
+                    </div>
+                    <input type="file" id="fileInput" multiple accept=".wav,.mp3,.flac,.ogg,.aiff" hidden>
+                </div>
+
+                <!-- Step 2: Tracks Selected Preview -->
+                <div class="wizard-step" data-step="2">
+                    <h4 class="step-title">Tracks selecionadas</h4>
+                    <p class="step-description">Visualize as tracks que foram selecionadas</p>
+                    <div class="selected-files-preview" id="selectedFilesPreviewStep2">
+                        <!-- Tracks preview will be rendered here -->
                     </div>
                 </div>
-                
-                <!-- Step 2: File Selection -->
-                <div class="wizard-step" data-step="2">
-                    <h4 class="step-title">Selecione os arquivos</h4>
-                    <div class="drop-zone" id="dropZone">
+
+                <!-- Step 3: Add More Tracks -->
+                <div class="wizard-step" data-step="3">
+                    <h4 class="step-title">Adicionar mais tracks</h4>
+                    <p class="step-description">Se quiser adicionar outros arquivos à música, como efeitos, voz guia, versões modificadas ou outras tracks, arraste os arquivos para cá ou clique para selecionar.</p>
+                    <div class="drop-zone" id="addMoreDropZone">
                         <div class="drop-zone-content">
                             <svg class="drop-zone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -1226,59 +1228,56 @@
                             <p class="drop-zone-text">Arraste os arquivos aqui ou clique para selecionar</p>
                             <p class="drop-zone-hint">Suporta: WAV, MP3, FLAC, OGG, AIFF</p>
                         </div>
-                        <input type="file" id="fileInput" multiple accept=".wav,.mp3,.flac,.ogg,.aiff" hidden>
+                        <input type="file" id="addMoreFileInput" multiple accept=".wav,.mp3,.flac,.ogg,.aiff" hidden>
                     </div>
-                    <div class="selected-files" id="selectedFiles"></div>
+                    <div class="selected-files-preview" id="selectedFilesPreviewStep3">
+                        <!-- Tracks preview will be rendered here -->
+                    </div>
                 </div>
-                
-                <!-- Step 3: Project Info -->
-                <div class="wizard-step" data-step="3">
-                    <h4 class="step-title">Informações do projeto</h4>
+
+                <!-- Step 4: Organize Music -->
+                <div class="wizard-step" data-step="4">
+                    <h4 class="step-title">Organizar música</h4>
+                    <p class="step-description">Organize as tracks, altere nomes e adicione capa</p>
+                    <div class="tracks-list" id="tracksList">
+                        <!-- Tracks will be rendered here -->
+                    </div>
+                    <div class="cover-upload-section">
+                        <label class="form-label">Capa da música (opcional)</label>
+                        <div class="cover-upload-area" id="coverUploadArea">
+                            <div class="cover-upload-placeholder" id="coverUploadPlaceholder">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                    <polyline points="21 15 16 10 5 21"></polyline>
+                                </svg>
+                                <p>Clique para adicionar capa</p>
+                            </div>
+                            <img class="cover-preview" id="coverPreview" style="display: none;">
+                            <input type="file" id="coverInput" accept="image/*" hidden>
+                        </div>
+                        <button class="btn btn-secondary btn-small" id="removeCoverBtn" style="display: none;">Remover capa</button>
+                    </div>
+                </div>
+
+                <!-- Step 5: Project Info -->
+                <div class="wizard-step" data-step="5">
+                    <h4 class="step-title">Informações da música</h4>
                     <div class="form-group">
                         <label class="form-label" for="projectName">Nome da música</label>
                         <input type="text" class="form-input" id="projectName" placeholder="Ex: Ousado Amor">
                     </div>
                     <div class="form-group">
-                        <label class="form-label" for="projectKey">Tom / Key</label>
-                        <select class="form-select" id="projectKey">
-                            <option value="">Selecione o tom</option>
-                            <option value="C">C</option>
-                            <option value="C#">C# / Db</option>
-                            <option value="D">D</option>
-                            <option value="Eb">Eb / D#</option>
-                            <option value="E">E</option>
-                            <option value="F">F</option>
-                            <option value="F#">F# / Gb</option>
-                            <option value="G">G</option>
-                            <option value="Ab">Ab / G#</option>
-                            <option value="A">A</option>
-                            <option value="Bb">Bb / A#</option>
-                            <option value="B">B</option>
-                        </select>
+                        <label class="form-label" for="projectDescription">Descrição (opcional)</label>
+                        <textarea class="form-input" id="projectDescription" rows="3" placeholder="Adicione uma descrição para sua música..."></textarea>
                     </div>
-                </div>
-                
-                <!-- Step 4: Track Review -->
-                <div class="wizard-step" data-step="4">
-                    <h4 class="step-title">Revisar tracks</h4>
-                    <p class="step-description">Verifique e organize as tracks do seu projeto</p>
-                    <div class="tracks-list" id="tracksList">
-                        <!-- Tracks will be rendered here -->
-                    </div>
-                    <button class="add-track-btn" id="addTrackBtn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="12" y1="5" x2="12" y2="19"></line>
-                            <line x1="5" y1="12" x2="19" y2="12"></line>
-                        </svg>
-                        Adicionar outra track
-                    </button>
                 </div>
             </div>
-            
+
             <div class="modal-footer">
                 <button class="btn btn-secondary" id="wizardBack" disabled>Voltar</button>
                 <button class="btn btn-primary" id="wizardNext" disabled>Próximo</button>
-                <button class="btn btn-primary" id="wizardCreate" style="display: none;">Criar música</button>
+                <button class="btn btn-primary" id="wizardCreate" style="display: none;">Adicionar música</button>
             </div>
         </div>
     </div>
@@ -1377,19 +1376,6 @@
                         Nossos Projetos
                     </button>
                 </div>
-                </div>
-
-                <div class="settings-divider"></div>
-
-                <!-- Storage Section -->
-                <div class="settings-section">
-                    <h4 class="settings-section-title">Limpeza de Dados</h4>
-                    <button class="btn btn-secondary btn-small" id="clearStorageBtn">
-                        Limpar armazenamento local
-                    </button>
-                    <button class="btn btn-danger btn-small" id="clearAllIndexedDBBtn" style="margin-top: 5px;">
-                        Limpar todo o IndexedDB (incluindo dados antigos)
-                    </button>
                 </div>
 
                 <div class="settings-divider"></div>
@@ -1646,68 +1632,24 @@
             </button>
 
             <div class="auth-container">
-                <!-- Auth Sidebar/Visual -->
-                <div class="auth-visual">
-                    <div class="auth-visual-content">
-                        <div class="auth-visual-logo">
-                            <img src="icon-white-transparent.png" alt="W.Tracks">
-                        </div>
-                        <h2 class="auth-visual-title">W.Tracks</h2>
-                        <p class="auth-visual-subtitle">Seu estúdio multitrack na nuvem</p>
-                        
-                        <div class="auth-visual-features">
-                            <div class="auth-feature">
-                                <div class="auth-feature-icon">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M9 18V5l12-2v13"></path>
-                                        <circle cx="6" cy="18" r="3"></circle>
-                                        <circle cx="18" cy="16" r="3"></circle>
-                                    </svg>
-                                </div>
-                                <span>Controle individual de stems</span>
-                            </div>
-                            <div class="auth-feature">
-                                <div class="auth-feature-icon">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                        <polyline points="17 8 12 3 7 8"></polyline>
-                                        <line x1="12" y1="3" x2="12" y2="15"></line>
-                                    </svg>
-                                </div>
-                                <span>Sincronização entre dispositivos</span>
-                            </div>
-                            <div class="auth-feature">
-                                <div class="auth-feature-icon">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <circle cx="12" cy="12" r="10"></circle>
-                                        <path d="M12 6v6l4 2"></path>
-                                    </svg>
-                                </div>
-                                <span>Acesso em qualquer lugar</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="auth-visual-bg">
-                        <div class="auth-wave"></div>
-                        <div class="auth-wave auth-wave-2"></div>
-                    </div>
-                </div>
-
-                <!-- Auth Forms -->
+                <!-- Auth Forms (Left Side) -->
                 <div class="auth-forms-container">
                     <!-- Login Form -->
                     <form id="loginForm" class="auth-form">
                         <div class="auth-header">
+                            <div class="auth-logo">
+                                <img src="icon-white-transparent.png" alt="Wtracks">
+                                <span>Wtracks</span>
+                            </div>
                             <h1 class="auth-title">Bem-vindo de volta</h1>
-                            <p class="auth-subtitle">Entre para acessar seus projetos multitrack</p>
+                            <p class="auth-subtitle">Entre na sua conta para acessar seus projetos, tracks e continuar criando.</p>
                         </div>
 
                         <div class="auth-error" id="loginError" style="display: none;"></div>
 
                         <div class="auth-inputs">
                             <div class="auth-input-group">
-                                <label for="loginEmail">Email</label>
+                                <label for="loginEmail">E-mail</label>
                                 <div class="auth-input-wrapper">
                                     <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
@@ -1724,7 +1666,7 @@
                                         <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
                                         <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                                     </svg>
-                                    <input type="password" id="loginPassword" required placeholder="••••••••">
+                                    <input type="password" id="loginPassword" required placeholder="Digite sua senha">
                                     <button type="button" class="auth-password-toggle" data-target="loginPassword">
                                         <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
@@ -1743,21 +1685,17 @@
                             <label class="auth-checkbox">
                                 <input type="checkbox" id="rememberMe">
                                 <span class="auth-checkbox-custom"></span>
-                                <span>Lembrar-me</span>
+                                <span>Lembrar de mim</span>
                             </label>
-                            <a href="#" class="auth-link">Esqueceu a senha?</a>
+                            <a href="#" class="auth-link">Esqueceu sua senha?</a>
                         </div>
 
                         <button type="submit" class="auth-submit-btn">
-                            <span>Entrar</span>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="5" y1="12" x2="19" y2="12"></line>
-                                <polyline points="12 5 19 12 12 19"></polyline>
-                            </svg>
+                            <span>Entrar →</span>
                         </button>
 
                         <div class="auth-divider">
-                            <span>ou continue com</span>
+                            <span>ou</span>
                         </div>
 
                         <div class="auth-social">
@@ -1768,7 +1706,7 @@
                                     <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                                     <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                                 </svg>
-                                <span>Google</span>
+                                <span>Continuar com Google</span>
                             </button>
                         </div>
 
@@ -1781,15 +1719,19 @@
                     <!-- Register Form -->
                     <form id="registerForm" class="auth-form" style="display: none;">
                         <div class="auth-header">
+                            <div class="auth-logo">
+                                <img src="icon-white-transparent.png" alt="Wtracks">
+                                <span>Wtracks</span>
+                            </div>
                             <h1 class="auth-title">Crie sua conta</h1>
-                            <p class="auth-subtitle">Comece a criar seus projetos multitrack</p>
+                            <p class="auth-subtitle">Comece a organizar suas músicas e projetos no Wtracks.</p>
                         </div>
 
                         <div class="auth-error" id="registerError" style="display: none;"></div>
 
                         <div class="auth-inputs">
                             <div class="auth-input-group">
-                                <label for="registerName">Nome completo</label>
+                                <label for="registerName">Nome</label>
                                 <div class="auth-input-wrapper">
                                     <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
@@ -1800,7 +1742,7 @@
                             </div>
 
                             <div class="auth-input-group">
-                                <label for="registerEmail">Email</label>
+                                <label for="registerEmail">E-mail</label>
                                 <div class="auth-input-wrapper">
                                     <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
@@ -1829,7 +1771,7 @@
                             </div>
 
                             <div class="auth-input-group" id="otherTypeGroup" style="display: none;">
-                                <label for="registerOtherType">Especifique o tipo</label>
+                                <label for="registerOtherType">Outro tipo</label>
                                 <div class="auth-input-wrapper">
                                     <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <circle cx="12" cy="12" r="10"></circle>
@@ -1868,7 +1810,7 @@
                             </div>
 
                             <div class="auth-input-group">
-                                <label for="registerConfirmPassword">Confirmar Senha</label>
+                                <label for="registerConfirmPassword">Confirmar senha</label>
                                 <div class="auth-input-wrapper">
                                     <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
@@ -1888,11 +1830,7 @@
                         </div>
 
                         <button type="submit" class="auth-submit-btn">
-                            <span>Criar Conta</span>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="5" y1="12" x2="19" y2="12"></line>
-                                <polyline points="12 5 19 12 12 19"></polyline>
-                            </svg>
+                            <span>Criar conta →</span>
                         </button>
 
                         <div class="auth-switch">
@@ -1900,6 +1838,11 @@
                             <button type="button" class="auth-switch-btn" id="switchToLogin">Fazer login</button>
                         </div>
                     </form>
+                </div>
+
+                <!-- Auth Visual/Branding (Right Side) -->
+                <div class="auth-visual">
+                    <!-- Background image is set in CSS -->
                 </div>
             </div>
         </div>

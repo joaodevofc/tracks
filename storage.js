@@ -201,6 +201,7 @@ class Project {
     constructor(data = {}) {
         this.id = data.id || this.generateId();
         this.name = data.name || 'Untitled Project';
+        this.description = data.description || '';
         this.key = data.key || '';
         this.bpm = data.bpm || null;
         this.artist = data.artist || '';

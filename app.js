@@ -6,8 +6,10 @@
 class MultracksApp {
     constructor() {
         this.currentWizardStep = 1;
-        this.totalWizardSteps = 4;
+        this.totalWizardSteps = 5;
         this.selectedFiles = [];
+        this.initialSelectedFiles = []; // Files from first selection
+        this.additionalSelectedFiles = []; // Files from "add more tracks" step
         this.importMethod = null;
         this.currentFilter = 'all';
         this.isCreatingProject = false; // Flag to prevent duplicate project creation
@@ -42,6 +44,9 @@ class MultracksApp {
         
         // Deleted projects tracking - prevents deleted projects from reappearing
         this.deletedProjectIds = new Set();
+        
+        // Deleting projects tracking - shows loading state during deletion
+        this.deletingProjectIds = new Set();
         
         // Active uploads tracking - centralizes loading card state
         this.activeUploads = new Map(); // tempId -> { projectName, trackCount, saved, total, statusInterval, currentStatus }
@@ -1104,6 +1109,7 @@ class MultracksApp {
         console.log('[LIBRARY] Filter:', filter);
         console.log('[LIBRARY] Search term:', searchTerm);
         console.log('[LIBRARY] DELETED IDS:', Array.from(this.deletedProjectIds));
+        console.log('[LIBRARY] DELETING IDS:', this.deletingProjectIds ? Array.from(this.deletingProjectIds) : []);
         console.log('[LIBRARY] ACTIVE UPLOADS:', Array.from(this.activeUploads.keys()));
 
         // Guard: don't render if storage is not ready
@@ -1924,6 +1930,9 @@ class MultracksApp {
         card.className = 'music-card';
         card.dataset.projectId = project.id;
         
+        // Check if project is being deleted
+        const isDeleting = this.deletingProjectIds && this.deletingProjectIds.has(project.id);
+        
         const coverHtml = project.cover 
             ? `<img src="${project.cover}" alt="${project.name}">`
             : `
@@ -1954,15 +1963,29 @@ class MultracksApp {
         const isPreparing = preparationStatus.preparing;
         const progress = preparationStatus.progress;
         
-        // Add dimmed class if not prepared
-        if (!isPrepared) {
+        // Add dimmed class if not prepared or deleting
+        if (!isPrepared || isDeleting) {
             card.classList.add('library-card-dimmed');
         }
+        
+        // Add deleting class if deleting
+        if (isDeleting) {
+            card.classList.add('music-card-deleting');
+        }
+        
+        // Show loading indicator if deleting
+        const deletingIndicator = isDeleting ? `
+            <div class="music-card-deleting-indicator">
+                <div class="deleting-spinner"></div>
+                <span class="deleting-text">Excluindo...</span>
+            </div>
+        ` : '';
         
         card.innerHTML = `
             <div class="music-card-cover">
                 ${coverHtml}
-                <button class="music-card-menu" aria-label="Opções">
+                ${deletingIndicator}
+                <button class="music-card-menu" aria-label="Opções" ${isDeleting ? 'disabled' : ''}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="1"></circle>
                         <circle cx="12" cy="5" r="1"></circle>
@@ -1981,7 +2004,7 @@ class MultracksApp {
                     <div class="music-card-date">Última alteração: ${date}</div>
                 </div>
             </div>
-            ${isPreparing ? `<div class="library-preparation-progress"><span class="progress-percent">${progress}%</span></div>` : ''}
+            ${isPreparing ? `<div class="library-preparation-progress"><div class="progress-spinner"></div></div>` : ''}
         `;
         
         card.addEventListener('click', async (e) => {
@@ -2115,11 +2138,13 @@ class MultracksApp {
         const fab = document.querySelector('.fab-add');
         const playerView = document.getElementById('playerView');
         const exploreView = document.getElementById('exploreView');
+        const newsCarousel = document.getElementById('newsCarousel');
 
         if (library) library.style.display = 'none';
         if (hero) hero.style.display = 'none';
         if (fab) fab.style.display = 'none';
         if (exploreView) exploreView.style.display = 'none';
+        if (newsCarousel) newsCarousel.style.display = 'none';
         
         if (playerView) {
             playerView.classList.add('active');
@@ -2154,6 +2179,12 @@ class MultracksApp {
         
         const hero = document.querySelector('.hero');
         if (hero) hero.style.display = 'block';
+        
+        const newsCarousel = document.getElementById('newsCarousel');
+        // Only show carousel on desktop (not mobile)
+        if (newsCarousel && window.innerWidth > 768) {
+            newsCarousel.style.display = 'block';
+        }
         
         const fabAdd = document.querySelector('.fab-add');
         if (fabAdd) fabAdd.style.display = 'flex';
@@ -2191,6 +2222,9 @@ class MultracksApp {
         document.getElementById('exploreView').style.display = 'block';
         document.querySelector('.hero').style.display = 'none';
         document.querySelector('.fab-add').style.display = 'none';
+        
+        const newsCarousel = document.getElementById('newsCarousel');
+        if (newsCarousel) newsCarousel.style.display = 'none';
         
         // Show main header when switching to explore
         document.body.classList.remove('player-active');
@@ -3228,14 +3262,13 @@ class MultracksApp {
         
         let progressElement = card.querySelector('.library-preparation-progress');
         if (!progressElement) {
-            // Create progress element
+            // Create progress element with spinner only
             progressElement = document.createElement('div');
             progressElement.className = 'library-preparation-progress';
-            progressElement.innerHTML = `<span class="progress-percent">${progress}%</span>`;
+            progressElement.innerHTML = `<div class="progress-spinner"></div>`;
             card.appendChild(progressElement);
-        } else {
-            progressElement.innerHTML = `<span class="progress-percent">${progress}%</span>`;
         }
+        // Spinner doesn't need to be updated with progress
     }
     
     /**
@@ -7512,12 +7545,11 @@ class MultracksApp {
             const operationVersion = ++this.libraryStateVersion;
             console.log('[LIBRARY] DELETE OPERATION VERSION:', operationVersion);
             
-            // IMMEDIATELY mark as deleted to prevent reappearance
-            this.deletedProjectIds.add(projectId);
-            console.log('[LIBRARY] Project ID added to deleted set:', projectId);
-            console.log('[LIBRARY] Current deleted IDs:', Array.from(this.deletedProjectIds));
+            // Mark as deleting (in progress) to show loading state
+            this.deletingProjectIds.add(projectId);
+            console.log('[LIBRARY] Project ID added to deleting set:', projectId);
             
-            // Re-render immediately to reflect deletion
+            // Re-render to show loading state on card
             await this.renderLibrary(this.currentFilter);
             
             // Then perform the actual storage deletion
@@ -7526,8 +7558,15 @@ class MultracksApp {
             // Validate version before applying results
             if (operationVersion !== this.libraryStateVersion) {
                 console.log('[LIBRARY] DELETE operation stale, ignoring result:', operationVersion, 'current:', this.libraryStateVersion);
+                this.deletingProjectIds.delete(projectId);
                 return;
             }
+            
+            // Remove from deleting set and add to deleted set
+            this.deletingProjectIds.delete(projectId);
+            this.deletedProjectIds.add(projectId);
+            console.log('[LIBRARY] Project ID moved from deleting to deleted set:', projectId);
+            console.log('[LIBRARY] Current deleted IDs:', Array.from(this.deletedProjectIds));
             
             console.log('[LIBRARY] DELETE COMPLETE:', projectId);
             console.log('[LIBRARY] PROJECTS AFTER DELETE:', storage.getProjectsByFilter('all').map(p => p.id));
@@ -7550,10 +7589,16 @@ class MultracksApp {
         this.fileInput = document.getElementById('fileInput');
         this.selectedFilesContainer = document.getElementById('selectedFiles');
         this.projectName = document.getElementById('projectName');
-        this.projectKey = document.getElementById('projectKey');
+        this.projectDescription = document.getElementById('projectDescription');
         this.tracksList = document.getElementById('tracksList');
-        this.addTrackBtn = document.getElementById('addTrackBtn');
-        
+        this.addMoreDropZone = document.getElementById('addMoreDropZone');
+        this.addMoreFileInput = document.getElementById('addMoreFileInput');
+        this.coverUploadArea = document.getElementById('coverUploadArea');
+        this.coverInput = document.getElementById('coverInput');
+        this.coverPreview = document.getElementById('coverPreview');
+        this.coverUploadPlaceholder = document.getElementById('coverUploadPlaceholder');
+        this.removeCoverBtn = document.getElementById('removeCoverBtn');
+
         this.wizardSteps = document.querySelectorAll('.wizard-step');
         this.importOptions = document.querySelectorAll('.import-option');
     }
@@ -7905,29 +7950,8 @@ class MultracksApp {
     closeModal() {
         this.modal.classList.remove('active');
         this.resetWizard();
-        
-        // Reset studio creation flag
-        this.isStudioCreation = false;
-        
-        // Restore key field visibility
-        const keyField = document.getElementById('projectKey');
-        const keyLabel = keyField?.parentElement;
-        if (keyLabel) {
-            keyLabel.style.display = 'block';
-        }
-        
-        // Restore project name label
-        const nameLabel = document.querySelector('label[for="projectName"]');
-        if (nameLabel) {
-            nameLabel.textContent = 'Nome da música';
-        }
-        
-        // Restore create button text
-        if (this.wizardCreate) {
-            this.wizardCreate.textContent = 'Criar música';
-        }
     }
-    
+
     openSettingsModal() {
         this.settingsModal.classList.add('active');
         this.populateSettingsModal();
@@ -7949,6 +7973,7 @@ class MultracksApp {
 
             if (userDoc.exists()) {
                 const userData = userDoc.data();
+                // User data loaded successfully
             }
         } catch (error) {
             console.error('[SETTINGS] Error loading user data for expiration banner:', error);
@@ -8337,52 +8362,6 @@ class MultracksApp {
         
         console.log('[PLAYER SETTINGS] Settings applied:', settings);
     }
-
-    clearLocalStorage() {
-        if (confirm('Tem certeza que deseja limpar o armazenamento local? Isso removerá todos os dados salvos no navegador, mas não afetará seus dados no servidor.')) {
-            try {
-                // Clear all audio files from IndexedDB
-                this.audioStorage.clearAllAudioFiles().then(() => {
-                    console.log('[SETTINGS] Local storage cleared');
-                    alert('Armazenamento local limpo com sucesso!');
-                }).catch(error => {
-                    console.error('[SETTINGS] Error clearing local storage:', error);
-                    alert('Erro ao limpar armazenamento local: ' + error.message);
-                });
-            } catch (error) {
-                console.error('[SETTINGS] Error clearing local storage:', error);
-                alert('Erro ao limpar armazenamento local: ' + error.message);
-            }
-        }
-    }
-
-    clearAllIndexedDB() {
-        if (confirm('⚠️ ATENÇÃO: Isso limpará TODO o IndexedDB, incluindo dados de todos os usuários e arquivos antigos. Esta ação não pode ser desfeita. Continuar?')) {
-            try {
-                // Delete entire IndexedDB database
-                const deleteRequest = indexedDB.deleteDatabase('wtracksAudio');
-                
-                deleteRequest.onsuccess = () => {
-                    console.log('[SETTINGS] Entire IndexedDB database deleted');
-                    alert('IndexedDB completamente limpo! A página será recarregada.');
-                    location.reload();
-                };
-                
-                deleteRequest.onerror = () => {
-                    console.error('[SETTINGS] Error deleting IndexedDB:', deleteRequest.error);
-                    alert('Erro ao limpar IndexedDB: ' + deleteRequest.error);
-                };
-                
-                deleteRequest.onblocked = () => {
-                    console.warn('[SETTINGS] IndexedDB delete blocked - please close other tabs');
-                    alert('A operação foi bloqueada. Feche outras abas do navegador e tente novamente.');
-                };
-            } catch (error) {
-                console.error('[SETTINGS] Error clearing IndexedDB:', error);
-                alert('Erro ao limpar IndexedDB: ' + error.message);
-            }
-        }
-    }
     
     resetWizard() {
         console.log('[DEBUG] resetWizard called');
@@ -8392,10 +8371,27 @@ class MultracksApp {
         
         this.currentWizardStep = 1;
         this.selectedFiles = [];
+        this.initialSelectedFiles = [];
+        this.additionalSelectedFiles = [];
+        this.selectedCoverFile = null;
         this.importMethod = null;
-        this.isStudioCreation = false;
         this.projectName.value = '';
-        this.projectKey.value = '';
+        this.projectDescription.value = '';
+
+        // Reset cover preview
+        if (this.coverPreview) {
+            this.coverPreview.style.display = 'none';
+            this.coverPreview.src = '';
+        }
+        if (this.coverUploadPlaceholder) {
+            this.coverUploadPlaceholder.style.display = 'flex';
+        }
+        if (this.removeCoverBtn) {
+            this.removeCoverBtn.style.display = 'none';
+        }
+        if (this.coverInput) {
+            this.coverInput.value = '';
+        }
         
         // Restore create button text
         if (this.wizardCreate) {
@@ -8416,18 +8412,22 @@ class MultracksApp {
     goToWizardStep(step) {
         console.log('[DEBUG] goToWizardStep called with step:', step);
         console.log('[DEBUG] Current step before change:', this.currentWizardStep);
-        
+
         if (step < 1 || step > this.totalWizardSteps) return;
-        
+
         this.wizardSteps.forEach(s => s.classList.remove('active'));
         this.wizardSteps[step - 1].classList.add('active');
-        
+
         this.currentWizardStep = step;
         this.updateWizardUI();
-        
+
         console.log('[DEBUG] Current step after change:', this.currentWizardStep);
-        
-        if (step === 4) {
+
+        if (step === 2) {
+            this.renderSelectedFilesPreview();
+        } else if (step === 3) {
+            this.renderSelectedFilesPreview();
+        } else if (step === 4) {
             this.renderTracksList();
         }
     }
@@ -8435,16 +8435,10 @@ class MultracksApp {
     updateWizardUI() {
         this.wizardBack.disabled = this.currentWizardStep === 1;
         
-        // For studio creation, show create button immediately on step 3
-        if (this.isStudioCreation && this.currentWizardStep === 3) {
+        if (this.currentWizardStep === this.totalWizardSteps) {
             this.wizardNext.style.display = 'none';
             this.wizardCreate.style.display = 'inline-block';
-            this.wizardCreate.textContent = 'Criar no Studio';
-            this.wizardCreate.disabled = !this.validateStep(this.currentWizardStep);
-        } else if (this.currentWizardStep === this.totalWizardSteps) {
-            this.wizardNext.style.display = 'none';
-            this.wizardCreate.style.display = 'inline-block';
-            this.wizardCreate.textContent = 'Criar música';
+            this.wizardCreate.textContent = 'Adicionar música';
             this.wizardCreate.disabled = !this.validateStep(this.currentWizardStep);
         } else {
             this.wizardNext.style.display = 'inline-block';
@@ -8460,9 +8454,11 @@ class MultracksApp {
             case 2:
                 return this.selectedFiles.length > 0;
             case 3:
-                return this.projectName.value.trim() !== '';
+                return true; // Add more tracks is optional
             case 4:
                 return this.selectedFiles.length > 0;
+            case 5:
+                return this.projectName.value.trim() !== '';
             default:
                 return false;
         }
@@ -8470,13 +8466,6 @@ class MultracksApp {
     
     handleImportMethod(method) {
         this.importMethod = method;
-        
-        if (method === 'studio') {
-            // Handle Studio creation - go directly to project info step
-            console.log('[APP] Studio creation requested');
-            this.showStudioProjectInfoStep();
-            return;
-        }
         
         if (method === 'folder') {
             this.fileInput.setAttribute('webkitdirectory', '');
@@ -8488,128 +8477,56 @@ class MultracksApp {
         
         this.fileInput.click();
     }
-    
-    showStudioProjectInfoStep() {
-        // Hide the key field for studio projects
-        const keyField = document.getElementById('projectKey');
-        const keyLabel = keyField?.parentElement;
-        if (keyLabel) {
-            keyLabel.style.display = 'none';
-        }
-        
-        // Change the label to be more appropriate for studio
-        const nameLabel = document.querySelector('label[for="projectName"]');
-        if (nameLabel) {
-            nameLabel.textContent = 'Nome do projeto';
-        }
-        
-        // Change create button text for studio
-        if (this.wizardCreate) {
-            this.wizardCreate.textContent = 'Criar no Studio';
-        }
-        
-        // Clear previous values
-        this.projectName.value = '';
-        this.projectKey.value = '';
-        
-        // Go to step 3 directly
-        this.goToWizardStep(3);
-        
-        // Store that this is a studio creation (we'll need this later)
-        this.isStudioCreation = true;
-    }
-    
-    async createEmptyStudioProject() {
-        const projectName = this.projectName.value.trim();
 
-        if (!projectName) {
-            alert('Por favor, insira um nome para o projeto.');
-            return;
-        }
-
-        // Check if running on mobile/PWA - editor is desktop-only for now
-        const isMobile = this.isMobileDevice();
-        const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
-                      window.navigator.standalone === true;
-
-        if (isMobile || isPWA) {
-            this.showDesktopOnlyModal();
-            return;
-        }
-
-        console.log('[APP] Creating empty Studio project:', projectName);
-
-        try {
-            // Create empty project with 0 tracks
-            const project = await storage.createProject({
-                name: projectName,
-                key: '', // No key for studio projects
-                tracks: [] // Empty tracks array
-            });
-
-            console.log('[APP] Empty Studio project created:', project.id);
-
-            // Reset studio creation flag
-            this.isStudioCreation = false;
-
-            // Close modal
-            this.closeModal();
-
-            // Navigate to track-editor with the new project ID
-            window.location.href = `track-editor.html?projectId=${project.id}`;
-
-        } catch (error) {
-            console.error('[APP] Error creating empty Studio project:', error);
-            alert('Erro ao criar projeto no Studio. Tente novamente.');
-        }
-    }
-    
     async handleFileSelect(files) {
         console.log('[DEBUG] handleFileSelect called');
+        console.log('[DEBUG] currentWizardStep:', this.currentWizardStep);
         console.log('[DEBUG] selectedFiles BEFORE adding:', this.selectedFiles.length);
-        console.log('[DEBUG] wasInStep4:', this.wasInStep4);
-        
+
         console.log('[IMPORT] Files selected:', files);
         console.log('[IMPORT] Number of files:', files.length);
-        
-        const audioFiles = Array.from(files).filter(file => 
-            file.type.startsWith('audio/') || 
+
+        const audioFiles = Array.from(files).filter(file =>
+            file.type.startsWith('audio/') ||
             file.name.match(/\.(wav|mp3|flac|ogg|aiff)$/i)
         );
-        
+
         console.log('[IMPORT] Audio files filtered:', audioFiles.length);
-        
+
         if (audioFiles.length === 0) {
             alert('Nenhum arquivo de áudio válido encontrado');
             return;
         }
-        
+
         // Calculate total size of files to be imported
         const totalSize = audioFiles.reduce((sum, file) => sum + file.size, 0);
-        
+
         // Check available space
         if (this.audioStorage) {
             try {
                 const spaceCheck = await this.audioStorage.checkSpaceAvailable(totalSize);
-                
+
                 if (!spaceCheck.available) {
                     const error = `Espaço insuficiente no dispositivo para salvar este projeto.\n\n` +
                                   `Espaço necessário: ${this.audioStorage.formatBytes(totalSize)}\n` +
                                   `Espaço disponível: ${this.audioStorage.formatBytes(spaceCheck.freeSpace)}\n` +
                                   `Uso atual: ${this.audioStorage.formatBytes(spaceCheck.currentSize)}\n` +
                                   `Uso: ${spaceCheck.storageInfo.usagePercent.toFixed(1)}%`;
-                    
+
                     alert(error);
                     console.error('[STORAGE] Space check failed:', error);
                     return;
                 }
-                
+
                 console.log('[STORAGE] Space check passed for', audioFiles.length, 'files:', this.audioStorage.formatBytes(totalSize));
             } catch (error) {
                 console.warn('[STORAGE] Could not check space availability, proceeding anyway:', error);
             }
         }
-        
+
+        // Check if this is initial selection (step 1) or adding more tracks (step 3)
+        const isInitialSelection = this.currentWizardStep === 1;
+
         for (const file of audioFiles) {
             console.log('[IMPORT] File:', {
                 name: file.name,
@@ -8646,7 +8563,20 @@ class MultracksApp {
                     file: file,
                     name: suggestedName
                 });
-                
+
+                // Store in appropriate array based on step
+                if (isInitialSelection) {
+                    this.initialSelectedFiles.push({
+                        file: file,
+                        name: suggestedName
+                    });
+                } else {
+                    this.additionalSelectedFiles.push({
+                        file: file,
+                        name: suggestedName
+                    });
+                }
+
                 console.log('[IMPORT] Created track item:', {
                     name: suggestedName,
                     file: file,
@@ -8655,60 +8585,91 @@ class MultracksApp {
             }
         }
 
-        this.renderSelectedFiles();
-        this.updateWizardUI();
-        
-        // If we were in step 4 and added more tracks, re-render the tracks list
-        if (this.wasInStep4) {
-            this.renderTracksList();
-            this.wasInStep4 = false;
+        // If initial selection, go to step 2 (preview)
+        if (isInitialSelection) {
+            this.renderSelectedFilesPreview();
+            this.goToWizardStep(2);
+        } else {
+            // If adding more tracks, re-render preview
+            this.renderSelectedFilesPreview();
         }
+
+        this.updateWizardUI();
     }
-    
-    async getAudioFileDuration(file) {
-        return new Promise((resolve, reject) => {
-            const audio = new Audio();
-            audio.addEventListener('loadedmetadata', () => {
-                resolve(audio.duration);
-                URL.revokeObjectURL(audio.src);
-            });
-            audio.addEventListener('error', () => {
-                reject(new Error('Could not load audio file'));
-                URL.revokeObjectURL(audio.src);
-            });
-            audio.src = URL.createObjectURL(file);
-        });
-    }
-    
+
     suggestTrackName(fileName) {
         // Remove extension and common suffixes
         let name = fileName.replace(/\.[^/.]+$/, '');
-        
+
         // Remove common prefixes/suffixes
         name = name.replace(/^(lead |main |backing |rhythm )/i, '');
         name = name.replace(/(\s+(take|ver|version|mix|stem|track)\s*\d*)$/i, '');
-        
+
         // Capitalize first letter
         name = name.charAt(0).toUpperCase() + name.slice(1);
-        
+
         return name || fileName;
     }
-    
-    async getAudioFileDuration(file) {
-        return new Promise((resolve, reject) => {
-            const audio = new Audio();
-            audio.addEventListener('loadedmetadata', () => {
-                resolve(audio.duration);
-                URL.revokeObjectURL(audio.src);
+
+    renderSelectedFilesPreview() {
+        // Render preview in step 2 and step 3
+        const previewContainerStep2 = document.getElementById('selectedFilesPreviewStep2');
+        const previewContainerStep3 = document.getElementById('selectedFilesPreviewStep3');
+
+        [previewContainerStep2, previewContainerStep3].forEach(container => {
+            if (!container) return;
+
+            container.innerHTML = '';
+
+            if (this.selectedFiles.length === 0) {
+                container.innerHTML = '<p class="text-muted">Nenhuma track selecionada</p>';
+                return;
+            }
+
+            const list = document.createElement('div');
+            list.className = 'tracks-preview-list';
+
+            this.selectedFiles.forEach((item, index) => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'track-preview-item';
+                itemEl.innerHTML = `
+                    <span class="track-number">${index + 1}</span>
+                    <span class="track-name">${item.name}</span>
+                `;
+                list.appendChild(itemEl);
             });
-            audio.addEventListener('error', () => {
-                reject(new Error('Could not load audio file'));
-                URL.revokeObjectURL(audio.src);
-            });
-            audio.src = URL.createObjectURL(file);
+
+            container.appendChild(list);
         });
     }
-    
+
+    handleCoverSelect(file) {
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            alert('Por favor, selecione uma imagem.');
+            return;
+        }
+
+        // Validate file size (5MB max)
+        const maxSize = 5 * 1024 * 1024;
+        if (file.size > maxSize) {
+            alert('A imagem deve ter no máximo 5MB.');
+            return;
+        }
+
+        this.selectedCoverFile = file;
+
+        // Show preview
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            this.coverPreview.src = e.target.result;
+            this.coverPreview.style.display = 'block';
+            this.coverUploadPlaceholder.style.display = 'none';
+            this.removeCoverBtn.style.display = 'inline-block';
+        };
+        reader.readAsDataURL(file);
+    }
+
     renderSelectedFiles() {
         this.selectedFilesContainer.innerHTML = '';
         
@@ -8913,7 +8874,8 @@ class MultracksApp {
             // Create project first to get the projectId
             const project = await storage.createProject({
                 name: projectName,
-                key: this.projectKey.value,
+                description: this.projectDescription.value.trim(),
+                cover: this.selectedCoverFile,
                 tracks: tracks
             }, onProgress);
             
@@ -9364,11 +9326,7 @@ class MultracksApp {
             }
         });
 
-        // Social login (Google)
-        const googleBtn = document.querySelector('.auth-social-btn.google-btn');
-        googleBtn?.addEventListener('click', () => {
-            alert('Login com Google será implementado em breve!');
-        });
+        // Social login (Google) - Removido, implementação real em initAuthModal
 
         // Forgot password
         const forgotPassword = document.querySelector('.auth-link');
@@ -9443,19 +9401,6 @@ class MultracksApp {
             this.openSettingsModal();
         });
         
-
-        // Clear storage button
-        const clearStorageBtn = document.getElementById('clearStorageBtn');
-        clearStorageBtn?.addEventListener('click', () => {
-            this.clearLocalStorage();
-        });
-
-        // Clear all IndexedDB button
-        const clearAllIndexedDBBtn = document.getElementById('clearAllIndexedDBBtn');
-        clearAllIndexedDBBtn?.addEventListener('click', () => {
-            this.clearAllIndexedDB();
-        });
-
         // Logout button (library)
         logoutBtn?.addEventListener('click', () => {
             profileDropdown?.classList.remove('active');
@@ -9532,6 +9477,29 @@ class MultracksApp {
             this.dropZone.classList.remove('dragover');
             this.handleFileSelect(e.dataTransfer.files);
         });
+
+        // Add more tracks drop zone
+        this.addMoreDropZone?.addEventListener('click', () => this.addMoreFileInput.click());
+
+        this.addMoreDropZone?.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            this.addMoreDropZone.classList.add('dragover');
+        });
+
+        this.addMoreDropZone?.addEventListener('dragleave', () => {
+            this.addMoreDropZone.classList.remove('dragover');
+        });
+
+        this.addMoreDropZone?.addEventListener('drop', (e) => {
+            e.preventDefault();
+            this.addMoreDropZone.classList.remove('dragover');
+            this.handleFileSelect(e.dataTransfer.files);
+        });
+
+        // Add more tracks file input
+        this.addMoreFileInput?.addEventListener('change', (e) => {
+            this.handleFileSelect(e.target.files);
+        });
         
         // Wizard navigation
         this.wizardBack?.addEventListener('click', () => {
@@ -9543,36 +9511,31 @@ class MultracksApp {
         });
         
         this.wizardCreate?.addEventListener('click', () => {
-            if (this.isStudioCreation) {
-                this.createEmptyStudioProject();
-            } else {
-                this.createProject();
-            }
+            this.createProject();
         });
         
         // Form validation
         this.projectName?.addEventListener('input', () => {
             this.updateWizardUI();
         });
-        
-        // Add track button (for step 4)
-        this.addTrackBtn?.addEventListener('click', () => {
-            console.log('[DEBUG] + button clicked');
-            console.log('[DEBUG] Current wizard step:', this.currentWizardStep);
-            console.log('[DEBUG] selectedFiles BEFORE clear:', this.selectedFiles.length);
-            console.log('[DEBUG] selectedFiles BEFORE clear:', this.selectedFiles);
-            
-            // Store current step to return after file selection
-            this.wasInStep4 = this.currentWizardStep === 4;
-            // Clear selected files before adding new ones
-            this.selectedFiles = [];
-            
-            console.log('[DEBUG] selectedFiles AFTER clear:', this.selectedFiles.length);
-            console.log('[DEBUG] wasInStep4:', this.wasInStep4);
-            
-            this.fileInput.click();
+
+        // Cover upload
+        this.coverUploadArea?.addEventListener('click', () => this.coverInput.click());
+
+        this.coverInput?.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                this.handleCoverSelect(e.target.files[0]);
+            }
         });
-        
+
+        this.removeCoverBtn?.addEventListener('click', () => {
+            this.selectedCoverFile = null;
+            this.coverPreview.style.display = 'none';
+            this.coverUploadPlaceholder.style.display = 'flex';
+            this.removeCoverBtn.style.display = 'none';
+            this.coverInput.value = '';
+        });
+
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && this.modal.classList.contains('active')) {
@@ -10033,6 +9996,12 @@ class MultracksApp {
         // Form submissions
         this.loginForm?.addEventListener('submit', (e) => this.handleLogin(e));
         this.registerForm?.addEventListener('submit', (e) => this.handleRegister(e));
+        
+        // Google login button
+        const googleBtn = document.querySelector('.auth-social-btn.google-btn');
+        if (googleBtn) {
+            googleBtn.addEventListener('click', () => this.handleGoogleLogin());
+        }
         
         // Password toggle functionality
         this.initPasswordToggles();
@@ -10538,7 +10507,19 @@ class MultracksApp {
     }
     
     updateProfileButtonBasedOnAuth() {
-        // Check if user is already logged in from localStorage
+        // First check Firebase Auth state
+        if (window.firebaseAuth && window.firebaseAuth.auth && window.firebaseAuth.auth.currentUser) {
+            const user = window.firebaseAuth.auth.currentUser;
+            console.log('[AUTH] User is logged in via Firebase:', user.email);
+            this.updateProfileButtonForLoggedIn({
+                email: user.email,
+                displayName: user.displayName,
+                uid: user.uid
+            });
+            return;
+        }
+        
+        // Fallback to localStorage
         const storedUser = localStorage.getItem('currentUser');
         if (storedUser) {
             try {
@@ -10557,6 +10538,33 @@ class MultracksApp {
     // Call this on init to set initial state
     checkAuthState() {
         this.updateProfileButtonBasedOnAuth();
+        
+        // Use Firebase Auth state listener to properly check authentication
+        if (window.firebaseAuth && window.firebaseAuth.auth && window.firebaseAuth.onAuthStateChanged) {
+            window.firebaseAuth.onAuthStateChanged(window.firebaseAuth.auth, (user) => {
+                if (user) {
+                    // User is logged in
+                    console.log('[AUTH] User is logged in:', user.email);
+                    this.updateProfileButtonBasedOnAuth();
+                } else {
+                    // User is not logged in
+                    console.log('[AUTH] User is not logged in');
+                    this.updateProfileButtonBasedOnAuth();
+                    // Only show auth modal if user is not logged in
+                    setTimeout(() => {
+                        this.openAuthModal();
+                    }, 500);
+                }
+            });
+        } else {
+            // Firebase Auth not available, check localStorage as fallback
+            const currentUser = localStorage.getItem('currentUser');
+            if (!currentUser) {
+                setTimeout(() => {
+                    this.openAuthModal();
+                }, 500);
+            }
+        }
     }
 
     /**
@@ -10953,6 +10961,79 @@ class MultracksApp {
                     registerError.style.display = 'flex';
                 }
             });
+    }
+
+    async handleGoogleLogin() {
+        // Check if Firebase is available
+        if (!window.firebaseAuth) {
+            const loginError = document.getElementById('loginError');
+            if (loginError) {
+                loginError.textContent = 'Firebase não está disponível. Verifique se os scripts foram carregados.';
+                loginError.style.display = 'flex';
+            }
+            return;
+        }
+
+        const { auth, GoogleAuthProvider, signInWithPopup } = window.firebaseAuth;
+        const provider = new GoogleAuthProvider();
+
+        try {
+            const result = await signInWithPopup(auth, provider);
+            const user = result.user;
+            const isNewUser = result._tokenResponse?.isNewUser || false;
+
+            console.log('[AUTH] Google login successful:', user.email, 'isNewUser:', isNewUser);
+
+            if (isNewUser) {
+                // Create user document in Firestore for new Google users
+                if (window.firebaseDB) {
+                    const { db, doc, setDoc, serverTimestamp } = window.firebaseDB;
+                    
+                    const userData = {
+                        uid: user.uid,
+                        displayName: user.displayName || 'Usuário Google',
+                        email: user.email,
+                        photoURL: user.photoURL || null,
+                        accountType: 'google', // Default for Google users
+                        plan: 'track', // Default plan for new users
+                        createdAt: serverTimestamp()
+                    };
+
+                    await setDoc(doc(db, 'users', user.uid), userData, { merge: true });
+                    console.log('[AUTH] Google user data stored in Firestore');
+                }
+            }
+
+            // Close modal and update profile
+            this.closeAuthModal();
+            this.updateUserProfile(user);
+
+        } catch (error) {
+            console.error('[AUTH] Google login error:', error);
+
+            if (error.code === 'auth/popup-closed-by-user') {
+                // User closed the popup, no error needed
+                console.log('[AUTH] Google popup closed by user');
+                return;
+            }
+
+            if (error.code === 'auth/account-exists-with-different-credential') {
+                // Account exists with different credential
+                const loginError = document.getElementById('loginError');
+                if (loginError) {
+                    loginError.textContent = 'Esse e-mail já está cadastrado com outro método de login.';
+                    loginError.style.display = 'flex';
+                }
+                return;
+            }
+
+            // Generic error
+            const loginError = document.getElementById('loginError');
+            if (loginError) {
+                loginError.textContent = 'Não foi possível entrar com Google. Tente novamente.';
+                loginError.style.display = 'flex';
+            }
+        }
     }
     
     async updateUserProfile(user) {
