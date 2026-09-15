@@ -1,0 +1,209 @@
+/* ========================================
+   TABLET STYLES (601px - 768px)
+   Manter comportamento atual para tablets
+   ======================================== */
+
+/* Tablet library - manter grid original */
+.music-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--spacing-md);
+}
+
+/* Tablet card layout - manter layout original */
+.music-card {
+    display: block;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0;
+    gap: 0;
+    min-height: auto;
+}
+
+.music-card-cover {
+    width: 100%;
+    height: auto;
+    min-width: auto;
+    aspect-ratio: 1;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.music-card-content {
+    flex: auto;
+    padding: var(--spacing-md);
+    min-width: auto;
+}
+
+.music-card-title {
+    font-size: var(--font-size-md);
+    margin-bottom: var(--spacing-xs);
+}
+
+.music-card-meta {
+    gap: var(--spacing-xs);
+}
+
+.music-card-meta-row {
+    font-size: var(--font-size-sm);
+}
+
+.music-card-date {
+    font-size: var(--font-size-sm);
+}
+
+.music-card-menu {
+    position: absolute;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+    width: auto;
+    height: auto;
+    background: transparent;
+    border: none;
+}
+
+.music-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--border-medium);
+    box-shadow: var(--shadow-md);
+}
+
+/* ========================================
+   TABLET LANDSCAPE COM PLAYER ATIVO
+   ======================================== */
+
+@media (orientation: landscape) {
+    body.player-active {
+        /* Liberar scroll vertical na página */
+        html, body {
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            height: auto !important;
+        }
+        
+        /* Remove position fixed from player-view to allow scroll */
+        .player-view {
+            position: relative !important;
+            overflow: visible !important;
+        }
+        
+        /* Hide player logo and music selector for landscape */
+        .player-logo,
+        .music-selector {
+            display: none;
+        }
+        
+        /* Forca a barra superior a colar nas pontas */
+        .player-controls {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            width: 100vw;
+            z-index: 1000;
+            background: var(--color-black);
+            border-bottom: 1px solid var(--border-subtle);
+            height: 30px;
+        }
+
+        /* Timeline fixo logo abaixo dos controles */
+        .timeline-container {
+            position: fixed;
+            top: 30px;
+            left: 0;
+            right: 0;
+            width: 100vw;
+            z-index: 999;
+            background: var(--color-black-soft);
+            border-bottom: 1px solid var(--border-subtle);
+            height: 35px;
+        }
+
+        /* Estica o mixer e a timeline na tela toda */
+        .mixer-container,
+        #waveform {
+            width: 100vw;
+            margin-left: 0;
+            margin-right: 0;
+            padding-left: 0;
+            padding-right: 0;
+        }
+        
+        /* Remove padding horizontal do mixer-tracks */
+        .mixer-tracks {
+            padding-left: 0;
+            padding-right: 0;
+        }
+        
+        /* Mixer container com scroll vertical livre e padding-top para não ficar atrás da barra fixa */
+        .mixer-container {
+            padding: var(--spacing-xs) var(--spacing-sm);
+            padding-top: 75px; /* 30px controls + 35px timeline + 10px margin */
+            height: auto;
+            overflow-x: auto;
+            overflow-y: auto;
+            margin-top: 0;
+        }
+        
+        /* Compact player controls for landscape */
+        .player-controls {
+            padding: var(--spacing-xs) var(--spacing-sm);
+            gap: var(--spacing-xs);
+        }
+        
+        /* Waveform height reduced to max 35px */
+        .timeline-waveform {
+            height: 35px;
+            padding: var(--spacing-xs) var(--spacing-sm);
+        }
+        
+        #waveformCanvas {
+            height: 100%;
+        }
+        
+        /* Compact fader heights for landscape - 80px-100px to fit in landscape */
+        .track-fader {
+            height: 90px;
+            width: 65px; /* Increased width for better touch accuracy */
+        }
+        
+        .master-fader {
+            height: 120px;
+            width: 80px; /* Increased width for better touch accuracy */
+        }
+        
+        /* Compact track elements */
+        .track-header {
+            padding: 2px;
+        }
+        
+        .track-name {
+            font-size: 8px;
+        }
+        
+        .track-btn {
+            width: 20px;
+            height: 20px;
+            min-width: 20px;
+            min-height: 20px;
+        }
+        
+        .track-btn svg {
+            width: 10px;
+            height: 10px;
+        }
+        
+        .track-db-value {
+            font-size: 8px;
+        }
+        
+        /* Compact master channel */
+        .master-channel {
+            width: 50px;
+            min-width: 50px;
+        }
+        
+        /* Adjust player view positioning */
+        .player-view {
+            top: 0;
+        }
+    }
+}
