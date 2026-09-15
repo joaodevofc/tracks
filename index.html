@@ -11,8 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="styles_3.css">
-    <link rel="stylesheet" href="mobile.css" media="(max-width: 600px)">
-    <link rel="stylesheet" href="tablet.css" media="(min-width: 601px) and (max-width: 768px)">
+    <link rel="stylesheet" href="mobile.css" media="(max-width: 768px)">
     <link rel="icon" type="image/png" href="icon-black-transparent.png">
     <link rel="manifest" href="manifest.json">
 
@@ -20,7 +19,7 @@
     <script type="module">
       import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
       import { getFirestore, collection, getDocs, query, orderBy, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, where, setDoc, getDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-      import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+      import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
       const firebaseConfig = {
         apiKey: "AIzaSyDW6P_V4_LRLRg6-FEe2E7QJa9J3oidY5g",
@@ -59,9 +58,7 @@
         signOut,
         onAuthStateChanged,
         GoogleAuthProvider,
-        signInWithPopup,
-        signInWithRedirect,
-        getRedirectResult
+        signInWithPopup
       };
 
       console.log('[FIREBASE] Firebase initialized (Firestore + Auth + Google)');

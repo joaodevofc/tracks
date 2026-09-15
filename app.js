@@ -900,9 +900,6 @@ class MultracksApp {
                 heroBanner.style.display = 'none';
             }
         }
-
-        // Unlock orientation when switching to any non-player view
-        this.unlockOrientation();
     }
 
     async loadExploreMusicas() {
@@ -2156,9 +2153,6 @@ class MultracksApp {
         // Hide main header when player is active
         document.body.classList.add('player-active');
         
-        // Lock orientation to landscape when player opens
-        this.lockOrientation('landscape');
-        
         // Reset TAP TEMPO when switching to player
         this.resetTapTempo();
         
@@ -2198,9 +2192,6 @@ class MultracksApp {
         // Show main header when returning to library
         document.body.classList.remove('player-active');
         
-        // Unlock orientation when leaving player
-        this.unlockOrientation();
-        
         // Stop playback if playing
         if (this.audioPlayer) {
             this.audioPlayer.stop();
@@ -2237,9 +2228,6 @@ class MultracksApp {
         
         // Show main header when switching to explore
         document.body.classList.remove('player-active');
-        
-        // Unlock orientation when leaving player
-        this.unlockOrientation();
         
         // Stop playback if playing
         if (this.audioPlayer) {
@@ -10551,21 +10539,6 @@ class MultracksApp {
     checkAuthState() {
         this.updateProfileButtonBasedOnAuth();
         
-        // Check for redirect result from Google login (for PWA mode)
-        if (window.firebaseAuth && window.firebaseAuth.getRedirectResult) {
-            window.firebaseAuth.getRedirectResult(window.firebaseAuth.auth)
-                .then(async (result) => {
-                    if (result.user) {
-                        // Handle the redirect result using the same logic as popup
-                        await this.handleGoogleLoginSuccess(result);
-                    }
-                })
-                .catch((error) => {
-                    console.error('[AUTH] Google redirect result error:', error);
-                    // Ignore errors here - it's normal if there's no pending redirect
-                });
-        }
-        
         // Use Firebase Auth state listener to properly check authentication
         if (window.firebaseAuth && window.firebaseAuth.auth && window.firebaseAuth.onAuthStateChanged) {
             window.firebaseAuth.onAuthStateChanged(window.firebaseAuth.auth, (user) => {
@@ -11001,29 +10974,39 @@ class MultracksApp {
             return;
         }
 
-        const { auth, GoogleAuthProvider, signInWithPopup, signInWithRedirect } = window.firebaseAuth;
+        const { auth, GoogleAuthProvider, signInWithPopup } = window.firebaseAuth;
         const provider = new GoogleAuthProvider();
 
-        // Detect if app is running in standalone mode (PWA installed)
-        const isStandalone = window.matchMedia('(display-mode: standalone)').matches 
-            || window.matchMedia('(display-mode: fullscreen)').matches 
-            || window.navigator.standalone === true; // iOS
-
-        console.log('[AUTH] App standalone mode:', isStandalone);
-
         try {
-            if (isStandalone) {
-                // Use redirect for PWA installed mode
-                console.log('[AUTH] Using signInWithRedirect for PWA mode');
-                await signInWithRedirect(auth, provider);
-                // The page will redirect and reload, so we don't need to handle the result here
-                // It will be handled by getRedirectResult in checkAuthState
-            } else {
-                // Use popup for regular browser mode
-                console.log('[AUTH] Using signInWithPopup for browser mode');
-                const result = await signInWithPopup(auth, provider);
-                await this.handleGoogleLoginSuccess(result);
+            const result = await signInWithPopup(auth, provider);
+            const user = result.user;
+            const isNewUser = result._tokenResponse?.isNewUser || false;
+
+            console.log('[AUTH] Google login successful:', user.email, 'isNewUser:', isNewUser);
+
+            if (isNewUser) {
+                // Create user document in Firestore for new Google users
+                if (window.firebaseDB) {
+                    const { db, doc, setDoc, serverTimestamp } = window.firebaseDB;
+                    
+                    const userData = {
+                        uid: user.uid,
+                        displayName: user.displayName || 'Usuário Google',
+                        email: user.email,
+                        photoURL: user.photoURL || null,
+                        accountType: 'google', // Default for Google users
+                        plan: 'track', // Default plan for new users
+                        createdAt: serverTimestamp()
+                    };
+
+                    await setDoc(doc(db, 'users', user.uid), userData, { merge: true });
+                    console.log('[AUTH] Google user data stored in Firestore');
+                }
             }
+
+            // Close modal and update profile
+            this.closeAuthModal();
+            this.updateUserProfile(user);
 
         } catch (error) {
             console.error('[AUTH] Google login error:', error);
@@ -11051,37 +11034,6 @@ class MultracksApp {
                 loginError.style.display = 'flex';
             }
         }
-    }
-
-    async handleGoogleLoginSuccess(result) {
-        const user = result.user;
-        const isNewUser = result._tokenResponse?.isNewUser || false;
-
-        console.log('[AUTH] Google login successful:', user.email, 'isNewUser:', isNewUser);
-
-        if (isNewUser) {
-            // Create user document in Firestore for new Google users
-            if (window.firebaseDB) {
-                const { db, doc, setDoc, serverTimestamp } = window.firebaseDB;
-                
-                const userData = {
-                    uid: user.uid,
-                    displayName: user.displayName || 'Usuário Google',
-                    email: user.email,
-                    photoURL: user.photoURL || null,
-                    accountType: 'google', // Default for Google users
-                    plan: 'track', // Default plan for new users
-                    createdAt: serverTimestamp()
-                };
-
-                await setDoc(doc(db, 'users', user.uid), userData, { merge: true });
-                console.log('[AUTH] Google user data stored in Firestore');
-            }
-        }
-
-        // Close modal and update profile
-        this.closeAuthModal();
-        this.updateUserProfile(user);
     }
     
     async updateUserProfile(user) {
@@ -11283,33 +11235,6 @@ class MultracksApp {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
-    }
-    
-    lockOrientation(orientation) {
-        // Lock screen orientation when player opens
-        if (screen.orientation && screen.orientation.lock) {
-            screen.orientation.lock(orientation)
-                .then(() => {
-                    console.log('[APP] Orientation locked to:', orientation);
-                })
-                .catch((error) => {
-                    console.warn('[APP] Could not lock orientation:', error);
-                    // Fallback: orientation lock not supported (e.g., iOS Safari)
-                    // User will need to rotate device manually
-                });
-        } else {
-            console.warn('[APP] screen.orientation.lock not available');
-        }
-    }
-    
-    unlockOrientation() {
-        // Unlock screen orientation when player closes
-        if (screen.orientation && screen.orientation.unlock) {
-            screen.orientation.unlock();
-            console.log('[APP] Orientation unlocked');
-        } else {
-            console.warn('[APP] screen.orientation.unlock not available');
-        }
     }
     
     formatTime(seconds) {
@@ -12147,9 +12072,6 @@ class MultracksApp {
         if (myTracksView) {
             myTracksView.style.display = 'block';
         }
-
-        // Unlock orientation when leaving player
-        this.unlockOrientation();
 
         // Hide loading screen after 2 seconds
         setTimeout(() => {

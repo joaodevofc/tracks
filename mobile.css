@@ -1,11 +1,10 @@
 /* ========================================
    MOBILE STYLES - Dedicate CSS for mobile devices
-   This file is loaded only on screens with max-width: 600px (smartphones)
-   Tablets (601px - 768px) are handled in tablet.css
+   This file is loaded only on screens with max-width: 768px
    ======================================== */
 
 /* ========================================
-   MOBILE PORTRAIT (max-width: 600px)
+   MOBILE PORTRAIT (max-width: 768px)
    ======================================== */
 
 /* Remove any borders/shadows that create "card" effect in mobile */
@@ -252,16 +251,16 @@ html, body {
     display: none;
 }
 
-/* Hide hero/carousel only when player is active on mobile */
-body.player-active .hero,
-body.player-active #newsCarousel,
-body.player-active .carousel-slide,
-body.player-active .carousel-dots {
+/* Hide hero/carousel on mobile */
+.hero,
+#newsCarousel,
+.carousel-slide,
+.carousel-dots {
     display: none !important;
 }
 
-/* Hide header actions only when player is active on mobile */
-body.player-active .header-actions {
+/* Hide header actions on mobile */
+.header-actions {
     display: none !important;
 }
 
@@ -370,139 +369,6 @@ body.player-active .header-actions {
 
 .filter-group {
     flex-wrap: wrap;
-}
-
-/* ========================================
-   SMARTPHONE BIBLIOTECA LISTA (max-width: 600px)
-   ======================================== */
-
-@media (max-width: 600px) {
-    /* Transformar grid em lista vertical para biblioteca */
-    .music-grid {
-        grid-template-columns: 1fr;
-        gap: var(--spacing-sm);
-    }
-    
-    /* Transformar cards em layout horizontal lista */
-    .music-card {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        padding: var(--spacing-sm);
-        gap: var(--spacing-sm);
-        min-height: 72px;
-        border-radius: var(--radius-md);
-    }
-    
-    /* Capa pequena quadrada à esquerda */
-    .music-card-cover {
-        width: 56px;
-        height: 56px;
-        min-width: 56px;
-        aspect-ratio: 1;
-        border-radius: var(--radius-sm);
-        flex-shrink: 0;
-    }
-    
-    /* Conteúdo à direita da capa */
-    .music-card-content {
-        flex: 1;
-        padding: 0;
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-    }
-    
-    /* Título da música */
-    .music-card-title {
-        font-size: var(--font-size-base);
-        margin-bottom: 2px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    
-    /* Meta informações compactas */
-    .music-card-meta {
-        gap: 2px;
-    }
-    
-    .music-card-meta-row {
-        font-size: var(--font-size-xs);
-        color: var(--color-white-muted);
-        flex-wrap: nowrap;
-    }
-    
-    .music-card-date {
-        font-size: var(--font-size-xs);
-        color: var(--color-white-muted);
-    }
-    
-    /* Menu de opções posicionado corretamente */
-    .music-card-menu {
-        position: relative;
-        top: auto;
-        right: auto;
-        width: 32px;
-        height: 32px;
-        flex-shrink: 0;
-        background: var(--color-black-elevated);
-        border: 1px solid var(--border-subtle);
-        border-radius: var(--radius-sm);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    
-    .music-card-menu:hover {
-        background: var(--color-black-hover);
-        border-color: var(--border-medium);
-    }
-    
-    /* Remover efeitos de hover que não funcionam bem em lista */
-    .music-card:hover {
-        transform: none;
-        border-color: var(--border-subtle);
-        box-shadow: none;
-    }
-    
-    /* Indicador de exclusão em lista */
-    .music-card-deleting-indicator {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.8);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        border-radius: var(--radius-md);
-        z-index: 10;
-    }
-    
-    /* Badge de edição em lista */
-    .music-card-edited-badge {
-        font-size: 10px;
-        padding: 2px 6px;
-        background: var(--color-accent);
-        color: var(--color-black);
-        border-radius: var(--radius-sm);
-        margin-left: var(--spacing-xs);
-    }
-    
-    /* Placeholder de capa em lista */
-    .music-card-cover-placeholder svg {
-        width: 32px;
-        height: 32px;
-    }
-    
-    /* Progresso de preparação em lista */
-    .library-preparation-progress {
-        border-radius: var(--radius-md);
-    }
 }
 
 /* Adjust player view for smaller screens */
@@ -699,13 +565,266 @@ body.player-active .header-actions {
    SMARTPHONE LANDSCAPE (max-width: 768px)
    ======================================== */
 
-/* REMOVIDO: Regras globais de landscape foram movidas para se aplicarem apenas quando o Player está ativo */
+@media (max-width: 768px) and (orientation: landscape) and (min-height: 601px) {
+    /* Liberar scroll vertical na página */
+    html, body {
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        height: auto !important;
+    }
+    
+    /* Remove position fixed from player-view to allow scroll */
+    .player-view {
+        position: relative !important;
+        overflow: visible !important;
+    }
+    
+    /* Hide player logo and music selector */
+    .player-logo,
+    .music-selector {
+        display: none;
+    }
+    
+    /* Forca a barra superior a colar nas pontas */
+    .player-controls {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        width: 100vw;
+        z-index: 1000;
+        background: var(--color-black);
+        border-bottom: 1px solid var(--border-subtle);
+        height: 30px;
+    }
+
+    /* Timeline fixo logo abaixo dos controles */
+    .timeline-container {
+        position: fixed;
+        top: 30px;
+        left: 0;
+        right: 0;
+        width: 100vw;
+        z-index: 999;
+        background: var(--color-black-soft);
+        border-bottom: 1px solid var(--border-subtle);
+        height: 35px;
+    }
+
+    /* Estica o mixer e a timeline na tela toda */
+    .mixer-container,
+    #waveform {
+        width: 100vw;
+        margin-left: 0;
+        margin-right: 0;
+        padding-left: 0;
+        padding-right: 0;
+    }
+    
+    /* Remove padding horizontal do mixer-tracks */
+    .mixer-tracks {
+        padding-left: 0;
+        padding-right: 0;
+    }
+    
+    /* Smartphone landscape specific optimizations */
+    .mixer-container {
+        padding: var(--spacing-xs) var(--spacing-sm);
+        padding-top: 75px; /* 30px controls + 35px timeline + 10px margin */
+        height: auto;
+        overflow-x: auto;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        scroll-snap-type: x mandatory;
+    }
+    
+    .mixer-tracks {
+        -webkit-overflow-scrolling: touch;
+        scroll-snap-type: x mandatory;
+    }
+    
+    .track-channel {
+        width: 60px;
+        min-width: 60px;
+        scroll-snap-align: start;
+    }
+    
+    /* Even more compact faders for smartphone landscape */
+    .track-fader {
+        height: 80px; /* Reduced to fit in small landscape screens */
+        width: 60px; /* Increased width for better touch accuracy */
+    }
+    
+    .master-fader {
+        height: 100px;
+        width: 75px; /* Increased width for better touch accuracy */
+    }
+    
+    .track-btn {
+        width: 24px;
+        height: 24px;
+        min-width: 24px;
+        min-height: 24px;
+    }
+    
+    .track-btn svg {
+        width: 12px;
+        height: 12px;
+    }
+    
+    .track-name {
+        font-size: 7px;
+    }
+    
+    .track-db-value {
+        font-size: 7px;
+    }
+    
+    .master-channel {
+        width: 50px;
+        min-width: 50px;
+    }
+}
 
 /* ========================================
    LANDSCAPE MOBILE/TABLET MODE (Android landscape)
    ======================================== */
 
-/* REMOVIDO: Regras globais de landscape foram movidas para se aplicarem apenas quando o Player está ativo */
+@media (orientation: landscape) and (max-height: 600px) and (min-height: 401px) {
+    /* Liberar scroll vertical na página */
+    html, body {
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        height: auto !important;
+    }
+    
+    /* Remove position fixed from player-view to allow scroll */
+    .player-view {
+        position: relative !important;
+        overflow: visible !important;
+    }
+    
+    /* Hide player logo and music selector for landscape */
+    .player-logo,
+    .music-selector {
+        display: none;
+    }
+    
+    /* Forca a barra superior a colar nas pontas */
+    .player-controls {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        width: 100vw;
+        z-index: 1000;
+        background: var(--color-black);
+        border-bottom: 1px solid var(--border-subtle);
+        height: 30px;
+    }
+
+    /* Timeline fixo logo abaixo dos controles */
+    .timeline-container {
+        position: fixed;
+        top: 30px;
+        left: 0;
+        right: 0;
+        width: 100vw;
+        z-index: 999;
+        background: var(--color-black-soft);
+        border-bottom: 1px solid var(--border-subtle);
+        height: 35px;
+    }
+
+    /* Estica o mixer e a timeline na tela toda */
+    .mixer-container,
+    #waveform {
+        width: 100vw;
+        margin-left: 0;
+        margin-right: 0;
+        padding-left: 0;
+        padding-right: 0;
+    }
+    
+    /* Remove padding horizontal do mixer-tracks */
+    .mixer-tracks {
+        padding-left: 0;
+        padding-right: 0;
+    }
+    
+    /* Mixer container com scroll vertical livre e padding-top para não ficar atrás da barra fixa */
+    .mixer-container {
+        padding: var(--spacing-xs) var(--spacing-sm);
+        padding-top: 75px; /* 30px controls + 35px timeline + 10px margin */
+        height: auto;
+        overflow-x: auto;
+        overflow-y: auto;
+        margin-top: 0;
+    }
+    
+    /* Compact player controls for landscape */
+    .player-controls {
+        padding: var(--spacing-xs) var(--spacing-sm);
+        gap: var(--spacing-xs);
+    }
+    
+    /* Waveform height reduced to max 35px */
+    .timeline-waveform {
+        height: 35px;
+        padding: var(--spacing-xs) var(--spacing-sm);
+    }
+    
+    #waveformCanvas {
+        height: 100%;
+    }
+    
+    /* Compact fader heights for landscape - 80px-100px to fit in landscape */
+    .track-fader {
+        height: 90px;
+        width: 65px; /* Increased width for better touch accuracy */
+    }
+    
+    .master-fader {
+        height: 120px;
+        width: 80px; /* Increased width for better touch accuracy */
+    }
+    
+    /* Compact track elements */
+    .track-header {
+        padding: 2px;
+    }
+    
+    .track-name {
+        font-size: 8px;
+    }
+    
+    .track-btn {
+        width: 20px;
+        height: 20px;
+        min-width: 20px;
+        min-height: 20px;
+    }
+    
+    .track-btn svg {
+        width: 10px;
+        height: 10px;
+    }
+    
+    .track-db-value {
+        font-size: 8px;
+    }
+    
+    /* Compact master channel */
+    .master-channel {
+        width: 50px;
+        min-width: 50px;
+    }
+    
+    /* Adjust player view positioning */
+    .player-view {
+        top: 0;
+    }
+}
 
 /* ========================================
    SEARCH INPUT MOBILE (max-width: 600px)
@@ -763,354 +882,231 @@ body.player-active .header-actions {
    SMALL LANDSCAPE (max-width: 400px height)
    ======================================== */
 
-/* REMOVIDO: Regras globais de landscape foram movidas para se aplicarem apenas quando o Player está ativo */
+@media (orientation: landscape) and (max-height: 400px) {
+    /* Liberar scroll vertical na página */
+    html, body {
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        height: auto !important;
+    }
+    
+    /* Remove position fixed from player-view to allow scroll */
+    .player-view {
+        position: relative !important;
+        overflow: visible !important;
+    }
+    
+    /* Hide player logo and music selector for small landscape */
+    .player-logo,
+    .music-selector {
+        display: none;
+    }
+    
+    /* Super compact player controls for very small landscape */
+    .player-controls {
+        padding: var(--spacing-xs) var(--spacing-sm);
+        max-height: 28px;
+        min-height: 28px;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+        background: var(--color-black);
+        border-bottom: 1px solid var(--border-subtle);
+        width: 100vw;
+    }
+    
+    /* Timeline fixo logo abaixo dos controles */
+    .timeline-container {
+        position: fixed;
+        top: 28px;
+        left: 0;
+        right: 0;
+        width: 100vw;
+        z-index: 999;
+        background: var(--color-black-soft);
+        border-bottom: 1px solid var(--border-subtle);
+        height: 30px;
+    }
+    
+    /* Even smaller waveform for very small screens */
+    .timeline-waveform {
+        height: 30px;
+        padding: var(--spacing-xs) var(--spacing-sm);
+    }
+    
+    #waveformCanvas {
+        height: 100%;
+    }
+    
+    /* Mixer container for very small landscape */
+    .mixer-container {
+        padding: var(--spacing-xs);
+        padding-top: 68px; /* 28px controls + 30px timeline + 10px margin */
+        height: auto;
+        overflow-x: auto;
+        overflow-y: auto;
+        width: 100vw;
+        margin-left: 0;
+        margin-right: 0;
+        padding-left: 0;
+        padding-right: 0;
+    }
+    
+    /* Remove padding horizontal do mixer-tracks */
+    .mixer-tracks {
+        padding-left: 0;
+        padding-right: 0;
+    }
+    
+    /* Ultra compact elements */
+    .track-channel {
+        width: 45px;
+        min-width: 45px;
+    }
+    
+    .track-name {
+        font-size: 6px;
+    }
+    
+    .track-btn {
+        width: 18px;
+        height: 18px;
+        min-width: 18px;
+        min-height: 18px;
+    }
+    
+    .track-btn svg {
+        width: 8px;
+        height: 8px;
+    }
+
+    .track-fader {
+        height: 70px;
+        width: 55px; /* Increased width for better touch accuracy */
+    }
+    
+    .fader-thumb {
+        width: 35px;
+        height: 18px;
+    }
+
+    .track-db-value {
+        font-size: 6px;
+    }
+    
+    .master-channel {
+        width: 45px;
+        min-width: 45px;
+    }
+    
+    .master-fader {
+        height: 90px;
+    }
+}
 
 /* ========================================
-   PLAYER LANDSCAPE MODE - Apenas quando Player está ativo
+   TABLET LANDSCAPE (768px - 1024px)
    ======================================== */
 
-/* Smartphone landscape com Player ativo (max-width: 600px) */
-@media (max-width: 600px) and (orientation: landscape) and (min-height: 601px) {
-    body.player-active {
-        /* Liberar scroll vertical na página */
-        html, body {
-            overflow-y: auto !important;
-            overflow-x: hidden !important;
-            height: auto !important;
-        }
-        
-        /* Remove position fixed from player-view to allow scroll */
-        .player-view {
-            position: relative !important;
-            overflow: visible !important;
-        }
-        
-        /* Hide player logo and music selector */
-        .player-logo,
-        .music-selector {
-            display: none;
-        }
-        
-        /* Forca a barra superior a colar nas pontas */
-        .player-controls {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            width: 100vw;
-            z-index: 1000;
-            background: var(--color-black);
-            border-bottom: 1px solid var(--border-subtle);
-            height: 30px;
-        }
+@media (min-width: 768px) and (max-width: 1024px) and (orientation: landscape) {
+    .player-view {
+        top: 0;
+    }
+    
+    .mixer-container {
+        padding: var(--spacing-md);
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .mixer-tracks {
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .track-channel {
+        width: 100px;
+        min-width: 100px;
+    }
 
-        /* Timeline fixo logo abaixo dos controles */
-        .timeline-container {
-            position: fixed;
-            top: 30px;
-            left: 0;
-            right: 0;
-            width: 100vw;
-            z-index: 999;
-            background: var(--color-black-soft);
-            border-bottom: 1px solid var(--border-subtle);
-            height: 35px;
-        }
-
-        /* Estica o mixer e a timeline na tela toda */
-        .mixer-container,
-        #waveform {
-            width: 100vw;
-            margin-left: 0;
-            margin-right: 0;
-            padding-left: 0;
-            padding-right: 0;
-        }
-        
-        /* Remove padding horizontal do mixer-tracks */
-        .mixer-tracks {
-            padding-left: 0;
-            padding-right: 0;
-        }
-        
-        /* Smartphone landscape specific optimizations */
-        .mixer-container {
-            padding: var(--spacing-xs) var(--spacing-sm);
-            padding-top: 75px; /* 30px controls + 35px timeline + 10px margin */
-            height: auto;
-            overflow-x: auto;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
-            scroll-snap-type: x mandatory;
-        }
-        
-        .mixer-tracks {
-            -webkit-overflow-scrolling: touch;
-            scroll-snap-type: x mandatory;
-        }
-        
-        .track-channel {
-            width: 60px;
-            min-width: 60px;
-            scroll-snap-align: start;
-        }
-        
-        /* Even more compact faders for smartphone landscape */
-        .track-fader {
-            height: 80px; /* Reduced to fit in small landscape screens */
-            width: 60px; /* Increased width for better touch accuracy */
-        }
-        
-        .master-fader {
-            height: 100px;
-            width: 75px; /* Increased width for better touch accuracy */
-        }
-        
-        .track-btn {
-            width: 24px;
-            height: 24px;
-            min-width: 24px;
-            min-height: 24px;
-        }
-        
-        .track-btn svg {
-            width: 12px;
-            height: 12px;
-        }
-        
-        .track-name {
-            font-size: 7px;
-        }
-        
-        .track-db-value {
-            font-size: 7px;
-        }
-        
-        .master-channel {
-            width: 50px;
-            min-width: 50px;
-        }
+    .track-fader {
+        height: 220px;
+        width: 90px;
+    }
+    
+    .master-channel {
+        width: 100px;
+        min-width: 100px;
     }
 }
 
-/* Landscape mobile/tablet com Player ativo (apenas smartphones) */
-@media (max-width: 600px) and (orientation: landscape) and (max-height: 600px) and (min-height: 401px) {
-    body.player-active {
-        /* Liberar scroll vertical na página */
-        html, body {
-            overflow-y: auto !important;
-            overflow-x: hidden !important;
-            height: auto !important;
-        }
-        
-        /* Remove position fixed from player-view to allow scroll */
-        .player-view {
-            position: relative !important;
-            overflow: visible !important;
-        }
-        
-        /* Hide player logo and music selector for landscape */
-        .player-logo,
-        .music-selector {
-            display: none;
-        }
-        
-        /* Forca a barra superior a colar nas pontas */
-        .player-controls {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            width: 100vw;
-            z-index: 1000;
-            background: var(--color-black);
-            border-bottom: 1px solid var(--border-subtle);
-            height: 30px;
-        }
+/* ========================================
+   TABLET PORTRAIT (768px - 1024px)
+   ======================================== */
 
-        /* Timeline fixo logo abaixo dos controles */
-        .timeline-container {
-            position: fixed;
-            top: 30px;
-            left: 0;
-            right: 0;
-            width: 100vw;
-            z-index: 999;
-            background: var(--color-black-soft);
-            border-bottom: 1px solid var(--border-subtle);
-            height: 35px;
-        }
+@media (min-width: 768px) and (max-width: 1024px) and (orientation: portrait) {
+    .player-view {
+        top: 0;
+    }
+    
+    .mixer-container {
+        padding: var(--spacing-sm) var(--spacing-md);
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .mixer-tracks {
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .track-channel {
+        width: 105px;
+        min-width: 105px;
+    }
+    
+    .track-btn {
+        width: 34px;
+        height: 34px;
+        min-width: 34px;
+        min-height: 34px;
+    }
 
-        /* Estica o mixer e a timeline na tela toda */
-        .mixer-container,
-        #waveform {
-            width: 100vw;
-            margin-left: 0;
-            margin-right: 0;
-            padding-left: 0;
-            padding-right: 0;
-        }
-        
-        /* Remove padding horizontal do mixer-tracks */
-        .mixer-tracks {
-            padding-left: 0;
-            padding-right: 0;
-        }
-        
-        /* Mixer container com scroll vertical livre e padding-top para não ficar atrás da barra fixa */
-        .mixer-container {
-            padding: var(--spacing-xs) var(--spacing-sm);
-            padding-top: 75px; /* 30px controls + 35px timeline + 10px margin */
-            height: auto;
-            overflow-x: auto;
-            overflow-y: auto;
-            margin-top: 0;
-        }
-        
-        /* Compact player controls for landscape */
-        .player-controls {
-            padding: var(--spacing-xs) var(--spacing-sm);
-            gap: var(--spacing-xs);
-        }
-        
-        /* Waveform height reduced to max 35px */
-        .timeline-waveform {
-            height: 35px;
-            padding: var(--spacing-xs) var(--spacing-sm);
-        }
-        
-        #waveformCanvas {
-            height: 100%;
-        }
-        
-        /* Compact fader heights for landscape - 80px-100px to fit in landscape */
-        .track-fader {
-            height: 90px;
-            width: 65px; /* Increased width for better touch accuracy */
-        }
-        
-        .master-fader {
-            height: 120px;
-            width: 80px; /* Increased width for better touch accuracy */
-        }
-        
-        /* Compact track elements */
-        .track-header {
-            padding: 2px;
-        }
-        
-        .track-name {
-            font-size: 8px;
-        }
-        
-        .track-btn {
-            width: 20px;
-            height: 20px;
-            min-width: 20px;
-            min-height: 20px;
-        }
-        
-        .track-btn svg {
-            width: 10px;
-            height: 10px;
-        }
-        
-        .track-db-value {
-            font-size: 8px;
-        }
-        
-        /* Compact master channel */
-        .master-channel {
-            width: 50px;
-            min-width: 50px;
-        }
-        
-        /* Adjust player view positioning */
-        .player-view {
-            top: 0;
-        }
+    .track-fader {
+        height: 240px;
+        width: 95px;
+    }
+    
+    .master-channel {
+        width: 105px;
+        min-width: 105px;
     }
 }
 
-/* Very small landscape com Player ativo (apenas smartphones) */
-@media (max-width: 600px) and (orientation: landscape) and (max-height: 400px) {
-    body.player-active {
-        /* Liberar scroll vertical na página */
-        html, body {
-            overflow-y: auto !important;
-            overflow-x: hidden !important;
-            height: auto !important;
-        }
-        
-        /* Remove position fixed from player-view to allow scroll */
-        .player-view {
-            position: relative !important;
-            overflow: visible !important;
-        }
-        
-        /* Hide player logo and music selector for small landscape */
-        .player-logo,
-        .music-selector {
-            display: none;
-        }
-        
-        /* Super compact player controls for very small landscape */
-        .player-controls {
-            padding: var(--spacing-xs) var(--spacing-sm);
-            max-height: 28px;
-            min-height: 28px;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 1000;
-            background: var(--color-black);
-            border-bottom: 1px solid var(--border-subtle);
-            width: 100vw;
-        }
-        
-        /* Timeline fixo logo abaixo dos controles */
-        .timeline-container {
-            position: fixed;
-            top: 28px;
-            left: 0;
-            right: 0;
-            width: 100vw;
-            z-index: 999;
-            background: var(--color-black-soft);
-            border-bottom: 1px solid var(--border-subtle);
-            height: 30px;
-        }
-        
-        /* Even smaller waveform for very small screens */
-        .timeline-waveform {
-            height: 30px;
-            padding: var(--spacing-xs) var(--spacing-sm);
-        }
-        
-        #waveformCanvas {
-            height: 100%;
-        }
-        
-        /* Mixer container for very small landscape */
-        .mixer-container {
-            padding: var(--spacing-xs);
-            padding-top: 68px; /* 28px controls + 30px timeline + 10px margin */
-            height: auto;
-            overflow-x: auto;
-            overflow-y: auto;
-            width: 100vw;
-            margin-left: 0;
-            margin-right: 0;
-            padding-left: 0;
-            padding-right: 0;
-        }
-        
-        .mixer-tracks {
-            padding-left: 0;
-            padding-right: 0;
-        }
-    }
+/* Track Modal Mobile */
+#trackModal .modal {
+    max-width: 95%;
+    margin: var(--spacing-md);
 }
 
-/* TABLET RULES MOVED TO tablet.css - This file now only handles smartphones (max-width: 600px) */
+#trackModal .modal-body {
+    padding: var(--spacing-md);
+}
+
+#trackModal .form-group {
+    margin-bottom: var(--spacing-md);
+}
+
+#trackModal .form-input {
+    padding: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+}
+
+#trackModal .modal-footer {
+    padding: var(--spacing-md);
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+#trackModal .btn {
+    width: 100%;
+    padding: var(--spacing-md);
+}

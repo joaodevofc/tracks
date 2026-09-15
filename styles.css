@@ -5926,11 +5926,9 @@ body.fader-animations-disabled .led-pointer {
     }
 }
 
-/* Landscape mode - small height */
 @media (max-height: 500px) {
     .auth-modal {
         max-height: 95vh;
-        overflow: visible;
     }
 
     .auth-container {
@@ -5960,15 +5958,6 @@ body.fader-animations-disabled .led-pointer {
 
     .auth-inputs {
         gap: 12px;
-    }
-
-    .auth-input-group {
-        margin-bottom: 12px;
-    }
-
-    .auth-submit-btn {
-        padding: 12px 20px;
-        font-size: 15px;
     }
 }
 

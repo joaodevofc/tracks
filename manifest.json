@@ -5,7 +5,7 @@
   "start_url": "/tracks/",
   "scope": "/tracks/",
   "display": "fullscreen",
-  "orientation": "any",
+  "orientation": "landscape-primary",
   "background_color": "#000000",
   "theme_color": "#000000",
   "icons": [
