@@ -900,6 +900,9 @@ class MultracksApp {
                 heroBanner.style.display = 'none';
             }
         }
+
+        // Unlock orientation when switching to any non-player view
+        this.unlockOrientation();
     }
 
     async loadExploreMusicas() {
@@ -2153,6 +2156,9 @@ class MultracksApp {
         // Hide main header when player is active
         document.body.classList.add('player-active');
         
+        // Lock orientation to landscape when player opens
+        this.lockOrientation('landscape');
+        
         // Reset TAP TEMPO when switching to player
         this.resetTapTempo();
         
@@ -2192,6 +2198,9 @@ class MultracksApp {
         // Show main header when returning to library
         document.body.classList.remove('player-active');
         
+        // Unlock orientation when leaving player
+        this.unlockOrientation();
+        
         // Stop playback if playing
         if (this.audioPlayer) {
             this.audioPlayer.stop();
@@ -2228,6 +2237,9 @@ class MultracksApp {
         
         // Show main header when switching to explore
         document.body.classList.remove('player-active');
+        
+        // Unlock orientation when leaving player
+        this.unlockOrientation();
         
         // Stop playback if playing
         if (this.audioPlayer) {
@@ -11237,6 +11249,33 @@ class MultracksApp {
         return div.innerHTML;
     }
     
+    lockOrientation(orientation) {
+        // Lock screen orientation when player opens
+        if (screen.orientation && screen.orientation.lock) {
+            screen.orientation.lock(orientation)
+                .then(() => {
+                    console.log('[APP] Orientation locked to:', orientation);
+                })
+                .catch((error) => {
+                    console.warn('[APP] Could not lock orientation:', error);
+                    // Fallback: orientation lock not supported (e.g., iOS Safari)
+                    // User will need to rotate device manually
+                });
+        } else {
+            console.warn('[APP] screen.orientation.lock not available');
+        }
+    }
+    
+    unlockOrientation() {
+        // Unlock screen orientation when player closes
+        if (screen.orientation && screen.orientation.unlock) {
+            screen.orientation.unlock();
+            console.log('[APP] Orientation unlocked');
+        } else {
+            console.warn('[APP] screen.orientation.unlock not available');
+        }
+    }
+    
     formatTime(seconds) {
         if (!seconds || isNaN(seconds)) return '0:00';
         
@@ -12072,6 +12111,9 @@ class MultracksApp {
         if (myTracksView) {
             myTracksView.style.display = 'block';
         }
+
+        // Unlock orientation when leaving player
+        this.unlockOrientation();
 
         // Hide loading screen after 2 seconds
         setTimeout(() => {
