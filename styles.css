@@ -5926,6 +5926,52 @@ body.fader-animations-disabled .led-pointer {
     }
 }
 
+/* Landscape mode - small height */
+@media (max-height: 500px) {
+    .auth-modal {
+        max-height: 95vh;
+        overflow: visible;
+    }
+
+    .auth-container {
+        flex-direction: column;
+        min-height: auto;
+        max-height: 95vh;
+        overflow-y: auto;
+    }
+
+    .auth-visual {
+        display: none;
+    }
+
+    .auth-forms-container {
+        padding: 16px 24px;
+        overflow-y: auto;
+    }
+
+    .auth-title {
+        font-size: 20px;
+        margin-bottom: 8px;
+    }
+
+    .auth-subtitle {
+        margin-bottom: 16px;
+    }
+
+    .auth-inputs {
+        gap: 12px;
+    }
+
+    .auth-input-group {
+        margin-bottom: 12px;
+    }
+
+    .auth-submit-btn {
+        padding: 12px 20px;
+        font-size: 15px;
+    }
+}
+
 @media (max-width: 480px) {
     .auth-forms-container {
         padding: 24px 16px;

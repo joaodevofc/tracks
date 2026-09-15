@@ -10551,6 +10551,21 @@ class MultracksApp {
     checkAuthState() {
         this.updateProfileButtonBasedOnAuth();
         
+        // Check for redirect result from Google login (for PWA mode)
+        if (window.firebaseAuth && window.firebaseAuth.getRedirectResult) {
+            window.firebaseAuth.getRedirectResult(window.firebaseAuth.auth)
+                .then(async (result) => {
+                    if (result.user) {
+                        // Handle the redirect result using the same logic as popup
+                        await this.handleGoogleLoginSuccess(result);
+                    }
+                })
+                .catch((error) => {
+                    console.error('[AUTH] Google redirect result error:', error);
+                    // Ignore errors here - it's normal if there's no pending redirect
+                });
+        }
+        
         // Use Firebase Auth state listener to properly check authentication
         if (window.firebaseAuth && window.firebaseAuth.auth && window.firebaseAuth.onAuthStateChanged) {
             window.firebaseAuth.onAuthStateChanged(window.firebaseAuth.auth, (user) => {
@@ -10986,39 +11001,29 @@ class MultracksApp {
             return;
         }
 
-        const { auth, GoogleAuthProvider, signInWithPopup } = window.firebaseAuth;
+        const { auth, GoogleAuthProvider, signInWithPopup, signInWithRedirect } = window.firebaseAuth;
         const provider = new GoogleAuthProvider();
 
+        // Detect if app is running in standalone mode (PWA installed)
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches 
+            || window.matchMedia('(display-mode: fullscreen)').matches 
+            || window.navigator.standalone === true; // iOS
+
+        console.log('[AUTH] App standalone mode:', isStandalone);
+
         try {
-            const result = await signInWithPopup(auth, provider);
-            const user = result.user;
-            const isNewUser = result._tokenResponse?.isNewUser || false;
-
-            console.log('[AUTH] Google login successful:', user.email, 'isNewUser:', isNewUser);
-
-            if (isNewUser) {
-                // Create user document in Firestore for new Google users
-                if (window.firebaseDB) {
-                    const { db, doc, setDoc, serverTimestamp } = window.firebaseDB;
-                    
-                    const userData = {
-                        uid: user.uid,
-                        displayName: user.displayName || 'Usuário Google',
-                        email: user.email,
-                        photoURL: user.photoURL || null,
-                        accountType: 'google', // Default for Google users
-                        plan: 'track', // Default plan for new users
-                        createdAt: serverTimestamp()
-                    };
-
-                    await setDoc(doc(db, 'users', user.uid), userData, { merge: true });
-                    console.log('[AUTH] Google user data stored in Firestore');
-                }
+            if (isStandalone) {
+                // Use redirect for PWA installed mode
+                console.log('[AUTH] Using signInWithRedirect for PWA mode');
+                await signInWithRedirect(auth, provider);
+                // The page will redirect and reload, so we don't need to handle the result here
+                // It will be handled by getRedirectResult in checkAuthState
+            } else {
+                // Use popup for regular browser mode
+                console.log('[AUTH] Using signInWithPopup for browser mode');
+                const result = await signInWithPopup(auth, provider);
+                await this.handleGoogleLoginSuccess(result);
             }
-
-            // Close modal and update profile
-            this.closeAuthModal();
-            this.updateUserProfile(user);
 
         } catch (error) {
             console.error('[AUTH] Google login error:', error);
@@ -11046,6 +11051,37 @@ class MultracksApp {
                 loginError.style.display = 'flex';
             }
         }
+    }
+
+    async handleGoogleLoginSuccess(result) {
+        const user = result.user;
+        const isNewUser = result._tokenResponse?.isNewUser || false;
+
+        console.log('[AUTH] Google login successful:', user.email, 'isNewUser:', isNewUser);
+
+        if (isNewUser) {
+            // Create user document in Firestore for new Google users
+            if (window.firebaseDB) {
+                const { db, doc, setDoc, serverTimestamp } = window.firebaseDB;
+                
+                const userData = {
+                    uid: user.uid,
+                    displayName: user.displayName || 'Usuário Google',
+                    email: user.email,
+                    photoURL: user.photoURL || null,
+                    accountType: 'google', // Default for Google users
+                    plan: 'track', // Default plan for new users
+                    createdAt: serverTimestamp()
+                };
+
+                await setDoc(doc(db, 'users', user.uid), userData, { merge: true });
+                console.log('[AUTH] Google user data stored in Firestore');
+            }
+        }
+
+        // Close modal and update profile
+        this.closeAuthModal();
+        this.updateUserProfile(user);
     }
     
     async updateUserProfile(user) {
