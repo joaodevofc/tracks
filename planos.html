@@ -627,7 +627,7 @@
             console.log('[PLANS] User has already used free trial');
           }
           
-          if (currentPlan === 'track pro' && userData.validadeAcesso) {
+          if (currentPlan === 'track_pro' && userData.validadeAcesso) {
             planExpiryDate = new Date(userData.validadeAcesso);
             const currentDate = new Date();
             
@@ -2064,7 +2064,7 @@
     // The old event listener has been removed to use the modal-based flow
 
     document.getElementById('btnUpgradeAnnual').addEventListener('click', function () {
-      // TODO: abrir checkout/pagamento do plano anual e, após confirmação, atualizar o campo "plano" do usuário no Firestore para "track_pro_anual"
+      // Upgrade anual é tratado pelo listener que usa window.linkAnual (linhas 715-785)
       console.log('Upgrade para Track Pro anual solicitado');
     });
 

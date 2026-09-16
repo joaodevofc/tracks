@@ -7478,7 +7478,7 @@ class MultracksApp {
                 <div style="font-size: 48px; margin-bottom: 16px;">💻</div>
                 <h3 style="color: #ffffff; margin-bottom: 12px;">Edição de Tracks (suporte só pra desktop)</h3>
                 <p style="color: #a0a0a0; margin-bottom: 24px; line-height: 1.5;">
-                    Por enquanto, o modo de edição de tracks está disponível apenas no desktop. Use um computador para acessar todas as funcionalidades do Studio.
+                    Por enquanto, o modo de edição de tracks está disponível apenas no desktop. Use um computador para acessar todas as funcionalidades do W.Tracks.
                 </p>
                 <button class="modal-btn" id="closeDesktopModal" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;">
                     Entendi
