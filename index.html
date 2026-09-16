@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>W.Tracks</title>
+    <title>W.Tracks - Multitrack Studio</title>
     <meta name="description" content="Plataforma profissional para projetos multitrack e stems musicais">
     <meta name="theme-color" content="#000000">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -169,7 +169,7 @@
                 const priceMatch = studioPrice.match(/R\$\s*([\d.,]+)/);
                 if (priceMatch) {
                     const numericPrice = priceMatch[1];
-                    priceElement.innerHTML = `R$ ${numericPrice}<span style="font-size: 1.5rem;">/mês</span>`;
+                    priceElement.innerHTML = `R$ ${numericPrice}<span class="price-period">/mês</span>`;
                 } else {
                     priceElement.textContent = studioPrice;
                 }
@@ -226,12 +226,12 @@
             const badgeText = isPoll ? 'Enquete' : 'Notícia';
 
             newsContent.innerHTML = `
-                <span class="news-badge">${badgeText}</span>
+                <div class="news-badge">${badgeText}</div>
                 <h3 class="news-title">${latestNews.title}</h3>
                 <p class="news-description">${latestNews.description || ''}</p>
                 <div class="news-meta">
                     <span class="news-date">${date}</span>
-                    ${latestNews.likes ? `<span>• ${latestNews.likes.length} curtidas</span>` : ''}
+                    ${latestNews.likes ? `<span class="news-likes">• ${latestNews.likes.length} curtidas</span>` : ''}
                 </div>
                 <a href="noticias.html" class="news-cta">
                     Ver mais
@@ -246,7 +246,7 @@
         function showNewsFallback() {
             const newsContent = document.getElementById('newsSlideContent');
             newsContent.innerHTML = `
-                <span class="news-badge">Notícias</span>
+                <div class="news-badge">Notícias</div>
                 <h3 class="news-title">Fique por dentro!</h3>
                 <p class="news-description">Acompanhe as últimas novidades do W.Tracks em nossa página de notícias.</p>
                 <div class="news-meta">
@@ -272,7 +272,7 @@
 
             setTimeout(() => {
                 isTransitioning = false;
-            }, 800); // Match the CSS transition duration
+            }, 600); // Match CSS transition duration
         }
 
         function nextSlide() {
@@ -283,7 +283,7 @@
 
             setTimeout(() => {
                 isTransitioning = false;
-            }, 800);
+            }, 600); // Match CSS transition duration
         }
 
         function prevSlide() {
@@ -294,7 +294,7 @@
 
             setTimeout(() => {
                 isTransitioning = false;
-            }, 800);
+            }, 600); // Match CSS transition duration
         }
 
         // Update carousel UI
@@ -311,21 +311,13 @@
                 }
             });
 
-            // Update LED ring theme with smooth transition
-            const ledRing = document.getElementById('carouselLedRing');
-            ledRing.classList.remove('welcome-theme', 'studio-theme', 'news-theme');
-            ledRing.classList.add('active');
-            // Small delay to allow the theme change to be smooth
-            setTimeout(() => {
-                ledRing.classList.add(`${slideName}-theme`);
-            }, 50);
-
-            // Update navigation dots
-            document.querySelectorAll('.carousel-dot').forEach((dot, index) => {
-                dot.classList.remove('active', 'welcome-active', 'studio-active', 'news-active');
+            // Update progress bar with animation restart
+            document.querySelectorAll('.carousel-progress-segment').forEach((segment, index) => {
+                segment.classList.remove('active');
+                // Force reflow to restart animation
+                void segment.offsetWidth;
                 if (index === currentSlide) {
-                    dot.classList.add('active');
-                    dot.classList.add(`${slideName}-active`);
+                    segment.classList.add('active');
                 }
             });
 
@@ -356,6 +348,13 @@
             const carousel = document.getElementById('newsCarousel');
             carousel.addEventListener('mouseenter', stopCarouselAutoplay);
             carousel.addEventListener('mouseleave', startCarouselAutoplay);
+
+            // Progress bar click navigation
+            document.querySelectorAll('.carousel-progress-segment').forEach((segment, index) => {
+                segment.addEventListener('click', () => {
+                    goToSlide(slides[index]);
+                });
+            });
 
             // Keyboard navigation
             document.addEventListener('keydown', (e) => {
@@ -495,65 +494,98 @@
 
     <!-- NEWS CAROUSEL -->
     <section class="news-carousel" id="newsCarousel">
-        <!-- LED Ring Effect -->
-        <svg class="carousel-led-ring welcome-theme" id="carouselLedRing" viewBox="0 0 60 60">
-            <circle class="carousel-led-ring-base" cx="30" cy="30" r="28"></circle>
-            <circle class="carousel-led-ring-active" cx="30" cy="30" r="28"></circle>
-        </svg>
+        <!-- Progress Bar -->
+        <div class="carousel-progress-bar" id="carouselProgressBar">
+            <div class="carousel-progress-segment" data-slide="welcome"></div>
+            <div class="carousel-progress-segment" data-slide="studio"></div>
+            <div class="carousel-progress-segment" data-slide="news"></div>
+        </div>
 
         <!-- Carousel Slides -->
         <div class="carousel-slides" id="carouselSlides">
             <!-- Slide 1: Welcome -->
             <div class="carousel-slide welcome-slide active" data-slide="welcome">
+                <!-- Background Elements -->
+                <div class="slide-background">
+                    <div class="background-gradient"></div>
+                    <div class="audio-waves">
+                        <div class="wave wave-1"></div>
+                        <div class="wave wave-2"></div>
+                        <div class="wave wave-3"></div>
+                    </div>
+                    <div class="geometric-shapes">
+                        <div class="shape shape-1"></div>
+                        <div class="shape shape-2"></div>
+                    </div>
+                </div>
+                
+                <!-- Content -->
                 <div class="welcome-content">
-                    <h2 class="welcome-title">Bem-vindo ao W.Tracks</h2>
-                    <div class="welcome-social-icons">
-                        <a href="https://www.instagram.com/wtracksstudio?utm_source=ig_web_button_share_sheet&igsi=ZDNlZDc0MzIxNw==" target="_blank" class="welcome-social-icon" aria-label="Instagram">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
-                                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
-                                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
-                            </svg>
-                        </a>
-                        <a href="mailto:wtracksstudio@gmail.com" class="welcome-social-icon" aria-label="Email">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                                <polyline points="22,6 12,13 2,6"></polyline>
-                            </svg>
-                        </a>
-                        <button class="welcome-social-icon" onclick="openTelegramSupport()" aria-label="Telegram">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8.9L21 3l-1.9 5.7a8.38 8.38 0 0 1 .9 3.8z"></path>
-                            </svg>
-                        </button>
+                    <div class="content-wrapper">
+                        <div class="welcome-badge">Bem-vindo</div>
+                        <h2 class="welcome-title">W.Tracks</h2>
+                        <p class="welcome-subtitle">Sua plataforma profissional para projetos multitrack e stems musicais</p>
+                        <div class="welcome-social-icons">
+                            <a href="https://www.instagram.com/wtracksstudio?utm_source=ig_web_button_share_sheet&igsi=ZDNlZDc0MzIxNw==" target="_blank" class="welcome-social-icon" aria-label="Instagram">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                                    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+                                </svg>
+                            </a>
+                            <a href="mailto:wtracksstudio@gmail.com" class="welcome-social-icon" aria-label="Email">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                    <polyline points="22,6 12,13 2,6"></polyline>
+                                </svg>
+                            </a>
+                            <button class="welcome-social-icon" onclick="openTelegramSupport()" aria-label="Telegram">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8.9L21 3l-1.9 5.7a8.38 8.38 0 0 1 .9 3.8z"></path>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- Slide 2: Studio Plan -->
             <div class="carousel-slide studio-slide" data-slide="studio">
+                <!-- Background Elements -->
+                <div class="slide-background">
+                    <div class="background-gradient"></div>
+                    <div class="premium-glow"></div>
+                    <div class="grid-pattern"></div>
+                </div>
+                
+                <!-- Content -->
                 <div class="studio-content">
-                    <span class="studio-badge">Track Pro</span>
-                    <h2 class="studio-title">Plano Track Pro</h2>
-                    <div class="studio-price" id="carouselStudioPrice">R$ 9,90<span style="font-size: 1.5rem;">/mês</span></div>
-                    <div class="studio-features">
-                        <div class="studio-feature">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M20 6L9 17l-5-5"/>
-                            </svg>
-                            <span>Acesso Completo</span>
+                    <div class="content-wrapper">
+                        <span class="studio-badge">Track Pro</span>
+                        <h2 class="studio-title">Plano Premium</h2>
+                        <p class="studio-description">Desbloqueie todo o potencial do W.Tracks</p>
+                        <div class="studio-price-container">
+                            <div class="studio-price" id="carouselStudioPrice">R$ 9,90<span class="price-period">/mês</span></div>
                         </div>
-                        <div class="studio-feature">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M20 6L9 17l-5-5"/>
-                            </svg>
-                            <span>Sem Limites</span>
-                        </div>
-                        <div class="studio-feature">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M20 6L9 17l-5-5"/>
-                            </svg>
-                            <span>Suporte Prioritário</span>
+                        <div class="studio-features">
+                            <div class="studio-feature">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 6L9 17l-5-5"/>
+                                </svg>
+                                <span>Acesso Completo</span>
+                            </div>
+                            <div class="studio-feature">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 6L9 17l-5-5"/>
+                                </svg>
+                                <span>Sem Limites</span>
+                            </div>
+                            <div class="studio-feature">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 6L9 17l-5-5"/>
+                                </svg>
+                                <span>Suporte Prioritário</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -561,32 +593,35 @@
 
             <!-- Slide 3: Latest News -->
             <div class="carousel-slide news-slide" data-slide="news">
-                <div class="news-content" id="newsSlideContent">
-                    <div class="carousel-loading">
-                        <div class="carousel-loading-spinner"></div>
-                        <span>Carregando notícias...</span>
+                <!-- Background Elements -->
+                <div class="slide-background">
+                    <div class="background-gradient"></div>
+                    <div class="editorial-lines"></div>
+                </div>
+                
+                <!-- Content -->
+                <div class="news-content">
+                    <div class="content-wrapper" id="newsSlideContent">
+                        <div class="carousel-loading">
+                            <div class="carousel-loading-spinner"></div>
+                            <span>Carregando notícias...</span>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Carousel Navigation -->
-        <button class="carousel-arrow prev" onclick="prevSlide()">
+        <button class="carousel-arrow prev" onclick="prevSlide()" aria-label="Slide anterior">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M15 18l-6-6 6-6"/>
             </svg>
         </button>
-        <button class="carousel-arrow next" onclick="nextSlide()">
+        <button class="carousel-arrow next" onclick="nextSlide()" aria-label="Próximo slide">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M9 18l6-6-6-6"/>
             </svg>
         </button>
-
-        <div class="carousel-nav" id="carouselNav">
-            <div class="carousel-dot welcome-active active" data-slide="welcome" onclick="goToSlide('welcome')"></div>
-            <div class="carousel-dot" data-slide="studio" onclick="goToSlide('studio')"></div>
-            <div class="carousel-dot" data-slide="news" onclick="goToSlide('news')"></div>
-        </div>
     </section>
 
     <!-- LIBRARY -->

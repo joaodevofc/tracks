@@ -1315,6 +1315,8 @@ input, select, textarea {
     --color-white-subtle: #666666;
     --color-white-faint: #404040;
     
+    --color-accent: #00ffff;
+    
     --border-subtle: rgba(255, 255, 255, 0.08);
     --border-medium: rgba(255, 255, 255, 0.12);
     --border-strong: rgba(255, 255, 255, 0.18);
