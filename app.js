@@ -35,7 +35,19 @@ class MultracksApp {
         this.cachedUserId = undefined;
 
         // User plan (track, track_pro)
-        this.userPlan = 'track'; // Default to track
+        this.userPlan = null; // Default to null - wait for Firebase to load actual plan
+
+        // Centralized feature access check
+        this.hasFeatureAccess = (feature) => {
+            if (!window.PlanSystem || !this.userPlan) {
+                console.log('[PLAN] Plan system or userPlan not available for feature check:', feature);
+                return false;
+            }
+            const plan = window.PlanSystem.getPlanRules(this.userPlan);
+            const hasAccess = plan.features[feature] || false;
+            console.log('[PLAN] Feature access check:', feature, 'for plan:', this.userPlan, 'result:', hasAccess);
+            return hasAccess;
+        };
         
         // Storage state management
         this.storageReady = false; // Track when storage is fully loaded
@@ -2655,7 +2667,7 @@ class MultracksApp {
 
         // Check if this fader should be locked based on plan
         let isFaderLocked = false;
-        if (window.PlanSystem && this.currentProject) {
+        if (window.PlanSystem && this.currentProject && this.userPlan) {
             const plan = window.PlanSystem.getPlanRules(this.userPlan);
             const totalTracks = this.currentProject.tracks.length;
             const maxFaders = plan.limits.maxFaders;
@@ -4419,16 +4431,17 @@ class MultracksApp {
     // EFFECTS MANAGEMENT
     // ========================================
     showEffectPopover(clientX, clientY, timeInSeconds, clickX, canvasWidth) {
-        // Check if user has access to canvas effects
-        if (window.PlanSystem) {
-            const plan = window.PlanSystem.getPlanRules(this.userPlan);
-            const hasAccess = plan.features.canvasEffects || false;
-            if (!hasAccess) {
-                const planName = plan.displayName || 'Track';
+        // Check if user has access to canvas effects using centralized function
+        if (!this.hasFeatureAccess('canvasEffects')) {
+            if (!this.userPlan) {
+                console.log('[PLAN] User plan not loaded yet, blocking canvas effects temporarily');
+                alert('⚠️ Carregando informações do plano...\n\nPor favor, aguarde enquanto carregamos suas permissões.');
+            } else {
+                const planName = window.PlanSystem ? window.PlanSystem.PLANS[this.userPlan]?.displayName || 'Track' : 'Track';
                 alert(`⚠️ Recurso indisponível no plano ${planName}\n\nA funcionalidade de Efeitos no Canvas está disponível apenas no plano Track Pro.\n\nFaça upgrade para o Track Pro para usar efeitos.`);
                 console.log('[PLAN] Canvas effects popover blocked for', this.userPlan);
-                return;
             }
+            return;
         }
 
         // Store current click time
@@ -4479,17 +4492,18 @@ class MultracksApp {
     async handleEffectFileUpload(file) {
         if (!file) return;
 
-        // Check if user has access to canvas effects
-        if (window.PlanSystem) {
-            const plan = window.PlanSystem.getPlanRules(this.userPlan);
-            const hasAccess = plan.features.canvasEffects || false;
-            if (!hasAccess) {
-                const planName = plan.displayName || 'Track';
+        // Check if user has access to canvas effects using centralized function
+        if (!this.hasFeatureAccess('canvasEffects')) {
+            if (!this.userPlan) {
+                console.log('[PLAN] User plan not loaded yet, blocking canvas effects temporarily');
+                alert('⚠️ Carregando informações do plano...\n\nPor favor, aguarde enquanto carregamos suas permissões.');
+            } else {
+                const planName = window.PlanSystem ? window.PlanSystem.PLANS[this.userPlan]?.displayName || 'Track' : 'Track';
                 alert(`⚠️ Recurso indisponível no plano ${planName}\n\nA funcionalidade de Efeitos no Canvas está disponível apenas no plano Track Pro.\n\nFaça upgrade para o Track Pro para usar efeitos.`);
                 console.log('[PLAN] Canvas effects feature blocked for', this.userPlan);
-                this.hideEffectPopover();
-                return;
             }
+            this.hideEffectPopover();
+            return;
         }
 
         try {
@@ -4797,16 +4811,17 @@ class MultracksApp {
     // LOOP POINT MARKING
     // ========================================
     handleLoopMarking(x, canvasWidth) {
-        // Check if user has access to loops
-        if (window.PlanSystem) {
-            const plan = window.PlanSystem.getPlanRules(this.userPlan);
-            const hasAccess = plan.features.loops || false;
-            if (!hasAccess) {
-                const planName = plan.displayName || 'Track';
+        // Check if user has access to loops using centralized function
+        if (!this.hasFeatureAccess('loops')) {
+            if (!this.userPlan) {
+                console.log('[PLAN] User plan not loaded yet, blocking loops temporarily');
+                alert('⚠️ Carregando informações do plano...\n\nPor favor, aguarde enquanto carregamos suas permissões.');
+            } else {
+                const planName = window.PlanSystem ? window.PlanSystem.PLANS[this.userPlan]?.displayName || 'Track' : 'Track';
                 alert(`⚠️ Recurso indisponível no plano ${planName}\n\nA funcionalidade de Loop está disponível apenas no plano Track Pro.\n\nFaça upgrade para o Track Pro para usar loops.`);
                 console.log('[PLAN] Loop feature blocked for', this.userPlan);
-                return;
             }
+            return;
         }
 
         const percentage = x / canvasWidth;
@@ -5104,16 +5119,17 @@ class MultracksApp {
     }
     
     async toggleLoopEnabled(loopId) {
-        // Check if user has access to loops
-        if (window.PlanSystem) {
-            const plan = window.PlanSystem.getPlanRules(this.userPlan);
-            const hasAccess = plan.features.loops || false;
-            if (!hasAccess) {
-                const planName = plan.displayName || 'Track';
+        // Check if user has access to loops using centralized function
+        if (!this.hasFeatureAccess('loops')) {
+            if (!this.userPlan) {
+                console.log('[PLAN] User plan not loaded yet, blocking loops temporarily');
+                alert('⚠️ Carregando informações do plano...\n\nPor favor, aguarde enquanto carregamos suas permissões.');
+            } else {
+                const planName = window.PlanSystem ? window.PlanSystem.PLANS[this.userPlan]?.displayName || 'Track' : 'Track';
                 alert(`⚠️ Recurso indisponível no plano ${planName}\n\nA funcionalidade de Loop está disponível apenas no plano Track Pro.\n\nFaça upgrade para o Track Pro para usar loops.`);
                 console.log('[PLAN] Loop toggle blocked for', this.userPlan);
-                return;
             }
+            return;
         }
 
         // Find the loop and toggle its enabled state
@@ -7478,7 +7494,7 @@ class MultracksApp {
                 <div style="font-size: 48px; margin-bottom: 16px;">💻</div>
                 <h3 style="color: #ffffff; margin-bottom: 12px;">Edição de Tracks (suporte só pra desktop)</h3>
                 <p style="color: #a0a0a0; margin-bottom: 24px; line-height: 1.5;">
-                    Por enquanto, o modo de edição de tracks está disponível apenas no desktop. Use um computador para acessar todas as funcionalidades do W.Tracks.
+                    Por enquanto, o modo de edição de tracks está disponível apenas no desktop. Use um computador para acessar todas as funcionalidades do Studio.
                 </p>
                 <button class="modal-btn" id="closeDesktopModal" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;">
                     Entendi
@@ -8540,7 +8556,7 @@ class MultracksApp {
                 console.log('[IMPORT] Suggested track name:', suggestedName);
 
                 // Check duration limit based on plan
-                if (window.PlanSystem) {
+                if (window.PlanSystem && this.userPlan) {
                     try {
                         const duration = await this.getAudioFileDuration(file);
                         const plan = window.PlanSystem.getPlanRules(this.userPlan);
@@ -9332,7 +9348,7 @@ class MultracksApp {
         const forgotPassword = document.querySelector('.auth-link');
         forgotPassword?.addEventListener('click', (e) => {
             e.preventDefault();
-            alert('Recuperação de senha será implementada em breve!');
+            window.location.href = 'central-ajuda.html#recuperar-senha';
         });
 
         // Profile dropdown (library header)
@@ -10680,7 +10696,7 @@ class MultracksApp {
         }
     }
     
-    handleLogin(e) {
+    async handleLogin(e) {
         e.preventDefault();
 
         // Hide any previous error messages
@@ -10691,8 +10707,9 @@ class MultracksApp {
         
         const email = document.getElementById('loginEmail').value;
         const password = document.getElementById('loginPassword').value;
+        const rememberMe = document.getElementById('rememberMe').checked;
 
-        console.log('[AUTH] Login attempt:', email);
+        console.log('[AUTH] Login attempt:', email, 'Remember me:', rememberMe);
 
         // Check if Firebase is available
         if (!window.firebaseAuth) {
@@ -10704,8 +10721,19 @@ class MultracksApp {
             return;
         }
 
-        const { auth, signInWithEmailAndPassword } = window.firebaseAuth;
-        
+        const { auth, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence } = window.firebaseAuth;
+
+        // Set persistence based on "Remember me" checkbox
+        const persistenceType = rememberMe ? browserLocalPersistence : browserSessionPersistence;
+
+        try {
+            await setPersistence(auth, persistenceType);
+            console.log('[AUTH] Persistence set to:', rememberMe ? 'LOCAL' : 'SESSION');
+        } catch (error) {
+            console.warn('[AUTH] Error setting persistence:', error);
+            // Continue with login even if persistence setting fails
+        }
+
         signInWithEmailAndPassword(auth, email, password)
             .then(async (userCredential) => {
                 const user = userCredential.user;
@@ -10798,6 +10826,8 @@ class MultracksApp {
                     errorText = 'Senha incorreta.';
                 } else if (errorCode === 'auth/invalid-email') {
                     errorText = 'Email inválido.';
+                } else if (errorCode === 'auth/invalid-credential') {
+                    errorText = 'Email ou senha incorretos. Por favor, verifique suas credenciais.';
                 } else {
                     errorText = 'Erro ao fazer login: ' + errorMessage;
                 }
@@ -11274,16 +11304,17 @@ class MultracksApp {
         const padBtn = document.getElementById('padBtn');
         if (padBtn) {
             padBtn.addEventListener('click', async () => {
-                // Check if user has access to pads
-                if (window.PlanSystem) {
-                    const plan = window.PlanSystem.getPlanRules(this.userPlan);
-                    const hasAccess = plan.features.pads || false;
-                    if (!hasAccess) {
-                        const planName = plan.displayName || 'Track';
+                // Check if user has access to pads using centralized function
+                if (!this.hasFeatureAccess('pads')) {
+                    if (!this.userPlan) {
+                        console.log('[PLAN] User plan not loaded yet, blocking pads temporarily');
+                        alert('⚠️ Carregando informações do plano...\n\nPor favor, aguarde enquanto carregamos suas permissões.');
+                    } else {
+                        const planName = window.PlanSystem ? window.PlanSystem.PLANS[this.userPlan]?.displayName || 'Track' : 'Track';
                         alert(`⚠️ Recurso indisponível no plano ${planName}\n\nA funcionalidade de Pads está disponível apenas no plano Track Pro.\n\nFaça upgrade para o Track Pro para usar pads.`);
                         console.log('[PLAN] Pad feature blocked for', this.userPlan);
-                        return;
                     }
+                    return;
                 }
                 this.showPadSelectionModal();
             });

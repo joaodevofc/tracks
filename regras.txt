@@ -5,12 +5,62 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ============================================================
-    // ADMIN
+    // ADMIN VERIFICATION
     // ============================================================
 
     function isAdmin() {
       return request.auth != null
              && request.auth.token.email == "jonvitor014@gmail.com";
+    }
+
+    function isAuthorizedAdmin() {
+      return request.auth != null
+             && exists(/databases/$(database)/documents/adminUsers/$(request.auth.uid))
+             && get(/databases/$(database)/documents/adminUsers/$(request.auth.uid)).data.active == true
+             && (
+               get(/databases/$(database)/documents/adminUsers/$(request.auth.uid)).data.role == 'superadmin'
+               || get(/databases/$(database)/documents/adminUsers/$(request.auth.uid)).data.role == 'admin'
+             );
+    }
+
+    function hasSuperAdminRole() {
+      return request.auth != null
+             && exists(/databases/$(database)/documents/adminUsers/$(request.auth.uid))
+             && get(/databases/$(database)/documents/adminUsers/$(request.auth.uid)).data.active == true
+             && get(/databases/$(database)/documents/adminUsers/$(request.auth.uid)).data.role == 'superadmin';
+    }
+
+    // ============================================================
+    // ADMIN
+    // ============================================================
+
+    match /adminUsers/{adminId} {
+
+      // Only superadmin can read admin users
+      allow read: if hasSuperAdminRole();
+
+      // Only superadmin can create/update admin users
+      allow write: if hasSuperAdminRole();
+    }
+
+    // ============================================================
+    // ADMIN AUDIT LOGS
+    // ============================================================
+
+    match /adminAuditLogs/{logId} {
+
+      // Admins can read their own logs, superadmin can read all
+      allow read: if request.auth != null
+                  && (
+                    hasSuperAdminRole()
+                    || resource.data.adminUid == request.auth.uid
+                  );
+
+      // Only authorized admins can create audit logs
+      allow create: if isAuthorizedAdmin();
+
+      // Audit logs are immutable
+      allow update, delete: if false;
     }
 
 
@@ -24,16 +74,19 @@ service cloud.firestore {
       // Admin pode ler todos os usuários.
       allow read: if request.auth != null
                   && (
-                    isAdmin()
+                    isAuthorizedAdmin()
                     || request.auth.uid == userId
                   );
 
-      // Usuário pode alterar o próprio perfil.
-      // Admin pode alterar qualquer usuário.
+      // Usuário pode alterar o próprio perfil (exceto plan e campos admin).
+      // Admin pode alterar qualquer usuário (incluindo plan).
       allow write: if request.auth != null
                    && (
-                     isAdmin()
-                     || request.auth.uid == userId
+                     isAuthorizedAdmin()
+                     || (
+                       request.auth.uid == userId
+                       && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['plan', 'planType', 'validadeAcesso', 'planActivatedAt', 'statusPagamento', 'paymentOrigin'])
+                     )
                    );
 
       // ============================================================
@@ -131,14 +184,8 @@ service cloud.firestore {
       // Qualquer pessoa pode visualizar tracks.
       allow read: if true;
 
-      // Usuário autenticado pode criar.
-      allow create: if request.auth != null;
-
-      // Usuário autenticado pode editar.
-      allow update: if request.auth != null;
-
-      // Usuário autenticado pode excluir.
-      allow delete: if request.auth != null;
+      // Admin pode criar, editar, excluir tracks
+      allow create, update, delete: if isAuthorizedAdmin();
     }
 
 
@@ -164,18 +211,18 @@ service cloud.firestore {
       // Admin pode visualizar todas as solicitações.
       allow read: if request.auth != null
                   && (
-                    isAdmin()
+                    isAuthorizedAdmin()
                     || resource.data.userId == request.auth.uid
                   );
 
       // Usuário autenticado pode criar solicitação.
       allow create: if request.auth != null;
 
+      // Admin pode alterar/excluir solicitações.
       // Usuário pode alterar/excluir a própria solicitação.
-      // Admin pode alterar/excluir qualquer solicitação.
       allow update, delete: if request.auth != null
                             && (
-                              isAdmin()
+                              isAuthorizedAdmin()
                               || resource.data.userId == request.auth.uid
                             );
     }
@@ -191,18 +238,18 @@ service cloud.firestore {
       // Admin vê todas.
       allow read: if request.auth != null
                   && (
-                    isAdmin()
+                    isAuthorizedAdmin()
                     || resource.data.userId == request.auth.uid
                   );
 
       // Usuário autenticado pode criar reclamação.
       allow create: if request.auth != null;
 
+      // Admin pode alterar/excluir reclamações.
       // Usuário pode alterar/excluir a própria reclamação.
-      // Admin pode alterar/excluir qualquer reclamação.
       allow update, delete: if request.auth != null
                             && (
-                              isAdmin()
+                              isAuthorizedAdmin()
                               || resource.data.userId == request.auth.uid
                             );
     }
@@ -415,13 +462,13 @@ service cloud.firestore {
       allow read: if request.auth != null;
 
       // Apenas admin pode criar notícias e enquetes.
-      allow create: if isAdmin();
+      allow create: if isAuthorizedAdmin();
 
       // Usuários autenticados podem atualizar (curtir/votar).
       // Admin pode atualizar qualquer notícia.
       allow update: if request.auth != null
                    && (
-                     isAdmin()
+                     isAuthorizedAdmin()
                      || (
                        // Permitir curtidas (adicionar/remover uid do array likes)
                        request.resource.data.likes == resource.data.likes + [request.auth.uid]
@@ -429,12 +476,12 @@ service cloud.firestore {
                        // Permitir votos em enquetes
                        || request.resource.data.votedBy == resource.data.votedBy + [request.auth.uid]
                        // Permitir atualização de opções de votação (admin)
-                       || isAdmin()
+                       || isAuthorizedAdmin()
                      )
                    );
 
       // Apenas admin pode excluir notícias e enquetes.
-      allow delete: if isAdmin();
+      allow delete: if isAuthorizedAdmin();
     }
 
 
@@ -462,12 +509,22 @@ service cloud.firestore {
     // ============================================================
 
     match /subscriptionHistory/{historyId} {
-      // Admin pode ler todos os históricos
-      allow read: if isAdmin();
-      
-      // Admin pode criar novos registros
-      allow create: if isAdmin();
-      
+      // Usuário pode ler o próprio histórico.
+      // Admin pode ler todos os históricos.
+      allow read: if request.auth != null
+                  && (
+                    isAdmin()
+                    || resource.data.uid == request.auth.uid
+                  );
+
+      // Usuário autenticado pode criar seu próprio registro de histórico.
+      // Admin pode criar registros para qualquer usuário.
+      allow create: if request.auth != null
+                    && (
+                      isAdmin()
+                      || request.resource.data.uid == request.auth.uid
+                    );
+
       // Bloqueia escrita (os registros são imutáveis)
       allow update, delete: if false;
     }

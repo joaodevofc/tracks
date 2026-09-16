@@ -11,7 +11,7 @@
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
   import { getFirestore, collection, getDocs, getDoc, query, orderBy, deleteDoc, doc, onSnapshot, addDoc, serverTimestamp, updateDoc, where, setDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
   const firebaseConfig = {
     apiKey: "AIzaSyDW6P_V4_LRLRg6-FEe2E7QJa9J3oidY5g",
@@ -47,45 +47,167 @@
     auth,
     signInWithEmailAndPassword,
     onAuthStateChanged,
-    signOut
+    sendPasswordResetEmail
   };
 
   console.log('[FIREBASE] Firestore initialized for admin panel');
 
-  // Check if user is authenticated
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      console.log('[FIREBASE] Admin authenticated:', user.email);
-      window.isAdminAuthenticated = true;
-    } else {
-      console.log('[FIREBASE] Admin not authenticated');
-      window.isAdminAuthenticated = false;
-      // Show login modal if not authenticated
-      if (!window.loginModalShown) {
-        showAdminLoginModal();
-        window.loginModalShown = true;
-      }
-    }
+  // Admin authorization state
+  window.adminAuthState = {
+    isAuthenticated: false,
+    isAuthorized: false,
+    adminData: null,
+    listeners: []
+  };
+
+  // IMPORTANT: MANDATORY LOGIN REQUIREMENT FOR /equipewtracks
+  // This panel ALWAYS requires login, regardless of Firebase session persistence
+  // The main W.Tracks login is NOT affected - this is exclusive to the admin panel
+  // Every time the page is opened, the admin must provide credentials
+  console.log('[ADMIN AUTH] Admin panel loaded - requiring mandatory login');
+  showAdminLoginScreen();
+
+  // Clear admin authentication state when page is unloaded
+  window.addEventListener('beforeunload', () => {
+    console.log('[ADMIN AUTH] Page unloading - clearing admin auth state');
+    window.adminAuthState.isAuthenticated = false;
+    window.adminAuthState.isAuthorized = false;
+    window.adminAuthState.adminData = null;
+    clearAdminListeners();
   });
 
-  // Admin login modal
-  function showAdminLoginModal() {
-    const email = prompt('Email do Admin:');
-    if (!email) return;
+  // Clear admin authentication state when page is unloaded
+  window.addEventListener('beforeunload', () => {
+    console.log('[ADMIN AUTH] Page unloading - clearing admin auth state');
+    window.adminAuthState.isAuthenticated = false;
+    window.adminAuthState.isAuthorized = false;
+    window.adminAuthState.adminData = null;
+    clearAdminListeners();
+  });
 
-    const password = prompt('Senha do Admin:');
-    if (!password) return;
+  // Verify if user is authorized admin
+  async function verifyAdminAuthorization(user) {
+    try {
+      const adminDoc = await window.firebaseDB.getDoc(window.firebaseDB.doc(window.firebaseDB.db, 'adminUsers', user.uid));
 
-    signInWithEmailAndPassword(auth, email, password)
-      .then((userCredential) => {
-        console.log('[FIREBASE] Admin login successful:', userCredential.user.email);
-        alert('Login realizado com sucesso!');
-        location.reload();
-      })
-      .catch((error) => {
-        console.error('[FIREBASE] Admin login error:', error);
-        alert('Erro ao fazer login: ' + error.message);
-      });
+      if (!adminDoc.exists()) {
+        console.log('[ADMIN AUTH] User not in adminUsers:', user.uid);
+        showAuthorizationError('Você não possui permissão para acessar a área administrativa.');
+        return;
+      }
+
+      const adminData = adminDoc.data();
+
+      if (!adminData.active) {
+        console.log('[ADMIN AUTH] Admin account is inactive:', user.uid);
+        showAuthorizationError('Sua conta administrativa está inativa. Entre em contato com o superadmin.');
+        return;
+      }
+
+      if (adminData.role !== 'superadmin' && adminData.role !== 'admin') {
+        console.log('[ADMIN AUTH] Admin role not authorized:', adminData.role);
+        showAuthorizationError('Sua role não possui permissão para acessar este painel.');
+        return;
+      }
+
+      // User is authorized
+      console.log('[ADMIN AUTH] User authorized:', user.email, 'Role:', adminData.role);
+      window.adminAuthState.isAuthorized = true;
+      window.adminAuthState.adminData = adminData;
+
+      // Hide login screen and show dashboard
+      hideAdminLoginScreen();
+
+      // Initialize dashboard only after authorization
+      if (!window.dashboardInitialized) {
+        window.dashboardInitialized = true;
+        initializeDashboard();
+      }
+
+    } catch (error) {
+      console.error('[ADMIN AUTH] Error verifying authorization:', error);
+      showAuthorizationError('Erro ao verificar permissões. Tente novamente.');
+    }
+  }
+
+  // Make verifyAdminAuthorization available globally
+  window.verifyAdminAuthorization = verifyAdminAuthorization;
+
+
+
+  // Clear all admin listeners
+  function clearAdminListeners() {
+    console.log('[ADMIN AUTH] Clearing admin listeners...');
+    window.adminAuthState.listeners.forEach(unsubscribe => {
+      try {
+        unsubscribe();
+      } catch (error) {
+        console.error('[ADMIN AUTH] Error clearing listener:', error);
+      }
+    });
+    window.adminAuthState.listeners = [];
+  }
+
+  // Add listener to admin listeners array
+  function registerAdminListener(unsubscribe) {
+    window.adminAuthState.listeners.push(unsubscribe);
+  }
+
+  // Show authorization error
+  function showAuthorizationError(message) {
+    const errorDiv = document.getElementById('adminAuthError');
+    if (errorDiv) {
+      errorDiv.textContent = message;
+      errorDiv.style.display = 'block';
+    }
+    showAdminLoginScreen();
+  }
+
+  // Register admin action for audit
+  async function logAdminAction(action, targetUserId, details = {}) {
+    if (!window.adminAuthState.isAuthorized || !window.adminAuthState.adminData) {
+      console.warn('[AUDIT] Not authorized to log action');
+      return;
+    }
+
+    try {
+      const auditLog = {
+        adminUid: window.firebaseAuth.auth.currentUser.uid,
+        adminEmail: window.firebaseAuth.auth.currentUser.email,
+        adminRole: window.adminAuthState.adminData.role,
+        action: action,
+        targetUserId: targetUserId || null,
+        details: details,
+        createdAt: window.firebaseDB.serverTimestamp()
+      };
+
+      await window.firebaseDB.addDoc(window.firebaseDB.collection(window.firebaseDB.db, 'adminAuditLogs'), auditLog);
+      console.log('[AUDIT] Action logged:', action);
+    } catch (error) {
+      console.error('[AUDIT] Error logging action:', error);
+      // Don't block the operation if audit logging fails
+    }
+  }
+
+  // Initialize dashboard (only after authorization)
+  async function initializeDashboard() {
+    console.log('[ADMIN AUTH] Initializing dashboard...');
+    try {
+      await loadDashboard();
+      setupRealtimeListener();
+
+      // Setup news image upload handlers
+      setupNewsImageUpload();
+      setupPollImageUpload();
+
+      // Setup contas real-time listener and load initial data immediately
+      setupContasRealtimeListener();
+      // Pre-load contas data so it's ready when tab is opened
+      const contas = await loadContasFromFirebase();
+      console.log('[INIT] Pre-loaded', contas.length, 'contas on page load');
+    } catch (error) {
+      console.error('[ADMIN AUTH] Error initializing dashboard:', error);
+    }
   }
 </script>
 
@@ -762,6 +884,62 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;}
 </style>
 </head>
 <body>
+
+<!-- Admin Login Screen -->
+<div id="adminLoginScreen" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg); z-index: 9999; display: flex; align-items: center; justify-content: center;">
+  <div style="width: 100%; max-width: 420px; padding: 40px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
+    <div style="text-align: center; margin-bottom: 32px;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 48px; height: 48px; color: var(--white); margin-bottom: 16px;">
+        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+      </svg>
+      <h1 style="font-size: 24px; font-weight: 700; color: var(--white); margin-bottom: 8px;">W.Tracks</h1>
+      <p style="font-size: 14px; color: var(--muted);">Painel Administrativo</p>
+    </div>
+
+    <div id="adminAuthError" style="display: none; background: rgba(255, 59, 47, 0.1); border: 1px solid rgba(255, 59, 47, 0.3); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 20px; color: #ff3b2f; font-size: 14px;"></div>
+
+    <form id="adminLoginForm" style="display: flex; flex-direction: column; gap: 16px;">
+      <div>
+        <label style="display: block; margin-bottom: 8px; font-size: 14px; font-weight: 500; color: var(--white);">E-mail</label>
+        <input type="email" id="adminEmail" required placeholder="admin@wtracks.com" style="width: 100%; padding: 12px 16px; background: var(--bg-soft); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--white); font-size: 14px; outline: none; transition: border-color 0.15s ease;">
+      </div>
+
+      <div>
+        <label style="display: block; margin-bottom: 8px; font-size: 14px; font-weight: 500; color: var(--white);">Senha</label>
+        <input type="password" id="adminPassword" required placeholder="••••••••" style="width: 100%; padding: 12px 16px; background: var(--bg-soft); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--white); font-size: 14px; outline: none; transition: border-color 0.15s ease;">
+      </div>
+
+      <div id="adminLoginError" style="display: none; color: #ff3b2f; font-size: 13px;"></div>
+
+      <button type="submit" id="adminLoginBtn" style="padding: 12px 24px; background: var(--white); color: var(--bg); border: none; border-radius: var(--radius-sm); font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.15s ease;">
+        Entrar
+      </button>
+    </form>
+
+    <div style="margin-top: 24px; text-align: center;">
+      <a href="#" id="adminForgotPassword" style="font-size: 13px; color: var(--muted); text-decoration: none; transition: color 0.15s ease;">Esqueci minha senha</a>
+    </div>
+
+    <div id="adminResetPasswordForm" style="display: none; margin-top: 24px;">
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; margin-bottom: 8px; font-size: 14px; font-weight: 500; color: var(--white);">E-mail para recuperação</label>
+        <input type="email" id="adminResetEmail" required placeholder="admin@wtracks.com" style="width: 100%; padding: 12px 16px; background: var(--bg-soft); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--white); font-size: 14px; outline: none; transition: border-color 0.15s ease;">
+      </div>
+      <div id="adminResetError" style="display: none; color: #ff3b2f; font-size: 13px; margin-bottom: 12px;"></div>
+      <div id="adminResetSuccess" style="display: none; color: #4ade80; font-size: 13px; margin-bottom: 12px;"></div>
+      <button id="adminResetBtn" style="padding: 12px 24px; background: var(--white); color: var(--bg); border: none; border-radius: var(--radius-sm); font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.15s ease; width: 100%;">
+        Enviar link de recuperação
+      </button>
+      <button id="adminBackToLogin" style="margin-top: 12px; padding: 12px 24px; background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: var(--radius-sm); font-weight: 500; font-size: 14px; cursor: pointer; transition: all 0.15s ease; width: 100%;">
+        Voltar para login
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Dashboard Content (Hidden until authorized) -->
+<div id="adminDashboard" style="display: none;">
+
 <!-- Sidebar -->
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-header">
@@ -872,6 +1050,9 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;}
   </nav>
   
   <div class="sidebar-footer">
+    <button onclick="handleAdminLogout()" style="width: 100%; padding: 12px; background: rgba(255, 59, 47, 0.1); border: 1px solid rgba(255, 59, 47, 0.3); border-radius: var(--radius-sm); color: #ff3b2f; font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: all 0.15s ease; margin-bottom: 12px;">
+      Sair do Painel
+    </button>
     <div class="version">v1.0.0 — Equipe</div>
   </div>
 </aside>
@@ -3745,6 +3926,14 @@ async function changeUserPlan(userId, newPlan){
         updateData
       );
       console.log('[FIREBASE] User plan updated successfully:', userId, 'to', newPlan);
+
+      // Log admin action
+      await logAdminAction('change_plan', userId, {
+        oldPlan: conta ? conta.plan : 'unknown',
+        newPlan: newPlan,
+        planType: newPlan === 'track_pro' ? 'mensal' : null
+      });
+
       // Real-time listener will update the UI automatically
     } catch (error) {
       console.error('[FIREBASE] Error updating user plan:', error);
@@ -5085,21 +5274,207 @@ function handlePollOptionImageSelect(event, uploadDiv){
   reader.readAsDataURL(file);
 }
 
-// Initialize
-document.addEventListener('DOMContentLoaded', async function() {
-  await loadDashboard();
-  setupRealtimeListener();
-  
-  // Setup news image upload handlers
-  setupNewsImageUpload();
-  setupPollImageUpload();
-  
-  // Setup contas real-time listener and load initial data immediately
-  setupContasRealtimeListener();
-  // Pre-load contas data so it's ready when tab is opened
-  const contas = await loadContasFromFirebase();
-  console.log('[INIT] Pre-loaded', contas.length, 'contas on page load');
+// Initialize login handlers
+document.addEventListener('DOMContentLoaded', function() {
+  // ALWAYS show login screen initially - mandatory login requirement
+  console.log('[ADMIN AUTH] DOM loaded - showing login screen');
+  showAdminLoginScreen();
+
+  // Setup login form handler
+  const loginForm = document.getElementById('adminLoginForm');
+  if (loginForm) {
+    loginForm.addEventListener('submit', handleAdminLogin);
+  }
+
+  // Setup forgot password link
+  const forgotPasswordLink = document.getElementById('adminForgotPassword');
+  if (forgotPasswordLink) {
+    forgotPasswordLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      showPasswordResetForm();
+    });
+  }
+
+  // Setup back to login button
+  const backToLoginBtn = document.getElementById('adminBackToLogin');
+  if (backToLoginBtn) {
+    backToLoginBtn.addEventListener('click', showLoginForm);
+  }
+
+  // Setup password reset form
+  const resetBtn = document.getElementById('adminResetBtn');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', handleAdminPasswordReset);
+  }
 });
+
+// Login screen functions
+function showAdminLoginScreen() {
+  const loginScreen = document.getElementById('adminLoginScreen');
+  const dashboard = document.getElementById('adminDashboard');
+
+  if (loginScreen) loginScreen.style.display = 'flex';
+  if (dashboard) dashboard.style.display = 'none';
+}
+
+function hideAdminLoginScreen() {
+  const loginScreen = document.getElementById('adminLoginScreen');
+  const dashboard = document.getElementById('adminDashboard');
+
+  if (loginScreen) loginScreen.style.display = 'none';
+  if (dashboard) dashboard.style.display = 'block';
+}
+
+function showLoginForm() {
+  document.getElementById('adminLoginForm').style.display = 'flex';
+  document.getElementById('adminResetPasswordForm').style.display = 'none';
+  document.getElementById('adminForgotPassword').parentElement.style.display = 'block';
+}
+
+function showPasswordResetForm() {
+  document.getElementById('adminLoginForm').style.display = 'none';
+  document.getElementById('adminResetPasswordForm').style.display = 'block';
+  document.getElementById('adminForgotPassword').parentElement.style.display = 'none';
+}
+
+async function handleAdminLogin(e) {
+  e.preventDefault();
+
+  const email = document.getElementById('adminEmail').value;
+  const password = document.getElementById('adminPassword').value;
+  const loginBtn = document.getElementById('adminLoginBtn');
+  const errorDiv = document.getElementById('adminLoginError');
+
+  // Reset error
+  errorDiv.style.display = 'none';
+
+  // Disable button and show loading
+  loginBtn.disabled = true;
+  loginBtn.textContent = 'Entrando...';
+
+  try {
+    // Sign in with Firebase Auth
+    const userCredential = await window.firebaseAuth.signInWithEmailAndPassword(window.firebaseAuth.auth, email, password);
+    const user = userCredential.user;
+
+    console.log('[ADMIN LOGIN] User authenticated:', user.email);
+    window.adminAuthState.isAuthenticated = true;
+
+    // Verify admin authorization immediately after login
+    await verifyAdminAuthorization(user);
+
+  } catch (error) {
+    console.error('[ADMIN LOGIN] Error:', error);
+    let errorMessage = 'Credenciais inválidas.';
+
+    if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+      errorMessage = 'Credenciais inválidas.';
+    } else if (error.code === 'auth/invalid-email') {
+      errorMessage = 'E-mail inválido.';
+    } else if (error.code === 'auth/too-many-requests') {
+      errorMessage = 'Muitas tentativas. Tente novamente em alguns minutos.';
+    }
+
+    errorDiv.textContent = errorMessage;
+    errorDiv.style.display = 'block';
+  } finally {
+    loginBtn.disabled = false;
+    loginBtn.textContent = 'Entrar';
+  }
+}
+
+async function handleAdminPasswordReset() {
+  const email = document.getElementById('adminResetEmail').value;
+  const resetBtn = document.getElementById('adminResetBtn');
+  const errorDiv = document.getElementById('adminResetError');
+  const successDiv = document.getElementById('adminResetSuccess');
+
+  // Reset messages
+  errorDiv.style.display = 'none';
+  successDiv.style.display = 'none';
+
+  if (!email || !email.includes('@')) {
+    errorDiv.textContent = 'Por favor, insira um e-mail válido.';
+    errorDiv.style.display = 'block';
+    return;
+  }
+
+  // Wait for sendPasswordResetEmail to be available
+  if (!window.firebaseAuth || !window.firebaseAuth.sendPasswordResetEmail) {
+    // Import it dynamically
+    try {
+      const { sendPasswordResetEmail } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+      window.firebaseAuth.sendPasswordResetEmail = sendPasswordResetEmail;
+    } catch (error) {
+      console.error('[ADMIN RESET] Error importing sendPasswordResetEmail:', error);
+      errorDiv.textContent = 'Erro ao carregar função de recuperação.';
+      errorDiv.style.display = 'block';
+      return;
+    }
+  }
+
+  resetBtn.disabled = true;
+  resetBtn.textContent = 'Verificando informações...';
+
+  try {
+    await window.firebaseAuth.sendPasswordResetEmail(window.firebaseAuth.auth, email, {
+      url: window.location.origin + '/reset-password.html',
+      handleCodeInApp: true
+    });
+
+    successDiv.textContent = 'Se esse endereço estiver cadastrado, você receberá instruções para redefinir sua senha.';
+    successDiv.style.display = 'block';
+
+    // Clear the email field
+    document.getElementById('adminResetEmail').value = '';
+
+  } catch (error) {
+    console.error('[ADMIN RESET] Error:', error);
+    let errorMessage = 'Erro ao enviar e-mail de recuperação.';
+
+    if (error.code === 'auth/invalid-email') {
+      errorMessage = 'E-mail inválido.';
+    } else if (error.code === 'auth/too-many-requests') {
+      errorMessage = 'Muitas tentativas. Tente novamente em alguns minutos.';
+    }
+
+    errorDiv.textContent = errorMessage;
+    errorDiv.style.display = 'block';
+  } finally {
+    resetBtn.disabled = false;
+    resetBtn.textContent = 'Enviar link de recuperação';
+  }
+}
+
+// Handle admin logout - clears admin panel state but NOT main W.Tracks login
+async function handleAdminLogout() {
+  if (!confirm('Tem certeza que deseja sair do painel administrativo?')) return;
+
+  console.log('[ADMIN LOGOUT] Logging out from admin panel');
+
+  // Clear admin-specific state (NOT main W.Tracks login)
+  window.adminAuthState.isAuthenticated = false;
+  window.adminAuthState.isAuthorized = false;
+  window.adminAuthState.adminData = null;
+
+  // Clear all admin listeners
+  clearAdminListeners();
+
+  // Clear dashboard initialization flag
+  window.dashboardInitialized = false;
+
+  // Show login screen
+  showAdminLoginScreen();
+
+  // Clear form fields
+  document.getElementById('adminEmail').value = '';
+  document.getElementById('adminPassword').value = '';
+  document.getElementById('adminLoginError').style.display = 'none';
+  document.getElementById('adminAuthError').style.display = 'none';
+
+  console.log('[ADMIN LOGOUT] Admin panel logged out - main W.Tracks login remains active');
+}
 </script>
+</div>
 </body>
 </html>

@@ -12,7 +12,28 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="mobile.css" media="(max-width: 768px)">
     <link rel="icon" type="image/png" href="icon-black-transparent.png">
-    
+
+    <!-- Firebase SDK -->
+    <script type="module">
+      import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+      import { getAuth, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyDW6P_V4_LRLRg6-FEe2E7QJa9J3oidY5g",
+        authDomain: "wtracks-acff8.firebaseapp.com",
+        projectId: "wtracks-acff8",
+        storageBucket: "wtracks-acff8.firebasestorage.app",
+        messagingSenderId: "719838064855",
+        appId: "1:719838064855:web:3c0631a882aac30cf3c092"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+
+      // Expose Firebase Auth globally
+      window.firebaseAuth = { auth, sendPasswordResetEmail };
+    </script>
+
     <style>
         /* ========================================
            CENTRAL DE AJUDA - ESTILOS ESPECÍFICOS
@@ -635,6 +656,8 @@
                                 
                                 <h3>Após redefinir a senha</h3>
                                 <p>Depois de redefinir sua senha com sucesso, você poderá fazer login imediatamente usando a nova senha. Sua sessão antiga em outros dispositivos será encerrada automaticamente por segurança, então você precisará fazer login novamente em cada aparelho onde usa o W.Tracks. Isso protege sua conta caso alguém tenha tido acesso à sua senha antiga.</p>
+
+                                <p style="margin-top: var(--spacing-xl);"><a href="#" id="showResetFormLink" style="color: var(--color-accent); text-decoration: underline; font-weight: 500;">Recuperar senha</a></p>
                             `
                         },
                         {
@@ -1950,13 +1973,13 @@
         function renderContent() {
             const content = document.getElementById('helpContent');
             content.innerHTML = '';
-            
+
             helpData.topics.forEach(topic => {
                 topic.questions.forEach(question => {
                     const article = document.createElement('article');
                     article.className = 'help-article';
                     article.id = `article-${question.id}`;
-                    
+
                     article.innerHTML = `
                         <div class="help-back-btn" onclick="showDefaultView()">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1967,11 +1990,11 @@
                         <h2 class="help-article-title">${question.title}</h2>
                         <div class="help-article-content">${question.content}</div>
                     `;
-                    
+
                     content.appendChild(article);
                 });
             });
-            
+
             // Tela inicial
             const defaultView = document.createElement('div');
             defaultView.className = 'help-article active';
@@ -2001,14 +2024,28 @@
             // Remove active de todos
             document.querySelectorAll('.help-sidebar-question').forEach(q => q.classList.remove('active'));
             document.querySelectorAll('.help-article').forEach(a => a.classList.remove('active'));
-            
+
             // Adiciona active ao selecionado
             const questionLink = document.querySelector(`[data-question-id="${questionId}"]`);
             if (questionLink) questionLink.classList.add('active');
-            
+
             const article = document.getElementById(`article-${questionId}`);
             if (article) article.classList.add('active');
-            
+
+            // Adiciona event listener para o link de recuperação de senha
+            const resetLink = document.getElementById('showResetFormLink');
+            if (resetLink) {
+                // Remove listener anterior se existir
+                const newLink = resetLink.cloneNode(true);
+                resetLink.parentNode.replaceChild(newLink, resetLink);
+                // Adiciona novo listener
+                newLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    console.log('[PASSWORD RESET] Link clicked from showQuestion');
+                    showPasswordResetForm();
+                });
+            }
+
             // Fecha sidebar no mobile
             closeMobileSidebar();
         }
@@ -2120,7 +2157,141 @@
         document.addEventListener('DOMContentLoaded', () => {
             renderSidebar();
             renderContent();
+
+            // Re-add password reset form after content is rendered
+            addPasswordResetForm();
+
+            // Add event listener for password reset link after content is rendered
+            setTimeout(() => {
+                const resetLink = document.getElementById('showResetFormLink');
+                console.log('[PASSWORD RESET] Reset link found:', resetLink);
+                if (resetLink) {
+                    resetLink.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        console.log('[PASSWORD RESET] Link clicked');
+                        showPasswordResetForm();
+                    });
+                }
+
+                // Check if hash points to password reset
+                if (window.location.hash === '#recuperar-senha') {
+                    // Show the article first, then user can click the link to open the form
+                    showQuestion('recuperar-senha');
+                }
+            }, 100);
         });
+
+        function addPasswordResetForm() {
+            const content = document.getElementById('helpContent');
+
+            // Password Reset Form (Hidden by default)
+            const resetForm = document.createElement('div');
+            resetForm.id = 'passwordResetForm';
+            resetForm.style.display = 'none';
+            resetForm.innerHTML = `
+                <div class="help-back-btn" onclick="hidePasswordResetForm()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 12H5M12 19l-7-7 7-7"/>
+                    </svg>
+                    Voltar para a central de ajuda
+                </div>
+
+                <h2 class="help-article-title">Recuperar senha</h2>
+
+                <div class="help-article-content">
+                    <p>Digite o e-mail cadastrado na sua conta. Enviaremos um link para você redefinir sua senha.</p>
+
+                    <div style="margin-top: var(--spacing-xl);">
+                        <label style="display: block; margin-bottom: var(--spacing-sm); color: var(--color-white); font-weight: 500;">E-mail</label>
+                        <input type="email" id="resetEmail" placeholder="seu@email.com" style="width: 100%; padding: var(--spacing-md) var(--spacing-lg); background: var(--color-black-card); border: 1px solid var(--border-medium); border-radius: var(--radius-md); color: var(--color-white); font-size: var(--font-size-base); font-family: var(--font-family); outline: none; transition: all var(--transition-fast);">
+
+                        <div id="resetError" style="display: none; color: #ff3b2f; margin-top: var(--spacing-md); font-size: var(--font-size-sm);"></div>
+                        <div id="resetSuccess" style="display: none; color: #4ade80; margin-top: var(--spacing-md); font-size: var(--font-size-sm);"></div>
+
+                        <button onclick="sendPasswordResetEmail()" style="margin-top: var(--spacing-lg); padding: var(--spacing-md) var(--spacing-xl); background: var(--color-accent); color: var(--color-black); border: none; border-radius: var(--radius-md); font-weight: 600; font-size: var(--font-size-base); cursor: pointer; transition: all var(--transition-fast);">
+                            Enviar link de recuperação
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            content.appendChild(resetForm);
+        }
+
+        // ========================================
+        // RECUPERAÇÃO DE SENHA
+        // ========================================
+        function showPasswordResetForm() {
+            document.getElementById('helpContent').querySelectorAll('.help-article').forEach(el => el.classList.remove('active'));
+            document.getElementById('passwordResetForm').style.display = 'block';
+        }
+
+        function hidePasswordResetForm() {
+            document.getElementById('passwordResetForm').style.display = 'none';
+            // Show default article
+            showQuestion('recuperar-senha');
+        }
+
+        async function sendPasswordResetEmail() {
+            const email = document.getElementById('resetEmail').value;
+            const errorDiv = document.getElementById('resetError');
+            const successDiv = document.getElementById('resetSuccess');
+
+            // Reset messages
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
+
+            if (!email || !email.includes('@')) {
+                errorDiv.textContent = 'Por favor, insira um e-mail válido.';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            try {
+                // Wait for Firebase to be available (it loads as module)
+                let attempts = 0;
+                const maxAttempts = 50; // 5 seconds
+
+                while (!window.firebaseAuth && attempts < maxAttempts) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    attempts++;
+                }
+
+                if (!window.firebaseAuth) {
+                    errorDiv.textContent = 'Firebase não está disponível. Tente novamente.';
+                    errorDiv.style.display = 'block';
+                    return;
+                }
+
+                const { auth, sendPasswordResetEmail } = window.firebaseAuth;
+
+                await sendPasswordResetEmail(auth, email, {
+                    url: window.location.origin + '/reset-password.html',
+                    handleCodeInApp: true
+                });
+
+                successDiv.textContent = 'E-mail de recuperação enviado! Verifique sua caixa de entrada e Spam.';
+                successDiv.style.display = 'block';
+
+                // Clear the email field
+                document.getElementById('resetEmail').value = '';
+
+            } catch (error) {
+                console.error('[PASSWORD RESET] Error:', error);
+                let errorMessage = 'Erro ao enviar e-mail de recuperação.';
+
+                if (error.code === 'auth/user-not-found') {
+                    errorMessage = 'Nenhuma conta encontrada com este e-mail.';
+                } else if (error.code === 'auth/invalid-email') {
+                    errorMessage = 'E-mail inválido.';
+                } else if (error.code === 'auth/too-many-requests') {
+                    errorMessage = 'Muitas tentativas. Tente novamente em alguns minutos.';
+                }
+
+                errorDiv.textContent = errorMessage;
+                errorDiv.style.display = 'block';
+            }
+        }
     </script>
 </body>
 </html>

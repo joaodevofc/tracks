@@ -39,9 +39,9 @@ const PLANS = {
         },
         // Recursos disponíveis
         features: {
-            loops: false, // Será alterado futuramente
-            pads: false,  // Será alterado futuramente
-            canvasEffects: false, // Será alterado futuramente
+            loops: true, // Loop habilitado para Track Pro
+            pads: true,  // Pads habilitado para Track Pro
+            canvasEffects: true, // Canvas effects habilitado para Track Pro
             cloudSync: true, // Sincronização em nuvem habilitada
             cloudStorage: true // Armazenamento em nuvem habilitado
         }
@@ -158,6 +158,24 @@ async function hasCloudStorageAccess(userId) {
     const planName = await getUserPlan(userId);
     const plan = getPlanRules(planName);
     return plan.features.cloudStorage || false;
+}
+
+/**
+ * Verifica se o usuário tem plano Track Pro
+ * @param {string} planName - Nome do plano ('track' ou 'track_pro')
+ * @returns {boolean} - true se for track_pro, false caso contrário
+ */
+function isTrackPro(planName) {
+    return planName === 'track_pro';
+}
+
+/**
+ * Verifica se o usuário tem plano Track Pro (síncrona, usa plano em cache)
+ * @param {string} planName - Nome do plano em cache
+ * @returns {boolean} - true se for track_pro, false caso contrário
+ */
+function isTrackProCached(planName) {
+    return planName === 'track_pro';
 }
 
 /**
@@ -311,6 +329,8 @@ if (typeof module !== 'undefined' && module.exports) {
         exceedsSetlistSongLimit,
         exceedsDurationLimit,
         hasCloudStorageAccess,
+        isTrackPro,
+        isTrackProCached,
         isTrackProExpired,
         checkAndUpdateExpiredPlan,
         downgradeExpiredUser
@@ -328,6 +348,8 @@ window.PlanSystem = {
     exceedsSetlistSongLimit,
     exceedsDurationLimit,
     hasCloudStorageAccess,
+    isTrackPro,
+    isTrackProCached,
     isTrackProExpired,
     checkAndUpdateExpiredPlan,
     downgradeExpiredUser
