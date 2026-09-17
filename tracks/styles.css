@@ -5839,7 +5839,7 @@ body.fader-animations-disabled .led-pointer {
 /* Right Side - Visual/Branding */
 .auth-visual {
     flex: 1;
-    background-image: url('fundoulogin.png');
+    background-image: url('/tracks/fundoulogin.png');
     background-size: cover;
     background-position: center center;
     background-repeat: no-repeat;

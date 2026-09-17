@@ -1,2128 +1,889 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>W.Tracks - Multitrack Studio</title>
-    <meta name="description" content="Plataforma profissional para projetos multitrack e stems musicais">
-    <meta name="theme-color" content="#000000">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="styles_3.css">
-    <link rel="stylesheet" href="mobile.css" media="(max-width: 768px)">
-    <link rel="icon" type="image/png" href="icon-black-transparent.png">
-    <link rel="manifest" href="manifest.json">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="theme-color" content="#0b0b0d">
+<meta name="description" content="W.Tracks — organize seus stems por projeto, ajuste cada fader e toque ao vivo sem depender de laptop no palco.">
+<title>W.Tracks — Suas stems, prontas pro palco.</title>
 
-    <!-- Firebase SDK -->
-    <script type="module">
-      import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-      import { getFirestore, collection, getDocs, query, orderBy, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, where, setDoc, getDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-      import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+<!-- Apple Mobile Web App -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="W.Tracks">
+<link rel="apple-touch-icon" href="/tracks/icon-black-transparent.png">
+<link rel="icon" type="image/png" href="/tracks/icon-black-transparent.png">
 
-      const firebaseConfig = {
-        apiKey: "AIzaSyDW6P_V4_LRLRg6-FEe2E7QJa9J3oidY5g",
-        authDomain: "wtracks-acff8.firebaseapp.com",
-        projectId: "wtracks-acff8",
-        storageBucket: "wtracks-acff8.firebasestorage.app",
-        messagingSenderId: "719838064855",
-        appId: "1:719838064855:web:3c0631a882aac30cf3c092"
-      };
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
-      const app = initializeApp(firebaseConfig);
-      const db = getFirestore(app);
-      const auth = getAuth(app);
-
-      window.firebaseDB = {
-        db,
-        collection,
-        getDocs,
-        query,
-        orderBy,
-        addDoc,
-        updateDoc,
-        deleteDoc,
-        doc,
-        serverTimestamp,
-        where,
-        setDoc,
-        getDoc,
-        onSnapshot
-      };
-
-      window.firebaseAuth = {
-        auth,
-        createUserWithEmailAndPassword,
-        signInWithEmailAndPassword,
-        signOut,
-        onAuthStateChanged,
-        GoogleAuthProvider,
-        signInWithPopup
-      };
-
-      console.log('[FIREBASE] Firebase initialized (Firestore + Auth + Google)');
-    </script>
-
-    <script src="communitytracks.js"></script>
-    <script src="audiostorage.js"></script>
-    <script src="r2storage.js"></script>
-    <script src="trackhydrator.js"></script>
-    <script src="firestore-sync.js"></script>
-    <script src="setlists.js"></script>
-    <script>
-        // Register Service Worker for PWA with immediate updates
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/tracks/sw.js')
-                    .then(registration => {
-                        console.log('Service Worker registered:', registration);
-                        
-                        // Check for updates immediately
-                        registration.update();
-                        
-                        // Listen for updates and reload automatically
-                        registration.addEventListener('updatefound', () => {
-                            const newWorker = registration.installing;
-                            newWorker.addEventListener('statechange', () => {
-                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    // New version available, reload immediately
-                                    console.log('New version available, reloading...');
-                                    window.location.reload();
-                                }
-                            });
-                        });
-                        
-                        // Listen for controller change (when new SW takes control)
-                        navigator.serviceWorker.addEventListener('controllerchange', () => {
-                            console.log('Service Worker controller changed, reloading...');
-                            window.location.reload();
-                        });
-                        
-                        // Also check for updates periodically
-                        setInterval(() => {
-                            registration.update();
-                        }, 1000 * 60 * 5); // Check every 5 minutes
-                    })
-                    .catch(error => {
-                        console.log('Service Worker registration failed:', error);
-                    });
-            });
+<!-- Dynamic manifest selection -->
+<script>
+(function() {
+    function isMobileDevice() {
+        const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+        
+        // Android detection
+        if (/android/i.test(userAgent)) {
+            return true;
         }
-
-        // Telegram support function
-        function openTelegramSupport() {
-            const phoneNumber = '5521969632153';
-            const message = encodeURIComponent('Olá! Preciso de suporte do WTracks. Poderia me ajudar?');
-            const telegramUrl = `https://t.me/+${phoneNumber}?text=${message}`;
-            window.open(telegramUrl, '_blank');
+        
+        // iOS detection (iPhone, iPad, iPod)
+        if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+            return true;
         }
-
-        // ========================================
-        // NEWS CAROUSEL LOGIC
-        // ========================================
-        let currentSlide = 0;
-        const slides = ['welcome', 'studio', 'news'];
-        let carouselInterval = null;
-        let latestNews = null;
-        let studioPrice = 'R$ 47,90/mês'; // Default price
-        let isTransitioning = false; // Prevent rapid transitions
-
-        // Initialize carousel
-        function initCarousel() {
-            loadLatestNews();
-            loadStudioPrice();
-            startCarouselAutoplay();
-            setupCarouselEventListeners();
+        
+        // iPadOS detection (iPad identifies as desktop)
+        if (navigator.maxTouchPoints > 0 && /Macintosh/.test(userAgent)) {
+            return true;
         }
-
-        // Load studio price from Firebase
-        async function loadStudioPrice() {
-            try {
-                if (typeof window.firebaseDB === 'undefined') {
-                    console.warn('[CAROUSEL] Firebase not available for price');
-                    return;
-                }
-
-                const { db, doc, getDoc } = window.firebaseDB;
-                const configDocRef = doc(db, 'global_config', 'checkout');
-                const configDoc = await getDoc(configDocRef);
-
-                if (configDoc.exists()) {
-                    const configData = configDoc.data();
-                    if (configData.precoMensal) {
-                        studioPrice = configData.precoMensal;
-                        updateStudioSlidePrice();
-                        console.log('[CAROUSEL] Studio price loaded:', studioPrice);
-                    }
-                }
-            } catch (error) {
-                console.error('[CAROUSEL] Error loading studio price:', error);
-            }
+        
+        // Additional tablet detection
+        if (/tablet/i.test(userAgent) || 
+            (navigator.maxTouchPoints > 1 && /Mobile|Android/i.test(userAgent) === false)) {
+            return true;
         }
+        
+        return false;
+    }
+    
+    const manifestPath = isMobileDevice() ? '/tracks/manifest-mobile.json' : '/tracks/manifest-pc.json';
+    const link = document.createElement('link');
+    link.rel = 'manifest';
+    link.href = manifestPath;
+    document.head.appendChild(link);
+    
+    console.log('[PWA] Using manifest:', manifestPath);
+})();
+</script>
 
-        // Update studio slide price
-        function updateStudioSlidePrice() {
-            const priceElement = document.getElementById('carouselStudioPrice');
-            if (priceElement) {
-                // Parse the price format (e.g., "R$ 47,90/mês" or "R$ 9,90/mês")
-                const priceMatch = studioPrice.match(/R\$\s*([\d.,]+)/);
-                if (priceMatch) {
-                    const numericPrice = priceMatch[1];
-                    priceElement.innerHTML = `R$ ${numericPrice}<span class="price-period">/mês</span>`;
-                } else {
-                    priceElement.textContent = studioPrice;
-                }
-            }
-        }
+<style>
+:root{
+  --stage:#0b0b0d;
+  --panel:#151519;
+  --panel2:#1a1a1f;
+  --line:rgba(255,255,255,.09);
+  --line2:rgba(255,255,255,.17);
+  --paper:#f3f1ec;
+  --muted:#9a9a9f;
+  --signal:#5fd97a;
+  --amber:#e8a23d;
+  --max:1180px;
+  --ease:cubic-bezier(.16,1,.3,1);
+  --font-display:'Bricolage Grotesque',Arial,sans-serif;
+  --font-body:'IBM Plex Sans',-apple-system,sans-serif;
+  --font-mono:'IBM Plex Mono','Courier New',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--stage);
+  color:var(--paper);
+  font-family:var(--font-body);
+  overflow-x:hidden;
+  line-height:1.55;
+}
+a{color:inherit;text-decoration:none}
+button{font:inherit;cursor:pointer}
+ul{list-style:none}
+::selection{background:var(--paper);color:#0b0b0d}
+:focus-visible{outline:2px solid var(--paper);outline-offset:3px;border-radius:3px}
 
-        // Load latest news from Firebase
-        async function loadLatestNews() {
-            try {
-                if (typeof window.firebaseDB === 'undefined') {
-                    console.warn('[CAROUSEL] Firebase not available');
-                    showNewsFallback();
-                    return;
-                }
+.progress{position:fixed;top:0;left:0;width:100%;height:2px;z-index:1000;background:transparent}
+.progress i{display:block;height:100%;width:0;background:var(--paper)}
 
-                const { db, collection, query, orderBy, getDocs } = window.firebaseDB;
-                const newsQuery = query(
-                    collection(db, 'news'),
-                    orderBy('createdAt', 'desc')
-                );
+.spotlight{
+  position:fixed;width:360px;height:360px;border-radius:50%;
+  background:radial-gradient(circle,rgba(243,241,236,.06),transparent 65%);
+  transform:translate(-50%,-50%);pointer-events:none;z-index:-1;
+  mix-blend-mode:screen;opacity:0;transition:opacity .4s;
+}
 
-                const querySnapshot = await getDocs(newsQuery);
-                
-                if (!querySnapshot.empty) {
-                    const newsDoc = querySnapshot.docs[0];
-                    latestNews = {
-                        id: newsDoc.id,
-                        ...newsDoc.data()
-                    };
-                    renderNewsSlide();
-                } else {
-                    showNewsFallback();
-                }
-            } catch (error) {
-                console.error('[CAROUSEL] Error loading news:', error);
-                showNewsFallback();
-            }
-        }
+.container{width:min(var(--max),calc(100% - 48px));margin:auto}
 
-        // Render news slide content
-        function renderNewsSlide() {
-            const newsContent = document.getElementById('newsSlideContent');
-            
-            if (!latestNews) {
-                showNewsFallback();
-                return;
-            }
+/* ---------- Nav ---------- */
+.top-bar{position:fixed;top:0;left:0;width:100%;z-index:100;transition:.4s var(--ease)}
+.top-bar.scrolled{background:rgba(11,11,13,.78);backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}
+.bar-inner{width:min(var(--max),calc(100% - 48px));height:74px;margin:auto;display:flex;align-items:center;justify-content:space-between}
+.brand{font-family:var(--font-display);font-weight:700;letter-spacing:-.03em;font-size:22px}
+.brand i{display:inline-block;width:5px;height:5px;background:var(--signal);border-radius:50%;margin:0 1px;box-shadow:0 0 8px var(--signal)}
+.nav-links{display:flex;gap:28px;align-items:center}
+.nav-links a{font-size:13.5px;color:#b3b3b8;transition:.2s}
+.nav-links a:hover{color:var(--paper)}
+.nav-actions{display:flex;align-items:center;gap:10px}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  height:42px;padding:0 20px;border:1px solid var(--line2);
+  border-radius:9px;font-size:13.5px;font-weight:600;transition:.25s var(--ease);
+}
+.btn-solid{background:var(--paper);color:#0b0b0d;border-color:var(--paper)}
+.btn-solid:hover{background:#fff}
+.btn-ghost{background:rgba(255,255,255,.03)}
+.btn-ghost:hover{border-color:var(--line2);background:rgba(255,255,255,.06)}
+.menu-toggle{display:none;width:38px;height:38px;border:1px solid var(--line2);border-radius:8px;background:transparent;color:var(--paper);position:relative}
+.menu-toggle span,.menu-toggle span:before,.menu-toggle span:after{
+  content:"";position:absolute;left:10px;right:10px;height:1.5px;background:var(--paper);transition:.25s var(--ease);
+}
+.menu-toggle span{top:18px}
+.menu-toggle span:before{top:-6px}
+.menu-toggle span:after{top:6px}
+.menu-toggle.open span{background:transparent}
+.menu-toggle.open span:before{transform:translateY(6px) rotate(45deg)}
+.menu-toggle.open span:after{transform:translateY(-6px) rotate(-45deg)}
+.mobile-panel{
+  display:none;max-height:0;overflow:hidden;transition:max-height .35s var(--ease);
+  border-bottom:1px solid var(--line);background:rgba(11,11,13,.96);backdrop-filter:blur(16px);
+}
+.mobile-panel.open{max-height:340px}
+.mobile-panel .container{padding:18px 0 26px;display:flex;flex-direction:column;gap:16px}
+.mobile-panel a.nav-a{font-size:15px;color:#d6d6d9}
+.mobile-panel .nav-actions{flex-direction:column;align-items:stretch}
+.mobile-panel .btn{width:100%}
 
-            const date = latestNews.createdAt 
-                ? new Date(latestNews.createdAt.seconds * 1000).toLocaleDateString('pt-BR')
-                : 'Recentemente';
+/* ---------- Hero ---------- */
+.hero{min-height:100vh;display:flex;align-items:center;padding:128px 0 70px}
+.hero-inner{display:grid;grid-template-columns:1fr 1.02fr;gap:64px;align-items:center}
+h1{
+  font-family:var(--font-display);font-weight:800;letter-spacing:-.03em;
+  font-size:clamp(42px,5.6vw,68px);line-height:1.03;
+}
+.lede{color:#a9a9ae;max-width:480px;font-size:16px;line-height:1.75;margin:26px 0 32px}
+.hero-actions{display:flex;gap:12px;flex-wrap:wrap}
+.hero-note{font-size:12px;color:#85858a;margin-top:16px}
 
-            const isPoll = latestNews.type === 'poll';
-            const badgeText = isPoll ? 'Enquete' : 'Notícia';
+.hero-visual{position:relative;display:flex;justify-content:center}
+.glow{position:absolute;width:460px;height:460px;border-radius:50%;background:radial-gradient(circle,rgba(243,241,236,.07),transparent 68%);filter:blur(6px)}
+.rack{
+  position:relative;width:min(560px,100%);border:1px solid var(--line2);border-radius:16px;
+  background:linear-gradient(155deg,var(--panel2),#0f0f12);
+  box-shadow:0 40px 90px rgba(0,0,0,.6);
+  opacity:0;transform:translateY(14px);
+  animation:power-on .8s var(--ease) .2s forwards;
+}
+@keyframes power-on{to{opacity:1;transform:none}}
+.rivet{position:absolute;width:6px;height:6px;border-radius:50%;background:#2a2a30;box-shadow:inset 0 1px 1px rgba(0,0,0,.6),0 1px 0 rgba(255,255,255,.05)}
+.rivet.tl{top:9px;left:9px}.rivet.tr{top:9px;right:9px}.rivet.bl{bottom:9px;left:9px}.rivet.br{bottom:9px;right:9px}
+.rack-top{height:42px;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 20px;gap:8px}
+.led{width:6px;height:6px;border-radius:50%;background:#2c2c32}
+.led.on{background:var(--signal);box-shadow:0 0 9px var(--signal)}
+.rack-top span{font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;color:#7a7a80}
+.unit-code{margin-left:auto;color:#54545a}
+.rack-body{padding:26px}
+.track-meta{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:20px}
+.track-meta small{font-family:var(--font-mono);font-size:10px;color:#85858a;letter-spacing:.04em}
+.track-meta strong{display:block;font-family:var(--font-display);font-size:23px;font-weight:700;letter-spacing:-.02em;margin-top:4px}
+.mixwave{height:96px;display:flex;align-items:center;gap:2.5px;border-bottom:1px solid var(--line)}
+.mixwave b{display:block;width:3px;border-radius:4px;background:#4b4b52}
+.mixwave b:nth-child(4n){background:var(--paper)}
+.transport{display:flex;align-items:center;justify-content:space-between;padding:20px 0}
+.time{font-family:var(--font-mono);font-size:11px;color:#85858a}
+.play{width:44px;height:44px;border-radius:50%;background:var(--paper);color:#0b0b0d;border:0;font-size:14px}
 
-            newsContent.innerHTML = `
-                <div class="news-badge">${badgeText}</div>
-                <h3 class="news-title">${latestNews.title}</h3>
-                <p class="news-description">${latestNews.description || ''}</p>
-                <div class="news-meta">
-                    <span class="news-date">${date}</span>
-                    ${latestNews.likes ? `<span class="news-likes">• ${latestNews.likes.length} curtidas</span>` : ''}
-                </div>
-                <a href="noticias.html" class="news-cta">
-                    Ver mais
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                        <path d="M5 12h14M12 5l7 7-7 7"/>
-                    </svg>
-                </a>
-            `;
-        }
+.fader-rail{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;padding-top:8px}
+.fader{height:112px;border:1px solid var(--line);border-radius:9px;background:#0d0d10;position:relative}
+.fader-track{position:absolute;left:50%;top:12px;bottom:26px;width:2px;background:#26262c;transform:translateX(-50%)}
+.fader-cap{position:absolute;left:50%;width:18px;height:26px;border-radius:4px;background:var(--paper);transform:translateX(-50%);bottom:36%;transition:bottom .6s var(--ease)}
+.level{position:absolute;left:6px;bottom:26px;top:12px;width:3px;border-radius:3px;background:#1c1c22;overflow:hidden}
+.level i{position:absolute;left:0;right:0;bottom:0;background:var(--signal);height:22%;transition:height .12s linear}
+.fader label{position:absolute;bottom:7px;left:0;right:0;text-align:center;font-size:8.5px;letter-spacing:.05em;color:#7a7a80;text-transform:uppercase}
 
-        // Show fallback when no news available
-        function showNewsFallback() {
-            const newsContent = document.getElementById('newsSlideContent');
-            newsContent.innerHTML = `
-                <div class="news-badge">Notícias</div>
-                <h3 class="news-title">Fique por dentro!</h3>
-                <p class="news-description">Acompanhe as últimas novidades do W.Tracks em nossa página de notícias.</p>
-                <div class="news-meta">
-                    <span class="news-date">Atualizado recentemente</span>
-                </div>
-                <a href="noticias.html" class="news-cta">
-                    Ver notícias
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                        <path d="M5 12h14M12 5l7 7-7 7"/>
-                    </svg>
-                </a>
-            `;
-        }
+.scroll-cue{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:9px;color:#85858a;font-size:11px}
+.scroll-cue i{display:block;width:36px;height:1px;background:#3a3a40}
 
-        // Carousel navigation
-        function goToSlide(slideName) {
-            const slideIndex = slides.indexOf(slideName);
-            if (slideIndex === -1 || isTransitioning) return;
+/* ---------- Ticker ---------- */
+.ticker{border-top:1px solid var(--line);border-bottom:1px solid var(--line);overflow:hidden;padding:15px 0;background:#0e0e11}
+.ticker-track{display:flex;width:max-content;animation:tick 22s linear infinite}
+.ticker-track span{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.08em;color:#85858a;padding:0 26px;white-space:nowrap}
+@keyframes tick{to{transform:translateX(-50%)}}
 
-            isTransitioning = true;
-            currentSlide = slideIndex;
-            updateCarousel();
+/* ---------- Sections ---------- */
+.section{padding:140px 0}
+.section-title{font-family:var(--font-display);font-size:clamp(34px,4.2vw,52px);line-height:1.06;letter-spacing:-.025em;font-weight:700;max-width:640px}
+.section-title .muted{color:#6f6f75}
 
-            setTimeout(() => {
-                isTransitioning = false;
-            }, 600); // Match CSS transition duration
-        }
+.intro-grid{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:start}
+.intro-grid .lede{margin-top:22px;max-width:460px}
+.defs{margin-top:44px;border-top:1px solid var(--line)}
+.defs > div{display:grid;grid-template-columns:120px 1fr;gap:22px;padding:18px 0;border-bottom:1px solid var(--line)}
+.defs dt{font-family:var(--font-mono);font-size:11px;color:#85858a;letter-spacing:.04em;padding-top:2px}
+.defs dd{font-size:14.5px;color:#c4c4c8;max-width:380px;line-height:1.65}
 
-        function nextSlide() {
-            if (isTransitioning) return;
-            isTransitioning = true;
-            currentSlide = (currentSlide + 1) % slides.length;
-            updateCarousel();
+.showcase-wrap{display:grid;grid-template-columns:.62fr 1.38fr;gap:64px;align-items:start}
+.showcase-copy{position:sticky;top:130px}
+.step-list{margin-top:50px}
+.step{padding:22px 0;border-top:1px solid var(--line);opacity:.4;transition:opacity .4s}
+.step.active{opacity:1}
+.step-num{font-family:var(--font-mono);font-size:11px;color:#85858a;margin-bottom:10px}
+.step h3{font-family:var(--font-display);font-size:21px;font-weight:700;letter-spacing:-.02em}
+.step p{font-size:13.5px;color:#8a8a8f;line-height:1.65;margin-top:8px;max-width:320px}
 
-            setTimeout(() => {
-                isTransitioning = false;
-            }, 600); // Match CSS transition duration
-        }
+.lib-panel{
+  min-height:660px;position:sticky;top:90px;border:1px solid var(--line);border-radius:20px;
+  background:linear-gradient(160deg,#131316,#0a0a0c);overflow:hidden;padding:30px;
+}
+.lib-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}
+.lib-head strong{font-family:var(--font-display);font-size:17px;font-weight:700}
+.lib-head span{font-family:var(--font-mono);font-size:10px;color:#85858a}
+.lib-list{display:grid;gap:9px}
+.song{
+  height:70px;border:1px solid var(--line);border-radius:12px;
+  display:grid;grid-template-columns:40px 1fr auto;align-items:center;padding:0 15px;
+  background:rgba(255,255,255,.015);transition:.3s;
+}
+.song.active{background:var(--paper);color:#0b0b0d;border-color:var(--paper)}
+.cover{width:32px;height:32px;border-radius:8px;background:#232328;display:grid;place-items:center;font-family:var(--font-mono);font-size:10px;color:#8a8a8f}
+.song.active .cover{background:#0b0b0d;color:var(--paper)}
+.song strong{font-size:12.5px;display:block}
+.song small{font-size:10.5px;color:#75757a}
+.song.active small{color:#4a4a4a}
+.duration{font-family:var(--font-mono);font-size:10px;color:#85858a}
+.song.active .duration{color:#4a4a4a}
 
-        function prevSlide() {
-            if (isTransitioning) return;
-            isTransitioning = true;
-            currentSlide = (currentSlide - 1 + slides.length) % slides.length;
-            updateCarousel();
+.badge{position:absolute;border:1px solid var(--line2);background:rgba(15,15,18,.9);backdrop-filter:blur(14px);border-radius:13px;padding:14px 16px}
+.badge-bpm{right:28px;bottom:32px}
+.badge-drive{left:24px;bottom:100px}
+.badge-label{font-family:var(--font-mono);font-size:9px;color:#85858a;letter-spacing:.05em}
+.badge-value{font-family:var(--font-display);font-size:16px;font-weight:700;margin-top:4px}
 
-            setTimeout(() => {
-                isTransitioning = false;
-            }, 600); // Match CSS transition duration
-        }
+.feature-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px;margin-top:60px}
+.feature{
+  min-height:290px;border:1px solid var(--line);border-radius:18px;padding:26px;
+  background:linear-gradient(160deg,var(--panel2),#101013);position:relative;overflow:hidden;
+  transition:border-color .3s;
+}
+.feature:hover{border-color:var(--line2)}
+.feature:nth-child(1){grid-column:span 7}
+.feature:nth-child(2){grid-column:span 5}
+.feature:nth-child(3){grid-column:span 5}
+.feature:nth-child(4){grid-column:span 7}
+.feature h3{font-family:var(--font-display);font-size:22px;font-weight:700;letter-spacing:-.02em}
+.feature p{color:#8a8a8f;font-size:13.5px;line-height:1.7;max-width:340px;margin-top:9px}
+.feature-demo{position:absolute;left:26px;right:26px;bottom:26px;height:88px}
+.demo-faders{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;height:100%}
+.demo-faders .fader{height:100%}
+.demo-metro{display:flex;align-items:center;gap:14px;height:100%;border:1px solid var(--line);border-radius:10px;padding:0 18px;background:#0d0d10}
+.metro-num{font-family:var(--font-mono);font-size:26px;font-weight:600}
+.metro-wand{position:relative;width:2px;height:44px;background:#333;border-radius:2px;transform-origin:bottom center;animation:swing 1.5s ease-in-out infinite}
+.metro-wand:after{content:"";position:absolute;top:-3px;left:50%;width:6px;height:6px;background:var(--amber);border-radius:50%;transform:translateX(-50%)}
+@keyframes swing{0%,100%{transform:rotate(-16deg)}50%{transform:rotate(16deg)}}
+.demo-list{display:grid;gap:9px;height:100%;align-content:center;border:1px solid var(--line);border-radius:10px;padding:14px 18px;background:#0d0d10}
+.demo-list i{height:6px;border-radius:20px;background:#2a2a30}
+.demo-list i:nth-child(2){width:78%}
+.demo-list i:nth-child(3){width:56%}
+.demo-sync{display:flex;align-items:center;justify-content:center;gap:14px;height:100%;border:1px solid var(--line);border-radius:10px;background:#0d0d10}
+.sync-box{width:46px;height:60px;border:1px solid var(--line2);border-radius:6px;position:relative}
+.sync-box:after{content:"";position:absolute;inset:6px;border-radius:3px;background:#1c1c22}
+.sync-line{width:38px;height:1px;background:linear-gradient(90deg,transparent,var(--signal),transparent);position:relative}
+.sync-line:after{content:"";position:absolute;top:-2px;left:50%;width:4px;height:4px;border-radius:50%;background:var(--signal);animation:travel 2.2s linear infinite}
+@keyframes travel{0%{left:0}100%{left:100%}}
 
-        // Update carousel UI
-        function updateCarousel() {
-            const slideName = slides[currentSlide];
+.statement{padding:170px 0;text-align:center;background:radial-gradient(circle at 50% 30%,rgba(232,162,61,.06),transparent 42%),#0d0d10;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.statement h2{font-family:var(--font-display);font-weight:800;letter-spacing:-.03em;font-size:clamp(38px,6.4vw,74px);line-height:1.05;max-width:820px;margin:auto}
+.statement p{color:#7d7d82;margin:24px auto 0;max-width:440px;font-size:14.5px}
 
-            // Update slides
-            document.querySelectorAll('.carousel-slide').forEach((slide, index) => {
-                slide.classList.remove('active', 'prev');
-                if (index === currentSlide) {
-                    slide.classList.add('active');
-                } else if (index === (currentSlide - 1 + slides.length) % slides.length) {
-                    slide.classList.add('prev');
-                }
-            });
+.plans-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:60px}
+.plan{border:1px solid var(--line);border-radius:20px;padding:32px;background:var(--panel);min-height:400px;position:relative;display:flex;flex-direction:column}
+.plan.pro{background:linear-gradient(160deg,#181410,#101013);border-color:rgba(232,162,61,.25)}
+.plan-tag{font-family:var(--font-mono);font-size:10px;color:#7d7d82;letter-spacing:.04em}
+.plan.pro .plan-tag{color:var(--amber)}
+.plan-name{font-family:var(--font-display);font-size:30px;font-weight:800;letter-spacing:-.02em;margin-top:10px}
+.plan-desc{color:#8a8a8f;font-size:13.5px;max-width:340px;margin:8px 0 26px}
+.plan-list{display:grid;gap:11px;margin-bottom:28px}
+.plan-list li{font-size:13.5px;color:#b3b3b8;display:flex;gap:9px}
+.plan-list li:before{content:"";width:4px;height:4px;border-radius:50%;background:#7d7d82;margin-top:8px;flex:none}
+.plan.pro .plan-list li:before{background:var(--amber)}
+.plan .btn{margin-top:auto;align-self:flex-start}
 
-            // Update progress bar with animation restart
-            document.querySelectorAll('.carousel-progress-segment').forEach((segment, index) => {
-                segment.classList.remove('active');
-                // Force reflow to restart animation
-                void segment.offsetWidth;
-                if (index === currentSlide) {
-                    segment.classList.add('active');
-                }
-            });
+.final-cta{padding:160px 0 110px;text-align:center}
+.final-cta h2{font-family:var(--font-display);font-weight:800;letter-spacing:-.03em;font-size:clamp(40px,5.6vw,62px);line-height:1.06}
+.final-cta p{color:#8a8a8f;max-width:440px;margin:20px auto 28px;font-size:14.5px}
 
-            // Reset autoplay timer
-            resetCarouselAutoplay();
-        }
+footer{border-top:1px solid var(--line);padding:50px 0 28px}
+.footer-top{display:flex;justify-content:space-between;gap:40px}
+.footer-brand p{font-size:12px;color:#85858a;margin-top:10px}
+.footer-links{display:flex;gap:64px}
+.footer-col strong{display:block;font-size:11.5px;color:#d6d6d9;margin-bottom:13px}
+.footer-col a{display:block;font-size:11.5px;color:#85858a;margin:7px 0}
+.footer-col a:hover{color:var(--paper)}
+.footer-bottom{border-top:1px solid var(--line);margin-top:40px;padding-top:18px;display:flex;justify-content:space-between;color:#85858a;font-size:10.5px}
 
-        // Autoplay controls
-        function startCarouselAutoplay() {
-            carouselInterval = setInterval(nextSlide, 6000); // 6 seconds per slide
-        }
-
-        function stopCarouselAutoplay() {
-            if (carouselInterval) {
-                clearInterval(carouselInterval);
-                carouselInterval = null;
-            }
-        }
-
-        function resetCarouselAutoplay() {
-            stopCarouselAutoplay();
-            startCarouselAutoplay();
-        }
-
-        // Event listeners
-        function setupCarouselEventListeners() {
-            // Pause on hover
-            const carousel = document.getElementById('newsCarousel');
-            carousel.addEventListener('mouseenter', stopCarouselAutoplay);
-            carousel.addEventListener('mouseleave', startCarouselAutoplay);
-
-            // Progress bar click navigation
-            document.querySelectorAll('.carousel-progress-segment').forEach((segment, index) => {
-                segment.addEventListener('click', () => {
-                    goToSlide(slides[index]);
-                });
-            });
-
-            // Keyboard navigation
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'ArrowLeft') prevSlide();
-                if (e.key === 'ArrowRight') nextSlide();
-            });
-
-            // Touch swipe support
-            let touchStartX = 0;
-            let touchEndX = 0;
-
-            carousel.addEventListener('touchstart', (e) => {
-                touchStartX = e.changedTouches[0].screenX;
-            });
-
-            carousel.addEventListener('touchend', (e) => {
-                touchEndX = e.changedTouches[0].screenX;
-                handleSwipe();
-            });
-
-            function handleSwipe() {
-                const swipeThreshold = 50;
-                const diff = touchStartX - touchEndX;
-
-                if (diff > swipeThreshold) {
-                    nextSlide(); // Swipe left
-                } else if (diff < -swipeThreshold) {
-                    prevSlide(); // Swipe right
-                }
-            }
-        }
-
-        // Initialize carousel when DOM is ready
-        document.addEventListener('DOMContentLoaded', () => {
-            initCarousel();
-        });
-    </script>
+@media(max-width:900px){
+  .nav-links{display:none}
+  .menu-toggle{display:block}
+  .hero-inner,.intro-grid,.showcase-wrap{grid-template-columns:1fr}
+  .showcase-copy{position:relative;top:auto}
+  .lib-panel{position:relative;top:auto;min-height:560px}
+  .step-list{margin-top:30px}
+  .feature:nth-child(n){grid-column:span 12}
+  .plans-grid{grid-template-columns:1fr}
+}
+@media(max-width:600px){
+  .container,.bar-inner{width:calc(100% - 30px)}
+  .hero{padding:112px 0 60px}
+  .rack-body{padding:18px}
+  .fader-rail{gap:6px}
+  .fader{height:88px}
+  .section{padding:100px 0}
+  .badge{display:none}
+  .footer-top{flex-direction:column}
+  .footer-links{gap:32px;flex-wrap:wrap}
+  .footer-bottom{flex-direction:column;gap:8px}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+  .rack{opacity:1;transform:none}
+}
+</style>
 </head>
+
 <body>
-    <!-- SPLASH SCREEN -->
-    <div class="splash-screen" id="splashScreen">
-        <div class="splash-content">
-            <img src="icon-white-transparent.png" alt="W.Tracks" class="splash-logo">
-            <div class="splash-spinner"></div>
-            <p class="splash-text">Carregando...</p>
-        </div>
+<div class="progress"><i id="progress"></i></div>
+<div class="spotlight" id="spotlight"></div>
+
+<header class="top-bar" id="topBar">
+  <div class="bar-inner">
+    <a href="/" class="brand">W<i></i>Tracks</a>
+    <nav class="nav-links">
+      <a href="#produto">Produto</a>
+      <a href="#como-funciona">Como funciona</a>
+      <a href="#recursos">Recursos</a>
+      <a href="#planos">Planos</a>
+    </nav>
+    <button class="menu-toggle" id="menuToggle" aria-label="Abrir menu" aria-expanded="false"><span></span></button>
+  </div>
+  <div class="mobile-panel" id="mobilePanel">
+    <div class="container">
+      <a href="#produto" class="nav-a">Produto</a>
+      <a href="#como-funciona" class="nav-a">Como funciona</a>
+      <a href="#recursos" class="nav-a">Recursos</a>
+      <a href="#planos" class="nav-a">Planos</a>
     </div>
+  </div>
+</header>
 
-    <!-- HEADER -->
-    <header class="header">
-        <div class="header-container">
-            <div class="logo">
-                <img src="icon-white-transparent.png" alt="W.Tracks" class="logo-icon">
-                <span class="logo-text">W.Tracks</span>
-            </div>
-            
-            <nav class="nav">
-                <a href="#" class="nav-link active" data-view="library">Biblioteca</a>
-                <a href="#" class="nav-link" data-view="setlists">Setlists</a>
-                <a href="#" class="nav-link" data-view="community">Comunidade</a>
-            </nav>
-            
-            <div class="header-actions">
-                <div class="search-container">
-                    <button class="search-btn" id="searchBtn" aria-label="Buscar">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="11" cy="11" r="8"></circle>
-                            <path d="m21 21-4.35-4.35"></path>
-                        </svg>
-                    </button>
-                    <input type="text" class="search-input" id="searchInput" placeholder="Buscar músicas...">
-                </div>
-                <div class="profile-container">
-                    <button class="profile-btn" id="profileBtn" aria-label="Perfil">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="12" cy="7" r="4"></circle>
-                        </svg>
-                        <span class="user-initial" id="userInitial"></span>
-                    </button>
-                    <div class="profile-dropdown" id="profileDropdown">
-                        <div class="profile-header">
-                            <div class="profile-avatar">
-                                <span id="dropdownUserInitial"></span>
-                            </div>
-                            <div class="profile-info">
-                                <div class="profile-name" id="profileName"></div>
-                                <div class="profile-email" id="profileEmail"></div>
-                            </div>
-                        </div>
-                        <div class="profile-menu">
-                            <button class="profile-menu-item" id="settingsBtn">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <circle cx="12" cy="12" r="3"></circle>
-                                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                                </svg>
-                                Configurações
-                            </button>
-                            <button class="profile-menu-item" onclick="openTelegramSupport()">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8.9L21 3l-1.9 5.7a8.38 8.38 0 0 1 .9 3.8z"></path>
-                                </svg>
-                                Suporte
-                            </button>
-                            <a href="noticias.html" class="profile-menu-item">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                    <polyline points="14 2 14 8 20 8"></polyline>
-                                    <line x1="16" y1="13" x2="8" y2="13"></line>
-                                    <line x1="16" y1="17" x2="8" y2="17"></line>
-                                    <polyline points="10 9 9 9 8 9"></polyline>
-                                </svg>
-                                Notícias
-                            </a>
-                            <button class="profile-menu-item" id="myTracksBtn" style="display: none;">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M9 18V5l12-2v13"></path>
-                                    <circle cx="6" cy="18" r="3"></circle>
-                                    <circle cx="18" cy="16" r="3"></circle>
-                                </svg>
-                                Minhas Tracks
-                            </button>
-                            <button class="profile-menu-item logout-btn" id="logoutBtn">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                                    <polyline points="16 17 21 12 16 7"></polyline>
-                                    <line x1="21" y1="12" x2="9" y2="12"></line>
-                                </svg>
-                                Sair
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </header>
+<main>
+<section class="hero">
+  <div class="container hero-inner">
+    <div class="hero-copy">
+      <h1>Suas stems organizadas.<br>Prontas pra tocar ao vivo.</h1>
+      <p class="lede">O W.Tracks guarda os stems de cada música em um só projeto. Ajuste o volume de cada instrumento, acompanhe o andamento e troque de aparelho sem perder nada — direto do celular, do tablet ou do computador.</p>
+      <div class="hero-actions">
+ <button id="installPWA" class="btn btn-ghost" style="display:inline-flex;align-items:center;gap:8px;color:var(--paper)">
 
-    <!-- NEWS CAROUSEL -->
-    <section class="news-carousel" id="newsCarousel">
-        <!-- Progress Bar -->
-        <div class="carousel-progress-bar" id="carouselProgressBar">
-            <div class="carousel-progress-segment" data-slide="welcome"></div>
-            <div class="carousel-progress-segment" data-slide="studio"></div>
-            <div class="carousel-progress-segment" data-slide="news"></div>
-        </div>
+  <!-- Android -->
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M17.523 15.341c-.348 0-.63-.282-.63-.63V9.289c0-.348.282-.63.63-.63s.63.282.63.63v5.422c0 .348-.282.63-.63.63ZM6.477 15.341c-.348 0-.63-.282-.63-.63V9.289c0-.348.282-.63.63-.63s.63.282.63.63v5.422c0 .348-.282.63-.63.63ZM8.01 6.35l-1.01-1.76a.36.36 0 0 1 .624-.36l1.02 1.78a7.1 7.1 0 0 1 6.712 0l1.02-1.78a.36.36 0 0 1 .624.36l-1.01 1.76A6.48 6.48 0 0 1 18.5 11.5H5.5A6.48 6.48 0 0 1 8.01 6.35ZM9 8.5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Zm6 0a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1ZM5.5 12.5h13v6A1.5 1.5 0 0 1 17 20h-1v1.5a.5.5 0 0 1-1 0V20H9v1.5a.5.5 0 0 1-1 0V20H7a1.5 1.5 0 0 1-1.5-1.5v-6Z"/>
+  </svg>
 
-        <!-- Carousel Slides -->
-        <div class="carousel-slides" id="carouselSlides">
-            <!-- Slide 1: Welcome -->
-            <div class="carousel-slide welcome-slide active" data-slide="welcome">
-                <!-- Background Elements -->
-                <div class="slide-background">
-                    <div class="background-gradient"></div>
-                    <div class="audio-waves">
-                        <div class="wave wave-1"></div>
-                        <div class="wave wave-2"></div>
-                        <div class="wave wave-3"></div>
-                    </div>
-                    <div class="geometric-shapes">
-                        <div class="shape shape-1"></div>
-                        <div class="shape shape-2"></div>
-                    </div>
-                </div>
-                
-                <!-- Content -->
-                <div class="welcome-content">
-                    <div class="content-wrapper">
-                        <div class="welcome-badge">Bem-vindo</div>
-                        <h2 class="welcome-title">W.Tracks</h2>
-                        <p class="welcome-subtitle">Sua plataforma profissional para projetos multitrack e stems musicais</p>
-                        <div class="welcome-social-icons">
-                            <a href="https://www.instagram.com/wtracksstudio?utm_source=ig_web_button_share_sheet&igsi=ZDNlZDc0MzIxNw==" target="_blank" class="welcome-social-icon" aria-label="Instagram">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
-                                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
-                                    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
-                                </svg>
-                            </a>
-                            <a href="mailto:wtracksstudio@gmail.com" class="welcome-social-icon" aria-label="Email">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                                    <polyline points="22,6 12,13 2,6"></polyline>
-                                </svg>
-                            </a>
-                            <button class="welcome-social-icon" onclick="openTelegramSupport()" aria-label="Telegram">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8.9L21 3l-1.9 5.7a8.38 8.38 0 0 1 .9 3.8z"></path>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+  <span>/</span>
 
-            <!-- Slide 2: Studio Plan -->
-            <div class="carousel-slide studio-slide" data-slide="studio">
-                <!-- Background Elements -->
-                <div class="slide-background">
-                    <div class="background-gradient"></div>
-                    <div class="premium-glow"></div>
-                    <div class="grid-pattern"></div>
-                </div>
-                
-                <!-- Content -->
-                <div class="studio-content">
-                    <div class="content-wrapper">
-                        <span class="studio-badge">Track Pro</span>
-                        <h2 class="studio-title">Plano Premium</h2>
-                        <p class="studio-description">Desbloqueie todo o potencial do W.Tracks</p>
-                        <div class="studio-price-container">
-                            <div class="studio-price" id="carouselStudioPrice">R$ 9,90<span class="price-period">/mês</span></div>
-                        </div>
-                        <div class="studio-features">
-                            <div class="studio-feature">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M20 6L9 17l-5-5"/>
-                                </svg>
-                                <span>Acesso Completo</span>
-                            </div>
-                            <div class="studio-feature">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M20 6L9 17l-5-5"/>
-                                </svg>
-                                <span>Sem Limites</span>
-                            </div>
-                            <div class="studio-feature">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M20 6L9 17l-5-5"/>
-                                </svg>
-                                <span>Suporte Prioritário</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+  <!-- Apple -->
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.95-2.53 4.08ZM12.03 7.25C11.88 5.02 13.69 3.18 15.75 3c.28 2.58-2.34 4.5-3.72 4.25Z"/>
+  </svg>
 
-            <!-- Slide 3: Latest News -->
-            <div class="carousel-slide news-slide" data-slide="news">
-                <!-- Background Elements -->
-                <div class="slide-background">
-                    <div class="background-gradient"></div>
-                    <div class="editorial-lines"></div>
-                </div>
-                
-                <!-- Content -->
-                <div class="news-content">
-                    <div class="content-wrapper" id="newsSlideContent">
-                        <div class="carousel-loading">
-                            <div class="carousel-loading-spinner"></div>
-                            <span>Carregando notícias...</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+  Baixar W.Tracks
 
-        <!-- Carousel Navigation -->
-        <button class="carousel-arrow prev" onclick="prevSlide()" aria-label="Slide anterior">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M15 18l-6-6 6-6"/>
-            </svg>
+</button>
+
+        <button id="installPWAGeneric" class="btn btn-ghost" style="display:inline-flex;align-items:center;gap:8px;color:var(--paper)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+            <line x1="8" y1="21" x2="16" y2="21"></line>
+            <line x1="12" y1="17" x2="12" y2="21"></line>
+          </svg>
+          Baixar W.Tracks Desktop
         </button>
-        <button class="carousel-arrow next" onclick="nextSlide()" aria-label="Próximo slide">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M9 18l6-6-6-6"/>
-            </svg>
-        </button>
-    </section>
-
-    <!-- LIBRARY -->
-    <main class="library" id="libraryView">
-        <div class="library-filters">
-            <div class="filter-group">
-                <button class="filter-btn active" data-filter="all">Todos</button>
-                <button class="filter-btn" data-filter="recent">Recentes</button>
-                <button class="filter-btn" data-filter="favorites">Favoritos</button>
-            </div>
-            <div class="library-actions">
-                <button class="sort-btn" aria-label="Ordenar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="4" y1="6" x2="16" y2="6"></line>
-                        <line x1="4" y1="12" x2="12" y2="12"></line>
-                        <line x1="4" y1="18" x2="8" y2="18"></line>
-                    </svg>
-                </button>
-            </div>
-        </div>
-        <div class="library-header">
-            <div class="library-title-section">
-                <h2 class="library-title">Minhas músicas</h2>
-                <span class="library-count" id="libraryCount">0 projetos</span>
-            </div>
-        </div>
-        
-        <div class="music-grid" id="musicGrid">
-            <!-- Music cards will be rendered here -->
-        </div>
-
-        <div class="library-loading-container" id="libraryLoadingContainer" style="display: none;">
-            <div class="library-loading">
-                <div class="loading-spinner-large"></div>
-            </div>
-        </div>
-
-        <div class="empty-state" id="emptyState">
-            <div class="empty-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path d="M9 18V5l12-2v13"></path>
-                    <circle cx="6" cy="18" r="3"></circle>
-                    <circle cx="18" cy="16" r="3"></circle>
-                </svg>
-            </div>
-            <h3 class="empty-title">Nenhuma música ainda</h3>
-            <p class="empty-description">Comece adicionando seu primeiro projeto multitrack</p>
-            <button class="empty-cta" id="emptyAddBtn">Adicionar música</button>
-        </div>
-    </main>
-
-    <!-- EXPLORE -->
-    <main class="explore" id="exploreView" style="display: none;">
-        <div class="library-header">
-            <div class="library-title-section">
-                <h2 class="library-title">Explorar</h2>
-                <span class="library-count" id="exploreCount">0 músicas</span>
-            </div>
-        </div>
-
-        <div class="music-grid" id="exploreGrid">
-            <!-- Explore music cards will be rendered here -->
-        </div>
-    </main>
-
-    <!-- SETLISTS -->
-    <main class="setlists" id="setlistsView" style="display: none;">
-        <div class="setlists-search-container">
-            <div class="search-wrapper">
-                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="11" cy="11" r="8"></circle>
-                    <path d="m21 21-4.35-4.35"></path>
-                </svg>
-                <input type="text" class="setlists-search-input" id="setlistsSearchInput" placeholder="Pesquisar músicas no YouTube...">
-            </div>
-        </div>
-
-        <div class="youtube-results" id="youtubeResults" style="display: none;">
-            <h3 class="results-title">Resultados do YouTube</h3>
-            <div class="youtube-results-grid" id="youtubeResultsGrid">
-                <!-- YouTube search results will be rendered here -->
-            </div>
-        </div>
-
-        <div class="empty-state" id="setlistsSearchEmptyState">
-            <div class="empty-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <circle cx="11" cy="11" r="8"></circle>
-                    <path d="m21 21-4.35-4.35"></path>
-                </svg>
-            </div>
-            <h3 class="empty-title">Pesquise músicas</h3>
-            <p class="empty-description"></p>
-        </div>
-    </main>
-
-    <!-- SETLISTS FLOATING MEN´U -->
-    <div class="setlists-floating-menu" id="setlistsFloatingMenu">
-        <!-- Create Setlist Button -->
-        <button class="floating-menu-item" id="floatingCreateSetlistBtn" data-tooltip="Criar Setlist">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-        </button>
-
-        <!-- Setlists Listw -->
-        <div class="floating-setlists-list" id="floatingSetlistsList">
-            <!-- Setlist items will be rendered here -->
-        </div>
-
-        <!-- No Setlists Message ,-->
-        <div class="floating-no-setlists" id="floatingNoSetlists">
-            <span class="no-setlists-text">Nenhuma setlist</span>
-        </div>
+      </div>
+      <div class="hero-note">Grátis pra começar. Funciona direto do navegador.</div>
     </div>
 
-    <!-- SETLIST EDITOR -->
-    <main class="setlist-editor" id="setlistEditorView" style="display: none;">
-        <div class="setlist-editor-header">
-            <button class="setlist-back-btn" id="backToSetlists">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="15 18 9 12 15 6"></polyline>
-                </svg>
-                Voltar
-            </button>
-            <div class="setlist-editor-title-section">
-                <h1 class="setlist-editor-title" id="setlistEditorTitle">Nome da Setlist</h1>
-                <p class="setlist-editor-date" id="setlistEditorDate">23/08/2026</p>
-                <div class="setlist-editor-actions">
-                    <button class="setlist-share-btn" id="shareSetlistBtn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
-                            <polyline points="16 6 12 2 8 6"></polyline>
-                            <line x1="12" y1="2" x2="12" y2="15"></line>
-                        </svg>
-                    </button>
-                    <button class="setlist-delete-btn" id="deleteSetlistBtn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="3 6 5 6 21 6"></polyline>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                        </svg>
-                    </button>
-                </div>
-            </div>
+    <div class="hero-visual">
+      <div class="glow"></div>
+      <div class="rack" id="rack">
+        <i class="rivet tl"></i><i class="rivet tr"></i><i class="rivet bl"></i><i class="rivet br"></i>
+        <div class="rack-top">
+          <i class="led on" id="led"></i>
+          <span>SINAL</span>
+          <span class="unit-code">WT-05</span>
         </div>
-
-        <div class="setlist-search-container">
-            <div class="search-wrapper">
-                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="11" cy="11" r="8"></circle>
-                    <path d="m21 21-4.35-4.35"></path>
-                </svg>
-                <input type="text" class="setlist-search-input" id="setlistEditorSearchInput" placeholder="Pesquisar músicas no YouTube...">
-            </div>
+        <div class="rack-body">
+          <div class="track-meta">
+            <div><small>PROJETO ATIVO</small><strong>Ensaio de sábado</strong></div>
+            <span class="time">05 stems</span>
+          </div>
+          <div class="mixwave" id="mixwave"></div>
+          <div class="transport">
+            <span class="time">01:58</span>
+            <button class="play" id="play" aria-label="Tocar prévia">▶</button>
+            <span class="time">04:32</span>
+          </div>
+          <div class="fader-rail">
+            <div class="fader"><i class="fader-track"></i><i class="fader-cap"></i><div class="level"><i></i></div><label>Bateria</label></div>
+            <div class="fader"><i class="fader-track"></i><i class="fader-cap"></i><div class="level"><i></i></div><label>Baixo</label></div>
+            <div class="fader"><i class="fader-track"></i><i class="fader-cap"></i><div class="level"><i></i></div><label>Guitarra</label></div>
+            <div class="fader"><i class="fader-track"></i><i class="fader-cap"></i><div class="level"><i></i></div><label>Teclado</label></div>
+            <div class="fader"><i class="fader-track"></i><i class="fader-cap"></i><div class="level"><i></i></div><label>Vocal</label></div>
+          </div>
         </div>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-cue"><i></i> role pra ver mais <i></i></div>
+</section>
 
-        <div class="youtube-results" id="youtubeResults" style="display: none;">
-            <h3 class="results-title">Resultados do YouTube</h3>
-            <div class="youtube-results-grid" id="youtubeResultsGrid">
-                <!-- YouTube search results will be rendered here -->
-            </div>
-        </div>
+<div class="ticker">
+  <div class="ticker-track">
+    <span>BATERIA</span><span>BAIXO</span><span>GUITARRA</span><span>TECLADO</span><span>VOCAL</span><span>CLICK</span>
+    <span>BATERIA</span><span>BAIXO</span><span>GUITARRA</span><span>TECLADO</span><span>VOCAL</span><span>CLICK</span>
+  </div>
+</div>
 
-        <div class="setlist-songs-section">
-            <h3 class="setlist-songs-title">Músicas salvas</h3>
-            <div class="setlist-songs-list" id="setlistSongsList">
-                <!-- Saved songs will be rendered here -->
-            </div>
-        </div>
+<section class="section" id="produto">
+  <div class="container intro-grid">
+    <div>
+      <h2 class="section-title">Organize uma vez.<br><span class="muted">Toque em qualquer palco.</span></h2>
+    </div>
+    <div>
+      <p class="lede">Antes de cada apresentação, alguém perde tempo abrindo pastas e procurando qual arquivo é o certo. O W.Tracks guarda tudo por projeto e importa direto do Google Drive — então a trilha certa está sempre à mão.</p>
+      <dl class="defs">
+        <div><dt>Projeto</dt><dd>Cada música vira um projeto, com todos os stems guardados dentro dele.</dd></div>
+        <div><dt>Setlist</dt><dd>Monte a ordem de um ensaio, culto ou show específico.</dd></div>
+        <div><dt>Stems</dt><dd>Bateria, baixo, guitarra, teclado, vocal — cada um no seu próprio fader.</dd></div>
+      </dl>
+    </div>
+  </div>
+</section>
 
-        <div class="empty-state" id="setlistSongsEmptyState">
-            <div class="empty-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path d="M9 18V5l12-2v13"></path>
-                    <circle cx="6" cy="18" r="3"></circle>
-                    <circle cx="18" cy="16" r="3"></circle>
-                </svg>
-            </div>
-            <h3 class="empty-title">Nenhuma música salva</h3>
-        </div>
-    </main>
-
-    <!-- COMMUNITY -->
-    <main class="community" id="communityView" style="display: none;">
-        <div class="community-disclaimer">
-            <div class="disclaimer-content">
-                <h3 class="disclaimer-title">Sobre as tracks</h3>
-                <p class="disclaimer-text">As tracks disponibilizadas na Comunidade W.Tracks são <strong>recriações produzidas para fins de estudo, produção musical e utilização dentro da plataforma</strong>.</p>
-                <p class="disclaimer-text">Os arquivos disponibilizados não correspondem aos stems ou às gravações originais das músicas mencionadas. Cada track é recriada e produzida separadamente, utilizando novas gravações, instrumentos e elementos de produção.</p>
-                <p class="disclaimer-text">As obras musicais, títulos, composições e demais elementos que pertençam a terceiros continuam sujeitos aos respectivos direitos autorais e de seus titulares.</p>
-                <p class="disclaimer-text">O W.Tracks não reivindica a autoria das obras originais. O objetivo da Comunidade é disponibilizar <strong>recriações e materiais de produção</strong>, e não distribuir as gravações originais das obras.</p>
-                <p class="disclaimer-text disclaimer-highlight">Ao baixar uma track, o usuário reconhece que é responsável por verificar se o uso pretendido é permitido em seu projeto, publicação ou distribuição.</p>
-            </div>
-        </div>
-        <div class="library-filters">
-            <div class="filter-group" id="communityFilters">
-                <button class="filter-btn active" data-filter="Todos">Todos</button>
-                <button class="filter-btn" data-filter="Favoritos">Favoritos</button>
-            </div>
-        </div>
-        <div class="library-header">
-            <div class="library-title-section">
-                <h2 class="library-title">Tracks da Comunidade</h2>
-                <span class="library-count" id="communityCount">0 tracks</span>
-            </div>
-        </div>
-
-        <div class="music-grid" id="communityGrid">
-            <!-- Community music cards will be rendered here -->
-        </div>
-    </main>
-
-    <!-- MY TRACKS -->
-    <main class="library" id="myTracksView" style="display: none;">
-        <!-- Loading Screen -->
-        <div class="splash-screen" id="myTracksSplashScreen" style="display: none;">
-            <div class="splash-content">
-                <img src="icon-white-transparent.png" alt="W.Tracks" class="splash-logo">
-                <div class="splash-spinner"></div>
-                <p class="splash-text">Carregando...</p>
-            </div>
-        </div>
-
-        <div class="library-welcome">
-            <div class="welcome-logo">
-                <img src="icon-white-transparent.png" alt="W.Tracks" class="welcome-logo-icon">
-            </div>
-            <div class="welcome-text">
-                <h1 class="welcome-title">Minhas Tracks</h1>
-                <p class="welcome-description">Gerencie suas tracks publicadas na comunidade</p>
-            </div>
-        </div>
-
-        <!-- Creator Signup Section (shown when not signed up) -->
-        <div class="creator-signup-section" id="creatorSignupSection">
-            <div class="creator-signup-card">
-                <div class="creator-signup-header">
-                    <div class="creator-signup-icon-large">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M9 18V5l12-2v13"></path>
-                            <circle cx="6" cy="18" r="3"></circle>
-                            <circle cx="18" cy="16" r="3"></circle>
-                        </svg>
-                    </div>
-                    <h2 class="creator-signup-title">Torne-se um Criador</h2>
-                    <p class="creator-signup-description">
-                        Compartilhe suas criações musicais com a comunidade W.Tracks.
-                        Para publicar tracks, você precisa se inscrever como criador.
-                    </p>
-                </div>
-
-                <div class="creator-signup-features">
-                    <div class="creator-feature">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M12 20h9"></path>
-                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
-                        </svg>
-                        <span>Publique suas tracks originais</span>
-                    </div>
-                    <div class="creator-feature">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="9" cy="7" r="4"></circle>
-                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                        </svg>
-                        <span>Conecte-se com outros produtores</span>
-                    </div>
-                    <div class="creator-feature">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <polyline points="12 6 12 12 16 14"></polyline>
-                        </svg>
-                        <span>Acompanhe downloads e visualizações</span>
-                    </div>
-                </div>
-
-                <button class="btn btn-primary btn-large" id="startCreatorSignup">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M5 13l4 4L19 7"></path>
-                    </svg>
-                    Inscrever-se como Criador
-                </button>
-            </div>
-        </div>
-
-        <!-- Tracks Management Section (shown when signed up) -->
-        <div class="tracks-management-section" id="tracksManagementSection" style="display: none;">
-            <div class="library-header">
-                <div class="library-title-section">
-                    <h2 class="library-title">Suas Tracks</h2>
-                    <span class="library-count" id="myTracksCount">0 tracks</span>
-                </div>
-                <div class="library-actions">
-                    <button class="btn btn-primary" id="addNewTrackBtn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="12" y1="5" x2="12" y2="19"></line>
-                            <line x1="5" y1="12" x2="19" y2="12"></line>
-                        </svg>
-                        Nova Track
-                    </button>
-                </div>
-            </div>
-
-            <div class="music-grid" id="myTracksGrid">
-                <!-- User's tracks will be rendered here -->
-            </div>
-
-            <div class="empty-state" id="myTracksEmptyState">
-                <div class="empty-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                        <path d="M9 18V5l12-2v13"></path>
-                        <circle cx="6" cy="18" r="3"></circle>
-                        <circle cx="18" cy="16" r="3"></circle>
-                    </svg>
-                </div>
-                <h3 class="empty-title">Nenhuma track postada ainda</h3>
-                <p class="empty-description">Comece compartilhando sua primeira track com a comunidade</p>
-                <button class="empty-cta" id="emptyAddTrackBtn">Adicionar Primeira Track</button>
-            </div>
-        </div>
-    </main>
-
-    <!-- FLOATING ADD BUTTON -->
-    <button class="fab-add" id="fabAdd" aria-label="Adicionar música">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-        </svg>
-    </button>
-
-    <!-- MULTITRACK PLAYER VIEW -->
-    <section class="player-view" id="playerView">
-        <!-- LOGO -->
-        <div class="player-logo">
-            <img src="icon-white-transparent.png" alt="W.Tracks" class="player-logo-icon">
-            <span class="player-logo-text">W.Tracks</span>
-            <button class="player-settings-btn" id="playerSettingsBtn" aria-label="Configurações">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="3"></circle>
-                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                </svg>
-            </button>
-        </div>
-        
-        <!-- Loading Screen -->
-        <div class="player-loading" id="playerLoading">
-            <div class="loading-spinner"></div>
-            <div class="loading-text">Carregando música...</div>
-            <div class="loading-progress" id="loadingProgress">0 de 0 tracks</div>
-            <div class="loading-subtext">Preparando suas tracks</div>
-        </div>
-        
-        <!-- Music Selector -->
-        <div class="music-selector">
-            <div class="music-selector-scroll" id="musicSelectorScroll">
-                <!-- Music items will be rendered here -->
-            </div>
-            <button class="add-music-to-player" id="addMusicToPlayer" aria-label="Adicionar música ao player">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="12" y1="5" x2="12" y2="19"></line>
-                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-            </button>
-        </div>
-
-        <!-- Top Control Bar -->
-        <div class="player-controls">
-            <div class="player-controls-left">
-                <button class="control-btn back-btn" id="backToLibrary" aria-label="Voltar para biblioteca">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="15 18 9 12 15 6"></polyline>
-                    </svg>
-                </button>
-                
-                <div class="bpm-display">
-                    <input type="number" class="bpm-input" id="bpmInput" min="40" max="240" value="120">
-                    <div class="bpm-label">BPM</div>
-                </div>
-                
-                <button class="control-btn tap-tempo-btn" id="tapTempoBtn" aria-label="Tap Tempo">
-                    <span>TAP</span>
-                </button>
-                
-                <div class="time-signature">
-                    <select class="time-signature-select" id="timeSignatureSelect">
-                        <option value="4/4">4/4</option>
-                        <option value="3/4">3/4</option>
-                        <option value="4/2">4/2</option>
-                        <option value="6/8">6/8</option>
-                        <option value="2/4">2/4</option>
-                        <option value="5/4">5/4</option>
-                        <option value="7/8">7/8</option>
-                    </select>
-                </div>
-                
-                <button class="control-btn" id="metronomeBtn" aria-label="Metrônomo">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <path d="M12 6v6l4 2"></path>
-                    </svg>
-                </button>
-            </div>
-            
-            <div class="player-controls-center">
-                <button class="control-btn" id="rewindBtn" aria-label="Voltar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polygon points="11 19 2 12 11 5 11 19"></polygon>
-                        <polygon points="22 19 13 12 22 5 22 19"></polygon>
-                    </svg>
-                </button>
-                
-                <button class="play-btn" id="playPauseBtn" aria-label="Play/Pause">
-                    <svg class="play-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                    </svg>
-                    <svg class="pause-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="6" y="4" width="4" height="16"></rect>
-                        <rect x="14" y="4" width="4" height="16"></rect>
-                    </svg>
-                </button>
-                
-                <button class="control-btn" id="forwardBtn" aria-label="Avançar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polygon points="13 19 22 12 13 5 13 19"></polygon>
-                        <polygon points="2 19 11 12 2 5 2 19"></polygon>
-                    </svg>
-                </button>
-            </div>
-            
-            <div class="player-controls-right">
-                <div class="time-display">
-                    <div class="current-time" id="currentTime">0:00</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Timeline -->
-        <div class="timeline-container">
-            <div class="timeline-ruler">
-                <!-- Time markers will be rendered here -->
-            </div>
-            <div class="timeline-waveform" id="timelineWaveform">
-                <canvas id="waveformCanvas"></canvas>
-                <div class="playhead" id="playhead"></div>
-                <div class="waveform-loading" id="waveformLoading">
-                    <div class="loading-spinner"></div>
-                    <span class="loading-text">Carregando waveform</span>
-                    <span class="loading-subtext">Por favor, aguarde...</span>
-                </div>
-                <!-- Click Indicator -->
-                <div class="click-indicator" id="clickIndicator"></div>
-            </div>
-            <div class="timeline-markers" id="timelineMarkers">
-                <!-- Markers will be rendered here -->
-            </div>
-            
-            <!-- Effect Upload Popover -->
-            <div class="effect-popover" id="effectPopover">
-                <div class="popover-content">
-                    <h4 class="popover-title">Adicionar Efeito</h4>
-                    <p class="popover-time" id="popoverTime">0:00</p>
-                    <div class="popover-actions">
-                        <label class="popover-btn upload-btn">
-                            <input type="file" id="effectFileInput" accept="audio/*" style="display: none;">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                <polyline points="17 8 12 3 7 8"></polyline>
-                                <line x1="12" y1="3" x2="12" y2="15"></line>
-                            </svg>
-                            Fazer Upload de Efeito
-                        </label>
-                        <button class="popover-btn cancel-btn" id="cancelEffectBtn">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="18" y1="6" x2="6" y2="18"></line>
-                                <line x1="6" y1="6" x2="18" y2="18"></line>
-                            </svg>
-                            Cancelar
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Mixer -->
-        <div class="mixer-container">
-            <div class="mixer-tracks" id="mixerTracks">
-                <!-- Track channels will be rendered here -->
-            </div>
-            
-            <!-- Pad View (replaces faders when PAD is active) -->
-            <div class="pad-view" id="padView" style="display: none;">
-                <div class="pad-view-header">
-                    <h3 class="pad-view-title">Selecionar PAD</h3>
-                    <button class="pad-view-close" id="padViewClose" aria-label="Fechar">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="18" y1="6" x2="6" y2="18"></line>
-                            <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                    </button>
-                </div>
-                <div class="pad-grid" id="padGrid">
-                    <!-- Pads will be rendered here -->
-                </div>
-            </div>
-            
-            <!-- Master Side Panel (PAD and Reset buttons) -->
-            <div class="master-side-panel">
-                <button class="control-btn pad-btn" id="padBtn" aria-label="PAD">
-                    <span>PAD</span>
-                </button>
-                <button class="control-btn speed-btn" id="speedBtn" aria-label="Velocidade" title="Velocidade">
-                    <span id="speedBtnText">1.0x</span>
-                </button>
-                <button class="control-btn loop-indicator-btn" id="loopIndicatorBtn" aria-label="Limpar Loop" title="Limpar Loop">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M17 1l4 4-4 4"></path>
-                        <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
-                        <path d="M7 23l-4-4 4-4"></path>
-                        <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
-                    </svg>
-                </button>
-                <button class="reset-square-btn reset-normal-btn" id="resetNormalVolumes" title="Resetar volumes ao normal">
-                    <span class="btn-label">R</span>
-                    <span class="btn-indicator"></span>
-                </button>
-            </div>
-            
-            <!-- Master Channel (now part of the mixer row) -->
-            <div class="track-channel master-channel" id="masterChannel">
-                <div class="master-divider"></div>
-                
-                <div class="track-header">
-                    <div class="track-name">MASTER</div>
-                </div>
-                <div class="master-fader">
-                    <input type="range" class="fader-input" id="masterFader" min="0" max="100" value="50">
-                    <div class="master-fader-track">
-                        <div class="master-fader-fill" id="masterFaderFill" style="height: 50%"></div>
-                    </div>
-                    <div class="master-fader-thumb" id="masterFaderThumb" style="bottom: 50%"></div>
-                </div>
-                <div class="track-db-value" id="masterDbValue">0 dB</div>
-                <div class="track-pan-container">
-                    <input type="range" class="track-pan-input" id="masterPanInput" min="-100" max="100" value="0">
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- ADD SONG TO SESSION MODAL -->
-    <div class="modal-overlay" id="addSongToSessionModal">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 class="modal-title">Adicionar música à sessão</h3>
-                <button class="modal-close" id="addSongModalClose" aria-label="Fechar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                </button>
-            </div>
-            
-            <div class="modal-body">
-                <div class="form-group">
-                    <input type="text" class="form-input" id="songSearchInput" placeholder="Pesquisar músicas...">
-                </div>
-                <div class="song-list" id="songList">
-                    <!-- Songs will be rendered here -->
-                </div>
-            </div>
-        </div>
+<section class="section" id="como-funciona" style="padding-top:30px">
+  <div class="container showcase-wrap">
+    <div class="showcase-copy">
+      <h2 class="section-title">Do arquivo bagunçado<br><span class="muted">ao play no palco.</span></h2>
+      <div class="step-list">
+        <div class="step active" data-step="0"><div class="step-num">01</div><h3>Monte o projeto</h3><p>Importe os stems do Google Drive ou do aparelho, nomeie e organize por música.</p></div>
+        <div class="step" data-step="1"><div class="step-num">02</div><h3>Prepare a setlist</h3><p>Arraste a ordem das músicas pra bater com o repertório do ensaio ou do show.</p></div>
+        <div class="step" data-step="2"><div class="step-num">03</div><h3>Toque ao vivo</h3><p>Ajuste o fader de cada stem e siga a música sem tirar o olho do instrumento.</p></div>
+      </div>
     </div>
 
-    <!-- ADD MUSIC MODAL -->
-    <div class="modal-overlay" id="addMusicModal">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 class="modal-title">Adicionar música</h3>
-                <button class="modal-close" id="modalClose" aria-label="Fechar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                </button>
-            </div>
-            
-            <div class="modal-body">
-                <!-- Step 1: Import Method -->
-                <div class="wizard-step active" data-step="1">
-                    <h4 class="step-title">Como você quer adicionar?</h4>
-                    <div class="import-options">
-                        <button class="import-option" data-method="folder">
-                            <div class="import-icon">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-                                </svg>
-                            </div>
-                            <span class="import-label">Adicionar pasta</span>
-                            <span class="import-description">Importe uma pasta com todas as tracks</span>
-                        </button>
-                        
-                        <button class="import-option" data-method="files">
-                            <div class="import-icon">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                    <polyline points="17 8 12 3 7 8"></polyline>
-                                    <line x1="12" y1="3" x2="12" y2="15"></line>
-                                </svg>
-                            </div>
-                            <span class="import-label">Adicionar tracks</span>
-                            <span class="import-description">Selecione os arquivos um por um</span>
-                        </button>
-                    </div>
-                    <input type="file" id="fileInput" multiple accept=".wav,.mp3,.flac,.ogg,.aiff" hidden>
-                </div>
+    <div class="lib-panel">
+      <div class="lib-head"><strong>Minha biblioteca</strong><span>W.TRACKS</span></div>
+      <div class="lib-list">
+        <div class="song active"><div class="cover">01</div><div><strong>Ensaio de sábado</strong><small>5 stems · 04:32</small></div><span class="duration">ATIVO</span></div>
+        <div class="song"><div class="cover">02</div><div><strong>Culto de domingo</strong><small>5 stems · 05:02</small></div><span class="duration">05:02</span></div>
+        <div class="song"><div class="cover">03</div><div><strong>Acústico no bar</strong><small>3 stems · 03:46</small></div><span class="duration">03:46</span></div>
+        <div class="song"><div class="cover">04</div><div><strong>Show de sábado</strong><small>6 stems · 04:18</small></div><span class="duration">04:18</span></div>
+        <div class="song"><div class="cover">05</div><div><strong>Playback de estúdio</strong><small>5 stems · 04:09</small></div><span class="duration">04:09</span></div>
+      </div>
+      <div class="badge badge-bpm"><div class="badge-label">ANDAMENTO</div><div class="badge-value">128 BPM</div></div>
+      <div class="badge badge-drive"><div class="badge-label">IMPORTADO DE</div><div class="badge-value" style="font-size:13px">Google Drive</div></div>
+    </div>
+  </div>
+</section>
 
-                <!-- Step 2: Tracks Selected Preview -->
-                <div class="wizard-step" data-step="2">
-                    <h4 class="step-title">Tracks selecionadas</h4>
-                    <p class="step-description">Visualize as tracks que foram selecionadas</p>
-                    <div class="selected-files-preview" id="selectedFilesPreviewStep2">
-                        <!-- Tracks preview will be rendered here -->
-                    </div>
-                </div>
+<section class="section" id="recursos">
+  <div class="container">
+    <h2 class="section-title">Feito pra quem<br><span class="muted">toca ao vivo.</span></h2>
+    <p class="lede" style="margin-top:22px">Cada parte do W.Tracks existe pra reduzir uma etapa entre você e o palco.</p>
 
-                <!-- Step 3: Add More Tracks -->
-                <div class="wizard-step" data-step="3">
-                    <h4 class="step-title">Adicionar mais tracks</h4>
-                    <p class="step-description">Se quiser adicionar outros arquivos à música, como efeitos, voz guia, versões modificadas ou outras tracks, arraste os arquivos para cá ou clique para selecionar.</p>
-                    <div class="drop-zone" id="addMoreDropZone">
-                        <div class="drop-zone-content">
-                            <svg class="drop-zone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                <polyline points="17 8 12 3 7 8"></polyline>
-                                <line x1="12" y1="3" x2="12" y2="15"></line>
-                            </svg>
-                            <p class="drop-zone-text">Arraste os arquivos aqui ou clique para selecionar</p>
-                            <p class="drop-zone-hint">Suporta: WAV, MP3, FLAC, OGG, AIFF</p>
-                        </div>
-                        <input type="file" id="addMoreFileInput" multiple accept=".wav,.mp3,.flac,.ogg,.aiff" hidden>
-                    </div>
-                    <div class="selected-files-preview" id="selectedFilesPreviewStep3">
-                        <!-- Tracks preview will be rendered here -->
-                    </div>
-                </div>
-
-                <!-- Step 4: Organize Music -->
-                <div class="wizard-step" data-step="4">
-                    <h4 class="step-title">Organizar música</h4>
-                    <p class="step-description">Organize as tracks, altere nomes e adicione capa</p>
-                    <div class="tracks-list" id="tracksList">
-                        <!-- Tracks will be rendered here -->
-                    </div>
-                    <div class="cover-upload-section">
-                        <label class="form-label">Capa da música (opcional)</label>
-                        <div class="cover-upload-area" id="coverUploadArea">
-                            <div class="cover-upload-placeholder" id="coverUploadPlaceholder">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                                    <polyline points="21 15 16 10 5 21"></polyline>
-                                </svg>
-                                <p>Clique para adicionar capa</p>
-                            </div>
-                            <img class="cover-preview" id="coverPreview" style="display: none;">
-                            <input type="file" id="coverInput" accept="image/*" hidden>
-                        </div>
-                        <button class="btn btn-secondary btn-small" id="removeCoverBtn" style="display: none;">Remover capa</button>
-                    </div>
-                </div>
-
-                <!-- Step 5: Project Info -->
-                <div class="wizard-step" data-step="5">
-                    <h4 class="step-title">Informações da música</h4>
-                    <div class="form-group">
-                        <label class="form-label" for="projectName">Nome da música</label>
-                        <input type="text" class="form-input" id="projectName" placeholder="Ex: Ousado Amor">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label" for="projectDescription">Descrição (opcional)</label>
-                        <textarea class="form-input" id="projectDescription" rows="3" placeholder="Adicione uma descrição para sua música..."></textarea>
-                    </div>
-                </div>
-            </div>
-
-            <div class="modal-footer">
-                <button class="btn btn-secondary" id="wizardBack" disabled>Voltar</button>
-                <button class="btn btn-primary" id="wizardNext" disabled>Próximo</button>
-                <button class="btn btn-primary" id="wizardCreate" style="display: none;">Adicionar música</button>
-            </div>
+    <div class="feature-grid">
+      <article class="feature">
+        <h3>Fader por stem</h3>
+        <p>Suba, abaixe ou silencie cada instrumento em tempo real. O medidor de nível mostra o sinal de verdade — não é só enfeite.</p>
+        <div class="feature-demo demo-faders">
+          <div class="fader"><i class="fader-track"></i><i class="fader-cap" style="bottom:55%"></i><div class="level"><i style="height:60%"></i></div></div>
+          <div class="fader"><i class="fader-track"></i><i class="fader-cap" style="bottom:30%"></i><div class="level"><i style="height:35%"></i></div></div>
+          <div class="fader"><i class="fader-track"></i><i class="fader-cap" style="bottom:70%"></i><div class="level"><i style="height:75%"></i></div></div>
+          <div class="fader"><i class="fader-track"></i><i class="fader-cap" style="bottom:44%"></i><div class="level"><i style="height:48%"></i></div></div>
         </div>
-    </div>
+      </article>
 
-    <!-- SETTINGS MODAL -->
-    <div class="modal-overlay" id="settingsModal">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 class="modal-title">Configurações</h3>
-                <button class="modal-close" id="settingsModalClose" aria-label="Fechar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                </button>
-            </div>
-
-            <div class="modal-body">
-                <!-- User Profile Section -->
-                <div class="settings-section">
-                    <h4 class="settings-section-title">Perfil Público</h4>
-                    <div class="profile-settings">
-                        <div class="profile-avatar-large" id="settingsProfileAvatarBtn" style="cursor: pointer; position: relative;">
-                            <span id="settingsUserInitial"></span>
-                            <div class="avatar-camera-icon">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
-                                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                                    <circle cx="12" cy="13" r="4"/>
-                                </svg>
-                            </div>
-                        </div>
-                        <div class="profile-info-large">
-                            <div class="profile-name-large" id="settingsProfileName"></div>
-                            <div class="profile-email-large" id="settingsProfileEmail"></div>
-                            <div class="profile-account-type">
-                                <span class="account-type-label">Tipo de conta:</span>
-                                <span class="account-type-value" id="settingsAccountType"></span>
-                            </div>
-                            <div class="profile-account-plan">
-                                <span class="account-plan-label">Plano atual:</span>
-                                <div class="account-plan-wrapper">
-                                    <span class="account-plan-value" id="settingsAccountPlan">Carregando...</span>
-                                    <a href="planos.html" class="account-plan-upgrade-btn" id="settingsUpgradeBtn" style="display: none;">Fazer Upgrade</a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Expiration Banner -->
-                    <div class="settings-expiration-banner" id="settingsExpirationBanner" style="display: none;">
-                        <div class="expiration-banner-content">
-                            <div class="expiration-banner-icon">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                    <line x1="12" y1="8" x2="12" y2="12"></line>
-                                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                                </svg>
-                            </div>
-                            <div class="expiration-banner-text">
-                                <h4>Sua assinatura Track Pro venceu</h4>
-                                <p>Renove para reativar faders ilimitados e loops.</p>
-                            </div>
-                            <a id="settingsExpirationBannerBtn" href="https://checkout.infinitepay.io/joao-vitor-atp/Dk9YcknlHm" class="expiration-banner-btn">Renovar Assinatura (R$ 9,90)</a>
-                        </div>
-                    </div>
-
-                    <!-- Days Remaining Display -->
-                    <div class="settings-days-remaining" id="settingsDaysRemaining" style="display: none;">
-                        <div class="days-remaining-content">
-                            <span class="days-remaining-label">Dias restantes:</span>
-                            <span class="days-remaining-value" id="daysRemainingValue">--</span>
-                        </div>
-                    </div>
-
-                    <input type="file" id="profilePhotoInput" accept="image/*" style="display: none;">
-
-                    <!-- Profile Edit Form -->
-                    <div class="profile-edit-form">
-                        <div class="form-group">
-                            <label class="form-label">Nome de Perfil</label>
-                            <input type="text" class="form-input" id="settingsDisplayName" placeholder="Seu nome de exibição">
-                        </div>
-
-                        <button class="btn btn-primary" id="saveProfileBtn">Salvar Perfil</button>
-                    </div>
-
-                <div class="settings-divider"></div>
-
-                <!-- Future Projects Section -->
-                <div class="settings-section">
-                    <h4 class="settings-section-title">Planos Futuros</h4>
-                    <p class="settings-description" style="color: #888; font-size: 14px; line-height: 1.5; margin-bottom: 15px;">
-                        Descubra mais sobre os projetos futuros do site e os planos que estamos desenvolvendo para melhorar sua experiência.
-                    </p>
-                    <button class="btn btn-secondary" id="ourProjectsBtn" style="font-size: 14px; padding: 8px 16px;">
-                        Nossos Projetos
-                    </button>
-                </div>
-                </div>
-
-                <div class="settings-divider"></div>
-
-                <!-- App Settings -->
-                <div class="settings-section">
-                    <h4 class="settings-section-title">Preferências do App</h4>
-                    <div class="settings-option">
-                        <label class="settings-label">
-                            <input type="checkbox" id="repeatMode">
-                            <span>Ativar repetição</span>
-                        </label>
-                    </div>
-                    <div class="settings-option">
-                        <label class="settings-label">
-                            <input type="checkbox" id="autoAdvanceMode">
-                            <span>Avançar automaticamente</span>
-                        </label>
-                    </div>
-                    <div class="settings-option">
-                        <label class="settings-label">
-                            <input type="checkbox" id="transitionMode">
-                            <span>Ativar transição entre tracks</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="settings-divider"></div>
-
-                <!-- Version Info -->
-                <div class="settings-section">
-                    <h4 class="settings-section-title">Sobre</h4>
-                    <div class="settings-description" style="color: #888; font-size: 14px;">
-                        Versão: <span style="color: #fff; font-weight: 500;">1.0.0</span>
-                    </div>
-                </div>
-            </div>
-    </div>
-    </div>
-
-    <!-- UPGRADE MODAL -->
-    <div class="modal-overlay" id="upgradeModal">
-        <div class="modal upgrade-modal">
-            <div class="modal-header">
-                <h3 class="modal-title">Funcionalidade Premium</h3>
-                <button class="modal-close" id="upgradeModalClose" aria-label="Fechar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="upgrade-content">
-                    <div class="upgrade-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-                        </svg>
-                    </div>
-                    <h4 class="upgrade-title" id="upgradeTitle">Recurso Exclusivo Track Pro</h4>
-                    <p class="upgrade-message" id="upgradeMessage">Esta funcionalidade está disponível apenas para usuários do plano Track Pro.</p>
-                    
-                    <div class="upgrade-features">
-                        <div class="upgrade-feature">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="20 6 9 17 4 12"></polyline>
-                            </svg>
-                            <span>Setlists ilimitadas</span>
-                        </div>
-                        <div class="upgrade-feature">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="20 6 9 17 4 12"></polyline>
-                            </svg>
-                            <span>Sistema PAD completo</span>
-                        </div>
-                        <div class="upgrade-feature">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="20 6 9 17 4 12"></polyline>
-                            </svg>
-                            <span>Efeitos personalizados</span>
-                        </div>
-                        <div class="upgrade-feature">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="20 6 9 17 4 12"></polyline>
-                            </svg>
-                            <span>Conta de criador</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="upgrade-actions">
-                    <button class="btn btn-secondary" id="upgradeCancelBtn">Depois</button>
-                    <button class="btn btn-primary" id="upgradeBtn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-                        </svg>
-                        Fazer Upgrade
-                    </button>
-                </div>
-            </div>
+      <article class="feature">
+        <h3>BPM e metrônomo</h3>
+        <p>Veja o andamento de cada música e mantenha o clique no ouvido — sem contar a batida de cabeça.</p>
+        <div class="feature-demo demo-metro">
+          <span class="metro-num">128</span>
+          <span class="metro-wand"></span>
         </div>
+      </article>
+
+      <article class="feature">
+        <h3>Setlist por apresentação</h3>
+        <p>Organize a ordem das músicas de um ensaio ou show e troque de faixa sem procurar em pasta nenhuma.</p>
+        <div class="feature-demo demo-list"><i></i><i></i><i></i></div>
+      </article>
+
+      <article class="feature">
+        <h3>Sincronize entre aparelhos</h3>
+        <p>Comece a organizar no computador e continue no celular — o que muda de um lado aparece do outro.</p>
+        <div class="feature-demo demo-sync">
+          <div class="sync-box"></div>
+          <div class="sync-line"></div>
+          <div class="sync-box"></div>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="statement">
+  <div class="container">
+    <h2>Aperte o play.<br>Sem surpresas.</h2>
+    <p>O W.Tracks é pensado pra funcionar igual no ensaio e no palco — sem travar, sem tela de carregando, sem stem tocando fora de hora.</p>
+  </div>
+</section>
+
+<section class="section" id="planos">
+  <div class="container">
+    <h2 class="section-title">Comece simples.<br><span class="muted">Evolua quando quiser.</span></h2>
+    <div class="plans-grid">
+      <article class="plan">
+        <span class="plan-tag">GRATUITO</span>
+        <h3 class="plan-name">Track</h3>
+        <p class="plan-desc">O essencial pra começar a organizar e tocar suas trilhas.</p>
+        <ul class="plan-list">
+          <li>Até 5 minutos por áudio</li>
+          <li>Até 5 faders utilizáveis</li>
+          <li>1 setlist com até 5 músicas</li>
+          <li>Armazenamento no aparelho</li>
+        </ul>
+      </article>
+      <article class="plan pro">
+        <span class="plan-tag">MAIS RECURSOS</span>
+        <h3 class="plan-name">Track Pro</h3>
+        <p class="plan-desc">Pra quem precisa dos stems disponíveis em qualquer aparelho.</p>
+        <ul class="plan-list">
+          <li>Sincronização em nuvem entre aparelhos</li>
+          <li>Backup automático das suas trilhas</li>
+          <li>Sem os limites do plano Track</li>
+        </ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="final-cta">
+  <div class="container">
+    <h2>Sua próxima apresentação,<br>organizada.</h2>
+    <p>Crie sua conta, importe seus stems e monte a setlist antes do próximo ensaio.</p>
+  </div>
+</section>
+
+<section class="section" style="background:radial-gradient(circle at 50% 30%,rgba(95,217,122,.035),transparent 45%),#0d0d10;border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+  <div class="container">
+    <div style="max-width:700px">
+      <span style="font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;color:var(--signal)">W.TRACKS NO SEU DISPOSITIVO</span>
+      <h2 class="section-title" style="margin-top:14px">Leve o W.Tracks<br><span class="muted">para onde você tocar.</span></h2>
+      <p class="lede" style="margin-top:22px;max-width:560px;color:#a9a9ae">
+        Instale o W.Tracks como PWA no seu celular ou tablet e tenha acesso direto à plataforma pela tela inicial do dispositivo. Sem instalação tradicional e sem depender de uma loja de aplicativos.
+      </p>
     </div>
 
-    <!-- TRACK MODAL (User Track Creation) -->
-    <div class="modal-overlay" id="trackModal">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 class="modal-title" id="trackModalTitle">Nova Track</h3>
-                <button class="modal-close" id="trackModalClose">✕</button>
-            </div>
-            <div class="modal-body">
-                <form id="trackForm">
-                    <input type="hidden" id="trackId">
+    <div class="intro-grid" style="margin-top:70px;align-items:center">
 
-                    <div class="form-group">
-                        <label class="form-label">Nome da Track</label>
-                        <input type="text" class="form-input" id="trackName" required>
-                    </div>
+      <div>
+        <div class="defs" style="margin-top:0">
 
-                    <div class="form-group">
-                        <label class="form-label">Artista</label>
-                        <input type="text" class="form-input" id="trackArtist" required>
-                    </div>
+          <div>
+            <dt>01 — Acesse</dt>
+            <dd>
+              Abra o W.Tracks pelo navegador do seu celular ou tablet.
+            </dd>
+          </div>
 
-                    <div class="form-group">
-                        <label class="form-label">Gêneros (selecione um ou mais)</label>
-                        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(120px, 1fr));gap:8px;">
-                            <label style="display:flex;align-items:center;gap:8px;color:var(--white-dim);font-size:0.9rem;cursor:pointer;">
-                                <input type="checkbox" name="trackGenre" value="Antigas" style="width:16px;height:16px;">
-                                Antigas
-                            </label>
-                            <label style="display:flex;align-items:center;gap:8px;color:var(--white-dim);font-size:0.9rem;cursor:pointer;">
-                                <input type="checkbox" name="trackGenre" value="Novas" style="width:16px;height:16px;">
-                                Novas
-                            </label>
-                            <label style="display:flex;align-items:center;gap:8px;color:var(--white-dim);font-size:0.9rem;cursor:pointer;">
-                                <input type="checkbox" name="trackGenre" value="Worship" style="width:16px;height:16px;">
-                                Worship
-                            </label>
-                            <label style="display:flex;align-items:center;gap:8px;color:var(--white-dim);font-size:0.9rem;cursor:pointer;">
-                                <input type="checkbox" name="trackGenre" value="Americanas" style="width:16px;height:16px;">
-                                Americanas
-                            </label>
-                            <label style="display:flex;align-items:center;gap:8px;color:var(--white-dim);font-size:0.9rem;cursor:pointer;">
-                                <input type="checkbox" name="trackGenre" value="Nacionais" style="width:16px;height:16px;">
-                                Nacionais
-                            </label>
-                        </div>
-                    </div>
+          <div>
+            <dt>02 — Instale</dt>
+            <dd>
+              No menu do navegador, selecione a opção para adicionar o W.Tracks à tela inicial ou instalar o PWA.
+            </dd>
+          </div>
 
-                    <div class="form-group">
-                        <label class="form-label">Tom (Key)</label>
-                        <input type="text" class="form-input" id="trackKey" required placeholder="Ex: C Major">
-                    </div>
+          <div>
+            <dt>03 — Pronto</dt>
+            <dd>
+              O W.Tracks ficará disponível na tela inicial do dispositivo para acesso direto à plataforma.
+            </dd>
+          </div>
 
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-                        <div class="form-group">
-                            <label class="form-label">BPM</label>
-                            <input type="number" class="form-input" id="trackBpm" required>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Stems</label>
-                            <input type="number" class="form-input" id="trackStems" required>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Link de Download (.zip)</label>
-                        <input type="url" class="form-input" id="trackDownloadUrl" required placeholder="https://...">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Capa da Track</label>
-                        <div id="uploadArea" style="border:2px dashed var(--border-medium);border-radius:var(--radius-md);padding:24px;text-align:center;cursor:pointer;transition:all 0.3s ease;background:var(--color-black-elevated);">
-                            <div id="uploadPlaceholder">
-                                <div style="font-size:2rem;margin-bottom:8px;">📁</div>
-                                <p style="color:var(--color-white-muted);font-size:0.9rem;">Clique ou arraste uma imagem</p>
-                                <p style="color:var(--color-white-subtle);font-size:0.8rem;">JPG, PNG, WEBP (máx. 5MB)</p>
-                            </div>
-                            <div id="uploadPreview" style="display:none;">
-                                <img id="previewImage" style="max-width:100%;max-height:200px;border-radius:var(--radius-sm);margin-bottom:8px;">
-                                <p id="fileInfo" style="color:var(--color-white-muted);font-size:0.8rem;"></p>
-                            </div>
-                            <input type="file" id="coverInput" accept="image/jpeg,image/png,image/webp" style="display:none;">
-                            <input type="hidden" id="trackCoverUrl">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Preço e Pagamento</label>
-                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
-                            <input type="checkbox" id="trackIsPaid" disabled style="width:18px;height:18px;opacity:0.5;cursor:not-allowed;">
-                            <span style="color:var(--color-white-dim);font-size:0.9rem;">Track paga <span style="color:var(--color-accent);font-size:0.75rem;margin-left:8px;">(Em breve)</span></span>
-                        </div>
-                        <div id="paymentInfoSection" style="display:none;">
-                            <div style="margin-bottom:12px;">
-                                <label style="display:block;color:var(--color-white-muted);font-size:0.85rem;margin-bottom:6px;">Preço (R$)</label>
-                                <input type="number" class="form-input" id="trackPrice" placeholder="0.00" step="0.01" min="0" disabled>
-                            </div>
-                            <div>
-                                <label style="display:block;color:var(--color-white-muted);font-size:0.85rem;margin-bottom:6px;">Dados de Pagamento (Pix ou link)</label>
-                                <input type="text" class="form-input" id="trackPaymentInfo" placeholder="Chave Pix ou link de pagamento" disabled>
-                                <p style="color:var(--color-white-subtle);font-size:0.75rem;margin-top:4px;">Será exibido para compradores interessados</p>
-                            </div>
-                        </div>
-                        <p style="color:var(--color-accent);font-size:0.75rem;margin-top:8px;">
-                            Sistema de pagamentos em desenvolvimento. Por enquanto, todas as tracks são gratuitas.
-                        </p>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Status</label>
-                        <div style="display:flex;align-items:center;gap:12px;">
-                            <input type="checkbox" id="trackPublished" checked style="width:18px;height:18px;">
-                            <span style="color:var(--color-white-dim);font-size:0.9rem;">Publicar imediatamente</span>
-                        </div>
-                    </div>
-
-                    <div class="form-group" style="background:linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(217, 119, 6, 0.05));border:1px solid rgba(245, 158, 11, 0.3);border-radius:var(--radius-md);padding:var(--spacing-md);">
-                        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;">
-                            <input type="checkbox" id="copyrightAgreement" required style="width:18px;height:18px;margin-top:2px;">
-                            <span style="color:var(--color-white-dim);font-size:0.85rem;line-height:1.4;">
-                                <strong>Li e concordo com os termos de direitos autorais:</strong> Confirmo que esta track é uma recriação original para fins de estudo e produção, não contendo material protegido por direitos autorais de terceiros. Entendo que o descumprimento pode resultar em suspensão da conta.
-                            </span>
-                        </label>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" id="trackModalCancel">Cancelar</button>
-                <button class="btn btn-primary" id="trackModalSave">Salvar</button>
-            </div>
         </div>
+      </div>
+
+      <div style="display:flex;justify-content:center">
+        <div style="width:min(100%,420px);border:1px solid var(--line2);border-radius:20px;background:linear-gradient(145deg,#151519,#0b0b0d);padding:30px;box-shadow:0 30px 70px rgba(0,0,0,.35)">
+
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px">
+            <span style="font-family:var(--font-mono);font-size:9px;letter-spacing:.08em;color:#85858a">PWA</span>
+            <span style="display:flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:9px;color:#85858a">
+              <i style="display:block;width:5px;height:5px;border-radius:50%;background:var(--signal);box-shadow:0 0 8px var(--signal)"></i>
+              DISPONÍVEL
+            </span>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:18px">
+
+            <div style="width:64px;height:64px;border-radius:15px;background:var(--paper);display:grid;place-items:center;flex:none;box-shadow:0 10px 30px rgba(0,0,0,.25)">
+              <span style="font-family:var(--font-display);font-size:22px;font-weight:800;color:#0b0b0d;letter-spacing:-.04em">W<span style="display:inline-block;width:4px;height:4px;border-radius:50%;background:var(--signal);margin-left:1px"></span></span>
+            </div>
+
+            <div>
+              <div style="font-family:var(--font-display);font-size:19px;font-weight:700;letter-spacing:-.02em">W.Tracks</div>
+              <div style="font-size:12px;color:#85858a;margin-top:5px">Versão instalável para celular e tablet</div>
+            </div>
+
+          </div>
+
+          <div style="margin-top:26px;padding-top:18px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:11px;color:#85858a">Acesso direto pela tela inicial</span>
+            <span style="font-family:var(--font-mono);font-size:9px;color:#85858a">W.TRACKS</span>
+          </div>
+
+        </div>
+      </div>
+
     </div>
 
-    <script src="storage.js"></script>
-    <script src="player.js"></script>
-    <script src="planSystem.js"></script>
-    <script src="app.js"></script>
+  </div>
+</section>
 
-    <!-- Google Drive Integration -->
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="https://apis.google.com/js/api.js" async defer></script>
-    <script src="drive.js"></script>
+<script>
+// PWA Installation Handler
+let deferredPrompt;
+const installButton = document.getElementById('installPWA');
+const installButtonGeneric = document.getElementById('installPWAGeneric');
 
-    <!-- AUTH MODAL -->
-    <div class="modal-overlay" id="authModal">
-        <div class="modal auth-modal">
-            <button class="modal-close" id="authModalClose" aria-label="Fechar">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-            </button>
+// Device detection function (same as in head)
+function isMobileDevice() {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    
+    // Android detection
+    if (/android/i.test(userAgent)) {
+        return true;
+    }
+    
+    // iOS detection (iPhone, iPad, iPod)
+    if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+        return true;
+    }
+    
+    // iPadOS detection (iPad identifies as desktop)
+    if (navigator.maxTouchPoints > 0 && /Macintosh/.test(userAgent)) {
+        return true;
+    }
+    
+    // Additional tablet detection
+    if (/tablet/i.test(userAgent) || 
+        (navigator.maxTouchPoints > 1 && /Mobile|Android/i.test(userAgent) === false)) {
+        return true;
+    }
+    
+    return false;
+}
 
-            <div class="auth-container">
-                <!-- Auth Forms (Left Side) -->
-                <div class="auth-forms-container">
-                    <!-- Login Form -->
-                    <form id="loginForm" class="auth-form">
-                        <div class="auth-header">
-                            <div class="auth-logo">
-                                <img src="icon-white-transparent.png" alt="Wtracks">
-                                <span>Wtracks</span>
-                            </div>
-                            <h1 class="auth-title">Bem-vindo de volta</h1>
-                            <p class="auth-subtitle">Entre na sua conta para acessar seus projetos, tracks e continuar criando.</p>
-                        </div>
+// Hide install buttons initially if PWA is not installable
+if (installButton) {
+  installButton.style.display = 'none';
+}
+if (installButtonGeneric) {
+  installButtonGeneric.style.display = 'none';
+}
 
-                        <div class="auth-error" id="loginError" style="display: none;"></div>
+// Listen for beforeinstallprompt event
+window.addEventListener('beforeinstallprompt', (e) => {
+  // Prevent Chrome 67 and earlier from automatically showing the prompt
+  e.preventDefault();
+  
+  // Stash the event so it can be triggered later
+  deferredPrompt = e;
+  
+  // Show the install buttons
+  if (installButton) {
+    installButton.style.display = 'inline-flex';
+  }
+  if (installButtonGeneric) {
+    installButtonGeneric.style.display = 'inline-flex';
+  }
+});
 
-                        <div class="auth-inputs">
-                            <div class="auth-input-group">
-                                <label for="loginEmail">E-mail</label>
-                                <div class="auth-input-wrapper">
-                                    <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                                        <polyline points="22,6 12,13 2,6"></polyline>
-                                    </svg>
-                                    <input type="email" id="loginEmail" required placeholder="seu@email.com">
-                                </div>
-                            </div>
+// Handle install button click (Android/Apple)
+if (installButton) {
+  installButton.addEventListener('click', async () => {
+    if (deferredPrompt) {
+      // Show the install prompt
+      deferredPrompt.prompt();
+      
+      // Wait for the user to respond to the prompt
+      const { outcome } = await deferredPrompt.userChoice;
+      
+      // We've used the prompt, and can't use it again, throw it away
+      deferredPrompt = null;
+      
+      // Hide the install buttons
+      if (installButton) {
+        installButton.style.display = 'none';
+      }
+      if (installButtonGeneric) {
+        installButtonGeneric.style.display = 'none';
+      }
+      
+      console.log(`PWA installation ${outcome}`);
+    } else {
+      // If no deferred prompt, redirect to /tracks/ as fallback
+      window.location.href = '/tracks/';
+    }
+  });
+}
 
-                            <div class="auth-input-group">
-                                <label for="loginPassword">Senha</label>
-                                <div class="auth-input-wrapper">
-                                    <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                                    </svg>
-                                    <input type="password" id="loginPassword" required placeholder="Digite sua senha">
-                                    <button type="button" class="auth-password-toggle" data-target="loginPassword">
-                                        <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                            <circle cx="12" cy="12" r="3"></circle>
-                                        </svg>
-                                        <svg class="eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
-                                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                                            <line x1="1" y1="1" x2="23" y2="23"></line>
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+// Handle install button click (Generic)
+if (installButtonGeneric) {
+  installButtonGeneric.addEventListener('click', async () => {
+    if (deferredPrompt) {
+      // Show the install prompt
+      deferredPrompt.prompt();
+      
+      // Wait for the user to respond to the prompt
+      const { outcome } = await deferredPrompt.userChoice;
+      
+      // We've used the prompt, and can't use it again, throw it away
+      deferredPrompt = null;
+      
+      // Hide the install buttons
+      if (installButton) {
+        installButton.style.display = 'none';
+      }
+      if (installButtonGeneric) {
+        installButtonGeneric.style.display = 'none';
+      }
+      
+      console.log(`PWA installation ${outcome}`);
+    } else {
+      // If no deferred prompt, redirect to /tracks/ as fallback
+      window.location.href = '/tracks/';
+    }
+  });
+}
 
-                        <div class="auth-options">
-                            <label class="auth-checkbox">
-                                <input type="checkbox" id="rememberMe">
-                                <span class="auth-checkbox-custom"></span>
-                                <span>Lembrar de mim</span>
-                            </label>
-                            <a href="#" class="auth-link">Esqueceu sua senha?</a>
-                        </div>
+// Hide install buttons if PWA is already installed
+window.addEventListener('appinstalled', () => {
+  if (installButton) {
+    installButton.style.display = 'none';
+  }
+  if (installButtonGeneric) {
+    installButtonGeneric.style.display = 'none';
+  }
+  console.log('PWA was installed');
+});
 
-                        <button type="submit" class="auth-submit-btn">
-                            <span>Entrar →</span>
-                        </button>
+// Check if already running as PWA
+if (window.matchMedia('(display-mode: standalone)').matches || 
+    window.navigator.standalone === true) {
+  if (installButton) {
+    installButton.style.display = 'none';
+  }
+  if (installButtonGeneric) {
+    installButtonGeneric.style.display = 'none';
+  }
+}
+</script>
 
-                        <div class="auth-divider">
-                            <span>ou</span>
-                        </div>
 
-                        <div class="auth-social">
-                            <button type="button" class="auth-social-btn google-btn">
-                                <svg viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                                </svg>
-                                <span>Continuar com Google</span>
-                            </button>
-                        </div>
-
-                        <div class="auth-switch">
-                            <span>Não tem uma conta? </span>
-                            <button type="button" class="auth-switch-btn" id="switchToRegister">Criar conta</button>
-                        </div>
-                    </form>
-
-                    <!-- Register Form -->
-                    <form id="registerForm" class="auth-form" style="display: none;">
-                        <div class="auth-header">
-                            <div class="auth-logo">
-                                <img src="icon-white-transparent.png" alt="Wtracks">
-                                <span>Wtracks</span>
-                            </div>
-                            <h1 class="auth-title">Crie sua conta</h1>
-                            <p class="auth-subtitle">Comece a organizar suas músicas e projetos no Wtracks.</p>
-                        </div>
-
-                        <div class="auth-error" id="registerError" style="display: none;"></div>
-
-                        <div class="auth-inputs">
-                            <div class="auth-input-group">
-                                <label for="registerName">Nome</label>
-                                <div class="auth-input-wrapper">
-                                    <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                                        <circle cx="12" cy="7" r="4"></circle>
-                                    </svg>
-                                    <input type="text" id="registerName" required placeholder="Seu nome completo">
-                                </div>
-                            </div>
-
-                            <div class="auth-input-group">
-                                <label for="registerEmail">E-mail</label>
-                                <div class="auth-input-wrapper">
-                                    <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                                        <polyline points="22,6 12,13 2,6"></polyline>
-                                    </svg>
-                                    <input type="email" id="registerEmail" required placeholder="seu@email.com">
-                                </div>
-                            </div>
-
-                            <div class="auth-input-group">
-                                <label for="registerType">Tipo de conta</label>
-                                <div class="auth-input-wrapper">
-                                    <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                                        <polyline points="9 22 9 12 15 12 15 22"></polyline>
-                                    </svg>
-                                    <select id="registerType" required class="auth-select">
-                                        <option value="">Selecione o tipo</option>
-                                        <option value="banda">Banda</option>
-                                        <option value="igreja">Igreja</option>
-                                        <option value="produtor">Produtor Musical</option>
-                                        <option value="estudio">Estúdio</option>
-                                        <option value="outro">Outro</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="auth-input-group" id="otherTypeGroup" style="display: none;">
-                                <label for="registerOtherType">Outro tipo</label>
-                                <div class="auth-input-wrapper">
-                                    <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <circle cx="12" cy="12" r="10"></circle>
-                                        <line x1="12" y1="16" x2="12" y2="12"></line>
-                                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                                    </svg>
-                                    <input type="text" id="registerOtherType" placeholder="Descreva seu tipo de conta">
-                                </div>
-                            </div>
-
-                            <div class="auth-input-group">
-                                <label for="registerPassword">Senha</label>
-                                <div class="auth-input-wrapper">
-                                    <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                                    </svg>
-                                    <input type="password" id="registerPassword" required placeholder="Mínimo 6 caracteres">
-                                    <button type="button" class="auth-password-toggle" data-target="registerPassword">
-                                        <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                            <circle cx="12" cy="12" r="3"></circle>
-                                        </svg>
-                                        <svg class="eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
-                                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                                            <line x1="1" y1="1" x2="23" y2="23"></line>
-                                        </svg>
-                                    </button>
-                                </div>
-                                <div class="auth-password-strength">
-                                    <div class="auth-strength-bar">
-                                        <div class="auth-strength-fill"></div>
-                                    </div>
-                                    <span class="auth-strength-text">Força da senha</span>
-                                </div>
-                            </div>
-
-                            <div class="auth-input-group">
-                                <label for="registerConfirmPassword">Confirmar senha</label>
-                                <div class="auth-input-wrapper">
-                                    <svg class="auth-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                                    </svg>
-                                    <input type="password" id="registerConfirmPassword" required placeholder="••••••••">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="auth-options">
-                            <label class="auth-checkbox">
-                                <input type="checkbox" id="acceptTerms" required>
-                                <span class="auth-checkbox-custom"></span>
-                                <span>Concordo com os <a href="#" class="auth-link">Termos de Uso</a> e <a href="#" class="auth-link">Política de Privacidade</a></span>
-                            </label>
-                        </div>
-
-                        <button type="submit" class="auth-submit-btn">
-                            <span>Criar conta →</span>
-                        </button>
-
-                        <div class="auth-switch">
-                            <span>Já tem uma conta? </span>
-                            <button type="button" class="auth-switch-btn" id="switchToLogin">Fazer login</button>
-                        </div>
-                    </form>
-                </div>
-
-                <!-- Auth Visual/Branding (Right Side) -->
-                <div class="auth-visual">
-                    <!-- Background image is set in CSS -->
-                </div>
-            </div>
-        </div>
+<footer>
+  <div class="container">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <a href="/" class="brand">W<i></i>Tracks</a>
+        <p>Feito pra quem toca ao vivo.</p>
+      </div>
+      <div class="footer-links">
+        <div class="footer-col"><strong>Produto</strong><a href="#como-funciona">Como funciona</a><a href="#recursos">Recursos</a><a href="#planos">Planos</a></div>
+        <div class="footer-col"><strong>W.Tracks</strong><a href="/blog">Blog</a></div>
+        <div class="footer-col"><strong>Legal</strong><a href="/termos">Termos de uso</a><a href="/privacidade">Privacidade</a></div>
+      </div>
     </div>
+    <div class="footer-bottom"><span>© <span id="year"></span> W.Tracks. Todos os direitos reservados.</span><span>Feito pra quem toca ao vivo.</span></div>
+  </div>
+</footer>
 
-    <!-- GUEST WARNING MODAL -->
-    <div class="modal-overlay" id="guestWarningModal">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 class="modal-title">⚠️ Você não está logado</h3>
-                <button class="modal-close" id="guestWarningModalClose" aria-label="Fechar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="guest-warning-content">
-                    <div class="warning-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                            <line x1="12" y1="9" x2="12" y2="13"></line>
-                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                        </svg>
-                    </div>
-                    <p class="warning-text">Você não está logado. Este projeto será perdido se a página for recarregada.</p>
-                    <p class="warning-subtext">Para salvar suas músicas permanentemente, faça login na sua conta.</p>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" id="guestContinueBtn">Continuar sem login</button>
-                <button class="btn btn-primary" id="guestLoginBtn">Fazer login</button>
-            </div>
-        </div>
-    </div>
+<script>
+const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    <!-- PUBLIC PROFILE MODAL -->
-    <div class="modal-overlay" id="publicProfileModal">
-        <div class="modal profile-modal">
-            <div class="modal-header">
-                <h3 class="modal-title">Perfil do Criador</h3>
-                <button class="modal-close" id="publicProfileModalClose" aria-label="Fechar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                </button>
-            </div>
-            <div class="modal-body profile-modal-body">
-                <!-- Profile Info -->
-                <div class="profile-info-section">
-                    <div class="profile-avatar-container">
-                        <div class="profile-avatar" id="profileAvatar">
-                            <span id="profileAvatarInitial"></span>
-                        </div>
-                    </div>
-                    <div class="profile-details">
-                        <h2 class="profile-name" id="profileDisplayName"></h2>
-                    </div>
-                </div>
-                
-                <!-- Profile Tracks -->
-                <div class="profile-tracks-section">
-                    <div class="profile-tracks-header">
-                        <h3 class="profile-tracks-title">Tracks do Criador</h3>
-                        <div class="profile-tracks-search">
-                            <input type="text" class="form-input" id="profileTracksSearch" placeholder="Buscar músicas...">
-                        </div>
-                    </div>
-                    <div class="music-grid" id="profileTracksGrid">
-                        <!-- Profile tracks will be rendered here -->
-                    </div>
-                    <div class="empty-state" id="profileTracksEmpty" style="display: none;">
-                        <div class="empty-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                                <path d="M9 18V5l12-2v13"></path>
-                                <circle cx="6" cy="18" r="3"></circle>
-                                <circle cx="18" cy="16" r="3"></circle>
-                            </svg>
-                        </div>
-                        <h3 class="empty-title">Nenhuma track publicada</h3>
-                        <p class="empty-description">Este criador ainda não publicou nenhuma track</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+/* progress + nav shadow */
+const bar=$("#topBar"), progress=$("#progress");
+window.addEventListener("scroll",()=>{
+  bar.classList.toggle("scrolled",scrollY>16);
+  const max=document.documentElement.scrollHeight-innerHeight;
+  progress.style.width=(max>0?(scrollY/max)*100:0)+"%";
+},{passive:true});
 
-    <!-- CREATOR SIGNUP MODAL -->
-    <div class="modal-overlay" id="creatorSignupModal">
-        <div class="modal creator-signup-modal">
-            <div class="modal-header">
-                <h3 class="modal-title">Inscrição de Criador</h3>
-                <button class="modal-close" id="creatorSignupModalClose" aria-label="Fechar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                </button>
-            </div>
+/* mobile menu */
+const menuToggle=$("#menuToggle"), mobilePanel=$("#mobilePanel");
+menuToggle.addEventListener("click",()=>{
+  const open=mobilePanel.classList.toggle("open");
+  menuToggle.classList.toggle("open",open);
+  menuToggle.setAttribute("aria-expanded",open);
+});
+$$("#mobilePanel a").forEach(a=>a.addEventListener("click",()=>{
+  mobilePanel.classList.remove("open"); menuToggle.classList.remove("open");
+  menuToggle.setAttribute("aria-expanded","false");
+}));
 
-            <div class="modal-body">
-                <div class="creator-signup-intro">
-                    <div class="creator-signup-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M9 18V5l12-2v13"></path>
-                            <circle cx="6" cy="18" r="3"></circle>
-                            <circle cx="18" cy="16" r="3"></circle>
-                        </svg>
-                    </div>
-                    <h4 class="creator-signup-title">Minhas Tracks</h4>
-                    <p class="creator-signup-description">
-                        Compartilhe suas criações musicais com a comunidade W.Tracks. 
-                        Publique tracks originais e conecte-se com outros produtores.
-                    </p>
-                </div>
+/* spotlight cursor — only for mouse pointers, respects reduced motion */
+if(window.matchMedia("(pointer:fine)").matches && !reduceMotion){
+  const spot=$("#spotlight");
+  document.addEventListener("mousemove",e=>{
+    spot.style.opacity="1";
+    spot.style.left=e.clientX+"px"; spot.style.top=e.clientY+"px";
+  });
+}
 
-                <div class="creator-signup-form">
-                    <div class="form-group">
-                        <label class="form-label">Nome de Exibição *</label>
-                        <input type="text" class="form-input" id="creatorDisplayName" placeholder="Como você quer ser conhecido?" required>
-                        <small class="form-help">Este nome aparecerá nos cards das suas tracks</small>
-                    </div>
+/* hero mixed waveform (single combined wave, not per-stem) */
+const mixwave=$("#mixwave");
+for(let i=0;i<90;i++){
+  const b=document.createElement("b");
+  const h=10+Math.abs(Math.sin(i*.5))*68+Math.random()*18;
+  b.style.height=h+"px";
+  mixwave.appendChild(b);
+}
 
-                    <div class="form-group">
-                        <label class="form-label">Foto de Perfil</label>
-                        <div class="profile-photo-upload-area" id="creatorPhotoUploadArea">
-                            <div class="upload-placeholder" id="creatorPhotoPlaceholder">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                                    <polyline points="21 15 16 10 5 21"></polyline>
-                                </svg>
-                                <span>Clique para selecionar foto</span>
-                            </div>
-                            <div class="upload-preview" id="creatorPhotoPreview" style="display: none;">
-                                <img id="creatorPhotoPreviewImage" src="" alt="Preview da foto">
-                                <button class="upload-remove-btn" id="creatorPhotoRemoveBtn" aria-label="Remover foto">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                                    </svg>
-                                </button>
-                            </div>
-                            <input type="file" id="creatorPhotoInput" accept="image/jpeg,image/png,image/webp" style="display: none;">
-                        </div>
-                        <small class="form-help">Formatos aceitos: JPG, PNG, WEBP (máx. 5MB)</small>
-                    </div>
+/* play/pause drives fader positions + level bars */
+const play=$("#play");
+let playing=false, levelInterval=null;
+play.addEventListener("click",()=>{
+  playing=!playing;
+  play.textContent=playing?"Ⅱ":"▶";
+  $$(".rack .fader-cap").forEach((k,i)=>{ k.style.bottom=(playing?(24+i*11):36)+"%"; });
+  if(playing && !reduceMotion){
+    levelInterval=setInterval(()=>{
+      $$(".rack .level i").forEach(l=>{ l.style.height=(20+Math.random()*70)+"%"; });
+    },220);
+  } else {
+    clearInterval(levelInterval);
+    $$(".rack .level i").forEach(l=>{ l.style.height="20%"; });
+  }
+});
 
-                    <div class="creator-copyright-warning">
-                        <div class="warning-header">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                                <line x1="12" y1="9" x2="12" y2="13"></line>
-                                <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                            </svg>
-                            <h5>⚠️ Aviso Importante sobre Direitos Autorais</h5>
-                        </div>
-                        <div class="warning-content">
-                            <p>Ao se inscrever como criador, você concorda que:</p>
-                            <ul>
-                                <li>Todas as tracks publicadas são recriações originais para fins de estudo e produção musical</li>
-                                <li>É estritamente proibido postar gravações originais, stems ou material protegido por direitos autorais de terceiros</li>
-                                <li>Você assume total responsabilidade legal pelo conteúdo compartilhado</li>
-                                <li>O descumprimento pode resultar em suspensão imediata da conta e remoção de todas as suas tracks</li>
-                            </ul>
-                        </div>
-                    </div>
+/* sticky step list synced with library rows */
+const steps=$$(".step"), songs=$$(".song");
+const stepObs=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      const n=[...steps].indexOf(e.target);
+      if(n>=0){
+        steps.forEach(s=>s.classList.remove("active"));
+        e.target.classList.add("active");
+        songs.forEach((s,i)=>s.classList.toggle("active",i===n));
+      }
+    }
+  });
+},{threshold:.6});
+steps.forEach(s=>stepObs.observe(s));
 
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="creatorTermsAgreement" required>
-                            <span>Li e concordo com os termos de direitos autorais acima</span>
-                        </label>
-                    </div>
+$("#year").textContent=new Date().getFullYear();
 
-                    <button class="btn btn-primary btn-full" id="creatorSignupSubmit">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M5 13l4 4L19 7"></path>
-                        </svg>
-                        Inscrever-se como Criador
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- SPEED CONTROL MODAL -->
-    <div class="modal-overlay" id="speedModal">
-        <div class="modal speed-modal">
-            <div class="modal-header">
-                <h3 class="modal-title">Velocidade de Reprodução</h3>
-                <button class="modal-close" id="speedModalClose" aria-label="Fechar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="speed-control-container">
-                    <div class="speed-current-display">
-                        <span class="speed-value" id="speedValue">1.0x</span>
-                    </div>
-                    <div class="speed-fader-container">
-                        <button class="speed-btn-decrease" id="speedDecreaseBtn" aria-label="Diminuir velocidade">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="5" y1="12" x2="19" y2="12"></line>
-                            </svg>
-                        </button>
-                        <div class="speed-fader">
-                            <input type="range" class="speed-fader-input" id="speedFader" min="0.5" max="2.0" step="0.05" value="1.0">
-                            <div class="speed-fader-track">
-                                <div class="speed-fader-fill" id="speedFaderFill"></div>
-                            </div>
-                            <div class="speed-fader-thumb" id="speedFaderThumb"></div>
-                        </div>
-                        <button class="speed-btn-increase" id="speedIncreaseBtn" aria-label="Aumentar velocidade">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="12" y1="5" x2="12" y2="19"></line>
-                                <line x1="5" y1="12" x2="19" y2="12"></line>
-                            </svg>
-                        </button>
-                    </div>
-                    <div class="speed-presets">
-                        <button class="speed-preset-btn" data-speed="0.5">0.5x</button>
-                        <button class="speed-preset-btn" data-speed="0.75">0.75x</button>
-                        <button class="speed-preset-btn active" data-speed="1.0">1.0x</button>
-                        <button class="speed-preset-btn" data-speed="1.25">1.25x</button>
-                        <button class="speed-preset-btn" data-speed="1.5">1.5x</button>
-                        <button class="speed-preset-btn" data-speed="2.0">2.0x</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Footer -->
-    <footer class="app-footer">
-        <div class="footer-content">
-            <a href="termos.html" class="footer-link">Termos de Uso</a>
-            <span class="footer-separator">•</span>
-            <a href="privacidade.html" class="footer-link">Política de Privacidade</a>
-        </div>
-    </footer>
+document.addEventListener("keydown",e=>{
+  if(e.key===" " && e.target===document.body){e.preventDefault();play.click()}
+});
+</script>
 </body>
 </html>
