@@ -1,17 +1,13 @@
-^
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Termos de Uso - W.Tracks</title>
-
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
     <link rel="icon" type="image/png" href="icon-black-transparent.png">
-
     <style>
         * {
             margin: 0;
@@ -21,192 +17,113 @@
 
         body {
             font-family: 'Poppins', sans-serif;
-            background: #000;
-            color: #fff;
-            line-height: 1.75;
+            background: #000000;
+            color: #ffffff;
+            line-height: 1.6;
             min-height: 100vh;
         }
 
         .container {
-            max-width: 850px;
+            max-width: 800px;
             margin: 0 auto;
-            padding: 50px 20px 70px;
-        }
-
-        .back-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            color: #999;
-            text-decoration: none;
-            font-size: 0.9rem;
-            margin-bottom: 45px;
-            transition: color .2s ease;
-        }
-
-        .back-link:hover {
-            color: #fff;
+            padding: 60px 20px;
         }
 
         .header {
             text-align: center;
-            margin-bottom: 55px;
+            margin-bottom: 60px;
         }
 
         .header h1 {
-            font-size: 2.6rem;
+            font-size: 2.5rem;
             font-weight: 700;
-            margin-bottom: 12px;
-            background: linear-gradient(135deg, #fff, #999);
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, #ffffff, #a0a0a0);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
 
         .header p {
-            color: #777;
-            font-size: .9rem;
-        }
-
-        .intro {
-            background: #0d0d0d;
-            border: 1px solid #222;
-            border-radius: 14px;
-            padding: 22px;
-            margin-bottom: 42px;
-            color: #aaa;
-        }
-
-        .intro strong {
-            color: #fff;
+            color: #a0a0a0;
+            font-size: 1rem;
         }
 
         .section {
-            margin-bottom: 42px;
+            margin-bottom: 40px;
         }
 
         .section h2 {
-            font-size: 1.45rem;
+            font-size: 1.5rem;
             font-weight: 600;
-            margin-bottom: 15px;
-            color: #fff;
+            margin-bottom: 16px;
+            color: #ffffff;
         }
 
         .section h3 {
-            font-size: 1.05rem;
-            font-weight: 600;
-            color: #eee;
-            margin: 25px 0 10px;
+            font-size: 1.2rem;
+            font-weight: 500;
+            margin-bottom: 12px;
+            margin-top: 24px;
+            color: #f5f5f5;
         }
 
         .section p {
-            color: #aaa;
-            margin-bottom: 14px;
+            color: #a0a0a0;
+            margin-bottom: 16px;
         }
 
         .section ul {
             list-style: none;
-            padding: 0;
-            margin: 14px 0;
+            padding-left: 0;
         }
 
-        .section li {
+        .section ul li {
+            color: #a0a0a0;
+            margin-bottom: 8px;
+            padding-left: 24px;
             position: relative;
-            padding-left: 22px;
-            color: #aaa;
-            margin-bottom: 9px;
         }
 
-        .section li::before {
+        .section ul li::before {
             content: "•";
             position: absolute;
             left: 0;
-            color: #fff;
-        }
-
-        .important {
-            background: #111;
-            border: 1px solid #333;
-            border-left: 3px solid #fff;
-            border-radius: 10px;
-            padding: 18px 20px;
-            margin: 20px 0;
-        }
-
-        .important p,
-        .important li {
-            color: #ccc;
-        }
-
-        .important strong {
-            color: #fff;
-        }
-
-        .warning {
-            background: #120f0f;
-            border: 1px solid #302020;
-            border-left: 3px solid #aaa;
-            border-radius: 10px;
-            padding: 18px 20px;
-            margin: 20px 0;
-        }
-
-        .warning strong {
-            color: #fff;
+            color: #ffffff;
         }
 
         .highlight {
-            color: #fff;
-            font-weight: 600;
+            color: #ffffff;
+            font-weight: 500;
         }
 
-        .legal-list {
-            counter-reset: item;
-            list-style: none;
-            padding: 0;
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #a0a0a0;
+            text-decoration: none;
+            font-size: 0.9rem;
+            margin-bottom: 40px;
+            transition: color 0.3s ease;
         }
 
-        .legal-list li {
-            padding-left: 28px;
-        }
-
-        .legal-list li::before {
-            content: counter(item);
-            counter-increment: item;
-            width: 20px;
-            height: 20px;
-            line-height: 20px;
-            text-align: center;
-            border-radius: 50%;
-            background: #222;
-            color: #fff;
-            font-size: .7rem;
-            top: 5px;
-        }
-
-        .contact-box {
-            background: #0d0d0d;
-            border: 1px solid #252525;
-            border-radius: 12px;
-            padding: 22px;
-        }
-
-        .contact-box p {
-            margin-bottom: 7px;
+        .back-link:hover {
+            color: #ffffff;
         }
 
         .last-updated {
             text-align: center;
-            color: #555;
-            font-size: .8rem;
+            color: #666666;
+            font-size: 0.85rem;
             margin-top: 60px;
-            padding-top: 25px;
-            border-top: 1px solid #222;
+            padding-top: 20px;
+            border-top: 1px solid #333333;
         }
 
         @media (max-width: 768px) {
             .container {
-                padding: 35px 18px 55px;
+                padding: 40px 20px;
             }
 
             .header h1 {
@@ -214,823 +131,70 @@
             }
 
             .section h2 {
-                font-size: 1.25rem;
-            }
-
-            .intro,
-            .important,
-            .warning {
-                padding: 16px;
+                font-size: 1.3rem;
             }
         }
-
-        .legal-warning {
-    background: #7f1d1d;
-    color: #ffffff;
-    padding: 18px 20px;
-    border-radius: 8px;
-    margin: 24px 0;
-    font-weight: 500;
-    line-height: 1.7;
-    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
-}
-
-.legal-warning strong {
-    font-weight: 700;
-}
-.copyright-contact {
-    margin-top: 22px;
-    padding: 18px 20px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    line-height: 1.8;
-}
-
-.copyright-contact a {
-    color: #3b82f6;
-    font-weight: 600;
-    text-decoration: none;
-}
-
-.copyright-contact a:hover {
-    text-decoration: underline;
-}
     </style>
 </head>
-
 <body>
+    <div class="container">
+        <a href="index.html" class="back-link">← Voltar para W.Tracks</a>
 
-<div class="container">
-
-    <a href="index.html" class="back-link">
-        ← Voltar para W.Tracks
-    </a>
-
-    <div class="header">
-        <h1>Termos de Uso</h1>
-        <p>Última atualização: 16 de setembro de 2026</p>
-    </div>
-
-    <div class="intro">
-        <strong>Leia com atenção.</strong>
-        Estes Termos de Uso estabelecem as regras para utilização do W.Tracks,
-        incluindo contas, projetos, arquivos, conteúdo musical, funcionalidades,
-        planos e responsabilidades do usuário.
-        <strong>Ao utilizar o W.Tracks, você declara que leu e concorda com estes Termos.</strong>
-    </div>
-
-
-    <!-- 1 -->
-    <div class="section">
-        <h2>1. Sobre o W.Tracks</h2>
-
-        <p>
-            O W.Tracks é uma plataforma destinada à reprodução, organização,
-            edição e utilização de projetos musicais multitrack, incluindo
-            faixas de áudio, stems, recursos de reprodução, organização de
-            músicas e outras funcionalidades disponibilizadas pela plataforma.
-        </p>
-
-        <p>
-            O W.Tracks poderá oferecer diferentes recursos e modalidades de
-            utilização, que podem variar conforme o plano contratado, dispositivo,
-            navegador, disponibilidade técnica e versão do serviço.
-        </p>
-    </div>
-
-
-    <!-- 2 -->
-    <div class="section">
-        <h2>2. Aceitação dos Termos</h2>
-
-        <p>
-            Ao acessar, criar uma conta ou utilizar qualquer funcionalidade
-            do W.Tracks, o usuário declara que leu, compreendeu e concorda
-            com estes Termos de Uso.
-        </p>
-
-        <div class="important">
-            <p>
-                <strong>IMPORTANTE:</strong> caso você não concorde com qualquer
-                disposição destes Termos, deverá interromper a utilização do
-                W.Tracks e, quando aplicável, solicitar o encerramento da sua conta.
-            </p>
+        <div class="header">
+            <h1>Termos de Uso</h1>
+            <p>Última atualização: 16 de Agosto de 2026</p>
         </div>
 
-        <p>
-            A utilização do serviço também está sujeita à Política de Privacidade
-            do W.Tracks.
-        </p>
-    </div>
-
-
-    <!-- 3 -->
-    <div class="section">
-        <h2>3. Conta de Usuário</h2>
-
-        <p>
-            Algumas funcionalidades do W.Tracks exigem a criação de uma conta.
-            Para criar e manter uma conta, o usuário deverá fornecer informações
-            verdadeiras e atualizadas quando solicitado.
-        </p>
-
-        <p>
-            O usuário é responsável pela segurança de suas credenciais de acesso,
-            incluindo senha e demais mecanismos de autenticação utilizados para
-            acessar sua conta.
-        </p>
-
-        <div class="important">
-            <p>
-                <strong>Responsabilidade pela conta:</strong>
-                todas as atividades realizadas por meio da conta do usuário
-                poderão ser associadas à respectiva conta. O usuário deve
-                proteger suas credenciais e comunicar ao W.Tracks qualquer
-                suspeita de acesso não autorizado.
-            </p>
+        <div class="section">
+            <h2>1. Aceitação dos Termos</h2>
+            <p>Ao acessar e utilizar o W.Tracks, você concorda com estes Termos de Uso. Se não concordar com algum item, por favor não utilize a plataforma.</p>
         </div>
 
-        <p>
-            O W.Tracks poderá utilizar mecanismos de segurança, autenticação,
-            recuperação de senha e prevenção contra fraude para proteger as contas.
-        </p>
-    </div>
-
-
-    <!-- 4 -->
-    <div class="section">
-        <h2>4. Conteúdo e Arquivos do Usuário</h2>
-
-        <p>
-            O usuário mantém a titularidade dos direitos que possuir sobre
-            os arquivos, projetos, áudios, textos e demais conteúdos que
-            criar, importar ou utilizar no W.Tracks.
-        </p>
-
-        <p>
-            O simples uso de um conteúdo no W.Tracks não transfere sua
-            propriedade para o W.Tracks.
-        </p>
-
-        <div class="important">
-            <p>
-                <strong>Responsabilidade pelo conteúdo:</strong>
-                o usuário declara que possui os direitos, autorizações ou
-                licenças necessários para utilizar os conteúdos que inserir,
-                importar, compartilhar ou disponibilizar por meio do W.Tracks.
-            </p>
+        <div class="section">
+            <h2>2. Sobre o Serviço</h2>
+            <p>O W.Tracks é uma plataforma de player multitrack que permite ao usuário criar, organizar e reproduzir projetos musicais com múltiplas faixas de áudio (stems).</p>
         </div>
 
-        <p>
-            O usuário não deverá utilizar o W.Tracks para armazenar,
-            reproduzir, distribuir ou disponibilizar conteúdo que viole
-            direitos autorais, direitos conexos, marcas, privacidade,
-            direitos de personalidade ou qualquer outro direito de terceiros.
-        </p>
-    </div>
-
-
-    <!-- 5 -->
-    <div class="section">
-        <h2>5. Direitos Autorais e Conteúdo Musical</h2>
-
-        <p>
-            Músicas, composições, letras, gravações, arranjos, marcas e
-            outros conteúdos de terceiros podem estar protegidos por
-            direitos autorais e outros direitos de propriedade intelectual.
-        </p>
-
-        <div class="warning">
-            <p>
-                <strong>ATENÇÃO:</strong> utilizar uma música, composição,
-                gravação ou outro conteúdo por meio do W.Tracks não concede
-                automaticamente ao usuário qualquer licença ou autorização
-                pertencente aos titulares desses direitos.
-            </p>
+        <div class="section">
+            <h2>3. Conteúdo da Comunidade</h2>
+            <p>As tracks disponibilizadas na seção "Comunidade" são recriações produzidas pelo W.Tracks para fins de estudo, produção musical e utilização dentro da plataforma. Os arquivos disponibilizados não correspondem aos stems ou às gravações originais das músicas mencionadas — cada track é recriada e produzida separadamente, utilizando novas gravações, instrumentos e elementos de produção.</p>
+            <p>As obras musicais, títulos, composições e demais elementos que pertençam a terceiros continuam sujeitos aos respectivos direitos autorais e de seus titulares. O W.Tracks não reivindica a autoria das obras originais.</p>
+            <p>O conteúdo disponibilizado na Comunidade é oferecido gratuitamente, sem fins comerciais. Ao baixar uma track, o usuário reconhece que é responsável por verificar se o uso pretendido é permitido em seu projeto, apresentação, publicação ou distribuição.</p>
         </div>
 
-        <p>
-            Cabe exclusivamente ao usuário verificar se possui as autorizações
-            necessárias para utilização de determinado conteúdo em apresentações,
-            gravações, vídeos, transmissões, publicações, distribuições ou
-            atividades comerciais.
-        </p>
-
-        <p>
-            O W.Tracks não assume a titularidade de obras pertencentes a terceiros
-            e não garante que determinado conteúdo possa ser utilizado livremente
-            fora da plataforma.
-        </p>
-    </div>
-
-
-    <!-- 6 -->
-    <div class="section">
-        <h2>6. Conteúdo da Comunidade</h2>
-
-        <p>
-            O W.Tracks poderá disponibilizar uma área denominada
-            <span class="highlight">Comunidade</span>, na qual poderão existir
-            conteúdos musicais disponibilizados pela própria plataforma ou
-            por terceiros.
-        </p>
-
-        <p>
-            Determinadas tracks disponibilizadas na Comunidade podem ser
-            recriações, produções, arranjos ou versões produzidas especificamente
-            para utilização dentro do W.Tracks.
-        </p>
-
-        <p>
-            Quando aplicável, esses conteúdos não representam necessariamente
-            os stems, arquivos multitrack ou gravações originais das obras
-            mencionadas.
-        </p>
-
-        <p>
-            A existência de uma música, artista, composição ou título na
-            plataforma não significa que o W.Tracks seja titular dos direitos
-            da obra original.
-        </p>
-
-        <p>
-            O W.Tracks poderá remover, restringir ou alterar a disponibilidade
-            de determinado conteúdo quando houver necessidade legal, técnica,
-            operacional ou relacionada à proteção de direitos.
-        </p>
-    </div>
-
-
-    <!-- 7 -->
-    <div class="section">
-    <h2>7. Armazenamento no Dispositivo</h2>
-
-    <p>
-        Determinadas funcionalidades do W.Tracks podem utilizar o
-        <span class="highlight">armazenamento local do dispositivo</span>
-        utilizado pelo usuário para acessar a plataforma.
-    </p>
-
-    <div class="warning">
-        <p>
-            <strong>ATENÇÃO:</strong> projetos e arquivos armazenados
-            exclusivamente no dispositivo do usuário podem ser perdidos
-            caso os dados armazenados sejam apagados, o navegador seja
-            redefinido, o dispositivo apresente falha, o aplicativo seja
-            removido ou ocorram outras situações que afetem o armazenamento
-            local.
-        </p>
-    </div>
-
-    <p>
-        Quando determinado projeto ou arquivo estiver armazenado apenas
-        no dispositivo do usuário, o W.Tracks não deverá ser considerado
-        um serviço de backup daquele conteúdo.
-    </p>
-
-    <p>
-        O usuário é responsável por manter cópias de segurança dos
-        arquivos que considere importantes, especialmente quando o
-        recurso de armazenamento ou sincronização em nuvem não estiver
-        disponível para sua modalidade de utilização.
-    </p>
-</div>
-
-
-    <!-- 8 -->
-    <div class="section">
-        <h2>8. Planos e Funcionalidades</h2>
-
-        <p>
-            O W.Tracks poderá oferecer diferentes planos, incluindo planos
-            gratuitos e pagos.
-        </p>
-
-        <p>
-            Cada plano poderá possuir limites específicos de funcionalidades,
-            recursos, quantidade de faixas, duração, armazenamento, sincronização
-            ou outros critérios técnicos.
-        </p>
-
-        <p>
-            As características de cada plano serão informadas pelo W.Tracks
-            nos canais oficiais da plataforma.
-        </p>
-
-        <p>
-            O usuário reconhece que uma limitação de funcionalidade previamente
-            informada como característica de determinado plano não constitui,
-            por si só, falha ou defeito do serviço.
-        </p>
-    </div>
-
-
-    <!-- 9 -->
-    <div class="section">
-        <h2>9. Planos Pagos e Assinaturas</h2>
-
-        <p>
-            Quando o W.Tracks oferecer planos pagos, os preços, períodos,
-            funcionalidades e condições aplicáveis serão apresentados antes
-            da contratação.
-        </p>
-
-        <p>
-            Caso seja disponibilizada cobrança recorrente, a assinatura poderá
-            ser renovada conforme o ciclo contratado até que seja cancelada,
-            respeitando as condições apresentadas no momento da contratação
-            e a legislação aplicável.
-        </p>
-
-        <p>
-            Contratações realizadas por meio de plataformas ou provedores
-            terceiros também poderão estar sujeitas aos termos e políticas
-            desses respectivos serviços.
-        </p>
-
-        <p>
-            Reembolsos, cancelamentos e demais direitos relacionados a
-            pagamentos observarão as condições informadas na contratação
-            e a legislação aplicável.
-        </p>
-    </div>
-
-
-    <!-- 10 -->
-    <div class="section">
-    <h2>10. Uso Permitido</h2>
-
-    <p>
-        O usuário poderá utilizar o W.Tracks para finalidades lícitas e
-        de acordo com estes Termos.
-    </p>
-
-    <p>
-        É proibido utilizar a plataforma para:
-    </p>
-
-    <ul>
-        <li>praticar atividades ilegais;</li>
-        <li>infringir direitos de terceiros;</li>
-        <li>distribuir vírus, malware ou códigos maliciosos;</li>
-        <li>tentar obter acesso não autorizado a contas ou sistemas;</li>
-        <li>comprometer a segurança ou o funcionamento da plataforma;</li>
-        <li>contornar limitações técnicas ou restrições de planos;</li>
-        <li>obter ou utilizar funcionalidades pagas sem autorização;</li>
-        <li>realizar fraude, falsificação ou tentativa de fraude;</li>
-        <li>sobrecarregar deliberadamente a infraestrutura do serviço;</li>
-        <li>utilizar automações de maneira abusiva ou não autorizada;</li>
-        <li>
-            acessar, tentar acessar ou utilizar dados pertencentes a outros
-            usuários.
-        </li>
-    </ul>
-
-    <div class="important">
-        <p>
-            <strong>Medidas em caso de violação:</strong> caso o usuário
-            viole estes Termos, as regras da plataforma ou pratique
-            atividades que possam comprometer a segurança, integridade
-            ou funcionamento do W.Tracks, a plataforma poderá adotar,
-            conforme a gravidade e as circunstâncias do caso, medidas
-            como <strong>advertência, limitação ou bloqueio temporário de
-            determinadas funcionalidades, suspensão da conta, encerramento
-            da conta e remoção de conteúdos ou dados relacionados à
-            violação</strong>, quando aplicável.
-        </p>
-
-        <p>
-            Sempre que apropriado e possível, o W.Tracks poderá considerar
-            a natureza, a gravidade e a recorrência da violação antes de
-            aplicar medidas restritivas. Isso não impede a adoção imediata
-            de medidas quando forem necessárias para proteger a segurança
-            da plataforma, dos usuários ou de terceiros.
-        </p>
-    </div>
-
-    <div class="legal-warning">
-        <strong>ATENÇÃO:</strong> em situações que envolvam fraude,
-        tentativa de acesso não autorizado, ataques à plataforma,
-        exploração de falhas de segurança ou outras condutas potencialmente
-        ilícitas, o W.Tracks poderá adotar medidas técnicas e administrativas
-        necessárias para proteger a plataforma e seus usuários, inclusive
-        preservar informações e realizar comunicações às autoridades
-        competentes quando houver obrigação ou fundamento legal para isso.
-    </div>
-</div>
-
-
-    <!-- 11 -->
-    <div class="section">
-        <h2>11. Propriedade Intelectual do W.Tracks</h2>
-
-        <p>
-            O nome W.Tracks, sua marca, logotipo, identidade visual,
-            interface, código, arquitetura, funcionalidades, textos,
-            elementos gráficos e demais elementos da plataforma são
-            protegidos pela legislação aplicável.
-        </p>
-
-        <p>
-            Estes Termos não concedem ao usuário qualquer direito de propriedade
-            sobre o software ou demais elementos pertencentes ao W.Tracks.
-        </p>
-
-        <p>Salvo autorização expressa, o usuário não poderá:</p>
-
-        <ul>
-            <li>copiar ou redistribuir o código da plataforma;</li>
-            <li>realizar engenharia reversa, salvo quando permitido por lei;</li>
-            <li>remover avisos de propriedade intelectual;</li>
-            <li>copiar substancialmente a identidade visual da plataforma;</li>
-            <li>utilizar a marca W.Tracks de maneira que gere associação falsa;</li>
-            <li>extrair dados da plataforma por meios automatizados não autorizados.</li>
-        </ul>
-    </div>
-
-
-    <!-- 12 -->
-    <div class="section">
-        <h2>12. Segurança</h2>
-
-        <p>
-            O W.Tracks adota medidas técnicas e organizacionais razoáveis
-            destinadas a proteger seus sistemas e os dados tratados contra
-            acessos não autorizados, perda, alteração ou utilização indevida.
-        </p>
-
-        <div class="important">
-            <p>
-                <strong>Importante:</strong> nenhum sistema conectado à internet
-                pode ser considerado absolutamente seguro. O usuário também
-                possui responsabilidade pela segurança de seu dispositivo,
-                navegador, senha e conta.
-            </p>
+        <div class="section">
+            <h2>4. Conta de Usuário</h2>
+            <p>Você é responsável por manter a confidencialidade das suas credenciais de acesso e por todas as atividades realizadas em sua conta.</p>
         </div>
 
-        <p>
-            O usuário deverá manter seus dispositivos atualizados e adotar
-            medidas razoáveis para proteger suas credenciais.
-        </p>
-    </div>
-
-
-    <!-- 13 -->
-    <div class="section">
-        <h2>13. Serviços de Terceiros</h2>
-
-        <p>
-            O W.Tracks poderá utilizar serviços de terceiros para determinadas
-            funções da plataforma, incluindo autenticação, infraestrutura,
-            armazenamento, processamento, pagamentos, comunicação ou outros
-            serviços necessários à operação.
-        </p>
-
-        <p>
-            Serviços de terceiros poderão possuir seus próprios termos de uso
-            e políticas de privacidade.
-        </p>
-
-        <p>
-            O W.Tracks não controla integralmente serviços externos e não
-            garante a disponibilidade contínua de serviços fornecidos por
-            terceiros.
-        </p>
-    </div>
-
-
-    <!-- 14 -->
-    <div class="section">
-        <h2>14. Disponibilidade do Serviço</h2>
-
-        <p>
-            O W.Tracks busca manter a plataforma disponível e funcional,
-            porém não garante disponibilidade ininterrupta ou ausência
-            absoluta de erros.
-        </p>
-
-        <p>
-            O serviço poderá ficar temporariamente indisponível em razão de
-            manutenção, atualizações, problemas de infraestrutura, falhas
-            de terceiros, problemas de conexão ou eventos fora do controle
-            razoável do W.Tracks.
-        </p>
-    </div>
-
-
-    <!-- 15 -->
-    <div class="section">
-        <h2>15. Suspensão ou Encerramento da Conta</h2>
-
-        <p>
-            O W.Tracks poderá suspender, limitar ou encerrar uma conta quando
-            houver fundamento razoável para acreditar que ocorreu violação
-            destes Termos, fraude, abuso, atividade ilegal, comprometimento
-            da segurança ou outra situação que justifique a medida.
-        </p>
-
-        <div class="important">
-            <p>
-                <strong>Medidas de segurança:</strong>
-                quando necessário para proteger usuários, dados ou a
-                infraestrutura do W.Tracks, determinadas medidas poderão
-                ser aplicadas imediatamente.
-            </p>
+        <div class="section">
+            <h2>5. Uso Permitido</h2>
+            <p>Você concorda em usar o W.Tracks apenas para fins lícitos, não devendo utilizar a plataforma para distribuir conteúdo ilegal, infringir direitos de terceiros ou prejudicar o funcionamento do serviço.</p>
         </div>
 
-        <p>
-            Sempre que razoavelmente possível e permitido, o usuário poderá
-            ser informado sobre a medida adotada e sua justificativa.
-        </p>
-    </div>
-
-
-    <!-- 16 -->
-    <div class="section">
-        <h2>16. Encerramento pelo Usuário</h2>
-
-        <p>
-            O usuário poderá solicitar o encerramento de sua conta pelos
-            mecanismos disponibilizados pelo W.Tracks.
-        </p>
-
-        <p>
-            O encerramento poderá resultar na perda de acesso a funcionalidades
-            e dados associados à conta, conforme o tipo de armazenamento utilizado.
-        </p>
-
-        <p>
-            Informações que precisem ser mantidas por obrigação legal, exercício
-            regular de direitos, prevenção de fraude ou outras bases legais
-            aplicáveis poderão permanecer armazenadas pelo período necessário.
-        </p>
-    </div>
-
-
-    <!-- 17 -->
-    <div class="section">
-        <h2>17. Limitação de Responsabilidade</h2>
-
-        <div class="important">
-            <p>
-                <strong>O W.Tracks é disponibilizado conforme sua disponibilidade
-                e características técnicas.</strong>
-                Não garantimos que a plataforma estará permanentemente livre
-                de erros, interrupções ou indisponibilidades.
-            </p>
+        <div class="section">
+            <h2>6. Propriedade Intelectual</h2>
+            <p>O código, design, marca e funcionalidades do W.Tracks são de propriedade do desenvolvedor. Projetos e arquivos enviados pelo próprio usuário continuam de propriedade dele.</p>
         </div>
 
-        <p>
-            Na máxima extensão permitida pela legislação aplicável, o W.Tracks
-            não será responsável por situações decorrentes exclusivamente de:
-        </p>
-
-        <ul>
-            <li>uso inadequado da plataforma pelo usuário;</li>
-            <li>conteúdo inserido ou utilizado pelo usuário;</li>
-            <li>violação de direitos de terceiros causada pelo usuário;</li>
-            <li>perda de arquivos armazenados exclusivamente no dispositivo;</li>
-            <li>falhas no dispositivo, navegador ou conexão do usuário;</li>
-            <li>falhas de serviços de terceiros;</li>
-            <li>eventos fora do controle razoável do W.Tracks;</li>
-            <li>utilização da plataforma em desacordo com estes Termos.</li>
-        </ul>
-
-        <p>
-            <span class="highlight">
-                Nenhuma disposição destes Termos tem como objetivo excluir
-                ou limitar direitos ou responsabilidades que não possam
-                legalmente ser excluídos ou limitados.
-            </span>
-        </p>
-    </div>
-
-
-    <!-- 18 -->
-    <div class="section">
-        <h2>18. Responsabilidade por Violações</h2>
-
-        <p>
-            Na medida permitida pela legislação aplicável, o usuário poderá
-            ser responsável por prejuízos, custos, reclamações ou despesas
-            decorrentes de sua utilização ilícita da plataforma, violação
-            destes Termos ou violação de direitos de terceiros.
-        </p>
-
-        <p>
-            Essa disposição não elimina direitos assegurados ao usuário
-            pela legislação aplicável.
-        </p>
-    </div>
-
-
-    <!-- 19 -->
-    <div class="section">
-        <h2>19. Privacidade e Proteção de Dados</h2>
-
-        <p>
-            O tratamento de dados pessoais realizado pelo W.Tracks é explicado
-            detalhadamente na Política de Privacidade da plataforma.
-        </p>
-
-        <p>
-            O W.Tracks poderá tratar dados necessários para funcionamento da
-            conta, segurança, prestação dos serviços, suporte, comunicação
-            e demais finalidades legítimas descritas na Política de Privacidade.
-        </p>
-
-        <p>
-            O tratamento de dados pessoais observará a legislação aplicável,
-            incluindo a Lei nº 13.709/2018 (LGPD), quando aplicável.
-        </p>
-    </div>
-
-
-    <!-- 20 -->
-   <div class="section">
-    <h2>20. Direitos Autorais e Reclamações</h2>
-
-    <p>
-        O W.Tracks respeita os direitos de propriedade intelectual de terceiros.
-    </p>
-
-    <p>
-        Titulares de direitos que entendam que determinado conteúdo
-        disponibilizado por meio da plataforma viola seus direitos poderão
-        entrar em contato utilizando o canal oficial indicado abaixo.
-    </p>
-
-    <p>
-        O W.Tracks poderá analisar reclamações e, quando apropriado,
-        restringir ou remover determinado conteúdo de acordo com as
-        circunstâncias e a legislação aplicável.
-    </p>
-
-    <div class="copyright-contact">
-        <strong>Canal para questões de direitos autorais:</strong>
-        <br>
-        <a href="https://t.me/21969632153" target="_blank" rel="noopener noreferrer">
-            Entrar em contato pelo Telegram
-        </a>
-    </div>
-</div>
-
-
-    <!-- 21 -->
-    <div class="section">
-        <h2>21. Alterações na Plataforma</h2>
-
-        <p>
-            O W.Tracks poderá desenvolver novas funcionalidades, corrigir
-            problemas, atualizar tecnologias, modificar interfaces e realizar
-            alterações técnicas necessárias à evolução e segurança do serviço.
-        </p>
-
-        <p>
-            Algumas funcionalidades poderão ser alteradas, substituídas,
-            limitadas ou descontinuadas, respeitando as obrigações legais
-            e contratuais aplicáveis.
-        </p>
-    </div>
-
-
-    <!-- 22 -->
-    <div class="section">
-        <h2>22. Alterações destes Termos</h2>
-
-        <p>
-            Estes Termos poderão ser atualizados periodicamente.
-        </p>
-
-        <p>
-            Alterações relevantes poderão ser comunicadas por meios razoáveis,
-            especialmente quando puderem afetar significativamente os direitos
-            ou obrigações do usuário.
-        </p>
-
-        <p>
-            A versão atualizada sempre deverá apresentar a respectiva data
-            de atualização.
-        </p>
-    </div>
-
-
-    <!-- 23 -->
-    <div class="section">
-        <h2>23. Comunicações</h2>
-
-        <p>
-            O W.Tracks poderá enviar comunicações relacionadas à conta,
-            segurança, funcionamento, manutenção, alterações importantes
-            e outros assuntos necessários à prestação do serviço.
-        </p>
-
-        <p>
-            Comunicações promocionais, quando existentes, observarão a
-            legislação aplicável e poderão disponibilizar mecanismo de
-            descadastramento.
-        </p>
-    </div>
-
-
-    <!-- 24 -->
-    <div class="section">
-        <h2>24. Sugestões e Feedback</h2>
-
-        <p>
-            O usuário poderá enviar sugestões, comentários e feedback sobre
-            o W.Tracks.
-        </p>
-
-        <p>
-            O envio de sugestões não obriga o W.Tracks a implementar qualquer
-            recurso ou funcionalidade sugerida.
-        </p>
-    </div>
-
-
-    <!-- 25 -->
-    <div class="section">
-        <h2>25. Disposições Gerais</h2>
-
-        <p>
-            Caso qualquer disposição destes Termos seja considerada inválida
-            ou inexequível, as demais disposições permanecerão em vigor na
-            medida permitida pela legislação.
-        </p>
-
-        <p>
-            A eventual ausência de exercício imediato de determinado direito
-            pelo W.Tracks não constitui renúncia a esse direito.
-        </p>
-
-        <p>
-            Estes Termos não estabelecem sociedade, representação, vínculo
-            empregatício, agência ou parceria entre o usuário e o W.Tracks.
-        </p>
-    </div>
-
-
-    <!-- 26 -->
-    <div class="section">
-        <h2>26. Legislação Aplicável e Foro</h2>
-
-        <p>
-            Estes Termos serão interpretados de acordo com a legislação brasileira,
-            respeitadas as normas de aplicação obrigatória ao usuário.
-        </p>
-
-        <p>
-            Questões relacionadas ao serviço deverão, sempre que possível,
-            ser inicialmente encaminhadas ao canal de atendimento do W.Tracks
-            para tentativa de solução.
-        </p>
-
-        <p>
-            Quando não for possível solucionar a questão de forma amigável,
-            a controvérsia poderá ser submetida ao foro competente, respeitando
-            o foro legalmente aplicável e os direitos do consumidor, quando aplicáveis.
-        </p>
-
-        <div class="important">
-            <p>
-                <strong>Importante:</strong>
-                esta cláusula não tem a finalidade de retirar do usuário
-                direitos de acesso à Justiça ou modificar uma competência
-                determinada obrigatoriamente pela legislação.
-            </p>
-        </div>
-    </div>
-
-    <!-- 27 -->
-    <div class="section">
-        <h2>27. Aceite</h2>
-
-        <div class="important">
-            <p>
-                Ao criar uma conta, marcar uma opção de aceite, contratar
-                um plano ou utilizar determinadas funcionalidades do W.Tracks,
-                o usuário declara que teve acesso a estes Termos, pôde
-                consultá-los e concorda com suas disposições, na medida
-                permitida pela legislação aplicável.
-            </p>
+        <div class="section">
+            <h2>7. Limitação de Responsabilidade</h2>
+            <p>O W.Tracks é fornecido "como está". Não garantimos que o serviço estará livre de erros ou interrupções. Não nos responsabilizamos pelo uso indevido de conteúdo por parte do usuário, incluindo eventuais violações de direitos autorais de terceiros decorrentes do uso da plataforma.</p>
         </div>
 
-        <p>
-            O usuário é responsável por consultar periodicamente a versão
-            vigente destes Termos.
-        </p>
+        <div class="section">
+            <h2>8. Alterações nos Termos</h2>
+            <p>Podemos atualizar estes Termos periodicamente. O uso continuado da plataforma após alterações implica concordância com a nova versão.</p>
+        </div>
+
+        <div class="section">
+            <h2>9. Contato</h2>
+            <p>Dúvidas sobre estes Termos podem ser enviadas para [seu e-mail/contato].</p>
+        </div>
+
+        <div class="last-updated">
+            Última atualização: 16 de Agosto de 2026
+        </div>
     </div>
-
-
-    <div class="last-updated">
-        Termos de Uso — W.Tracks<br>
-        Última atualização: 16 de setembro de 2026
-    </div>
-
-</div>
-
 </body>
 </html>
-```

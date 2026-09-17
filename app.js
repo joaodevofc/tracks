@@ -196,7 +196,7 @@ class MultracksApp {
         // Check if running via file:// protocol and show warning
         if (window.location.protocol === 'file:') {
             console.warn('[APP] Running via file:// protocol - some features may not work properly');
-            console.warn('[APP] Please run via a local server (e.g., Live Server) for full PWA/Service Worker support');
+            console.warn('[APP] Please run via a local server (e.g., Live Server) for full functionality');
             
             // Show friendly warning to user
             setTimeout(() => {
@@ -214,7 +214,7 @@ class MultracksApp {
                 warningBanner.style.fontSize = '14px';
                 warningBanner.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
                 
-                warningBanner.innerHTML = '<div style="max-width: 800px; margin: 0 auto; padding: 0 20px;"><strong>⚠️ Modo desenvolvedor</strong><br>Para melhor experiência, use um servidor local (ex: Live Server no VS Code). Alguns recursos PWA/Service Worker podem não funcionar corretamente. <button id="dismissFileWarning" style="margin-left: 15px; padding: 6px 12px; background: white; color: #ee5a5a; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Entendi</button></div>';
+                warningBanner.innerHTML = '<div style="max-width: 800px; margin: 0 auto; padding: 0 20px;"><strong>⚠️ Modo desenvolvedor</strong><br>Para melhor experiência, use um servidor local (ex: Live Server no VS Code). <button id="dismissFileWarning" style="margin-left: 15px; padding: 6px 12px; background: white; color: #ee5a5a; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Entendi</button></div>';
                 
                 // Append to DOM first, then add event listener
                 document.body.appendChild(warningBanner);
@@ -255,7 +255,6 @@ class MultracksApp {
         this.initPadSystem();
         this.initMyTracks();
         this.initSetlists();
-        this.initPWAExternalLinks();
         
         // Initialize loop indicator button
         const loopIndicatorBtn = document.getElementById('loopIndicatorBtn');
@@ -7437,23 +7436,21 @@ class MultracksApp {
             return;
         }
 
-        // Check if running on mobile/PWA - editor is desktop-only for now
+        // Check if running on mobile - editor is desktop-only for now
         const isMobile = this.isMobileDevice();
-        const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
-                      window.navigator.standalone === true;
 
-        console.log('[APP] Device detection - isMobile:', isMobile, 'isPWA:', isPWA);
+        console.log('[APP] Device detection - isMobile:', isMobile);
         console.log('[APP] User agent:', navigator.userAgent);
         console.log('[APP] Screen width:', window.innerWidth);
         console.log('[APP] Touch points:', navigator.maxTouchPoints);
 
-        if (isMobile || isPWA) {
+        if (isMobile) {
             this.showDesktopOnlyModal();
             return;
         }
 
         // Cleanup memory-heavy resources before navigation
-        console.log('[APP] Cleaning up PWA resources before opening editor');
+        console.log('[APP] Cleaning up resources before opening editor');
         await this.cleanupForEditor();
 
         // Use the correct file name
@@ -10721,12 +10718,18 @@ class MultracksApp {
             return;
         }
 
-        const { auth, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence } = window.firebaseAuth;
+        const { auth, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence, signOut } = window.firebaseAuth;
 
         // Set persistence based on "Remember me" checkbox
         const persistenceType = rememberMe ? browserLocalPersistence : browserSessionPersistence;
 
         try {
+            // First sign out if there's an existing session to allow persistence change
+            if (auth.currentUser) {
+                await signOut(auth);
+                console.log('[AUTH] Signed out existing user to change persistence');
+            }
+            
             await setPersistence(auth, persistenceType);
             console.log('[AUTH] Persistence set to:', rememberMe ? 'LOCAL' : 'SESSION');
         } catch (error) {
@@ -12700,31 +12703,6 @@ class MultracksApp {
         }
         
         console.log('[PAD] Pad removed from mixer');
-    }
-
-    initPWAExternalLinks() {
-        // Handle external links in PWA mode
-        document.addEventListener('click', (e) => {
-            const link = e.target.closest('a');
-            if (!link) return;
-
-            const href = link.getAttribute('href');
-            if (!href) return;
-
-            // Check if it's an external link (not same origin)
-            const isExternal = href.startsWith('http') && !href.startsWith(window.location.origin);
-            const isMailto = href.startsWith('mailto:');
-
-            if (isExternal || isMailto) {
-                // In PWA standalone mode, open external links in system browser
-                if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
-                    e.preventDefault();
-                    window.open(href, '_system');
-                }
-            }
-        });
-
-        console.log('[APP] PWA external links handler initialized');
     }
 }
 

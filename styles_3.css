@@ -391,6 +391,7 @@
 .welcome-social-icons {
   display: flex;
   gap: var(--spacing-md);
+  justify-content: center;
 }
 
 .welcome-social-icon {

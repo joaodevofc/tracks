@@ -1,20 +1,13 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>Política de Privacidade - W.Tracks</title>
-
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
-        rel="stylesheet">
-
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="icon" type="image/png" href="icon-black-transparent.png">
-
     <style>
         * {
             margin: 0;
@@ -26,99 +19,69 @@
             font-family: 'Poppins', sans-serif;
             background: #000000;
             color: #ffffff;
-            line-height: 1.7;
+            line-height: 1.6;
             min-height: 100vh;
         }
 
         .container {
-            max-width: 850px;
+            max-width: 800px;
             margin: 0 auto;
             padding: 60px 20px;
         }
 
-        .back-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            color: #8f8f8f;
-            text-decoration: none;
-            font-size: 0.9rem;
-            margin-bottom: 45px;
-            transition: color 0.3s ease;
-        }
-
-        .back-link:hover {
-            color: #ffffff;
-        }
-
         .header {
             text-align: center;
-            margin-bottom: 65px;
+            margin-bottom: 60px;
         }
 
         .header h1 {
-            font-size: 2.6rem;
+            font-size: 2.5rem;
             font-weight: 700;
-            margin-bottom: 14px;
-
-            background: linear-gradient(135deg, #ffffff, #9c9c9c);
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, #ffffff, #a0a0a0);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
 
         .header p {
-            color: #8f8f8f;
-            font-size: 0.95rem;
-        }
-
-        .intro {
-            background: rgba(255, 255, 255, 0.045);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            padding: 22px 24px;
-            margin-bottom: 45px;
-        }
-
-        .intro p {
-            color: #b5b5b5;
-            margin: 0;
+            color: #a0a0a0;
+            font-size: 1rem;
         }
 
         .section {
-            margin-bottom: 48px;
+            margin-bottom: 40px;
         }
 
         .section h2 {
             font-size: 1.5rem;
             font-weight: 600;
-            margin-bottom: 18px;
+            margin-bottom: 16px;
             color: #ffffff;
         }
 
         .section h3 {
-            font-size: 1.08rem;
-            font-weight: 600;
-            margin-top: 25px;
-            margin-bottom: 10px;
+            font-size: 1.2rem;
+            font-weight: 500;
+            margin-bottom: 12px;
+            margin-top: 24px;
             color: #f5f5f5;
         }
 
         .section p {
-            color: #a8a8a8;
-            margin-bottom: 17px;
+            color: #a0a0a0;
+            margin-bottom: 16px;
         }
 
         .section ul {
             list-style: none;
             padding-left: 0;
-            margin: 15px 0 20px;
         }
 
         .section ul li {
-            color: #a8a8a8;
-            margin-bottom: 10px;
-            padding-left: 25px;
+            color: #a0a0a0;
+            margin-bottom: 8px;
+            padding-left: 24px;
             position: relative;
         }
 
@@ -127,84 +90,40 @@
             position: absolute;
             left: 0;
             color: #ffffff;
-            font-weight: 600;
         }
 
         .highlight {
             color: #ffffff;
-            font-weight: 600;
+            font-weight: 500;
         }
 
-        .important {
-            background: rgba(255, 255, 255, 0.055);
-            border-left: 4px solid #ffffff;
-            padding: 18px 20px;
-            border-radius: 7px;
-            margin: 22px 0;
-        }
-
-        .important p {
-            color: #c7c7c7;
-            margin: 0;
-        }
-
-        .warning {
-            background: #7f1d1d;
-            color: #ffffff;
-            padding: 18px 20px;
-            border-radius: 8px;
-            margin: 24px 0;
-            box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
-        }
-
-        .warning p {
-            color: #ffffff;
-            margin: 0;
-        }
-
-        .contact-box {
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 9px;
-            padding: 20px;
-            margin-top: 20px;
-        }
-
-        .contact-box strong {
-            color: #ffffff;
-        }
-
-        .contact-box p {
-            margin-bottom: 8px;
-        }
-
-        .contact-box a {
-            color: #3b82f6;
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #a0a0a0;
             text-decoration: none;
-            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 40px;
+            transition: color 0.3s ease;
         }
 
-        .contact-box a:hover {
-            text-decoration: underline;
+        .back-link:hover {
+            color: #ffffff;
         }
 
         .last-updated {
             text-align: center;
             color: #666666;
             font-size: 0.85rem;
-            margin-top: 65px;
-            padding-top: 22px;
+            margin-top: 60px;
+            padding-top: 20px;
             border-top: 1px solid #333333;
         }
 
         @media (max-width: 768px) {
-
             .container {
                 padding: 40px 20px;
-            }
-
-            .header {
-                margin-bottom: 45px;
             }
 
             .header h1 {
@@ -214,623 +133,61 @@
             .section h2 {
                 font-size: 1.3rem;
             }
-
-            .intro,
-            .important,
-            .warning,
-            .contact-box {
-                padding: 17px 18px;
-            }
         }
     </style>
 </head>
-
 <body>
-
     <div class="container">
-
-        <a href="index.html" class="back-link">
-            ← Voltar para W.Tracks
-        </a>
+        <a href="index.html" class="back-link">← Voltar para W.Tracks</a>
 
         <div class="header">
             <h1>Política de Privacidade</h1>
-            <p>Última atualização: 16 de Setembro de 2026</p>
+            <p>Última atualização: 16 de Agosto de 2026</p>
         </div>
-
-        <div class="intro">
-            <p>
-                A privacidade dos usuários é importante para o W.Tracks.
-                Esta Política de Privacidade explica, de forma transparente,
-                quais informações podem ser coletadas durante a utilização
-                da plataforma, para quais finalidades essas informações podem
-                ser utilizadas e quais são os direitos do usuário.
-            </p>
-        </div>
-
-
-        <!-- 1 -->
 
         <div class="section">
-
-            <h2>1. Informações que Podemos Coletar</h2>
-
-            <p>
-                Para permitir o funcionamento do W.Tracks, podemos coletar
-                determinadas informações fornecidas pelo usuário ou geradas
-                durante a utilização da plataforma.
-            </p>
-
-            <h3>Informações da conta</h3>
-
-            <p>
-                Podemos coletar informações necessárias para criar e manter
-                sua conta, como
-                <span class="highlight">nome, endereço de e-mail e informações
-                relacionadas ao cadastro</span>.
-            </p>
-
-            <h3>Informações utilizadas na plataforma</h3>
-
-            <p>
-                Dependendo dos recursos utilizados, podem ser armazenadas
-                informações relacionadas à utilização do W.Tracks, como
-                nomes de projetos, nomes de faixas, configurações e outras
-                informações necessárias ao funcionamento dos recursos
-                disponibilizados.
-            </p>
-
-            <h3>Informações técnicas</h3>
-
-            <p>
-                Podemos coletar informações técnicas básicas relacionadas
-                ao acesso e funcionamento da plataforma, como tipo de
-                dispositivo, navegador, sistema operacional e informações
-                relacionadas ao funcionamento do serviço.
-            </p>
-
-            <div class="important">
-
-                <p>
-                    <strong>Importante:</strong> o W.Tracks busca utilizar
-                    informações de acordo com as finalidades apresentadas
-                    nesta Política e com o funcionamento dos recursos
-                    disponibilizados ao usuário.
-                </p>
-
-            </div>
-
+            <h2>1. Dados que Coletamos</h2>
+            <p>Podemos coletar: nome, e-mail e informações de cadastro; dados dos projetos criados na plataforma (nomes de faixas, arquivos enviados por você); informações técnicas básicas de uso (como dispositivo e navegador), para fins de funcionamento e melhoria do serviço.</p>
         </div>
-
-
-        <!-- 2 -->
 
         <div class="section">
-
-            <h2>2. Como Utilizamos as Informações</h2>
-
-            <p>
-                As informações coletadas podem ser utilizadas para diferentes
-                finalidades relacionadas ao funcionamento, segurança e
-                desenvolvimento do W.Tracks.
-            </p>
-
-            <ul>
-
-                <li>
-                    criar, manter e administrar contas de usuários;
-                </li>
-
-                <li>
-                    permitir o acesso aos recursos disponibilizados pela
-                    plataforma;
-                </li>
-
-                <li>
-                    disponibilizar e manter projetos e funcionalidades
-                    utilizadas pelo usuário;
-                </li>
-
-                <li>
-                    manter a segurança e a integridade da plataforma;
-                </li>
-
-                <li>
-                    identificar e prevenir atividades fraudulentas,
-                    abusivas ou não autorizadas;
-                </li>
-
-                <li>
-                    corrigir problemas técnicos e melhorar o funcionamento
-                    do serviço;
-                </li>
-
-                <li>
-                    desenvolver e aprimorar funcionalidades;
-                </li>
-
-                <li>
-                    enviar comunicações relacionadas ao funcionamento,
-                    segurança, alterações importantes e atualizações do
-                    W.Tracks.
-                </li>
-
-            </ul>
-
-            <div class="important">
-
-                <p>
-                    O W.Tracks não utiliza os dados pessoais do usuário
-                    simplesmente para finalidades incompatíveis com aquelas
-                    apresentadas nesta Política.
-                </p>
-
-            </div>
-
+            <h2>2. Como Usamos seus Dados</h2>
+            <p>Utilizamos seus dados para: permitir o funcionamento da sua conta e dos seus projetos; melhorar a experiência e funcionalidades da plataforma; comunicar atualizações importantes sobre o serviço.</p>
         </div>
-
-
-        <!-- 3 -->
 
         <div class="section">
-
-            <h2>3. Armazenamento e Proteção das Informações</h2>
-
-            <p>
-                A forma de armazenamento das informações pode variar de
-                acordo com o recurso utilizado, a modalidade de utilização
-                e a forma como determinada funcionalidade do W.Tracks
-                funciona.
-            </p>
-
-            <p>
-                Determinadas informações podem ser armazenadas
-                <span class="highlight">no dispositivo utilizado pelo
-                usuário</span>, especialmente quando determinada
-                funcionalidade não utilizar armazenamento ou sincronização
-                em nuvem.
-            </p>
-
-            <div class="warning">
-
-                <p>
-                    <strong>ATENÇÃO:</strong> informações armazenadas
-                    exclusivamente no dispositivo do usuário podem ser
-                    perdidas caso os dados sejam apagados, o navegador seja
-                    redefinido, o dispositivo apresente falha, o aplicativo
-                    seja removido ou ocorram outras situações que afetem
-                    o armazenamento do dispositivo.
-                </p>
-
-            </div>
-
-            <p>
-                O W.Tracks adota medidas técnicas e administrativas
-                compatíveis com a natureza das informações tratadas para
-                contribuir com a proteção contra acesso não autorizado,
-                alteração indevida, perda ou destruição.
-            </p>
-
-            <p>
-                Apesar dessas medidas, nenhum serviço conectado à internet
-                ou dispositivo eletrônico pode ser considerado absolutamente
-                livre de riscos.
-            </p>
-
+            <h2>3. Armazenamento</h2>
+            <p>Seus projetos e arquivos são armazenados de forma associada à sua conta. Adotamos medidas razoáveis para proteger esses dados contra acesso não autorizado.</p>
         </div>
-
-
-        <!-- 4 -->
 
         <div class="section">
-
-            <h2>4. Compartilhamento de Informações</h2>
-
-            <p>
-                O W.Tracks não comercializa dados pessoais dos usuários.
-            </p>
-
-            <p>
-                Informações poderão ser compartilhadas quando isso for
-                necessário para o funcionamento legítimo da plataforma,
-                para cumprimento de obrigações legais ou para proteção
-                dos direitos e da segurança do W.Tracks, dos usuários ou
-                de terceiros.
-            </p>
-
-            <p>
-                Exemplos de situações em que informações poderão ser
-                compartilhadas incluem:
-            </p>
-
-            <ul>
-
-                <li>
-                    cumprimento de determinação legal ou ordem judicial;
-                </li>
-
-                <li>
-                    atendimento de solicitações de autoridades competentes,
-                    quando houver fundamento ou obrigação legal;
-                </li>
-
-                <li>
-                    prevenção, investigação ou resposta a fraudes,
-                    abusos, ataques ou atividades potencialmente ilícitas;
-                </li>
-
-                <li>
-                    situações necessárias para proteger a segurança,
-                    integridade e funcionamento da plataforma.
-                </li>
-
-            </ul>
-
-            <div class="important">
-
-                <p>
-                    O W.Tracks não vende informações pessoais dos usuários
-                    para terceiros.
-                </p>
-
-            </div>
-
+            <h2>4. Compartilhamento de Dados</h2>
+            <p>Não vendemos nem compartilhamos seus dados pessoais com terceiros para fins comerciais. Podemos compartilhar dados apenas quando exigido por lei ou ordem judicial.</p>
         </div>
-
-
-        <!-- 5 -->
 
         <div class="section">
-
-            <h2>5. Serviços e Tecnologias de Terceiros</h2>
-
-            <p>
-                O funcionamento do W.Tracks pode depender de determinados
-                serviços, tecnologias ou provedores de terceiros.
-            </p>
-
-            <p>
-                Esses serviços podem participar de atividades necessárias
-                para autenticação, funcionamento da plataforma, segurança,
-                infraestrutura ou outros recursos disponibilizados pelo
-                W.Tracks.
-            </p>
-
-            <p>
-                Quando serviços de terceiros forem utilizados, o tratamento
-                de informações por esses provedores poderá também estar
-                sujeito às respectivas políticas de privacidade e termos
-                de uso.
-            </p>
-
-            <div class="important">
-
-                <p>
-                    <strong>Importante:</strong> esta Política descreve
-                    principalmente o tratamento realizado no contexto
-                    do W.Tracks. Serviços externos utilizados pela plataforma
-                    podem possuir regras próprias de privacidade.
-                </p>
-
-            </div>
-
+            <h2>5. Seus Direitos</h2>
+            <p>Você pode solicitar a qualquer momento: acesso aos seus dados armazenados; correção de informações incorretas; exclusão da sua conta e dos dados associados.</p>
         </div>
-
-
-        <!-- 6 -->
 
         <div class="section">
-
-            <h2>6. Cookies e Tecnologias de Armazenamento</h2>
-
-            <p>
-                O W.Tracks pode utilizar cookies e outras tecnologias
-                relacionadas ao armazenamento de informações no dispositivo
-                para permitir o funcionamento de determinadas funcionalidades,
-                manter sessões, armazenar preferências e melhorar a experiência
-                de utilização.
-            </p>
-
-            <p>
-                Essas tecnologias também podem ser utilizadas para auxiliar
-                na segurança e no funcionamento adequado da plataforma.
-            </p>
-
-            <p>
-                Algumas funcionalidades podem deixar de funcionar
-                corretamente caso determinadas formas de armazenamento
-                sejam bloqueadas ou apagadas pelo usuário.
-            </p>
-
+            <h2>6. Cookies e Tecnologias Similares</h2>
+            <p>Podemos utilizar cookies ou armazenamento local para manter sua sessão ativa e melhorar sua experiência de uso.</p>
         </div>
-
-
-        <!-- 7 -->
 
         <div class="section">
-
-            <h2>7. Dados e Conteúdos Enviados pelo Usuário</h2>
-
-            <p>
-                O usuário pode inserir, criar ou utilizar determinados
-                conteúdos dentro do W.Tracks, incluindo informações
-                relacionadas aos seus projetos e arquivos utilizados
-                na plataforma.
-            </p>
-
-            <p>
-                O usuário permanece responsável pelo conteúdo que inserir,
-                importar, enviar ou utilizar por meio do serviço, inclusive
-                pela existência de direitos e autorizações necessários
-                para sua utilização.
-            </p>
-
-            <div class="important">
-
-                <p>
-                    O fato de determinado conteúdo ser utilizado dentro
-                    do W.Tracks não significa que o W.Tracks seja o
-                    proprietário dos direitos sobre esse conteúdo.
-                </p>
-
-            </div>
-
+            <h2>7. Alterações nesta Política</h2>
+            <p>Esta Política pode ser atualizada periodicamente. Recomendamos revisão ocasional para se manter informado sobre eventuais mudanças.</p>
         </div>
-
-
-        <!-- 8 -->
 
         <div class="section">
-
-            <h2>8. Segurança da Conta</h2>
-
-            <p>
-                O usuário é responsável por manter suas credenciais de
-                acesso em segurança e por não compartilhar sua senha ou
-                outros meios de autenticação com terceiros.
-            </p>
-
-            <p>
-                Caso o usuário suspeite de acesso não autorizado à sua
-                conta, deverá comunicar o W.Tracks por meio do canal oficial
-                de atendimento disponível.
-            </p>
-
-            <div class="warning">
-
-                <p>
-                    <strong>ATENÇÃO:</strong> nunca compartilhe sua senha
-                    ou códigos de autenticação com outras pessoas.
-                </p>
-
-            </div>
-
+            <h2>8. Contato</h2>
+            <p>Dúvidas sobre esta Política podem ser enviadas para [seu e-mail/contato].</p>
         </div>
-
-
-        <!-- 9 -->
-
-        <div class="section">
-
-            <h2>9. Retenção e Exclusão de Informações</h2>
-
-            <p>
-                As informações poderão ser mantidas pelo período necessário
-                para cumprir as finalidades descritas nesta Política,
-                atender obrigações legais, resolver disputas, prevenir
-                fraudes e proteger os direitos do W.Tracks e de seus usuários.
-            </p>
-
-            <p>
-                Quando não houver mais necessidade legítima de manter
-                determinada informação, ela poderá ser excluída, anonimizada
-                ou mantida pelo período adicional exigido ou permitido
-                pela legislação aplicável.
-            </p>
-
-            <p>
-                Informações armazenadas exclusivamente no dispositivo do
-                usuário podem depender das ações realizadas pelo próprio
-                usuário ou pelo dispositivo para sua exclusão.
-            </p>
-
-        </div>
-
-
-        <!-- 10 -->
-
-        <div class="section">
-
-            <h2>10. Direitos do Usuário</h2>
-
-            <p>
-                O usuário poderá exercer os direitos aplicáveis relacionados
-                aos seus dados pessoais, observadas as condições e limitações
-                previstas na legislação.
-            </p>
-
-            <p>
-                Dependendo do caso, isso pode incluir solicitações relacionadas
-                a:
-            </p>
-
-            <ul>
-
-                <li>
-                    confirmação da existência de tratamento de dados;
-                </li>
-
-                <li>
-                    acesso às informações pessoais tratadas;
-                </li>
-
-                <li>
-                    correção de informações incorretas ou desatualizadas;
-                </li>
-
-                <li>
-                    eliminação de dados pessoais quando aplicável;
-                </li>
-
-                <li>
-                    informações sobre o tratamento realizado;
-                </li>
-
-                <li>
-                    outros direitos previstos pela legislação aplicável.
-                </li>
-
-            </ul>
-
-            <div class="important">
-
-                <p>
-                    Alguns pedidos podem estar sujeitos a requisitos de
-                    identificação, verificação de segurança ou limitações
-                    previstas em lei.
-                </p>
-
-            </div>
-
-        </div>
-
-
-        <!-- 11 -->
-
-        <div class="section">
-
-            <h2>11. Privacidade de Crianças e Adolescentes</h2>
-
-            <p>
-                O W.Tracks não deve ser utilizado de maneira que viole as
-                regras legais aplicáveis à proteção de crianças e adolescentes.
-            </p>
-
-            <p>
-                Caso sejam identificadas situações envolvendo coleta ou
-                tratamento inadequado de dados de menores de idade, poderão
-                ser adotadas medidas apropriadas de acordo com as
-                circunstâncias e a legislação aplicável.
-            </p>
-
-        </div>
-
-
-        <!-- 12 -->
-
-        <div class="section">
-
-            <h2>12. Comunicações</h2>
-
-            <p>
-                O W.Tracks poderá enviar comunicações necessárias para o
-                funcionamento da conta e da plataforma.
-            </p>
-
-            <p>
-                Essas comunicações podem incluir informações relacionadas
-                à segurança da conta, alterações importantes no serviço,
-                manutenção, funcionamento de recursos, planos, pagamentos,
-                quando aplicável, e outras informações relevantes para a
-                utilização da plataforma.
-            </p>
-
-            <p>
-                Comunicações essenciais relacionadas ao funcionamento do
-                serviço podem ser enviadas independentemente das preferências
-                de comunicações promocionais, quando permitido pela legislação.
-            </p>
-
-        </div>
-
-
-        <!-- 13 -->
-
-        <div class="section">
-
-            <h2>13. Alterações na Forma de Tratamento dos Dados</h2>
-
-            <p>
-                O W.Tracks poderá alterar seus serviços, funcionalidades,
-                infraestrutura ou formas de tratamento de informações ao
-                longo do tempo.
-            </p>
-
-            <p>
-                Caso uma alteração implique uma mudança relevante na forma
-                como os dados pessoais são tratados, esta Política poderá
-                ser atualizada para refletir a nova situação.
-            </p>
-
-        </div>
-
-
-        <!-- 14 -->
-
-        <div class="section">
-
-            <h2>14. Alterações nesta Política de Privacidade</h2>
-
-            <p>
-                Esta Política poderá ser atualizada periodicamente para
-                refletir mudanças na plataforma, nos serviços oferecidos,
-                nas práticas de tratamento de informações ou nas exigências
-                legais aplicáveis.
-            </p>
-
-            <p>
-                A data apresentada no início e no final desta Política
-                indica quando ocorreu sua atualização mais recente.
-            </p>
-
-            <div class="important">
-
-                <p>
-                    Recomendamos que o usuário consulte periodicamente esta
-                    página para acompanhar eventuais alterações.
-                </p>
-
-            </div>
-
-        </div>
-
-
-        <!-- 15 -->
-
-        <div class="section">
-
-            <h2>15. Contato sobre Privacidade</h2>
-
-            <p>
-                Caso tenha dúvidas sobre esta Política, queira exercer
-                direitos relacionados aos seus dados ou precise tratar
-                de alguma questão relacionada à privacidade, o usuário
-                poderá entrar em contato pelo canal oficial indicado abaixo.
-            </p>
-
-            <div class="contact-box">
-
-                <strong>Canal de atendimento:</strong>
-
-                <p>
-                    <a href="https://t.me/21969632153"
-                       target="_blank"
-                       rel="noopener noreferrer">
-                        Entrar em contato pelo Telegram
-                    </a>
-                </p>
-
-            </div>
-
-        </div>
-
 
         <div class="last-updated">
-            Última atualização: 16 de Setembro de 2026
+            Última atualização: 16 de Agosto de 2026
         </div>
-
     </div>
-
 </body>
-
 </html>

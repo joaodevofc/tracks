@@ -1939,7 +1939,7 @@ class TrackEditor {
     }
 
     async cleanupAndReturn() {
-        console.log('[EDITOR] Cleaning up before returning to PWA');
+        console.log('[EDITOR] Cleaning up before returning to main app');
 
         // Stop playback
         this.pause();
@@ -1977,7 +1977,7 @@ class TrackEditor {
 
         console.log('[EDITOR] Cleanup complete, navigating to index.html');
 
-        // Navigate back to PWA
+        // Navigate back to main app
         window.location.href = 'index.html';
     }
     

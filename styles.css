@@ -1,19 +1,3 @@
-
-.legal-warning {
-    background: #7f1d1d;
-    color: #ffffff;
-    padding: 18px 20px;
-    border-radius: 8px;
-    margin: 24px 0;
-    font-weight: 500;
-    line-height: 1.7;
-    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
-}
-
-.legal-warning strong {
-    font-weight: 700;
-}
-
 /* ========================================
    MULTRACKS - PREMIUM BLACK & WHITE THEME
    ======================================== */
@@ -1273,48 +1257,6 @@ input, select, textarea {
     -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
     pointer-events: auto;
-}
-
-/* PWA/STANDALONE MODE - Adjust for installed app experience */
-@media (display-mode: standalone) {
-    /* Adjust header to respect safe area in standalone mode */
-    .header {
-        padding-top: max(env(safe-area-inset-top), var(--spacing-sm));
-    }
-    
-    /* Adjust hero section for standalone mode */
-    .hero {
-        margin-top: calc(56px + env(safe-area-inset-top));
-    }
-    
-    /* Adjust player view for standalone mode */
-    .player-view {
-        top: env(safe-area-inset-top);
-        padding-top: env(safe-area-inset-top);
-        padding-bottom: env(safe-area-inset-bottom);
-    }
-    
-    /* Ensure player logo respects safe area */
-    .player-logo {
-        padding-top: max(env(safe-area-inset-top), var(--spacing-sm));
-    }
-    
-    /* Ensure mixer container respects bottom safe area */
-    .mixer-container {
-        padding-bottom: calc(var(--spacing-lg) + env(safe-area-inset-bottom));
-    }
-    
-    /* Adjust library and main content areas */
-    .library, .explore {
-        padding-top: calc(56px + env(safe-area-inset-top));
-        padding-bottom: env(safe-area-inset-bottom);
-    }
-    
-    /* Ensure social links work properly in PWA mode */
-    .welcome-social-link {
-        -webkit-tap-highlight-color: transparent;
-        touch-action: manipulation;
-    }
 }
 
 /* CSS CUSTOM PROPERTIES */
