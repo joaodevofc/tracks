@@ -9,10 +9,10 @@
   "start_url": "/tracks/",
   "scope": "/tracks/",
 
-  "display": "standalone",
+  "display": "fullscreen",
   "display_override": [
-    "standalone",
-    "window-controls-overlay"
+    "fullscreen",
+    "standalone"
   ],
 
   "orientation": "any",
