@@ -4,40 +4,48 @@
   "description": "Plataforma profissional para projetos multitrack e stems musicais.",
   "lang": "pt-BR",
   "dir": "ltr",
-  "id": "/",
-  "start_url": "/",
-  "scope": "/",
+
+  "id": "/tracks/",
+  "start_url": "/tracks/",
+  "scope": "/tracks/",
+
   "display": "standalone",
-  "display_override": ["standalone", "window-controls-overlay"],
+  "display_override": [
+    "standalone",
+    "window-controls-overlay"
+  ],
+
   "orientation": "any",
   "background_color": "#000000",
   "theme_color": "#000000",
+
   "categories": [
     "music",
     "audio",
     "entertainment"
   ],
+
   "icons": [
     {
-      "src": "./icon-black-transparent.png",
+      "src": "/tracks/icon-black-transparent.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./icon-black-transparent.png",
+      "src": "/tracks/icon-black-transparent.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./icon-white-transparent.png",
+      "src": "/tracks/icon-white-transparent.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "./icon-white-transparent.png",
+      "src": "/tracks/icon-white-transparent.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
