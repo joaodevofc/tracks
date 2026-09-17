@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<meta name="theme-color" content="#0b0b0d">
+<meta name="theme-color" content="#000000">
 <meta name="description" content="W.Tracks — organize seus stems por projeto, ajuste cada fader e toque ao vivo sem depender de laptop no palco.">
 <title>W.Tracks — Suas stems, prontas pro palco.</title>
 
@@ -649,6 +649,7 @@ footer{border-top:1px solid var(--line);padding:50px 0 28px}
 <script>
 // PWA Service Worker Registration
 console.log('[PWA] Inicializando sistema de instalação');
+console.log('[PWA] Verificando suporte a Service Worker...');
 
 if ('serviceWorker' in navigator) {
   const swPath = '/tracks/sw.js';
@@ -657,6 +658,7 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register(swPath)
     .then((registration) => {
       console.log('[PWA] Service Worker registrado com sucesso:', registration.scope);
+      console.log('[PWA] Service Worker state:', registration.installing ? 'installing' : (registration.waiting ? 'waiting' : 'active'));
     })
     .catch((error) => {
       console.error('[PWA] Erro ao registrar Service Worker:', error);
@@ -664,6 +666,21 @@ if ('serviceWorker' in navigator) {
 } else {
   console.log('[PWA] Service Worker não disponível neste navegador');
 }
+
+// Check HTTPS (required for PWA)
+console.log('[PWA] Protocolo:', window.location.protocol);
+console.log('[PWA] HTTPS requerido para PWA:', window.location.protocol === 'https:');
+
+// Check manifest after DOM is ready
+setTimeout(() => {
+  console.log('[PWA] Verificando manifest no DOM...');
+  const manifestLink = document.querySelector('link[rel="manifest"]');
+  if (manifestLink) {
+    console.log('[PWA] Manifest encontrado:', manifestLink.href);
+  } else {
+    console.log('[PWA] AVISO: Manifest não encontrado no DOM');
+  }
+}, 100);
 
 // PWA Installation Handler
 let deferredPrompt;
@@ -751,6 +768,8 @@ if (isStandalone) {
 // Listen for beforeinstallprompt event
 window.addEventListener('beforeinstallprompt', (e) => {
   console.log('[PWA] beforeinstallprompt recebido');
+  console.log('[PWA] Plataforma:', navigator.platform);
+  console.log('[PWA] User Agent:', navigator.userAgent);
   
   // Prevent Chrome 67 and earlier from automatically showing the prompt
   e.preventDefault();
@@ -758,7 +777,8 @@ window.addEventListener('beforeinstallprompt', (e) => {
   // Stash the event so it can be triggered later
   deferredPrompt = e;
   
-  console.log('[PWA] Evento beforeinstallprompt armazenado para uso posterior');
+  console.log('[PWA] deferredPrompt disponível para uso');
+  console.log('[PWA] PWA é instalável pelo navegador');
 });
 
 // Function to show iOS install instructions
@@ -926,59 +946,57 @@ function showDesktopInstallInstructions() {
   });
 }
 
-// Handle install button click (Android/Apple)
+// Handle install button click (Mobile - Android/iOS)
 if (installButton) {
   installButton.addEventListener('click', async () => {
     console.log('[PWA] Botão mobile clicado');
     
-    if (deferredPrompt) {
-      console.log('[PWA] Instalação iniciada com prompt nativo');
+    if (isIOSDevice()) {
+      console.log('[PWA] iOS/iPadOS detectado, mostrando instruções específicas');
+      showIOSInstallInstructions();
+    } else if (deferredPrompt) {
+      console.log('[PWA] Android com beforeinstallprompt disponível, iniciando instalação nativa');
       // Show the install prompt
       deferredPrompt.prompt();
       
       // Wait for the user to respond to the prompt
       const { outcome } = await deferredPrompt.userChoice;
-      console.log('[PWA] Resultado da instalação:', outcome);
+      console.log('[PWA] Resultado da instalação Android:', outcome);
       
       // We've used the prompt, and can't use it again, throw it away
       deferredPrompt = null;
       console.log('[PWA] deferredPrompt limpo (evento consumido)');
       
       // NOTA: Não escondemos os botões aqui. Eles continuam visíveis
-      // para que o usuário possa tentar novamente ou usar instruções alternativas
-    } else if (isIOSDevice()) {
-      console.log('[PWA] iOS detectado, mostrando instruções');
-      showIOSInstallInstructions();
     } else {
-      console.log('[PWA] beforeinstallprompt indisponível, mostrando instruções');
-      // Fallback for browsers without native install - show instructions
-      showDesktopInstallInstructions();
+      console.log('[PWA] Android sem beforeinstallprompt disponível');
+      // Android sem prompt nativo - não abrir modal desktop
+      // Botão continua visível para tentativas futuras
     }
   });
 }
 
-// Handle install button click (Generic/Desktop)
+// Handle install button click (Desktop)
 if (installButtonGeneric) {
   installButtonGeneric.addEventListener('click', async () => {
     console.log('[PWA] Botão desktop clicado');
     
     if (deferredPrompt) {
-      console.log('[PWA] Instalação iniciada com prompt nativo');
+      console.log('[PWA] Desktop com beforeinstallprompt disponível, iniciando instalação nativa');
       // Show the install prompt
       deferredPrompt.prompt();
       
       // Wait for the user to respond to the prompt
       const { outcome } = await deferredPrompt.userChoice;
-      console.log('[PWA] Resultado da instalação:', outcome);
+      console.log('[PWA] Resultado da instalação Desktop:', outcome);
       
       // We've used the prompt, and can't use it again, throw it away
       deferredPrompt = null;
       console.log('[PWA] deferredPrompt limpo (evento consumido)');
       
       // NOTA: Não escondemos os botões aqui. Eles continuam visíveis
-      // para que o usuário possa tentar novamente ou usar instruções alternativas
     } else {
-      console.log('[PWA] beforeinstallprompt indisponível no desktop, mostrando instruções');
+      console.log('[PWA] Desktop sem beforeinstallprompt disponível, mostrando instruções');
       // Show instructions for manual installation
       showDesktopInstallInstructions();
     }
