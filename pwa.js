@@ -6,19 +6,9 @@
 (function () {
     'use strict';
 
-    // Só executa em desktop
-    function isMobile() {
-        return /iphone|ipad|ipod|android/i.test(window.navigator.userAgent);
-    }
-
-    if (isMobile()) {
-        console.info('[W.Tracks PWA] Dispositivo móvel detectado, usando mobile.js');
-        return; // Não executa o código de PWA desktop em mobile
-    }
-
     let deferredInstallPrompt = null;
 
-    const INSTALL_BUTTON_SELECTOR = '.welcome-download-desktop';
+    const INSTALL_BUTTON_SELECTOR = '.welcome-download-desktop, .welcome-download-device';
 
     /* ============================================================
        DETECÇÃO

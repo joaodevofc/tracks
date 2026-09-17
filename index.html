@@ -13,16 +13,7 @@
     <link rel="stylesheet" href="styles_3.css">
     <link rel="stylesheet" href="mobile.css" media="(max-width: 768px)">
     <link rel="icon" type="image/png" href="icon-black-transparent.png">
-    <script>
-        // Detecta dispositivo e carrega o manifest apropriado
-        (function() {
-            const isMobile = /iphone|ipad|ipod|android/i.test(navigator.userAgent);
-            const manifestLink = document.createElement('link');
-            manifestLink.rel = 'manifest';
-            manifestLink.href = isMobile ? './manifest-mobile.json' : './manifest.json';
-            document.head.appendChild(manifestLink);
-        })();
-    </script>
+    <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#000000">
 
     <!-- Firebase SDK -->
@@ -81,7 +72,6 @@
     <script src="firestore-sync.js"></script>
     <script src="setlists.js"></script>
     <script src="pwa.js"></script>
-    <script src="mobile.js"></script>
     <script>
         // Telegram support function
         function openTelegramSupport() {
@@ -526,7 +516,7 @@
                             </a>
                         </div>
                         <div class="welcome-download-icons">
-                            <a href="#" class="welcome-download-device" aria-label="Instalar no celular">
+                            <a href="#" class="welcome-download-device" aria-label="Baixe no seu dispositivo">
                                 <svg class="download-device-icon" viewBox="0 0 48 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                                     <!-- Android -->
                                     <g>
@@ -545,9 +535,9 @@
                                     </g>
                                 </svg>
 
-                                <span>Instalar no celular</span>
+                                <span>Baixe no seu dispositivo</span>
                             </a>
-                            <a href="#" class="welcome-download-desktop" aria-label="Instalar no PC">
+                            <a href="#" class="welcome-download-desktop" aria-label="Baixe no seu PC">
                                 <svg class="download-desktop-icon" viewBox="0 0 72 24" fill="currentColor">
                                     <!-- Windows -->
                                     <g>
@@ -573,7 +563,7 @@
                                     </g>
                                 </svg>
 
-                                <span>Instalar no PC</span>
+                                <span>Baixe no seu PC</span>
                             </a>
                         </div>
                     </div>

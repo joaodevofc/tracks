@@ -23,7 +23,7 @@
  * - arquivos de áudio
  */
 
-const CACHE_VERSION = 'wtracks-v3';
+const CACHE_VERSION = 'wtracks-pc-v2';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 
 /*
@@ -37,7 +37,6 @@ const STATIC_ASSETS = [
     './',
     './index.html',
     './manifest.json',
-    './manifest-mobile.json',
 
     './styles.css',
     './styles_3.css',
@@ -54,7 +53,6 @@ const STATIC_ASSETS = [
     './planUtils.js',
     './communitytracks.js',
     './pwa.js',
-    './mobile.js',
 
     './icon-black-transparent.png',
     './icon-white-transparent.png'
