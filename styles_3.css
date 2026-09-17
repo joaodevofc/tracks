@@ -490,12 +490,6 @@
   display: none !important;
 }
 
-/* Ambos os botões aparecem sempre (não esconde por dispositivo) */
-.welcome-download-desktop,
-.welcome-download-device {
-  display: inline-flex !important;
-}
-
 .welcome-download-desktop .download-desktop-icon {
   width: 72px;
   height: 24px;
