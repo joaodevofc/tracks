@@ -33,33 +33,42 @@ const STATIC_ASSETS = [
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
+    console.log('[PWA] Service Worker instalando...');
     event.waitUntil(
         caches.open(STATIC_CACHE)
             .then((cache) => {
-                console.log('Caching static assets');
+                console.log('[PWA] Cache aberto:', STATIC_CACHE);
+                console.log('[PWA] Caching static assets:', STATIC_ASSETS.length, 'arquivos');
                 return cache.addAll(STATIC_ASSETS);
             })
             .then(() => {
+                console.log('[PWA] Static assets cacheados com sucesso');
                 return self.skipWaiting();
+            })
+            .catch((error) => {
+                console.error('[PWA] Erro ao cachear static assets:', error);
             })
     );
 });
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
+    console.log('[PWA] Service Worker ativando...');
     event.waitUntil(
         caches.keys()
             .then((cacheNames) => {
+                console.log('[PWA] Caches existentes:', cacheNames);
                 return Promise.all(
                     cacheNames.map((cacheName) => {
                         if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE) {
-                            console.log('Deleting old cache:', cacheName);
+                            console.log('[PWA] Deletando cache antigo:', cacheName);
                             return caches.delete(cacheName);
                         }
                     })
                 );
             })
             .then(() => {
+                console.log('[PWA] Limpeza de caches concluída');
                 return self.clients.claim();
             })
     );

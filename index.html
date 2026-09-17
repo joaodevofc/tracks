@@ -369,7 +369,7 @@ footer{border-top:1px solid var(--line);padding:50px 0 28px}
       <h1>Suas stems organizadas.<br>Prontas pra tocar ao vivo.</h1>
       <p class="lede">O W.Tracks guarda os stems de cada música em um só projeto. Ajuste o volume de cada instrumento, acompanhe o andamento e troque de aparelho sem perder nada — direto do celular, do tablet ou do computador.</p>
       <div class="hero-actions">
- <button id="installPWA" class="btn btn-ghost" style="display:inline-flex;align-items:center;gap:8px;color:var(--paper)">
+ <button id="installPWA" class="btn btn-ghost" style="align-items:center;gap:8px;color:var(--paper)">
 
   <!-- Android -->
   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -387,7 +387,7 @@ footer{border-top:1px solid var(--line);padding:50px 0 28px}
 
 </button>
 
-        <button id="installPWAGeneric" class="btn btn-ghost" style="display:inline-flex;align-items:center;gap:8px;color:var(--paper)">
+        <button id="installPWAGeneric" class="btn btn-ghost" style="align-items:center;gap:8px;color:var(--paper)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
             <line x1="8" y1="21" x2="16" y2="21"></line>
@@ -647,6 +647,24 @@ footer{border-top:1px solid var(--line);padding:50px 0 28px}
 </section>
 
 <script>
+// PWA Service Worker Registration
+console.log('[PWA] Inicializando sistema de instalação');
+
+if ('serviceWorker' in navigator) {
+  const swPath = '/tracks/sw.js';
+  console.log('[PWA] Registrando Service Worker:', swPath);
+  
+  navigator.serviceWorker.register(swPath)
+    .then((registration) => {
+      console.log('[PWA] Service Worker registrado com sucesso:', registration.scope);
+    })
+    .catch((error) => {
+      console.error('[PWA] Erro ao registrar Service Worker:', error);
+    });
+} else {
+  console.log('[PWA] Service Worker não disponível neste navegador');
+}
+
 // PWA Installation Handler
 let deferredPrompt;
 const installButton = document.getElementById('installPWA');
@@ -680,110 +698,304 @@ function isMobileDevice() {
     return false;
 }
 
-// Hide install buttons initially if PWA is not installable
-if (installButton) {
-  installButton.style.display = 'none';
+// iOS/iPadOS specific detection
+function isIOSDevice() {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    
+    // iOS detection (iPhone, iPad, iPod)
+    if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+        return true;
+    }
+    
+    // iPadOS detection (iPad identifies as desktop)
+    if (navigator.maxTouchPoints > 0 && /Macintosh/.test(userAgent)) {
+        return true;
+    }
+    
+    return false;
 }
-if (installButtonGeneric) {
-  installButtonGeneric.style.display = 'none';
+
+// Check if already running as PWA
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                     window.navigator.standalone === true;
+
+console.log('[PWA] Verificando estado de instalação...');
+console.log('[PWA] Dispositivo mobile:', isMobileDevice());
+console.log('[PWA] Dispositivo iOS/iPadOS:', isIOSDevice());
+console.log('[PWA] Executando como PWA:', isStandalone);
+
+// Hide install buttons ONLY if PWA is actually already installed (running as standalone)
+if (isStandalone) {
+  console.log('[PWA] PWA já instalado e executando como standalone, ocultando botões de instalação');
+  if (installButton) {
+    installButton.style.display = 'none';
+  }
+  if (installButtonGeneric) {
+    installButtonGeneric.style.display = 'none';
+  }
+} else {
+  // Show buttons based on device type - keep them visible for normal browsing
+  if (isMobileDevice()) {
+    console.log('[PWA] Dispositivo mobile detectado, mostrando botão mobile');
+    if (installButton) {
+      installButton.style.display = 'inline-flex';
+    }
+  } else {
+    console.log('[PWA] Dispositivo desktop detectado, mostrando botão desktop');
+    if (installButtonGeneric) {
+      installButtonGeneric.style.display = 'inline-flex';
+    }
+  }
 }
 
 // Listen for beforeinstallprompt event
 window.addEventListener('beforeinstallprompt', (e) => {
+  console.log('[PWA] beforeinstallprompt recebido');
+  
   // Prevent Chrome 67 and earlier from automatically showing the prompt
   e.preventDefault();
   
   // Stash the event so it can be triggered later
   deferredPrompt = e;
   
-  // Show the install buttons
-  if (installButton) {
-    installButton.style.display = 'inline-flex';
-  }
-  if (installButtonGeneric) {
-    installButtonGeneric.style.display = 'inline-flex';
-  }
+  console.log('[PWA] Evento beforeinstallprompt armazenado para uso posterior');
 });
+
+// Function to show iOS install instructions
+function showIOSInstallInstructions() {
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(11, 11, 13, 0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 20px;
+  `;
+  
+  modal.innerHTML = `
+    <div style="
+      background: linear-gradient(160deg, #1a1a1f, #0f0f12);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 20px;
+      padding: 30px;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+    ">
+      <h3 style="
+        font-family: 'Bricolage Grotesque', Arial, sans-serif;
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin-bottom: 20px;
+        color: #f3f1ec;
+      ">Instalar no iPhone/iPad</h3>
+      
+      <div style="text-align: left; margin-bottom: 25px;">
+        <div style="margin-bottom: 15px;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #85858a; margin-bottom: 5px;">PASSO 1</div>
+          <div style="font-size: 14px; color: #c4c4c8;">Toque no botão <strong>Compartilhar</strong> (ícone de seta para cima) na barra do navegador</div>
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #85858a; margin-bottom: 5px;">PASSO 2</div>
+          <div style="font-size: 14px; color: #c4c4c8;">Role para baixo e toque em <strong>"Adicionar à Tela de Início"</strong></div>
+        </div>
+        
+        <div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #85858a; margin-bottom: 5px;">PASSO 3</div>
+          <div style="font-size: 14px; color: #c4c4c8;">Toque em <strong>"Adicionar"</strong> no canto superior direito</div>
+        </div>
+      </div>
+      
+      <button id="closeIOSModal" style="
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 42px;
+        padding: 0 20px;
+        border: 1px solid rgba(255, 255, 255, 0.17);
+        border-radius: 9px;
+        font-size: 13.5px;
+        font-weight: 600;
+        background: #f3f1ec;
+        color: #0b0b0d;
+        cursor: pointer;
+        transition: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      ">Entendi</button>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  document.getElementById('closeIOSModal').addEventListener('click', () => {
+    document.body.removeChild(modal);
+  });
+  
+  // Close on backdrop click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      document.body.removeChild(modal);
+    }
+  });
+}
+
+// Function to show desktop install instructions
+function showDesktopInstallInstructions() {
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(11, 11, 13, 0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 20px;
+  `;
+  
+  modal.innerHTML = `
+    <div style="
+      background: linear-gradient(160deg, #1a1a1f, #0f0f12);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 20px;
+      padding: 30px;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+    ">
+      <h3 style="
+        font-family: 'Bricolage Grotesque', Arial, sans-serif;
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin-bottom: 20px;
+        color: #f3f1ec;
+      ">Instalar no Desktop</h3>
+      
+      <div style="text-align: left; margin-bottom: 25px;">
+        <div style="margin-bottom: 15px;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #85858a; margin-bottom: 5px;">CHROME/EDGE</div>
+          <div style="font-size: 14px; color: #c4c4c8;">Clique no ícone de <strong>Instalar</strong> na barra de endereço (📲 ou ⬇️)</div>
+        </div>
+        
+        <div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #85858a; margin-bottom: 5px;">FIREFOX</div>
+          <div style="font-size: 14px; color: #c4c4c8;">Abra o menu (☰) e selecione <strong>"Instalar este site como aplicativo"</strong></div>
+        </div>
+      </div>
+      
+      <button id="closeDesktopModal" style="
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 42px;
+        padding: 0 20px;
+        border: 1px solid rgba(255, 255, 255, 0.17);
+        border-radius: 9px;
+        font-size: 13.5px;
+        font-weight: 600;
+        background: #f3f1ec;
+        color: #0b0b0d;
+        cursor: pointer;
+        transition: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      ">Entendi</button>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  document.getElementById('closeDesktopModal').addEventListener('click', () => {
+    document.body.removeChild(modal);
+  });
+  
+  // Close on backdrop click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      document.body.removeChild(modal);
+    }
+  });
+}
 
 // Handle install button click (Android/Apple)
 if (installButton) {
   installButton.addEventListener('click', async () => {
+    console.log('[PWA] Botão mobile clicado');
+    
     if (deferredPrompt) {
+      console.log('[PWA] Instalação iniciada com prompt nativo');
       // Show the install prompt
       deferredPrompt.prompt();
       
       // Wait for the user to respond to the prompt
       const { outcome } = await deferredPrompt.userChoice;
+      console.log('[PWA] Resultado da instalação:', outcome);
       
       // We've used the prompt, and can't use it again, throw it away
       deferredPrompt = null;
+      console.log('[PWA] deferredPrompt limpo (evento consumido)');
       
-      // Hide the install buttons
-      if (installButton) {
-        installButton.style.display = 'none';
-      }
-      if (installButtonGeneric) {
-        installButtonGeneric.style.display = 'none';
-      }
-      
-      console.log(`PWA installation ${outcome}`);
+      // NOTA: Não escondemos os botões aqui. Eles continuam visíveis
+      // para que o usuário possa tentar novamente ou usar instruções alternativas
+    } else if (isIOSDevice()) {
+      console.log('[PWA] iOS detectado, mostrando instruções');
+      showIOSInstallInstructions();
     } else {
-      // If no deferred prompt, redirect to /tracks/ as fallback
-      window.location.href = '/tracks/';
+      console.log('[PWA] beforeinstallprompt indisponível, mostrando instruções');
+      // Fallback for browsers without native install - show instructions
+      showDesktopInstallInstructions();
     }
   });
 }
 
-// Handle install button click (Generic)
+// Handle install button click (Generic/Desktop)
 if (installButtonGeneric) {
   installButtonGeneric.addEventListener('click', async () => {
+    console.log('[PWA] Botão desktop clicado');
+    
     if (deferredPrompt) {
+      console.log('[PWA] Instalação iniciada com prompt nativo');
       // Show the install prompt
       deferredPrompt.prompt();
       
       // Wait for the user to respond to the prompt
       const { outcome } = await deferredPrompt.userChoice;
+      console.log('[PWA] Resultado da instalação:', outcome);
       
       // We've used the prompt, and can't use it again, throw it away
       deferredPrompt = null;
+      console.log('[PWA] deferredPrompt limpo (evento consumido)');
       
-      // Hide the install buttons
-      if (installButton) {
-        installButton.style.display = 'none';
-      }
-      if (installButtonGeneric) {
-        installButtonGeneric.style.display = 'none';
-      }
-      
-      console.log(`PWA installation ${outcome}`);
+      // NOTA: Não escondemos os botões aqui. Eles continuam visíveis
+      // para que o usuário possa tentar novamente ou usar instruções alternativas
     } else {
-      // If no deferred prompt, redirect to /tracks/ as fallback
-      window.location.href = '/tracks/';
+      console.log('[PWA] beforeinstallprompt indisponível no desktop, mostrando instruções');
+      // Show instructions for manual installation
+      showDesktopInstallInstructions();
     }
   });
 }
 
-// Hide install buttons if PWA is already installed
+// Hide install buttons if PWA is actually installed
 window.addEventListener('appinstalled', () => {
+  console.log('[PWA] PWA instalado com sucesso (evento appinstalled)');
+  // Only hide buttons when installation is confirmed
   if (installButton) {
     installButton.style.display = 'none';
   }
   if (installButtonGeneric) {
     installButtonGeneric.style.display = 'none';
   }
-  console.log('PWA was installed');
 });
-
-// Check if already running as PWA
-if (window.matchMedia('(display-mode: standalone)').matches || 
-    window.navigator.standalone === true) {
-  if (installButton) {
-    installButton.style.display = 'none';
-  }
-  if (installButtonGeneric) {
-    installButtonGeneric.style.display = 'none';
-  }
-}
 </script>
 
 
