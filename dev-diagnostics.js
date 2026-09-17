@@ -1020,40 +1020,69 @@ function updateDateTimeUI() {
 /**
  * Toggle maintenance mode
  */
-function toggleMaintenanceMode() {
+async function toggleMaintenanceMode() {
     isMaintenanceMode = !isMaintenanceMode;
     
     const btn = document.getElementById('toggleMaintenanceBtn');
     
     if (isMaintenanceMode) {
-        localStorage.setItem('wtracks_maintenance_mode', 'true');
-        console.log('[MAINTENANCE] Site em modo de manutenção');
-        
-        if (btn) {
-            btn.textContent = 'ON';
-            btn.style.background = '#4ade80';
-            btn.style.color = '#000';
-        }
-        
-        // Show confirmation before redirecting
-        if (confirm('Deseja colocar o site em modo de manutenção? Isso redirecionará todos os usuários para a página 404.')) {
-            window.location.href = '/404.html';
-        } else {
+        try {
+            if (!window.firebaseDB) {
+                alert('Firebase não disponível');
+                isMaintenanceMode = false;
+                return;
+            }
+            
+            const { db, doc, setDoc } = window.firebaseDB;
+            await setDoc(doc(db, 'config', 'site'), { maintenanceMode: true }, { merge: true });
+            
+            console.log('[MAINTENANCE] Site em modo de manutenção (Firestore)');
+            
+            if (btn) {
+                btn.textContent = 'ON';
+                btn.style.background = '#4ade80';
+                btn.style.color = '#000';
+            }
+            
+            // Show confirmation before redirecting
+            if (confirm('Deseja colocar o site em modo de manutenção? Isso redirecionará todos os usuários para a página 404.')) {
+                window.location.href = '/404.html';
+            } else {
+                isMaintenanceMode = false;
+                await setDoc(doc(db, 'config', 'site'), { maintenanceMode: false }, { merge: true });
+                if (btn) {
+                    btn.textContent = 'OFF';
+                    btn.style.background = 'rgba(255, 255, 255, 0.1)';
+                    btn.style.color = '#888';
+                }
+            }
+        } catch (error) {
+            console.error('[MAINTENANCE] Error setting maintenance mode:', error);
+            alert('Erro ao ativar modo de manutenção: ' + error.message);
             isMaintenanceMode = false;
-            localStorage.removeItem('wtracks_maintenance_mode');
+        }
+    } else {
+        try {
+            if (!window.firebaseDB) {
+                alert('Firebase não disponível');
+                isMaintenanceMode = true;
+                return;
+            }
+            
+            const { db, doc, setDoc } = window.firebaseDB;
+            await setDoc(doc(db, 'config', 'site'), { maintenanceMode: false }, { merge: true });
+            
+            console.log('[MAINTENANCE] Site normal (Firestore)');
+            
             if (btn) {
                 btn.textContent = 'OFF';
                 btn.style.background = 'rgba(255, 255, 255, 0.1)';
                 btn.style.color = '#888';
             }
-        }
-    } else {
-        localStorage.removeItem('wtracks_maintenance_mode');
-        console.log('[MAINTENANCE] Site normal');
-        if (btn) {
-            btn.textContent = 'OFF';
-            btn.style.background = 'rgba(255, 255, 255, 0.1)';
-            btn.style.color = '#888';
+        } catch (error) {
+            console.error('[MAINTENANCE] Error disabling maintenance mode:', error);
+            alert('Erro ao desativar modo de manutenção: ' + error.message);
+            isMaintenanceMode = true;
         }
     }
 }
@@ -1061,23 +1090,44 @@ function toggleMaintenanceMode() {
 /**
  * Check maintenance mode on page load
  */
-function checkMaintenanceMode() {
-    const maintenanceMode = localStorage.getItem('wtracks_maintenance_mode');
+async function checkMaintenanceMode() {
+    // First check dev mode - if active, exit immediately without any Firestore read
     const devMode = localStorage.getItem('wtracks_dev_mode');
+    if (devMode === 'true') {
+        console.log('[MAINTENANCE] Dev mode active, skipping maintenance check');
+        return;
+    }
     
-    // Only redirect if maintenance mode is on AND dev mode is off
-    if (maintenanceMode === 'true' && devMode !== 'true') {
-        // Only redirect if not already on 404 page
-        if (!window.location.pathname.includes('404.html')) {
-            window.location.href = '/404.html';
+    // Only check Firestore if dev mode is not active
+    try {
+        if (!window.firebaseDB) {
+            console.warn('[MAINTENANCE] Firebase not available, skipping maintenance check');
+            return;
         }
+        
+        const { db, doc, getDoc } = window.firebaseDB;
+        const configDoc = await getDoc(doc(db, 'config', 'site'));
+        
+        if (configDoc.exists()) {
+            const maintenanceMode = configDoc.data().maintenanceMode;
+            
+            if (maintenanceMode === true) {
+                console.log('[MAINTENANCE] Site in maintenance mode, redirecting to 404');
+                // Only redirect if not already on 404 page
+                if (!window.location.pathname.includes('404.html')) {
+                    window.location.href = '/404.html';
+                }
+            }
+        }
+    } catch (error) {
+        console.error('[MAINTENANCE] Error checking maintenance mode:', error);
     }
 }
 
 /**
  * Show diagnostics panel
  */
-function showDiagnosticsPanel() {
+async function showDiagnosticsPanel() {
     createDiagnosticsPanel();
     initializeDiagnostics();
     
@@ -1086,13 +1136,24 @@ function showDiagnosticsPanel() {
     if (maintenanceBtn) {
         maintenanceBtn.addEventListener('click', toggleMaintenanceMode);
         
-        // Check current maintenance mode state
-        const currentMode = localStorage.getItem('wtracks_maintenance_mode');
-        if (currentMode === 'true') {
-            isMaintenanceMode = true;
-            maintenanceBtn.textContent = 'ON';
-            maintenanceBtn.style.background = '#4ade80';
-            maintenanceBtn.style.color = '#000';
+        // Check current maintenance mode state from Firestore
+        try {
+            if (window.firebaseDB) {
+                const { db, doc, getDoc } = window.firebaseDB;
+                const configDoc = await getDoc(doc(db, 'config', 'site'));
+                
+                if (configDoc.exists()) {
+                    const maintenanceMode = configDoc.data().maintenanceMode;
+                    if (maintenanceMode === true) {
+                        isMaintenanceMode = true;
+                        maintenanceBtn.textContent = 'ON';
+                        maintenanceBtn.style.background = '#4ade80';
+                        maintenanceBtn.style.color = '#000';
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('[MAINTENANCE] Error checking current maintenance mode:', error);
         }
     }
 }

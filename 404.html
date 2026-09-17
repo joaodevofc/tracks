@@ -88,39 +88,6 @@
             height: 120px;
             opacity: 0.5;
         }
-
-        .dev-panel {
-            margin-top: 40px;
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
-            display: none;
-        }
-
-        .dev-panel.active {
-            display: block;
-        }
-
-        .dev-panel input {
-            width: 100%;
-            padding: 10px;
-            background: #111;
-            border: 1px solid #333;
-            border-radius: 4px;
-            color: #fff;
-            margin-bottom: 10px;
-        }
-
-        .dev-panel button {
-            width: 100%;
-            padding: 10px;
-            background: #4ade80;
-            color: #000;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: 500;
-        }
     </style>
 </head>
 <body>
@@ -138,38 +105,14 @@
             A página que você está procurando não existe ou foi movida para outro lugar.
         </p>
         <a href="/" class="btn">Voltar para o início</a>
-        <button class="btn btn-secondary" id="devToggle">Painel Dev</button>
-        
-        <div class="dev-panel" id="devPanel">
-            <input type="text" id="devKey" placeholder="Chave de desenvolvimento">
-            <button id="devSubmit">Reativar site</button>
-        </div>
     </div>
 
     <script>
-        const DEV_MODE_SECRET_UID = 'CesU7HhFpFPCzDGBZHrn4pNEygr2';
-        
         // Check if dev mode is active - if so, allow bypass
         const devMode = localStorage.getItem('wtracks_dev_mode');
         if (devMode === 'true') {
-            localStorage.removeItem('wtracks_maintenance_mode');
             window.location.href = '/';
         }
-        
-        document.getElementById('devToggle').addEventListener('click', () => {
-            document.getElementById('devPanel').classList.toggle('active');
-        });
-
-        document.getElementById('devSubmit').addEventListener('click', () => {
-            const key = document.getElementById('devKey').value;
-            if (key === DEV_MODE_SECRET_UID) {
-                localStorage.removeItem('wtracks_maintenance_mode');
-                localStorage.setItem('wtracks_dev_mode', 'true');
-                window.location.href = '/';
-            } else {
-                alert('Chave inválida');
-            }
-        });
     </script>
 </body>
 </html>

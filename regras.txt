@@ -193,6 +193,18 @@ service cloud.firestore {
 
 
     // ============================================================
+    // CONFIGURAÇÃO
+    // ============================================================
+
+    match /config/{configId} {
+      // Qualquer um pode ler configurações (para checar manutenção)
+      allow read: if true;
+
+      // Apenas admin pode escrever configurações
+      allow write: if isAuthorizedAdmin();
+    }
+
+    // ============================================================
     // USUARIOS
     // ============================================================
 
