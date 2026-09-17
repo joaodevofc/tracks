@@ -39,13 +39,13 @@
       "purpose": "any"
     },
     {
-      "src": "/tracks/icon-white-transparent.png",
+      "src": "/tracks/icon-black-transparent.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/tracks/icon-white-transparent.png",
+      "src": "/tracks/icon-black-transparent.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

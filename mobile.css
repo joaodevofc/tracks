@@ -278,10 +278,7 @@ html, body {
     padding: var(--spacing-sm);
 }
 
-/* Hide header actions on mobile */
-.header-actions {
-    display: none !important;
-}
+
 
 .music-selector {
     padding: var(--spacing-xs) var(--spacing-md);
