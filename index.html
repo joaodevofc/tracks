@@ -11,8 +11,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="W.Tracks">
-<link rel="apple-touch-icon" href="/tracks/icon-black-transparent.png">
-<link rel="icon" type="image/png" href="/tracks/icon-black-transparent.png">
+<link rel="apple-touch-icon" href="icon-black-transparent.png">
+<link rel="icon" type="image/png" href="icon-black-transparent.png">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -48,7 +48,7 @@
         return false;
     }
     
-    const manifestPath = isMobileDevice() ? '/tracks/manifest-mobile.json' : '/tracks/manifest-pc.json';
+    const manifestPath = isMobileDevice() ? 'manifest-mobile.json' : 'manifest-pc.json';
     const link = document.createElement('link');
     link.rel = 'manifest';
     link.href = manifestPath;
@@ -652,7 +652,7 @@ console.log('[PWA] Inicializando sistema de instalação');
 console.log('[PWA] Verificando suporte a Service Worker...');
 
 if ('serviceWorker' in navigator) {
-  const swPath = '/tracks/sw.js';
+  const swPath = 'sw.js';
   console.log('[PWA] Registrando Service Worker:', swPath);
   
   navigator.serviceWorker.register(swPath)

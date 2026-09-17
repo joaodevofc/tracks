@@ -11,23 +11,14 @@ const DYNAMIC_CACHE = `multracks-dynamic-v${VERSION}`;
 
 // Assets to cache on install (PWA only - NOT the track editor)
 const STATIC_ASSETS = [
-    '/tracks/',
-    '/tracks/index.html',
-    '/tracks/planos.html',
-    '/tracks/sucesso.html',
-    '/tracks/equipewtracks.html',
-    '/tracks/styles.css',
-    '/tracks/mobile.css',
-    '/tracks/storage.js',
-    '/tracks/audiostorage.js',
-    '/tracks/player.js',
-    '/tracks/app.js',
-    '/tracks/setlists.js',
-    '/tracks/manifest-pc.json',
-    '/tracks/manifest-mobile.json',
-    '/tracks/icon-black-transparent.png',
-    '/tracks/icon-white-transparent.png'
-    // NOTE: track-editor.html and track-editor.js are NOT cached
+    './',
+    './index.html',
+    './manifest-pc.json',
+    './manifest-mobile.json',
+    './icon-black-transparent.png',
+    './icon-white-transparent.png'
+    // NOTE: Other app files are not cached here to ensure fresh loads
+    // track-editor.html and track-editor.js are NOT cached
     // to ensure the editor always loads fresh and independently
 ];
 
