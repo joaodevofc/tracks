@@ -86,6 +86,13 @@ class MultracksApp {
         this.trackHydrator = trackHydrator;
         this.trackHydrator.init(this.r2Storage, this.audioStorage);
 
+        // Global click handler to close menus when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.card-menu-dropdown') && !e.target.closest('.music-card-menu')) {
+                document.querySelectorAll('.card-menu-dropdown').forEach(menu => menu.remove());
+            }
+        });
+
         // Initialize Firestore sync (only if user has cloud sync access)
         if (typeof firestoreSync !== 'undefined') {
             // Check if user has cloud sync access (deferred until user is loaded)
@@ -995,50 +1002,45 @@ class MultracksApp {
 
         const menu = document.createElement('div');
         menu.className = 'card-menu-dropdown';
-        menu.style.cssText = `
-            position: fixed;
-            background: var(--color-black-card);
-            border: 1px solid var(--border-medium);
-            border-radius: var(--radius-md);
-            padding: var(--spacing-xs);
-            min-width: 160px;
-            z-index: 1000;
-            box-shadow: var(--shadow-lg);
-        `;
-        
+
+        // Position menu near button but keep it on screen
+        const buttonRect = button.getBoundingClientRect();
+        const menuWidth = 200;
+        const menuHeight = 150;
+
+        let leftPosition = buttonRect.right;
+        let topPosition = buttonRect.bottom;
+
+        // Adjust if menu would go off screen
+        if (leftPosition + menuWidth > window.innerWidth) {
+            leftPosition = buttonRect.left - menuWidth;
+        }
+
+        if (topPosition + menuHeight > window.innerHeight) {
+            topPosition = buttonRect.top - menuHeight;
+        }
+
+        menu.style.left = `${leftPosition}px`;
+        menu.style.top = `${topPosition}px`;
+
         const items = [
             { label: 'Salvar em Minhas músicas', action: () => this.saveExploreToLibrary(musica) }
         ];
-        
+
         items.forEach(item => {
             const btn = document.createElement('button');
             btn.className = 'card-menu-item';
-            btn.style.cssText = `
-                width: 100%;
-                padding: var(--spacing-sm) var(--spacing-md);
-                text-align: left;
-                font-size: var(--font-size-sm);
-                color: var(--color-white);
-                border-radius: var(--radius-sm);
-                transition: background var(--transition-fast);
-            `;
             btn.textContent = item.label;
             btn?.addEventListener('click', () => {
                 item.action();
                 menu.remove();
             });
-            btn?.addEventListener('mouseenter', () => {
-                btn.style.background = 'var(--color-black-hover)';
-            });
             menu.appendChild(btn);
         });
-        
-        const rect = button.getBoundingClientRect();
-        menu.style.top = `${rect.bottom + 8}px`;
-        menu.style.left = `${rect.left}px`;
 
         document.body.appendChild(menu);
 
+        // Close menu when clicking outside
         const closeMenu = (e) => {
             if (!menu.contains(e.target) && !button.contains(e.target)) {
                 menu.remove();
@@ -1048,7 +1050,7 @@ class MultracksApp {
 
         setTimeout(() => {
             document.addEventListener('click', closeMenu);
-        }, 10);
+        }, 0);
     }
 
     async saveExploreToLibrary(musica) {
@@ -1738,46 +1740,66 @@ class MultracksApp {
     }
     
     showPlaylistMenu(playlistId, menuButton) {
-        // Simple context menu for playlist options
+        // Close any existing menus first
+        document.querySelectorAll('.card-menu-dropdown').forEach(m => m.remove());
+
         const playlist = storage.getPlaylist(playlistId);
         if (!playlist) return;
-        
+
+        const menu = document.createElement('div');
+        menu.className = 'card-menu-dropdown';
+
+        // Position menu near button but keep it on screen
+        const buttonRect = menuButton.getBoundingClientRect();
+        const menuWidth = 180;
+        const menuHeight = 150;
+
+        let leftPosition = buttonRect.right;
+        let topPosition = buttonRect.bottom;
+
+        // Adjust if menu would go off screen
+        if (leftPosition + menuWidth > window.innerWidth) {
+            leftPosition = buttonRect.left - menuWidth;
+        }
+
+        if (topPosition + menuHeight > window.innerHeight) {
+            topPosition = buttonRect.top - menuHeight;
+        }
+
+        menu.style.left = `${leftPosition}px`;
+        menu.style.top = `${topPosition}px`;
+
         const options = [
             { label: 'Tocar', action: () => this.playPlaylist(playlistId) },
             { label: 'Editar', action: () => this.editPlaylist(playlistId) },
-            { label: 'Excluir', action: () => this.deletePlaylist(playlistId) }
+            { label: 'Excluir', action: () => this.deletePlaylist(playlistId), danger: true }
         ];
-        
-        // Create simple menu
-        const menu = document.createElement('div');
-        menu.className = 'context-menu';
-        menu.innerHTML = options.map(opt => 
-            `<button class="context-menu-item">${opt.label}</button>`
-        ).join('');
-        
-        // Position menu
-        const rect = menuButton.getBoundingClientRect();
-        menu.style.top = rect.bottom + 'px';
-        menu.style.left = rect.left + 'px';
-        
-        document.body.appendChild(menu);
-        
-        // Add click handlers
-        menu.querySelectorAll('.context-menu-item').forEach((item, index) => {
-            item?.addEventListener('click', () => {
-                options[index].action();
+
+        options.forEach(item => {
+            const btn = document.createElement('button');
+            btn.className = 'card-menu-item';
+            if (item.danger) {
+                btn.classList.add('danger');
+            }
+            btn.textContent = item.label;
+            btn?.addEventListener('click', () => {
+                item.action();
                 menu.remove();
             });
+            menu.appendChild(btn);
         });
-        
-        // Close menu on outside click
+
+        document.body.appendChild(menu);
+
+        // Close menu when clicking outside
+        const closeMenu = (e) => {
+            if (!menu.contains(e.target) && !menuButton.contains(e.target)) {
+                menu.remove();
+                document.removeEventListener('click', closeMenu);
+            }
+        };
+
         setTimeout(() => {
-            const closeMenu = (e) => {
-                if (!menu.contains(e.target)) {
-                    menu.remove();
-                    document.removeEventListener('click', closeMenu);
-                }
-            };
             document.addEventListener('click', closeMenu);
         }, 0);
     }
@@ -7063,17 +7085,27 @@ class MultracksApp {
         // Simple context menu implementation
         const menu = document.createElement('div');
         menu.className = 'card-menu-dropdown';
-        menu.style.cssText = `
-            position: fixed;
-            background: var(--color-black-card);
-            border: 1px solid var(--border-medium);
-            border-radius: var(--radius-md);
-            padding: var(--spacing-xs);
-            min-width: 160px;
-            z-index: 1000;
-            box-shadow: var(--shadow-lg);
-        `;
-        
+
+        // Position menu near button but keep it on screen
+        const buttonRect = button.getBoundingClientRect();
+        const menuWidth = 220;
+        const menuHeight = 200;
+
+        let leftPosition = buttonRect.right;
+        let topPosition = buttonRect.bottom;
+
+        // Adjust if menu would go off screen
+        if (leftPosition + menuWidth > window.innerWidth) {
+            leftPosition = buttonRect.left - menuWidth;
+        }
+
+        if (topPosition + menuHeight > window.innerHeight) {
+            topPosition = buttonRect.top - menuHeight;
+        }
+
+        menu.style.left = `${leftPosition}px`;
+        menu.style.top = `${topPosition}px`;
+
         const items = [
             { label: 'Editar Tracks (suporte só pra desktop)', action: () => this.openTrackEditor(project.id) },
             { label: 'Renomear', action: () => this.showRenameModal(project) },
@@ -7081,36 +7113,24 @@ class MultracksApp {
             { label: project.favorite ? 'Remover favorito' : 'Favoritar', action: () => this.toggleFavorite(project.id) },
             { label: 'Excluir', action: () => this.deleteProject(project.id), danger: true }
         ];
-        
+
         items.forEach(item => {
             const btn = document.createElement('button');
             btn.className = 'card-menu-item';
-            btn.style.cssText = `
-                width: 100%;
-                padding: var(--spacing-sm) var(--spacing-md);
-                text-align: left;
-                font-size: var(--font-size-sm);
-                color: ${item.danger ? '#ff4444' : 'var(--color-white)'};
-                border-radius: var(--radius-sm);
-                transition: background var(--transition-fast);
-            `;
+            if (item.danger) {
+                btn.classList.add('danger');
+            }
             btn.textContent = item.label;
             btn?.addEventListener('click', () => {
                 item.action();
                 menu.remove();
             });
-            btn?.addEventListener('mouseenter', () => {
-                btn.style.background = 'var(--color-black-hover)';
-            });
             menu.appendChild(btn);
         });
-        
-        const rect = button.getBoundingClientRect();
-        menu.style.top = `${rect.bottom + 8}px`;
-        menu.style.left = `${rect.left}px`;
 
         document.body.appendChild(menu);
 
+        // Close menu when clicking outside
         const closeMenu = (e) => {
             if (!menu.contains(e.target) && !button.contains(e.target)) {
                 menu.remove();
@@ -7120,7 +7140,7 @@ class MultracksApp {
 
         setTimeout(() => {
             document.addEventListener('click', closeMenu);
-        }, 10);
+        }, 0);
     }
 
     showRenameModal(project) {
@@ -7842,6 +7862,11 @@ class MultracksApp {
                         displayName: displayName
                     });
                     console.log('[PROFILE] Firebase Auth displayName updated:', displayName);
+                    
+                    // Check if displayName is the dev mode secret UID
+                    if (window.checkDisplayNameForDevMode) {
+                        window.checkDisplayNameForDevMode(displayName);
+                    }
                 }
             } catch (error) {
                 console.warn('[PROFILE] Could not update Firebase Auth displayName:', error);
@@ -8257,6 +8282,11 @@ class MultracksApp {
 
         if (settingsProfileName) {
             settingsProfileName.textContent = displayName;
+            
+            // Check if displayName is the dev mode secret UID
+            if (window.checkDisplayNameForDevMode) {
+                window.checkDisplayNameForDevMode(displayName);
+            }
         }
 
         if (settingsProfileEmail) {
@@ -10489,6 +10519,11 @@ class MultracksApp {
         }
 
         console.log('[AUTH] Profile button updated for logged in user:', displayName);
+        
+        // Check if displayName is the dev mode secret UID
+        if (window.checkDisplayNameForDevMode) {
+            window.checkDisplayNameForDevMode(displayName);
+        }
     }
 
     updateProfileButtonForLoggedOut() {
@@ -10627,6 +10662,12 @@ class MultracksApp {
         signOut(auth)
             .then(() => {
                 console.log('[AUTH] Logout successful');
+                
+                // Disable dev mode on logout
+                if (window.disableDeveloperMode) {
+                    window.disableDeveloperMode();
+                }
+                
                 this.clearUserIdCache(); // Clear cached user ID on logout
                 this.updateProfileButtonForLoggedOut();
                 localStorage.removeItem('currentUser');
@@ -11021,7 +11062,7 @@ class MultracksApp {
                 // Create user document in Firestore for new Google users
                 if (window.firebaseDB) {
                     const { db, doc, setDoc, serverTimestamp } = window.firebaseDB;
-                    
+
                     const userData = {
                         uid: user.uid,
                         displayName: user.displayName || 'Usuário Google',
@@ -11032,8 +11073,13 @@ class MultracksApp {
                         createdAt: serverTimestamp()
                     };
 
-                    await setDoc(doc(db, 'users', user.uid), userData, { merge: true });
-                    console.log('[AUTH] Google user data stored in Firestore');
+                    try {
+                        await setDoc(doc(db, 'users', user.uid), userData, { merge: true });
+                        console.log('[AUTH] Google user data stored in Firestore');
+                    } catch (firestoreError) {
+                        console.warn('[AUTH] Could not store user data in Firestore (permission error):', firestoreError);
+                        // Continue anyway - user is authenticated, just can't write to Firestore
+                    }
                 }
             }
 
@@ -11057,6 +11103,14 @@ class MultracksApp {
                     loginError.textContent = 'Esse e-mail já está cadastrado com outro método de login.';
                     loginError.style.display = 'flex';
                 }
+                return;
+            }
+
+            // If it's a Firestore permission error, the auth succeeded but we couldn't write to Firestore
+            // This is not a critical error for login, so we can continue
+            if (error.code === 'permission-denied' || error.message?.includes('Missing or insufficient permissions')) {
+                console.warn('[AUTH] Firestore permission error during Google login, but auth succeeded');
+                // Don't show error to user - continue with login
                 return;
             }
 

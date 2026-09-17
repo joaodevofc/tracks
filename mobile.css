@@ -278,6 +278,55 @@ html, body {
     padding: var(--spacing-sm);
 }
 
+/* Mobile music card layout - horizontal list design */
+.music-card {
+    display: flex;
+    flex-direction: row; /* Horizontal layout */
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-sm);
+}
+
+.music-card-cover {
+    aspect-ratio: 1; /* Square cover */
+    width: 80px; /* Fixed width for square cover */
+    height: 80px;
+    flex-shrink: 0; /* Prevent cover from shrinking */
+}
+
+.music-card-content {
+    padding: 0;
+    flex: 1; /* Content takes remaining space */
+}
+
+.music-card-title {
+    font-size: var(--font-size-base);
+    margin-bottom: var(--spacing-xs);
+}
+
+.music-card-meta {
+    font-size: var(--font-size-sm);
+}
+
+.music-card-date {
+    font-size: var(--font-size-xs);
+}
+
+/* Move menu button outside cover for horizontal layout */
+.music-card-menu {
+    position: static; /* Remove absolute positioning */
+    background: transparent;
+    border: none;
+    padding: var(--spacing-xs);
+    margin-left: var(--spacing-sm);
+}
+
+.music-card-menu svg {
+    stroke: var(--color-white-muted);
+}
+
+
+
 
 
 .music-selector {
@@ -298,7 +347,7 @@ html, body {
 }
 
 .music-grid {
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    grid-template-columns: 1fr; /* Single column for vertical cards on mobile */
     gap: var(--spacing-md);
 }
 
@@ -379,9 +428,7 @@ html, body {
     height: 36px;
 }
 
-.music-grid {
-    grid-template-columns: 1fr;
-}
+
 
 .filter-group {
     flex-wrap: wrap;
