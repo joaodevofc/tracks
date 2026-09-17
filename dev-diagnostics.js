@@ -556,27 +556,9 @@ function createDiagnosticsPanel() {
                     font-size: 11px;
                     font-weight: 500;
                     transition: all 0.2s;
-                    margin-bottom: 8px;
                 ">
                     Desativar Modo
                 </button>
-                
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                    <span style="color: #888; font-size: 10px;">Manutenção</span>
-                    <button id="toggleMaintenanceBtn" style="
-                        padding: 4px 12px;
-                        background: rgba(255, 255, 255, 0.1);
-                        color: #888;
-                        border: 1px solid rgba(255, 255, 255, 0.2);
-                        border-radius: 4px;
-                        cursor: pointer;
-                        font-size: 10px;
-                        font-weight: 500;
-                        transition: all 0.2s;
-                    ">
-                        OFF
-                    </button>
-                </div>
             </div>
             
             <!-- Diagnostics Section -->
