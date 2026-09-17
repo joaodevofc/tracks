@@ -8,6 +8,9 @@ let diagnosticsInterval = null;
 let timeUpdateInterval = null;
 let healthCheckInterval = null;
 
+// Maintenance mode state
+let isMaintenanceMode = false;
+
 // Diagnostics state
 const DIAGNOSTICS_STATE = {
     fps: 0,
@@ -553,9 +556,27 @@ function createDiagnosticsPanel() {
                     font-size: 11px;
                     font-weight: 500;
                     transition: all 0.2s;
+                    margin-bottom: 8px;
                 ">
                     Desativar Modo
                 </button>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                    <span style="color: #888; font-size: 10px;">Manutenção</span>
+                    <button id="toggleMaintenanceBtn" style="
+                        padding: 4px 12px;
+                        background: rgba(255, 255, 255, 0.1);
+                        color: #888;
+                        border: 1px solid rgba(255, 255, 255, 0.2);
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-size: 10px;
+                        font-weight: 500;
+                        transition: all 0.2s;
+                    ">
+                        OFF
+                    </button>
+                </div>
             </div>
             
             <!-- Diagnostics Section -->
@@ -997,20 +1018,59 @@ function updateDateTimeUI() {
 }
 
 /**
- * Show diagnostics panel
+ * Toggle maintenance mode
  */
-function showDiagnosticsPanel() {
-    createDiagnosticsPanel();
-    initializeDiagnostics();
+function toggleMaintenanceMode() {
+    isMaintenanceMode = !isMaintenanceMode;
+    
+    const btn = document.getElementById('toggleMaintenanceBtn');
+    
+    if (isMaintenanceMode) {
+        localStorage.setItem('wtracks_maintenance_mode', 'true');
+        console.log('[MAINTENANCE] Site em modo de manutenção');
+        
+        if (btn) {
+            btn.textContent = 'ON';
+            btn.style.background = '#4ade80';
+            btn.style.color = '#000';
+        }
+        
+        // Show confirmation before redirecting
+        if (confirm('Deseja colocar o site em modo de manutenção? Isso redirecionará todos os usuários para a página 404.')) {
+            window.location.href = '/404.html';
+        } else {
+            isMaintenanceMode = false;
+            localStorage.removeItem('wtracks_maintenance_mode');
+            if (btn) {
+                btn.textContent = 'OFF';
+                btn.style.background = 'rgba(255, 255, 255, 0.1)';
+                btn.style.color = '#888';
+            }
+        }
+    } else {
+        localStorage.removeItem('wtracks_maintenance_mode');
+        console.log('[MAINTENANCE] Site normal');
+        if (btn) {
+            btn.textContent = 'OFF';
+            btn.style.background = 'rgba(255, 255, 255, 0.1)';
+            btn.style.color = '#888';
+        }
+    }
 }
 
 /**
- * Hide diagnostics panel
+ * Check maintenance mode on page load
  */
-function hideDiagnosticsPanel() {
-    const panel = document.getElementById('devToolsPanel');
-    if (panel) {
-        panel.remove();
+function checkMaintenanceMode() {
+    const maintenanceMode = localStorage.getItem('wtracks_maintenance_mode');
+    const devMode = localStorage.getItem('wtracks_dev_mode');
+    
+    // Only redirect if maintenance mode is on AND dev mode is off
+    if (maintenanceMode === 'true' && devMode !== 'true') {
+        // Only redirect if not already on 404 page
+        if (!window.location.pathname.includes('404.html')) {
+            window.location.href = '/404.html';
+        }
     }
 }
 
@@ -1020,6 +1080,21 @@ function hideDiagnosticsPanel() {
 function showDiagnosticsPanel() {
     createDiagnosticsPanel();
     initializeDiagnostics();
+    
+    // Add event listener for maintenance button
+    const maintenanceBtn = document.getElementById('toggleMaintenanceBtn');
+    if (maintenanceBtn) {
+        maintenanceBtn.addEventListener('click', toggleMaintenanceMode);
+        
+        // Check current maintenance mode state
+        const currentMode = localStorage.getItem('wtracks_maintenance_mode');
+        if (currentMode === 'true') {
+            isMaintenanceMode = true;
+            maintenanceBtn.textContent = 'ON';
+            maintenanceBtn.style.background = '#4ade80';
+            maintenanceBtn.style.color = '#000';
+        }
+    }
 }
 
 /**
@@ -1040,4 +1115,9 @@ window.checkFirebaseConnection = checkFirebaseConnection;
 window.checkR2Connection = checkR2Connection;
 window.diagnosticsInterval = diagnosticsInterval;
 window.timeUpdateInterval = timeUpdateInterval;
+window.toggleMaintenanceMode = toggleMaintenanceMode;
+window.checkMaintenanceMode = checkMaintenanceMode;
+
+// Check maintenance mode on load
+checkMaintenanceMode();
 window.healthCheckInterval = healthCheckInterval;
