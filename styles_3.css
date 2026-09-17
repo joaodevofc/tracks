@@ -477,10 +477,31 @@
 
 .welcome-download-desktop:hover {
   background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.15);
-  color: var(--color-white);
-  transform: translateY(-3px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Esconde botões de download quando o PWA está instalado */
+.welcome-download-desktop[data-pwa-installed="true"],
+.welcome-download-device[data-pwa-installed="true"] {
+  display: none !important;
+}
+
+/* Esconde o container inteiro quando o PWA está instalado */
+.welcome-download-icons[data-pwa-installed="true"] {
+  display: none !important;
+}
+
+/* Estilos específicos para desktop */
+@media (min-width: 769px) {
+  .welcome-download-device {
+    display: none; /* Esconde botão mobile em desktop */
+  }
+}
+
+/* Estilos específicos para mobile */
+@media (max-width: 768px) {
+  .welcome-download-desktop {
+    display: none; /* Esconde botão desktop em mobile */
+  }
 }
 
 .welcome-download-desktop .download-desktop-icon {
