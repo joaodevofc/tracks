@@ -196,11 +196,7 @@ html, body {
     margin-top: 48px;
 }
 
-.hero-banner {
-    width: 100%;
-    height: auto;
-    display: block;
-}
+
 
 /* Library adjustments */
 .library {
@@ -251,12 +247,35 @@ html, body {
     display: none;
 }
 
-/* Hide hero/carousel on mobile */
-.hero,
-#newsCarousel,
-.carousel-slide,
+/* Show carousel on mobile */
+#newsCarousel {
+    display: block !important;
+    margin-top: var(--spacing-md);
+}
+
+.carousel-slide {
+    display: block !important;
+}
+
 .carousel-dots {
-    display: none !important;
+    display: flex !important;
+}
+
+/* Adjust carousel for mobile */
+.news-carousel {
+    min-height: 400px;
+}
+
+.carousel-slide {
+    padding: var(--spacing-md);
+}
+
+.carousel-arrow {
+    display: none; /* Hide arrows on mobile, use swipe */
+}
+
+.carousel-progress-bar {
+    padding: var(--spacing-sm);
 }
 
 /* Hide header actions on mobile */
