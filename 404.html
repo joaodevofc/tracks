@@ -60,23 +60,11 @@
             border-radius: 8px;
             font-weight: 500;
             transition: all 0.2s;
-            margin-right: 10px;
         }
 
         .btn:hover {
             background: #888;
             color: #000;
-        }
-
-        .btn-secondary {
-            background: transparent;
-            color: #888;
-            border: 1px solid #333;
-        }
-
-        .btn-secondary:hover {
-            background: #333;
-            color: #fff;
         }
 
         .illustration {
@@ -106,13 +94,5 @@
         </p>
         <a href="/" class="btn">Voltar para o início</a>
     </div>
-
-    <script>
-        // Check if dev mode is active - if so, allow bypass
-        const devMode = localStorage.getItem('wtracks_dev_mode');
-        if (devMode === 'true') {
-            window.location.href = '/';
-        }
-    </script>
 </body>
 </html>
