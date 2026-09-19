@@ -852,7 +852,18 @@ function generateShareLink(month, year, userId) {
         userId: userId
     });
     
-    return `${baseUrl}/${sharedPage}?${params.toString()}`;
+    // Detect base path from current location (for GitHub Pages support)
+    const currentPath = window.location.pathname;
+    let basePath = '';
+    
+    // Check if we're in a subdirectory (e.g., /tracks/)
+    const pathSegments = currentPath.split('/').filter(segment => segment.length > 0);
+    if (pathSegments.length > 1) {
+        // We're in a subdirectory, use the first segment as base path
+        basePath = '/' + pathSegments[0];
+    }
+    
+    return `${baseUrl}${basePath}/${sharedPage}?${params.toString()}`;
 }
 
 function handleDayColorSelect(option) {
