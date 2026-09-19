@@ -281,8 +281,8 @@
 }
 
 .loading-spinner::before {
-    border-top-color: var(--color-accent);
-    border-right-color: var(--color-accent);
+    border-top-color: var(--color-ice);
+    border-right-color: var(--color-ice);
     animation: spin 1.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
 }
 
@@ -311,8 +311,8 @@
 }
 
 .loading-spinner-small::before {
-    border-top-color: var(--color-accent);
-    border-right-color: var(--color-accent);
+    border-top-color: var(--color-ice);
+    border-right-color: var(--color-ice);
     animation: spin 1.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
 }
 
@@ -325,7 +325,7 @@
 .loading-card {
     opacity: 0.8;
     pointer-events: none;
-    border: 2px dashed var(--color-accent);
+    border: 2px dashed var(--color-ice);
 }
 
 .loading-placeholder {
@@ -338,7 +338,7 @@
 
 .loading-progress-text {
     font-size: 0.75rem;
-    color: var(--color-accent);
+    color: var(--color-ice);
     margin-top: 4px;
     animation: pulse 1.5s ease-in-out infinite;
     font-weight: 500;
@@ -371,8 +371,8 @@
 }
 
 .loading-spinner-large::before {
-    border-top-color: var(--color-accent);
-    border-right-color: var(--color-accent);
+    border-top-color: var(--color-ice);
+    border-right-color: var(--color-ice);
     animation: spin 1.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
 }
 
@@ -1274,6 +1274,7 @@ input, select, textarea {
     --color-white-faint: #404040;
     
     --color-accent: #00ffff;
+    --color-ice: #FFFAFA;
     
     --border-subtle: rgba(255, 255, 255, 0.08);
     --border-medium: rgba(255, 255, 255, 0.12);
@@ -1999,7 +2000,7 @@ a {
     width: 40px;
     height: 40px;
     border: 3px solid var(--border-subtle);
-    border-top-color: var(--color-accent);
+    border-top-color: var(--color-ice);
     border-radius: 50%;
     animation: progress-spin 0.8s linear infinite;
 }
@@ -2182,7 +2183,7 @@ a {
     width: 40px;
     height: 40px;
     border: 3px solid var(--border-subtle);
-    border-top-color: var(--color-accent);
+    border-top-color: var(--color-ice);
     border-radius: 50%;
     animation: deleting-spin 0.8s linear infinite;
 }
@@ -2890,7 +2891,7 @@ a {
 .speed-value {
     font-size: 3rem;
     font-weight: 700;
-    color: var(--color-accent);
+    color: var(--color-ice);
     font-variant-numeric: tabular-nums;
 }
 
@@ -2964,7 +2965,7 @@ a {
     left: 0;
     height: 100%;
     width: 33.33%; /* Default to 1.0x position */
-    background: linear-gradient(90deg, var(--color-accent), var(--color-accent));
+    background: linear-gradient(90deg, var(--color-ice), var(--color-ice));
     border-radius: var(--radius-full);
     transition: width 0.1s ease-out, left 0.1s ease-out;
 }

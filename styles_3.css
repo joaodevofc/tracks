@@ -2,6 +2,10 @@
    NEWS CAROUSEL - PREMIUM SAAS DESIGN
    ======================================== */
 
+:root {
+  --color-ice: #FFFAFA;
+}
+
 /* Carousel Container */
 .news-carousel {
   position: relative;
@@ -490,6 +494,12 @@
   display: none !important;
 }
 
+/* Ambos os botões aparecem sempre (não esconde por dispositivo) */
+.welcome-download-desktop,
+.welcome-download-device {
+  display: inline-flex !important;
+}
+
 .welcome-download-desktop .download-desktop-icon {
   width: 72px;
   height: 24px;
@@ -783,8 +793,8 @@
 }
 
 .carousel-loading-spinner::before {
-  border-top-color: var(--color-accent);
-  border-right-color: var(--color-accent);
+  border-top-color: var(--color-ice);
+  border-right-color: var(--color-ice);
   animation: carousel-spin 1.2s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
 }
 

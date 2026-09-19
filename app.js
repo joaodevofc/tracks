@@ -5724,26 +5724,14 @@ class MultracksApp {
         const padHasSolo = padTrack ? padTrack.solo : false;
         
         const soloed = this.audioPlayer.toggleTrackSolo(trackId, padHasSolo);
-        
-        // Update UI
+
+        // Update UI - only update the specific track's solo button
         const channel = this.mixerTracks.querySelector(`[data-track-id="${trackId}"]`);
         if (channel) {
             const soloBtn = channel.querySelector('.solo-btn');
             soloBtn.classList.toggle('active', soloed);
         }
-        
-        // Update all solo buttons for normal tracks only
-        this.mixerTracks.querySelectorAll('.solo-btn').forEach(btn => {
-            const channelId = btn.closest('.track-channel').dataset.trackId;
-            if (channelId !== 'pad-track') {
-                // For normal tracks, check the track's solo state
-                const track = this.currentProject.tracks.find(t => t.id === channelId);
-                if (track) {
-                    btn.classList.toggle('active', track.solo);
-                }
-            }
-        });
-        
+
         // Apply digital mixer effect
         this.updateSoloMutedEffect();
     }

@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>W.Tracks - Repertórios</title>
+    <meta name="description" content="Gerencie seus repertórios no W.Tracks">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles_3.css">
+    <link rel="stylesheet" href="mobile.css" media="(max-width: 768px)">
+    <link rel="stylesheet" href="setlist-new.css">
+    <link rel="icon" type="image/png" href="icon-black-transparent.png">
+</head>
+<body>
+    <!-- HEADER -->
+    <header class="header">
+        <div class="header-container">
+            <div class="logo">
+                <img src="icon-white-transparent.png" alt="W.Tracks" class="logo-icon">
+                <span class="logo-text">W.Tracks</span>
+            </div>
+            
+            <nav class="nav">
+                <a href="index.html" class="nav-link">Biblioteca</a>
+                <a href="index.html" class="nav-link">Comunidade</a>
+            </nav>
+            
+            <div class="header-actions">
+                <div class="profile-container">
+                    <button class="profile-btn" id="profileBtn" aria-label="Perfil">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        <span class="user-initial" id="userInitial"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="setlist-new-container">
+        <!-- REPERTÓRIOS LIST VIEW -->
+        <div id="repertoiresListView" class="repertoires-list-view">
+            <div class="repertoires-header">
+                <h1 class="repertoires-title">Repertórios</h1>
+                <button class="create-repertoire-btn" id="createRepertoireBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    Criar repertório
+                </button>
+            </div>
+
+            <div class="repertoires-section">
+                <h2 class="repertoires-section-title">Meus repertórios</h2>
+                
+                <div id="repertoiresList" class="repertoires-list">
+                    <!-- Repertórios serão renderizados aqui -->
+                </div>
+
+                <div id="noRepertoires" class="no-repertoires" style="display: none;">
+                    <div class="empty-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M9 18V5l12-2v13"></path>
+                            <circle cx="6" cy="18" r="3"></circle>
+                            <circle cx="18" cy="16" r="3"></circle>
+                        </svg>
+                    </div>
+                    <h3 class="empty-title">Nenhum repertório criado</h3>
+                    <p class="empty-description">Crie seu primeiro repertório para organizar suas apresentações.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- REPERTÓRIO DETAIL VIEW -->
+        <div id="repertoireDetailView" class="repertoire-detail-view" style="display: none;">
+            <div class="repertoire-detail-header">
+                <button class="back-btn" id="backToRepertoiresBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 12H5"></path>
+                        <path d="M12 19l-7-7 7-7"></path>
+                    </svg>
+                    Voltar
+                </button>
+                <div class="repertoire-detail-actions">
+                    <button class="share-repertoire-btn" id="shareRepertoireBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="18" cy="5" r="3"></circle>
+                            <circle cx="6" cy="12" r="3"></circle>
+                            <circle cx="18" cy="19" r="3"></circle>
+                            <line x1="8.59" y1="13.51" x2="15.42" y1="17.49"></line>
+                            <line x1="15.41" y1="6.51" x2="8.59" y1="10.49"></line>
+                        </svg>
+                        Compartilhar
+                    </button>
+                    <button class="delete-repertoire-btn" id="deleteRepertoireBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                        Excluir
+                    </button>
+                </div>
+            </div>
+
+            <div class="repertoire-detail-content">
+                <h1 class="repertoire-detail-title" id="repertoireDetailTitle">Nome do Repertório</h1>
+                <p class="repertoire-detail-date" id="repertoireDetailDate">Data da apresentação</p>
+
+                <div id="repertoireSongsList" class="repertoire-songs-list">
+                    <!-- Músicas serão renderizadas aqui -->
+                </div>
+
+                <div id="noSongs" class="no-songs">
+                    <div class="empty-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M9 18V5l12-2v13"></path>
+                            <circle cx="6" cy="18" r="3"></circle>
+                        </svg>
+                    </div>
+                    <h3 class="empty-title">Nenhuma música adicionada</h3>
+                    <p class="empty-description">Este repertório ainda não possui músicas.</p>
+                    <button class="add-song-btn" id="addSongBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        Adicionar música
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- CREATE REPERTÓRIO MODAL -->
+    <div id="createRepertoireModal" class="modal-overlay" style="display: none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title">Novo Repertório</h2>
+                <button class="modal-close" id="closeCreateRepertoireModal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form class="create-repertoire-form" id="createRepertoireForm">
+                    <div class="form-group">
+                        <label class="form-label">Nome do repertório</label>
+                        <input type="text" class="form-input" id="repertoireNameInput" placeholder="Ex: Culto de Domingo" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Data da apresentação</label>
+                        <input type="date" class="form-input" id="repertoireDateInput" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        Criar repertório
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- DELETE CONFIRMATION MODAL -->
+    <div id="deleteConfirmModal" class="modal-overlay" style="display: none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title">Excluir repertório</h2>
+                <button class="modal-close" id="closeDeleteConfirmModal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p class="confirm-message">Tem certeza que deseja excluir este repertório? Esta ação não pode ser desfeita.</p>
+                <div class="confirm-actions">
+                    <button class="btn btn-secondary" id="cancelDeleteBtn">Cancelar</button>
+                    <button class="btn btn-danger" id="confirmDeleteBtn">Excluir</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- YOUTUBE SEARCH MODAL -->
+    <div id="youtubeSearchModal" class="modal-overlay" style="display: none;">
+        <div class="modal youtube-search-modal">
+            <div class="modal-header">
+                <h2 class="modal-title" id="youtubeSearchModalTitle">Adicionar música</h2>
+                <button class="modal-close" id="closeYoutubeSearchModal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="youtube-search-container">
+                    <div class="youtube-search-input-group">
+                        <input type="text" class="form-input youtube-search-input" id="youtubeSearchInput" placeholder="Pesquisar música no YouTube...">
+                        <button class="youtube-search-btn" id="youtubeSearchBtn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <path d="m21 21-4.35-4.35"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="youtubeSearchLoading" class="youtube-search-loading" style="display: none;">
+                    <div class="loading-spinner"></div>
+                    <p>Pesquisando...</p>
+                </div>
+
+                <div id="youtubeSearchResults" class="youtube-search-results" style="display: none;">
+                    <!-- Results will be rendered here -->
+                </div>
+
+                <div id="youtubeSearchEmpty" class="youtube-search-empty" style="display: none;">
+                    <div class="empty-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <path d="m21 21-4.35-4.35"></path>
+                        </svg>
+                    </div>
+                    <h3 class="empty-title">Nenhum resultado</h3>
+                    <p class="empty-description">Tente pesquisar com outros termos.</p>
+                </div>
+
+                <div id="youtubeSearchError" class="youtube-search-error" style="display: none;">
+                    <div class="empty-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                    </div>
+                    <h3 class="empty-title">Erro na busca</h3>
+                    <p class="empty-description">Ocorreu um erro ao pesquisar. Tente novamente.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- YouTube IFrame API -->
+    <script src="https://www.youtube.com/iframe_api"></script>
+
+    <!-- YOUTUBE PLAYER MODAL -->
+    <div id="youtubePlayerModal" class="modal-overlay" style="display: none;">
+        <div class="modal youtube-player-modal">
+            <div class="modal-header">
+                <h2 class="modal-title" id="youtubePlayerTitle">Reproduzindo</h2>
+                <button class="modal-close" id="closeYoutubePlayerModal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="youtube-player-container">
+                    <div id="youtubePlayer" class="youtube-player"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- YouTube IFrame API -->
+    <script src="https://www.youtube.com/iframe_api"></script>
+
+    <!-- SONG DETAILS MODAL -->
+    <div id="songDetailsModal" class="modal-overlay" style="display: none;">
+        <div class="modal song-details-modal">
+            <div class="modal-header">
+                <h2 class="modal-title" id="songDetailsTitle">Detalhes da música</h2>
+                <button class="modal-close" id="closeSongDetailsModal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form class="song-details-form" id="songDetailsForm">
+                    <div class="form-group">
+                        <label class="form-label">Nome da música</label>
+                        <input type="text" class="form-input" id="songDetailsName" disabled>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Tom</label>
+                        <input type="text" class="form-input" id="songDetailsKey" placeholder="Ex: D, G, Em, C#">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">BPM</label>
+                        <input type="number" class="form-input" id="songDetailsBpm" placeholder="Ex: 72, 84, 120">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Observações</label>
+                        <textarea class="form-input song-details-notes" id="songDetailsNotes" rows="4" placeholder="Ex: Começar somente voz e violão. Bateria entra no segundo refrão."></textarea>
+                    </div>
+                    <div class="song-details-save-status" id="songDetailsSaveStatus" style="display: none;">
+                        <span class="save-indicator">Salvando...</span>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- SHARE MODAL -->
+    <div id="shareModal" class="modal-overlay" style="display: none;">
+        <div class="modal share-modal">
+            <div class="modal-header">
+                <h2 class="modal-title">Compartilhar Repertório</h2>
+                <button class="modal-close" id="closeShareModal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="share-content">
+                    <p class="share-description">Copie o link abaixo para compartilhar este repertório:</p>
+                    <div class="share-link-container">
+                        <input type="text" class="form-input share-link-input" id="shareLinkInput" readonly>
+                        <button class="copy-link-btn" id="copyLinkBtn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                            Copiar
+                        </button>
+                    </div>
+                    <div class="share-copy-status" id="shareCopyStatus" style="display: none;">
+                        <span class="copy-indicator">Link copiado!</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- YouTube IFrame API -->
+    <script src="https://www.youtube.com/iframe_api"></script>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+      import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+      import { getFirestore, collection, getDocs, query, orderBy, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, where, setDoc, getDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+      import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyDW6P_V4_LRLRg6-FEe2E7QJa9J3oidY5g",
+        authDomain: "wtracks-acff8.firebaseapp.com",
+        projectId: "wtracks-acff8",
+        storageBucket: "wtracks-acff8.firebasestorage.app",
+        messagingSenderId: "719838064855",
+        appId: "1:719838064855:web:3c0631a882aac30cf3c092"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      const auth = getAuth(app);
+
+      window.firebaseDB = {
+        db,
+        collection,
+        getDocs,
+        query,
+        orderBy,
+        addDoc,
+        updateDoc,
+        deleteDoc,
+        doc,
+        serverTimestamp,
+        where,
+        setDoc,
+        getDoc,
+        onSnapshot
+      };
+
+      window.firebaseAuth = {
+        auth,
+        onAuthStateChanged
+      };
+
+      console.log('[FIREBASE] Firebase initialized for new setlist system');
+    </script>
+
+    <script src="setlist-new.js"></script>
+</body>
+</html>

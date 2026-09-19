@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repertório Compartilhado - W.Tracks</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="setlist-new.css">
+    <link rel="stylesheet" href="setlist-shared.css">
+</head>
+<body>
+    <div class="shared-container">
+        <div class="shared-header">
+            <h1 class="shared-title">W.TRACKS</h1>
+            <p class="shared-subtitle">Repertório Compartilhado</p>
+        </div>
+
+        <div id="loadingState" class="loading-state">
+            <div class="loading-spinner"></div>
+            <p>Carregando repertório...</p>
+        </div>
+
+        <div id="errorState" class="error-state" style="display: none;">
+            <div class="error-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+            </div>
+            <h2 class="error-title">Repertório não encontrado</h2>
+            <p class="error-description">Este link de compartilhamento não está mais disponível ou o repertório foi removido.</p>
+        </div>
+
+        <div id="repertoireContent" class="repertoire-content" style="display: none;">
+            <div class="repertoire-header">
+                <h2 class="repertoire-name" id="sharedRepertoireName"></h2>
+                <p class="repertoire-date" id="sharedRepertoireDate"></p>
+            </div>
+
+            <div class="repertoire-songs-list" id="sharedSongsList">
+                <!-- Songs will be rendered here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- YouTube IFrame API -->
+    <script src="https://www.youtube.com/iframe_api"></script>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+      import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+      import { getFirestore, collection, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyDW6P_V4_LRLRg6-FEe2E7QJa9J3oidY5g",
+        authDomain: "wtracks-acff8.firebaseapp.com",
+        projectId: "wtracks-acff8",
+        storageBucket: "wtracks-acff8.firebasestorage.app",
+        messagingSenderId: "719838064855",
+        appId: "1:719838064855:web:3c0631a882aac30cf3c092"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+
+      // Helper functions
+      const docRef = (db, collection, id) => doc(db, collection, id);
+
+      // Load shared repertoire
+      async function loadSharedRepertoire() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const shareId = urlParams.get('share');
+
+        if (!shareId) {
+          showError();
+          return;
+        }
+
+        try {
+          const repertoriosRef = collection(db, 'repertorios');
+          const q = query(repertoriosRef, where('shareId', '==', shareId));
+          const querySnapshot = await getDocs(q);
+
+          if (querySnapshot.empty) {
+            showError();
+            return;
+          }
+
+          const doc = querySnapshot.docs[0];
+          const repertoire = doc.data();
+
+          renderRepertoire(repertoire);
+        } catch (error) {
+          console.error('Error loading shared repertoire:', error);
+          showError();
+        }
+      }
+
+      function renderRepertoire(repertoire) {
+        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('errorState').style.display = 'none';
+        document.getElementById('repertoireContent').style.display = 'block';
+
+        document.getElementById('sharedRepertoireName').textContent = repertoire.name || 'Repertório';
+        
+        if (repertoire.date) {
+          const date = new Date(repertoire.date);
+          document.getElementById('sharedRepertoireDate').textContent = date.toLocaleDateString('pt-BR');
+        }
+
+        const songsList = document.getElementById('sharedSongsList');
+        
+        if (!repertoire.songs || repertoire.songs.length === 0) {
+          songsList.innerHTML = '<p class="empty-message">Nenhuma música neste repertório.</p>';
+          return;
+        }
+
+        songsList.innerHTML = repertoire.songs.map((song, index) => {
+          return createSharedSongItem(song, index);
+        }).join('');
+
+        // Setup Setlist player
+        setupSetlistPlayer(repertoire.songs);
+      }
+
+      function createSharedSongItem(song, index) {
+        const number = String(index + 1).padStart(2, '0');
+        const hasYoutube = song.youtubeVideoId;
+        const thumbnail = song.youtubeThumbnail || '';
+        
+        let youtubeSection = '';
+        if (hasYoutube) {
+          youtubeSection = `
+            <div class="repertoire-song-youtube">
+              <div class="repertoire-song-youtube-thumbnail">
+                <img src="${thumbnail}" alt="${escapeHtml(song.name)}">
+              </div>
+              <div class="repertoire-song-youtube-actions">
+                <button class="repertoire-song-play-btn" data-video-id="${song.youtubeVideoId}" data-song-name="${escapeHtml(song.name)}" data-song-index="${index}" title="Ouvir">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            <!-- Individual song player -->
+            <div class="song-player" id="song-player-${index}" style="display: none;">
+              <div class="song-player-info">
+                <div class="song-player-progress-container">
+                  <div class="song-player-progress-bar" data-song-index="${index}">
+                    <div class="song-player-progress-fill" id="song-progress-fill-${index}"></div>
+                  </div>
+                  <div class="song-player-time">
+                    <span id="song-current-time-${index}">0:00</span>
+                    <span id="song-duration-${index}">0:00</span>
+                  </div>
+                </div>
+              </div>
+              <div class="song-player-controls">
+                <button class="song-player-control-btn song-rewind-btn" data-song-index="${index}" title="Voltar 10 segundos">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="11 19 2 12 11 5 11 19"></polygon>
+                    <polygon points="22 19 13 12 22 5 22 19"></polygon>
+                  </svg>
+                </button>
+                <button class="song-player-control-btn song-play-pause-btn" data-song-index="${index}" title="Play/Pause">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="song-play-icon-${index}">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                  </svg>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="song-pause-icon-${index}" style="display: none;">
+                    <rect x="6" y="4" width="4" height="16"></rect>
+                    <rect x="14" y="4" width="4" height="16"></rect>
+                  </svg>
+                </button>
+                <button class="song-player-control-btn song-forward-btn" data-song-index="${index}" title="Avançar 10 segundos">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="13 5 22 12 13 19 13 5"></polygon>
+                    <polygon points="2 5 11 12 2 19 2 5"></polygon>
+                  </svg>
+                </button>
+              </div>
+              <!-- Error message -->
+              <div class="song-player-error" id="song-error-${index}" style="display: none;">
+                <span class="song-error-text">Esta música não está disponível no YouTube</span>
+              </div>
+              <!-- Hidden YouTube IFrame container for this song -->
+              <div class="song-youtube-container" id="song-youtube-${index}" style="display: none;"></div>
+            </div>
+          `;
+        }
+        
+        // Add details (key, bpm, notes)
+        let detailsSection = '';
+        const hasKey = song.key && song.key.trim() !== '';
+        const hasBpm = song.bpm !== null && song.bpm !== undefined && song.bpm !== '';
+        const hasNotes = song.notes && song.notes.trim() !== '';
+        
+        if (hasKey || hasBpm || hasNotes) {
+          let detailsParts = [];
+          
+          if (hasKey) {
+            detailsParts.push(`<span class="song-detail-key">Tom: ${escapeHtml(song.key)}</span>`);
+          }
+          
+          if (hasBpm) {
+            detailsParts.push(`<span class="song-detail-bpm">BPM: ${song.bpm}</span>`);
+          }
+          
+          let detailsHtml = '';
+          if (detailsParts.length > 0) {
+            detailsHtml = `<div class="song-details-line">${detailsParts.join(' · ')}</div>`;
+          }
+          
+          if (hasNotes) {
+            detailsHtml += `<div class="song-detail-notes">${escapeHtml(song.notes)}</div>`;
+          }
+          
+          detailsSection = `<div class="repertoire-song-details">${detailsHtml}</div>`;
+        }
+        
+        return `
+          <div class="repertoire-song-item">
+            <span class="repertoire-song-number">${number}</span>
+            <div class="repertoire-song-info">
+              <h4 class="repertoire-song-title">${escapeHtml(song.name)}</h4>
+              ${youtubeSection}
+              ${detailsSection}
+            </div>
+          </div>
+        `;
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      function showError() {
+        document.getElementById('loadingState').style.display = 'none';
+        document.getElementById('errorState').style.display = 'block';
+      }
+
+      function setupSetlistPlayer(songs) {
+        // Setup play buttons for individual song players
+        const playButtons = document.querySelectorAll('.repertoire-song-play-btn');
+        playButtons.forEach(btn => {
+          btn.addEventListener('click', () => {
+            const videoId = btn.dataset.videoId;
+            const songName = btn.dataset.songName;
+            const songIndex = parseInt(btn.dataset.songIndex);
+            playSong(videoId, songName, songIndex);
+          });
+        });
+
+        // Setup individual player controls
+        document.querySelectorAll('.song-player-control-btn').forEach(btn => {
+          const songIndex = parseInt(btn.dataset.songIndex);
+          
+          if (btn.classList.contains('song-rewind-btn')) {
+            btn.addEventListener('click', () => seekRelative(songIndex, -10));
+          } else if (btn.classList.contains('song-forward-btn')) {
+            btn.addEventListener('click', () => seekRelative(songIndex, 10));
+          } else if (btn.classList.contains('song-play-pause-btn')) {
+            btn.addEventListener('click', () => togglePlayPause(songIndex));
+          }
+        });
+
+        // Setup progress bars
+        document.querySelectorAll('.song-player-progress-bar').forEach(bar => {
+          const songIndex = parseInt(bar.dataset.songIndex);
+          bar.addEventListener('click', (e) => handleProgressBarClick(e, songIndex));
+        });
+      }
+
+      // Global YouTube player state
+      let activeSongIndex = -1;
+      let youtubePlayer = null;
+      const songPlayers = {};
+
+      function playSong(videoId, songName, index) {
+        // Stop previous song if playing
+        if (activeSongIndex !== -1 && activeSongIndex !== index) {
+          stopSong(activeSongIndex);
+        }
+
+        activeSongIndex = index;
+        
+        // Initialize song state if not exists
+        if (!songPlayers[index]) {
+          songPlayers[index] = {
+            isPlaying: false,
+            currentTime: 0,
+            duration: 0
+          };
+        }
+        
+        // Clear any previous error for this song
+        const errorElement = document.getElementById(`song-error-${index}`);
+        if (errorElement) {
+          errorElement.style.display = 'none';
+        }
+        
+        // Re-enable controls for this song
+        const controls = document.querySelectorAll(`.song-player-control-btn[data-song-index="${index}"]`);
+        controls.forEach(btn => {
+          btn.disabled = false;
+          btn.style.opacity = '1';
+        });
+        
+        // Show player for this song
+        const playerElement = document.getElementById(`song-player-${index}`);
+        if (playerElement) {
+          playerElement.style.display = 'block';
+        }
+
+        if (!youtubePlayer) {
+          initializeYoutubePlayer(videoId, songName, index);
+        } else {
+          // Destroy old player before creating new one
+          if (typeof youtubePlayer.destroy === 'function') {
+            youtubePlayer.destroy();
+          }
+          youtubePlayer = null;
+          initializeYoutubePlayer(videoId, songName, index);
+        }
+      }
+
+      function initializeYoutubePlayer(videoId, songName, index) {
+        const container = document.getElementById(`song-youtube-${index}`);
+        const playerId = `youtube-iframe-player-${index}`;
+        container.innerHTML = `<div id="${playerId}"></div>`;
+
+        youtubePlayer = new YT.Player(playerId, {
+          height: '200',
+          width: '200',
+          videoId: videoId,
+          playerVars: {
+            'playsinline': 1,
+            'controls': 0,
+            'disablekb': 1,
+            'fs': 0,
+            'rel': 0,
+            'enablejsapi': 1,
+            'origin': window.location.origin
+          },
+          events: {
+            'onReady': (event) => onPlayerReady(event, index),
+            'onStateChange': (event) => onPlayerStateChange(event, index),
+            'onError': (event) => onPlayerError(event, index)
+          }
+        });
+
+        songPlayers[index] = {
+          isPlaying: true,
+          currentTime: 0,
+          duration: 0
+        };
+      }
+
+      function onPlayerReady(event, index) {
+        event.target.playVideo();
+        updatePlayPauseButton(index);
+        startProgressUpdate(index);
+      }
+
+      function onPlayerStateChange(event, index) {
+        if (event.data === YT.PlayerState.PLAYING) {
+          songPlayers[index].isPlaying = true;
+          updatePlayPauseButton(index);
+        } else if (event.data === YT.PlayerState.PAUSED) {
+          songPlayers[index].isPlaying = false;
+          updatePlayPauseButton(index);
+        }
+      }
+
+      function onPlayerError(event, index) {
+        console.error(`[SHARED PLAYER] YouTube player error for song ${index}:`, event.data);
+        
+        // Show error message in player
+        const errorElement = document.getElementById(`song-error-${index}`);
+        if (errorElement) {
+          errorElement.style.display = 'block';
+        }
+        
+        // Disable controls
+        const controls = document.querySelectorAll(`.song-player-control-btn[data-song-index="${index}"]`);
+        controls.forEach(btn => {
+          btn.disabled = true;
+          btn.style.opacity = '0.5';
+        });
+        
+        // Update song state
+        if (songPlayers[index]) {
+          songPlayers[index].isPlaying = false;
+          updatePlayPauseButton(index);
+        }
+      }
+
+      function stopSong(index) {
+        if (youtubePlayer && activeSongIndex === index) {
+          youtubePlayer.pauseVideo();
+          songPlayers[index].isPlaying = false;
+          updatePlayPauseButton(index);
+          
+          // Hide player
+          const playerElement = document.getElementById(`song-player-${index}`);
+          if (playerElement) {
+            playerElement.style.display = 'none';
+          }
+        }
+      }
+
+      function togglePlayPause(index) {
+        if (!youtubePlayer || activeSongIndex !== index) return;
+
+        if (songPlayers[index].isPlaying) {
+          youtubePlayer.pauseVideo();
+        } else {
+          youtubePlayer.playVideo();
+        }
+      }
+
+      function seekRelative(index, seconds) {
+        if (!youtubePlayer || activeSongIndex !== index) return;
+
+        const currentTime = youtubePlayer.getCurrentTime();
+        const newTime = Math.max(0, currentTime + seconds);
+        youtubePlayer.seekTo(newTime, true);
+      }
+
+      function handleProgressBarClick(event, index) {
+        if (!youtubePlayer || activeSongIndex !== index || !songPlayers[index].duration) return;
+
+        const progressBar = document.querySelector(`.song-player-progress-bar[data-song-index="${index}"]`);
+        const rect = progressBar.getBoundingClientRect();
+        const clickX = event.clientX - rect.left;
+        const percentage = clickX / rect.width;
+        const seekTime = percentage * songPlayers[index].duration;
+
+        youtubePlayer.seekTo(seekTime, true);
+      }
+
+      function updatePlayPauseButton(index) {
+        const playIcon = document.querySelector(`.song-play-icon-${index}`);
+        const pauseIcon = document.querySelector(`.song-pause-icon-${index}`);
+
+        if (songPlayers[index] && songPlayers[index].isPlaying) {
+          playIcon.style.display = 'none';
+          pauseIcon.style.display = 'block';
+        } else {
+          playIcon.style.display = 'block';
+          pauseIcon.style.display = 'none';
+        }
+      }
+
+      function startProgressUpdate(index) {
+        setInterval(() => {
+          if (!youtubePlayer || activeSongIndex !== index || !songPlayers[index].isPlaying) return;
+
+          const currentTime = youtubePlayer.getCurrentTime();
+          const duration = youtubePlayer.getDuration();
+
+          songPlayers[index].currentTime = currentTime;
+          songPlayers[index].duration = duration;
+
+          updateProgressBar(index, currentTime, duration);
+          updateTimeDisplay(index, currentTime, duration);
+        }, 1000);
+      }
+
+      function updateProgressBar(index, currentTime, duration) {
+        const progressFill = document.getElementById(`song-progress-fill-${index}`);
+        const percentage = duration > 0 ? (currentTime / duration) * 100 : 0;
+        progressFill.style.width = `${percentage}%`;
+      }
+
+      function updateTimeDisplay(index, currentTime, duration) {
+        document.getElementById(`song-current-time-${index}`).textContent = formatTime(currentTime);
+        document.getElementById(`song-duration-${index}`).textContent = formatTime(duration);
+      }
+
+      function formatTime(seconds) {
+        if (!seconds || isNaN(seconds)) return '0:00';
+        
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+      }
+
+      // Global callback for YouTube API
+      window.onYouTubeIframeAPIReady = function() {
+        console.log('[SHARED PLAYER] YouTube API ready');
+      };
+
+      // Initialize
+      document.addEventListener('DOMContentLoaded', () => {
+        loadSharedRepertoire();
+      });
+    </script>
+</body>
+</html>

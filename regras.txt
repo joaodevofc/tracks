@@ -171,7 +171,7 @@ service cloud.firestore {
       // ============================================================
       // USER PLAYLISTS (Cross-Device Sync)
       // ============================================================
-      
+
       match /playlists/{playlistId} {
         // Usuário pode ler suas próprias playlists
         // Admin pode ler todas as playlists
@@ -189,8 +189,43 @@ service cloud.firestore {
                        || request.auth.uid == userId
                      );
       }
+
+      // ============================================================
+      // SERVICE PLANS
+      // ============================================================
+
+      match /servicePlans/{servicePlanId} {
+        // Usuário pode ler seus próprios Service Plans
+        // Admin pode ler todos os Service Plans
+        allow read: if request.auth != null
+                    && (
+                      isAdmin()
+                      || request.auth.uid == userId
+                    );
+
+        // Usuário pode criar/alterar/excluir seus próprios Service Plans
+        // Admin pode gerenciar qualquer Service Plan
+        allow write: if request.auth != null
+                     && (
+                       isAdmin()
+                       || request.auth.uid == userId
+                     );
+      }
     }
 
+
+    // ============================================================
+    // CONFIGURAÇÃO
+    // ============================================================
+
+    match /config/{configId} {
+      // Qualquer um pode ler configurações (para checar manutenção)
+      allow read: if true;
+
+      // Qualquer usuário autenticado pode escrever configurações
+      // (modo dev já é protegido por UID secreto no client-side)
+      allow write: if request.auth != null;
+    }
 
     // ============================================================
     // USUARIOS
@@ -378,6 +413,54 @@ service cloud.firestore {
       // Dono pode ler.
       allow read: if request.auth != null
                   && resource.data.userId == request.auth.uid;
+
+      // Usuário autenticado pode criar.
+      allow create: if request.auth != null;
+
+      // Dono pode alterar/excluir.
+      allow update, delete: if request.auth != null
+                            && resource.data.userId == request.auth.uid;
+    }
+
+
+    // ============================================================
+    // SETLIST SHARES (Compartilhamento público de calendário)
+    // ============================================================
+
+    match /setlist_shares/{shareId} {
+
+      // Público para leitura (qualquer pessoa com o link pode visualizar)
+      allow read: if true;
+
+      // Usuário autenticado pode criar, mas apenas com seu próprio userId
+      // O shareId tem formato: userId_ano_mes, então extraímos o userId
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid
+                    && shareId.startsWith(request.auth.uid + '_');
+
+      // Dono pode atualizar (ao compartilhar novamente o mesmo mês)
+      allow update: if request.auth != null
+                    && resource.data.userId == request.auth.uid
+                    && shareId.startsWith(request.auth.uid + '_');
+
+      // Dono pode excluir
+      allow delete: if request.auth != null
+                    && resource.data.userId == request.auth.uid
+                    && shareId.startsWith(request.auth.uid + '_');
+    }
+
+
+    // ============================================================
+    // REPERTÓRIOS (NOVO SISTEMA DE SETLIST)
+    // ============================================================
+
+    match /repertorios/{repertoireId} {
+
+      // Dono pode ler.
+      // Ou leitura pública quando o repertório tem shareId (compartilhamento)
+      allow read: if (request.auth != null
+                  && resource.data.userId == request.auth.uid)
+                  || resource.data.shareId != null;
 
       // Usuário autenticado pode criar.
       allow create: if request.auth != null;
