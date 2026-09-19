@@ -687,6 +687,7 @@ function renderSidePanelItems() {
                 ${timeDisplay ? `<span class="side-panel-item-time">${timeDisplay}</span>` : ''}
             </div>
             <div class="side-panel-item-name">${item.name}</div>
+            ${item.note ? `<div class="side-panel-item-note">${item.note}</div>` : ''}
             <div class="side-panel-item-actions">
                 <button class="side-panel-item-action-btn" onclick="handleSidePanelEditItem(${index})" title="Editar">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1335,6 +1336,7 @@ function createServicePlanItemElement(item, index) {
                 ${timeDisplay ? `<span class="item-time">${timeDisplay}</span>` : ''}
             </div>
             <div class="item-name">${item.name}</div>
+            ${item.note ? `<div class="item-note">${item.note}</div>` : ''}
         </div>
         <div class="item-actions">
             <button class="item-action-btn edit" data-item-id="${item.id}" aria-label="Editar">
@@ -1398,6 +1400,7 @@ function openAddItemModal() {
     document.getElementById('itemType').value = 'MUSIC';
     document.getElementById('itemName').value = '';
     document.getElementById('itemTime').value = '';
+    document.getElementById('itemNote').value = '';
     
     // Clear errors
     document.getElementById('itemName').classList.remove('error');
@@ -1423,6 +1426,7 @@ function handleAddItem() {
     const type = document.getElementById('itemType').value;
     const name = document.getElementById('itemName').value.trim();
     const time = document.getElementById('itemTime').value.trim();
+    const note = document.getElementById('itemNote').value.trim();
     
     // Validation
     let hasError = false;
@@ -1446,7 +1450,8 @@ function handleAddItem() {
         id: generateUniqueId(),
         type: type,
         name: name,
-        time: time || null
+        time: time || null,
+        note: note || null
     };
     
     // Add to service plan
@@ -1489,6 +1494,7 @@ function openEditItemModal(itemId) {
     document.getElementById('editItemType').value = item.type;
     document.getElementById('editItemName').value = item.name;
     document.getElementById('editItemTime').value = item.time || '';
+    document.getElementById('editItemNote').value = item.note || '';
     
     // Clear errors
     document.getElementById('editItemName').classList.remove('error');
@@ -1517,6 +1523,7 @@ function handleEditItem() {
     const type = document.getElementById('editItemType').value;
     const name = document.getElementById('editItemName').value.trim();
     const time = document.getElementById('editItemTime').value.trim();
+    const note = document.getElementById('editItemNote').value.trim();
     
     // Validation
     let hasError = false;
@@ -1542,7 +1549,8 @@ function handleEditItem() {
             ...currentServicePlan.items[itemIndex],
             type: type,
             name: name,
-            time: time || null
+            time: time || null,
+            note: note || null
         };
         
         // Update service plan in storage

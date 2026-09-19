@@ -438,6 +438,7 @@ function createSharedMusicItemElement(item, index) {
                 ${timeDisplay ? `<span class="item-time">${timeDisplay}</span>` : ''}
             </div>
             <div class="item-name">${item.name}</div>
+            ${item.note ? `<div class="item-note">${item.note}</div>` : ''}
         </div>
     `;
     
