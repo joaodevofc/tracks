@@ -374,6 +374,12 @@ function renderCalendar(month, year) {
             planNameElement.textContent = servicePlan.name;
             dayElement.appendChild(planNameElement);
             dayElement.classList.add('has-service-plan');
+            
+            // Apply highlight color if set
+            if (servicePlan.highlightColor) {
+                dayElement.style.backgroundColor = servicePlan.highlightColor;
+                dayElement.style.color = '#ffffff';
+            }
         }
         
         dayElement.addEventListener('click', () => {
@@ -436,6 +442,15 @@ function initSidePanel() {
     const shareMonthBtn = document.getElementById('sidePanelShareMonthBtn');
     if (shareMonthBtn) {
         shareMonthBtn.addEventListener('click', handleSidePanelShareMonth);
+    }
+    
+    // Day color palette
+    const colorPalette = document.getElementById('dayColorPalette');
+    if (colorPalette) {
+        const colorOptions = colorPalette.querySelectorAll('.color-option');
+        colorOptions.forEach(option => {
+            option.addEventListener('click', () => handleDayColorSelect(option));
+        });
     }
     
     // Delete service plan button
@@ -503,6 +518,9 @@ function openSidePanel() {
         
         // Update service plan name
         document.getElementById('sidePanelServicePlanNameDisplay').textContent = servicePlans[dateKey].name;
+        
+        // Update color palette selection
+        updateColorPaletteSelection(servicePlans[dateKey].highlightColor);
     } else {
         // Show create section
         createSection.style.display = 'flex';
@@ -836,6 +854,39 @@ function generateShareLink(month, year, userId) {
     return `${baseUrl}/${sharedPage}?${params.toString()}`;
 }
 
+function handleDayColorSelect(option) {
+    const color = option.dataset.color;
+    const dateKey = formatDateKey(selectedDate);
+    
+    if (dateKey && servicePlans[dateKey]) {
+        // Update color in service plan
+        servicePlans[dateKey].highlightColor = color;
+        
+        // Update UI selection
+        const colorOptions = document.querySelectorAll('.color-option');
+        colorOptions.forEach(opt => opt.classList.remove('selected'));
+        option.classList.add('selected');
+        
+        // Save to Firestore
+        saveServicePlanToFirestore(servicePlans[dateKey]);
+        
+        // Re-render calendar to show the color
+        renderCalendar(currentMonth, currentYear);
+        
+        console.log('[SERVICE PLAN] Day color updated:', dateKey, color);
+    }
+}
+
+function updateColorPaletteSelection(currentColor) {
+    const colorOptions = document.querySelectorAll('.color-option');
+    colorOptions.forEach(opt => {
+        opt.classList.remove('selected');
+        if (opt.dataset.color === currentColor) {
+            opt.classList.add('selected');
+        }
+    });
+}
+
 // ========================================
 // FIREBASE SERVICE PLANS
 // ========================================
@@ -886,6 +937,7 @@ function loadServicePlans(userId) {
                     name: data.name,
                     date: data.date,
                     items: data.items || [],
+                    highlightColor: data.highlightColor || null,
                     createdAt: data.createdAt,
                     updatedAt: data.updatedAt
                 };
@@ -949,6 +1001,7 @@ async function saveServicePlanToFirestore(servicePlan) {
             name: servicePlan.name,
             date: dateString,
             items: servicePlan.items || [],
+            highlightColor: servicePlan.highlightColor || null,
             updatedAt: serverTimestamp()
         };
 

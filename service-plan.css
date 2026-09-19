@@ -1469,6 +1469,61 @@ body {
 }
 
 /* ========================================
+   DAY COLOR PALETTE
+   ======================================== */
+
+.day-color-section {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #333;
+}
+
+.color-palette {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.color-option {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid #333;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    background: #1a1a1a;
+    color: #666;
+}
+
+.color-option:hover {
+    transform: scale(1.1);
+    border-color: #666;
+}
+
+.color-option.selected {
+    border-color: #ffffff;
+    box-shadow: 0 0 0 2px #ffffff;
+}
+
+.color-option[data-color=""] {
+    border: 2px solid #333;
+}
+
+.color-option[data-color=""].selected {
+    border-color: #f44336;
+    box-shadow: 0 0 0 2px #f44336;
+}
+
+.color-option svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* ========================================
    SHARED MODE ERROR STATE
    ======================================== */
 

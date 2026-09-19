@@ -213,6 +213,12 @@ function renderCalendar(month, year) {
             planNameElement.textContent = servicePlan.name;
             dayElement.appendChild(planNameElement);
             dayElement.classList.add('has-service-plan');
+            
+            // Apply highlight color if set
+            if (servicePlan.highlightColor) {
+                dayElement.style.backgroundColor = servicePlan.highlightColor;
+                dayElement.style.color = '#ffffff';
+            }
         }
         
         dayElement.addEventListener('click', () => {
