@@ -810,8 +810,9 @@ html, body {
 .wcifras-chord-view {
     max-width: 1400px;
     margin: 0 auto;
-    padding: var(--wcifras-spacing-2xl) var(--wcifras-spacing-lg);
+    padding: var(--wcifras-spacing-2xl) 0;
     display: none;
+    background: transparent;
 }
 
 .wcifras-chord-view.active {
@@ -1072,12 +1073,12 @@ html, body {
 
 /* CHORD CONTENT */
 .wcifras-chord-content {
-    background: var(--wcifras-black-card);
-    border: 1px solid var(--wcifras-border-subtle);
-    border-radius: var(--wcifras-radius-lg);
-    padding: var(--wcifras-spacing-xl);
-    max-width: 900px;
-    margin: 0 auto;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: var(--wcifras-spacing-xl) 24px;
+    max-width: 100%;
+    margin: 0;
     font-size: 18px;
     line-height: 1.8;
     white-space: pre-wrap;
@@ -1114,6 +1115,7 @@ html, body {
 .wcifras-chord-content-wrapper {
     position: relative;
     transition: all var(--wcifras-transition-fast);
+    width: 100%;
 }
 
 /* CHORD EDITOR (INLINE) */
@@ -1187,8 +1189,6 @@ html, body {
 .wcifras-chord-view.editing .wcifras-chord-content-wrapper {
     position: relative;
     z-index: 2;
-    transform: scale(1.02);
-    box-shadow: 0 0 60px rgba(255, 107, 0, 0.2);
 }
 
 .wcifras-chord-view.editing .wcifras-chord-header {
@@ -1659,6 +1659,7 @@ html, body {
 /* CHORD MAIN CONTENT (to work with sidebar) */
 .wcifras-chord-main {
     transition: margin-left var(--wcifras-transition-normal);
+    background: transparent;
 }
 
 .wcifras-chord-main.shifted {
@@ -1921,7 +1922,7 @@ html, body {
     }
     
     .wcifras-chord-content {
-        padding: var(--wcifras-spacing-md);
+        padding: var(--wcifras-spacing-xl) 16px;
         font-size: 16px;
     }
 }

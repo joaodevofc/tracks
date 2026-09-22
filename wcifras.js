@@ -936,22 +936,32 @@ function renderChordView(chord) {
     document.getElementById('wcifrasChordTitle').textContent = chord.title;
     document.getElementById('wcifrasChordArtist').textContent = chord.artist;
     
-    // Set edited date if exists
+    // Set edited date if exists and different from creation date
     const editedElement = document.getElementById('wcifrasChordEdited');
-    if (chord.updatedAt) {
-        let date;
+    if (chord.updatedAt && chord.createdAt) {
+        // Compare timestamps to check if actually edited
+        let updatedAtDate, createdAtDate;
         
-        // Handle Firebase Timestamp object
+        // Handle Firebase Timestamp objects
         if (chord.updatedAt.toDate) {
-            date = chord.updatedAt.toDate();
+            updatedAtDate = chord.updatedAt.toDate();
         } else if (typeof chord.updatedAt === 'string') {
-            date = new Date(chord.updatedAt);
+            updatedAtDate = new Date(chord.updatedAt);
         } else {
-            date = new Date(chord.updatedAt);
+            updatedAtDate = new Date(chord.updatedAt);
         }
         
-        if (!isNaN(date.getTime())) {
-            const formattedDate = date.toLocaleDateString('pt-BR', {
+        if (chord.createdAt.toDate) {
+            createdAtDate = chord.createdAt.toDate();
+        } else if (typeof chord.createdAt === 'string') {
+            createdAtDate = new Date(chord.createdAt);
+        } else {
+            createdAtDate = new Date(chord.createdAt);
+        }
+        
+        // Only show edited date if it's different from creation date
+        if (!isNaN(updatedAtDate.getTime()) && !isNaN(createdAtDate.getTime()) && updatedAtDate.getTime() !== createdAtDate.getTime()) {
+            const formattedDate = updatedAtDate.toLocaleDateString('pt-BR', {
                 day: 'numeric',
                 month: 'long',
                 year: 'numeric'
@@ -2106,8 +2116,8 @@ async function sharePlaylist() {
     // Close actions menu
     closePlaylistActionsMenu();
 
-    // Generate share URL
-    const shareUrl = new URL('wcifras.html', window.location.origin);
+    // Generate share URL - use window.location.href to preserve subdirectory path
+    const shareUrl = new URL('wcifras.html', window.location.href);
     shareUrl.searchParams.set('playlist', editingPlaylistId);
 
     // Create share message
@@ -2168,8 +2178,8 @@ async function shareChord() {
         
         const chord = chordDoc.data();
         
-        // Generate share URL
-        const shareUrl = new URL('wcifras.html', window.location.origin);
+        // Generate share URL - use window.location.href to preserve subdirectory path
+        const shareUrl = new URL('wcifras.html', window.location.href);
         shareUrl.searchParams.set('id', currentChordId);
         
         // Create share message
@@ -2358,20 +2368,30 @@ async function saveEditedChord() {
 function updateEditedDateDisplay() {
     const editedElement = document.getElementById('wcifrasChordEdited');
     
-    if (currentChordData.updatedAt) {
-        let date;
+    if (currentChordData.updatedAt && currentChordData.createdAt) {
+        // Compare timestamps to check if actually edited
+        let updatedAtDate, createdAtDate;
         
-        // Handle Firebase Timestamp object
+        // Handle Firebase Timestamp objects
         if (currentChordData.updatedAt.toDate) {
-            date = currentChordData.updatedAt.toDate();
+            updatedAtDate = currentChordData.updatedAt.toDate();
         } else if (typeof currentChordData.updatedAt === 'string') {
-            date = new Date(currentChordData.updatedAt);
+            updatedAtDate = new Date(currentChordData.updatedAt);
         } else {
-            date = new Date(currentChordData.updatedAt);
+            updatedAtDate = new Date(currentChordData.updatedAt);
         }
         
-        if (!isNaN(date.getTime())) {
-            const formattedDate = date.toLocaleDateString('pt-BR', {
+        if (currentChordData.createdAt.toDate) {
+            createdAtDate = currentChordData.createdAt.toDate();
+        } else if (typeof currentChordData.createdAt === 'string') {
+            createdAtDate = new Date(currentChordData.createdAt);
+        } else {
+            createdAtDate = new Date(currentChordData.createdAt);
+        }
+        
+        // Only show edited date if it's different from creation date
+        if (!isNaN(updatedAtDate.getTime()) && !isNaN(createdAtDate.getTime()) && updatedAtDate.getTime() !== createdAtDate.getTime()) {
+            const formattedDate = updatedAtDate.toLocaleDateString('pt-BR', {
                 day: 'numeric',
                 month: 'long',
                 year: 'numeric'
