@@ -431,6 +431,8 @@
                                 </svg>
                                 Notícias
                             </a>
+                            <div class="profile-menu-section-label">Serviços</div>
+                            <div class="profile-menu-divider"></div>
                             <a href="service-plan.html" class="profile-menu-item">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
@@ -439,6 +441,14 @@
                                     <line x1="3" y1="10" x2="21" y2="10"></line>
                                 </svg>
                                 Service Plan
+                            </a>
+                            <a href="wcifras.html" class="profile-menu-item">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M9 18V5l12-2v13"></path>
+                                    <circle cx="6" cy="18" r="3"></circle>
+                                    <circle cx="18" cy="16" r="3"></circle>
+                                </svg>
+                                W.Cifras
                             </a>
                             <button class="profile-menu-item" id="myTracksBtn" style="display: none;">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -677,7 +687,18 @@
                 <span class="library-count" id="libraryCount">0 projetos</span>
             </div>
         </div>
-        
+
+        <!-- Cifras Search Section -->
+        <div class="cifras-search-container" id="cifrasSearchContainer" style="display: none;">
+            <div class="search-wrapper">
+                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <path d="m21 21-4.35-4.35"></path>
+                </svg>
+                <input type="text" class="cifras-search-input" id="cifrasSearchInput" placeholder="Pesquisar cifras..." autocomplete="off">
+            </div>
+        </div>
+
         <div class="music-grid" id="musicGrid">
             <!-- Music cards will be rendered here -->
         </div>
@@ -1264,6 +1285,18 @@
                             </div>
                             <span class="import-label">Adicionar tracks</span>
                             <span class="import-description">Selecione os arquivos um por um</span>
+                        </button>
+                        
+                        <button class="import-option" data-method="cifras">
+                            <div class="import-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M9 18V5l12-2v13"></path>
+                                    <circle cx="6" cy="18" r="3"></circle>
+                                    <circle cx="18" cy="16" r="3"></circle>
+                                </svg>
+                            </div>
+                            <span class="import-label">Cifras</span>
+                            <span class="import-description">Adicione cifras de músicas</span>
                         </button>
                     </div>
                     <input type="file" id="fileInput" multiple accept=".wav,.mp3,.flac,.ogg,.aiff" hidden>

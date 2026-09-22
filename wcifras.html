@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>W.Cifras - W.Tracks</title>
+    <meta name="description" content="Sistema de cifras do W.Tracks">
+    <meta name="theme-color" content="#000000">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="wcifras.css">
+    <link rel="icon" type="image/png" href="icon-black-transparent.png">
+
+    <!-- Firebase SDK - Auth + Firestore -->
+    <script type="module">
+      import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+      import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+      import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, where, doc, getDoc, updateDoc, serverTimestamp, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyDW6P_V4_LRLRg6-FEe2E7QJa9J3oidY5g",
+        authDomain: "wtracks-acff8.firebaseapp.com",
+        projectId: "wtracks-acff8",
+        storageBucket: "wtracks-acff8.firebasestorage.app",
+        messagingSenderId: "719838064855",
+        appId: "1:719838064855:web:3c0631a882aac30cf3c092"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+      const db = getFirestore(app);
+
+      window.firebaseAuth = {
+        auth,
+        onAuthStateChanged
+      };
+
+      window.firebaseDB = {
+        db,
+        collection,
+        addDoc,
+        onSnapshot,
+        query,
+        orderBy,
+        where,
+        doc,
+        getDoc,
+        updateDoc,
+        deleteDoc,
+        serverTimestamp
+      };
+
+      console.log('[W.CIFRAS] Firebase initialized (Auth + Firestore)');
+    </script>
+</head>
+<body>
+    <!-- HEADER -->
+    <header class="wcifras-header">
+        <div class="wcifras-header-container">
+            <div class="wcifras-logo">
+                <img src="icon-white-transparent.png" alt="W.Tracks" class="wcifras-logo-icon">
+                <span class="wcifras-logo-text">W.Tracks</span>
+            </div>
+            
+            <nav class="wcifras-nav">
+                <a href="index.html" class="wcifras-nav-link">Biblioteca</a>
+                <a href="wcifras.html" class="wcifras-nav-link active">Cifras</a>
+                <a href="#" class="wcifras-nav-link">Comunidade</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="wcifras-main">
+        <!-- CATALOG VIEW -->
+        <div class="wcifras-container" id="wcifrasCatalogView">
+            <!-- Page Title -->
+            <h1 class="wcifras-title">Cifras</h1>
+            
+            <!-- Search Bar -->
+            <div class="wcifras-search-container">
+                <div class="wcifras-search-wrapper">
+                    <svg class="wcifras-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                    <input type="text" class="wcifras-search-input" id="wcifrasSearchInput" placeholder="Pesquisar cifras...">
+                </div>
+                <button class="wcifras-add-btn" id="wcifrasAddBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    Adicionar cifra
+                </button>
+            </div>
+            
+            <!-- Chords List Area -->
+            <div class="wcifras-list-container">
+                <div class="wcifras-list" id="wcifrasList">
+                    <!-- Chords cards will be rendered here by JavaScript -->
+                </div>
+                <div class="wcifras-empty-state" id="wcifrasEmptyState" style="display: none;">
+                    <svg class="wcifras-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M9 18V5l12-2v13"></path>
+                        <circle cx="6" cy="18" r="3"></circle>
+                        <circle cx="18" cy="16" r="3"></circle>
+                    </svg>
+                    <p class="wcifras-empty-text">Nenhuma cifra disponível</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- CHORD VIEW -->
+        <div class="wcifras-chord-view" id="wcifrasChordView" style="display: none;">
+            <!-- Menu Toggle Button -->
+            <button class="wcifras-menu-toggle" id="wcifrasMenuToggle" aria-label="Menu">
+                <svg class="wcifras-menu-icon-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+                <svg class="wcifras-menu-icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+
+            <!-- Sidebar Menu -->
+            <aside class="wcifras-sidebar" id="wcifrasSidebar">
+                <div class="wcifras-sidebar-header">
+                    <h2 class="wcifras-sidebar-title">MÚSICAS</h2>
+                    <button class="wcifras-sidebar-close" id="wcifrasSidebarClose" aria-label="Fechar">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="wcifras-sidebar-content">
+                    <ul class="wcifras-sidebar-list" id="wcifrasSidebarList">
+                        <!-- Current song will be highlighted -->
+                        <li class="wcifras-sidebar-item active" id="wcifrasCurrentSong">
+                            <!-- Music title will be set by JavaScript -->
+                        </li>
+                    </ul>
+                    
+                    <div class="wcifras-sidebar-divider"></div>
+                    
+                    <!-- Instrument Section -->
+                    <div class="wcifras-sidebar-instrument">
+                        <h3 class="wcifras-sidebar-section-title">INSTRUMENTO</h3>
+                        
+                        <!-- Strings Category -->
+                        <div class="wcifras-instrument-category" data-category="strings">
+                            <div class="wcifras-instrument-category-header" id="wcifrasCategoryStrings">
+                                <svg class="wcifras-category-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M9 18V5l12-2v13"></path>
+                                    <circle cx="6" cy="18" r="3"></circle>
+                                    <circle cx="18" cy="16" r="3"></circle>
+                                </svg>
+                                <span class="wcifras-category-title">CORDAS</span>
+                                <svg class="wcifras-category-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </div>
+                            <div class="wcifras-instrument-list" id="wcifrasInstrumentStrings">
+                                <div class="wcifras-instrument-item" data-instrument="guitar">
+                                    <span class="wcifras-instrument-name">Violão / Guitarra</span>
+                                    <svg class="wcifras-instrument-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </div>
+                                <div class="wcifras-instrument-item" data-instrument="bass">
+                                    <span class="wcifras-instrument-name">Baixo</span>
+                                    <svg class="wcifras-instrument-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </div>
+                                <div class="wcifras-instrument-item" data-instrument="ukulele">
+                                    <span class="wcifras-instrument-name">Ukulele</span>
+                                    <svg class="wcifras-instrument-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </div>
+                                <div class="wcifras-instrument-item" data-instrument="cavaquinho">
+                                    <span class="wcifras-instrument-name">Cavaquinho</span>
+                                    <svg class="wcifras-instrument-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </div>
+                                <div class="wcifras-instrument-item" data-instrument="viola_caipira">
+                                    <span class="wcifras-instrument-name">Viola Caipira</span>
+                                    <svg class="wcifras-instrument-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </div>
+                                <div class="wcifras-instrument-item" data-instrument="bandolim">
+                                    <span class="wcifras-instrument-name">Bandolim</span>
+                                    <svg class="wcifras-instrument-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </div>
+                                <div class="wcifras-instrument-item" data-instrument="banjo">
+                                    <span class="wcifras-instrument-name">Banjo</span>
+                                    <svg class="wcifras-instrument-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </div>
+                                <div class="wcifras-instrument-item" data-instrument="violin">
+                                    <span class="wcifras-instrument-name">Violino</span>
+                                    <svg class="wcifras-instrument-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </div>
+                                <div class="wcifras-instrument-item" data-instrument="viola">
+                                    <span class="wcifras-instrument-name">Viola</span>
+                                    <svg class="wcifras-instrument-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </div>
+                                <div class="wcifras-instrument-item" data-instrument="cello">
+                                    <span class="wcifras-instrument-name">Violoncelo</span>
+                                    <svg class="wcifras-instrument-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </div>
+                                <div class="wcifras-instrument-item" data-instrument="double_bass">
+                                    <span class="wcifras-instrument-name">Contrabaixo</span>
+                                    <svg class="wcifras-instrument-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </div>
+                                <div class="wcifras-instrument-item" data-instrument="harp">
+                                    <span class="wcifras-instrument-name">Harpa</span>
+                                    <svg class="wcifras-instrument-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Keys Category -->
+                        <div class="wcifras-instrument-category" data-category="keys">
+                            <div class="wcifras-instrument-category-header" id="wcifrasCategoryKeys">
+                                <svg class="wcifras-category-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="12" width="18" height="8" rx="1"></rect>
+                                    <path d="M10 12V7a4 4 0 0 1 8 0v5"></path>
+                                </svg>
+                                <span class="wcifras-category-title">TECLAS</span>
+                                <svg class="wcifras-category-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="9 18 15 12 9 6"></polyline>
+                                </svg>
+                            </div>
+                            <div class="wcifras-instrument-list" id="wcifrasInstrumentKeys" style="display: none;">
+                                <div class="wcifras-instrument-item" data-instrument="piano">
+                                    <span class="wcifras-instrument-name">Teclado / Piano</span>
+                                    <svg class="wcifras-instrument-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </div>
+                                <div class="wcifras-instrument-item" data-instrument="accordion">
+                                    <span class="wcifras-instrument-name">Acordeon / Sanfona</span>
+                                    <svg class="wcifras-instrument-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Winds Category -->
+                        <div class="wcifras-instrument-category" data-category="winds">
+                            <div class="wcifras-instrument-category-header" id="wcifrasCategoryWinds">
+                                <svg class="wcifras-category-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                                    <line x1="12" y1="19" x2="12" y2="23"></line>
+                                </svg>
+                                <span class="wcifras-category-title">SOPROS</span>
+                                <svg class="wcifras-category-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="9 18 15 12 9 6"></polyline>
+                                </svg>
+                            </div>
+                            <div class="wcifras-instrument-list" id="wcifrasInstrumentWinds" style="display: none;">
+                                <div class="wcifras-instrument-item" data-instrument="trumpet">
+                                    <span class="wcifras-instrument-name">Trompete</span>
+                                    <svg class="wcifras-instrument-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </div>
+                                <div class="wcifras-instrument-item" data-instrument="trombone">
+                                    <span class="wcifras-instrument-name">Trombone</span>
+                                    <svg class="wcifras-instrument-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </div>
+                                <div class="wcifras-instrument-item" data-instrument="saxophone">
+                                    <span class="wcifras-instrument-name">Saxofone</span>
+                                    <svg class="wcifras-instrument-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </div>
+                                <div class="wcifras-instrument-item" data-instrument="flute">
+                                    <span class="wcifras-instrument-name">Flauta</span>
+                                    <svg class="wcifras-instrument-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </div>
+                                <div class="wcifras-instrument-item" data-instrument="harmonica">
+                                    <span class="wcifras-instrument-name">Gaita</span>
+                                    <svg class="wcifras-instrument-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Percussion Category -->
+                        <div class="wcifras-instrument-category" data-category="percussion">
+                            <div class="wcifras-instrument-category-header" id="wcifrasCategoryPercussion">
+                                <svg class="wcifras-category-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                    <line x1="12" y1="2" x2="12" y2="22"></line>
+                                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                                </svg>
+                                <span class="wcifras-category-title">PERCUSSÃO</span>
+                                <svg class="wcifras-category-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="9 18 15 12 9 6"></polyline>
+                                </svg>
+                            </div>
+                            <div class="wcifras-instrument-list" id="wcifrasInstrumentPercussion" style="display: none;">
+                                <div class="wcifras-instrument-item" data-instrument="drums">
+                                    <span class="wcifras-instrument-name">Bateria</span>
+                                    <svg class="wcifras-instrument-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </div>
+                                <div class="wcifras-instrument-item" data-instrument="percussion">
+                                    <span class="wcifras-instrument-name">Percussão</span>
+                                    <svg class="wcifras-instrument-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="wcifras-sidebar-divider"></div>
+                    
+                    <!-- Chord Actions -->
+                    <div class="wcifras-sidebar-actions">
+                        <h3 class="wcifras-sidebar-section-title">AÇÕES</h3>
+                        
+                        <button class="wcifras-sidebar-action-btn" id="wcifrasShareBtn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="18" cy="5" r="3"></circle>
+                                <circle cx="6" cy="12" r="3"></circle>
+                                <circle cx="18" cy="19" r="3"></circle>
+                                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                            </svg>
+                            Compartilhar
+                        </button>
+                        
+                        <button class="wcifras-sidebar-action-btn" id="wcifrasEditBtn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                            Editar
+                        </button>
+                        
+                        <button class="wcifras-sidebar-action-btn" id="wcifrasDownloadBtn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            Baixar cifra
+                        </button>
+                        
+                        <button class="wcifras-sidebar-action-btn" id="wcifrasPrintBtn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                                <rect x="6" y="14" width="12" height="8"></rect>
+                            </svg>
+                            Imprimir cifra
+                        </button>
+                    </div>
+                    
+                    <div class="wcifras-sidebar-divider"></div>
+                    
+                    <div class="wcifras-sidebar-footer">
+                        <h3 class="wcifras-sidebar-footer-title">PRÓXIMOS RECURSOS</h3>
+                        <p class="wcifras-sidebar-footer-text">Novos recursos em breve.</p>
+                    </div>
+                    
+                    <div class="wcifras-sidebar-divider"></div>
+                    
+                    <div class="wcifras-sidebar-reading">
+                        <h3 class="wcifras-sidebar-section-title">LEITURA</h3>
+                        
+                        <div class="wcifras-sidebar-reading-item">
+                            <span class="wcifras-sidebar-reading-label">TAMANHO DA LETRA</span>
+                            <div class="wcifras-font-controls-sidebar">
+                                <button class="wcifras-font-btn" id="wcifrasFontDecrease">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                                    </svg>
+                                </button>
+                                <span class="wcifras-font-size" id="wcifrasFontSize">100%</span>
+                                <button class="wcifras-font-btn" id="wcifrasFontIncrease">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="wcifras-sidebar-reading-item">
+                            <button class="wcifras-fullscreen-btn-sidebar" id="wcifrasFullscreenBtn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+                                </svg>
+                                Tela cheia
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Content Area -->
+            <div class="wcifras-chord-main" id="wcifrasChordMain">
+                <!-- Back Button -->
+                <button class="wcifras-back-btn" id="wcifrasBackBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="19" y1="12" x2="5" y2="12"></line>
+                        <polyline points="12 19 5 12 12 5"></polyline>
+                    </svg>
+                    Voltar para Cifras
+                </button>
+
+                <!-- Chord Header -->
+                <div class="wcifras-chord-header">
+                    <div class="wcifras-chord-info">
+                        <h1 class="wcifras-chord-title" id="wcifrasChordTitle"></h1>
+                        <p class="wcifras-chord-artist" id="wcifrasChordArtist"></p>
+                        <p class="wcifras-chord-edited" id="wcifrasChordEdited" style="display: none;"></p>
+                        
+                        <!-- Key Selector -->
+                        <div class="wcifras-chord-controls-header">
+                            <div class="wcifras-key-control">
+                                <div class="wcifras-key-selector" id="wcifrasKeySelector">
+                                    <svg class="wcifras-key-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M9 18V5l12-2v13"></path>
+                                        <circle cx="6" cy="18" r="3"></circle>
+                                        <circle cx="18" cy="16" r="3"></circle>
+                                    </svg>
+                                    <span class="wcifras-key-value" id="wcifrasKeyDisplay">B</span>
+                                    <svg class="wcifras-key-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="6 9 12 15 18 9"></polyline>
+                                    </svg>
+                                </div>
+                                
+                                <!-- Key Dropdown -->
+                                <div class="wcifras-key-dropdown" id="wcifrasKeyDropdown" style="display: none;">
+                                    <div class="wcifras-key-option" data-key="C">C</div>
+                                    <div class="wcifras-key-option" data-key="C#">C#</div>
+                                    <div class="wcifras-key-option" data-key="D">D</div>
+                                    <div class="wcifras-key-option" data-key="Eb">Eb</div>
+                                    <div class="wcifras-key-option" data-key="E">E</div>
+                                    <div class="wcifras-key-option" data-key="F">F</div>
+                                    <div class="wcifras-key-option" data-key="F#">F#</div>
+                                    <div class="wcifras-key-option" data-key="G">G</div>
+                                    <div class="wcifras-key-option" data-key="Ab">Ab</div>
+                                    <div class="wcifras-key-option" data-key="A">A</div>
+                                    <div class="wcifras-key-option" data-key="Bb">Bb</div>
+                                    <div class="wcifras-key-option" data-key="B">B</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Mode Selector -->
+                            <div class="wcifras-mode-control">
+                                <div class="wcifras-mode-selector" id="wcifrasModeSelector">
+                                    <svg class="wcifras-mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                                    </svg>
+                                    <span class="wcifras-mode-value" id="wcifrasModeDisplay">Normal</span>
+                                    <svg class="wcifras-mode-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="6 9 12 15 18 9"></polyline>
+                                    </svg>
+                                </div>
+                                
+                                <!-- Mode Dropdown -->
+                                <div class="wcifras-mode-dropdown" id="wcifrasModeDropdown" style="display: none;">
+                                    <div class="wcifras-mode-option" data-mode="normal">Normal</div>
+                                    <div class="wcifras-mode-option" data-mode="simplified">Simplificada</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chord Content -->
+                <div class="wcifras-chord-content-wrapper" id="wcifrasChordContentWrapper">
+                    <!-- Read Mode -->
+                    <div class="wcifras-chord-content" id="wcifrasChordContent">
+                        <!-- Chord content will be rendered here -->
+                    </div>
+                    
+                    <!-- Edit Mode -->
+                    <textarea class="wcifras-chord-editor" id="wcifrasChordEditor" style="display: none;" placeholder="Edite a cifra aqui..."></textarea>
+                    
+                    <!-- Save Button (visible only in edit mode) -->
+                    <button class="wcifras-save-btn" id="wcifrasSaveBtn" style="display: none;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                            <polyline points="7 3 7 8 15 8"></polyline>
+                        </svg>
+                        Salvar Cifra
+                    </button>
+                </div>
+
+                <!-- Not Found State -->
+                <div class="wcifras-not-found" id="wcifrasNotFound" style="display: none;">
+                    <svg class="wcifras-not-found-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                    <h2 class="wcifras-not-found-title">Cifra não encontrada</h2>
+                    <button class="wcifras-back-btn" id="wcifrasNotFoundBack">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="19" y1="12" x2="5" y2="12"></line>
+                            <polyline points="12 19 5 12 12 5"></polyline>
+                        </svg>
+                        Voltar para Cifras
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- LOGIN REQUIRED MODAL -->
+    <div class="wcifras-modal-overlay" id="loginModal">
+        <div class="wcifras-modal wcifras-modal-small">
+            <div class="wcifras-modal-header">
+                <h2 class="wcifras-modal-title">Faça login</h2>
+                <button class="wcifras-modal-close" id="loginModalClose" aria-label="Fechar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="wcifras-modal-body">
+                <p class="wcifras-modal-text">Faça login para adicionar uma cifra.</p>
+                <p class="wcifras-modal-subtext">Você pode navegar e visualizar as cifras sem fazer login.</p>
+            </div>
+            <div class="wcifras-modal-footer">
+                <button class="wcifras-btn wcifras-btn-secondary" id="loginModalCancel">Cancelar</button>
+                <a href="index.html" class="wcifras-btn wcifras-btn-primary">Entrar / Criar conta</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADD CHORD MODAL -->
+    <div class="wcifras-modal-overlay" id="addChordModal">
+        <div class="wcifras-modal wcifras-modal-large">
+            <div class="wcifras-modal-header">
+                <h2 class="wcifras-modal-title">ADICIONAR CIFRA</h2>
+                <button class="wcifras-modal-close" id="addChordModalClose" aria-label="Fechar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="wcifras-modal-body">
+                <p class="wcifras-modal-subtitle">Crie uma cifra para compartilhar no W.Cifras.</p>
+                
+                <!-- Music Info Section -->
+                <div class="wcifras-form-section">
+                    <h3 class="wcifras-form-section-title">INFORMAÇÕES DA MÚSICA</h3>
+                    
+                    <div class="wcifras-form-group">
+                        <label class="wcifras-form-label" for="chordTitle">Título da música *</label>
+                        <input type="text" class="wcifras-form-input" id="chordTitle" placeholder="Ex: Deus é Bom">
+                        <span class="wcifras-form-error" id="chordTitleError"></span>
+                    </div>
+                    
+                    <div class="wcifras-form-group">
+                        <label class="wcifras-form-label" for="chordArtist">Artista *</label>
+                        <input type="text" class="wcifras-form-input" id="chordArtist" placeholder="Ex: Anderson Freire">
+                        <span class="wcifras-form-error" id="chordArtistError"></span>
+                    </div>
+                    
+                    <div class="wcifras-form-row">
+                        <div class="wcifras-form-group">
+                            <label class="wcifras-form-label" for="chordKey">Tom *</label>
+                            <select class="wcifras-form-select" id="chordKey">
+                                <option value="">Selecione</option>
+                                <option value="C">C (Dó)</option>
+                                <option value="C#">C# (Dó sustenido)</option>
+                                <option value="D">D (Ré)</option>
+                                <option value="D#">D# (Ré sustenido)</option>
+                                <option value="E">E (Mi)</option>
+                                <option value="F">F (Fá)</option>
+                                <option value="F#">F# (Fá sustenido)</option>
+                                <option value="G">G (Sol)</option>
+                                <option value="G#">G# (Sol sustenido)</option>
+                                <option value="A">A (Lá)</option>
+                                <option value="A#">A# (Lá sustenido)</option>
+                                <option value="B">B (Si)</option>
+                            </select>
+                            <span class="wcifras-form-error" id="chordKeyError"></span>
+                        </div>
+                        
+                        <div class="wcifras-form-group">
+                            <label class="wcifras-form-label">Capa da música</label>
+                            <input type="file" id="chordCoverInput" accept="image/jpeg,image/png,image/webp" style="display: none;">
+                            <button class="wcifras-form-upload-btn" id="chordCoverBtn" type="button">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                    <polyline points="21 15 16 10 5 21"></polyline>
+                                </svg>
+                                Adicionar capa
+                            </button>
+                            <div class="wcifras-cover-preview" id="chordCoverPreview" style="display: none;">
+                                <img id="chordCoverImage" src="" alt="Preview da capa">
+                                <button class="wcifras-cover-remove" id="chordCoverRemove" type="button">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                                    </svg>
+                                </button>
+                            </div>
+                            <div class="wcifras-cover-loading" id="chordCoverLoading" style="display: none;">
+                                <div class="wcifras-cover-spinner"></div>
+                                <span class="wcifras-cover-loading-text">Fazendo upload...</span>
+                                <div class="wcifras-cover-progress-bar">
+                                    <div class="wcifras-cover-progress-fill" id="chordCoverProgressFill"></div>
+                                </div>
+                            </div>
+                            <span class="wcifras-form-hint">Formatos: JPG, PNG, WEBP (máx. 5MB)</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Chord Content Section -->
+                <div class="wcifras-form-section">
+                    <h3 class="wcifras-form-section-title">CONTEÚDO DA CIFRA</h3>
+                    
+                    <div class="wcifras-form-group">
+                        <label class="wcifras-form-label" for="chordContent">Conteúdo da cifra *</label>
+                        <textarea class="wcifras-form-textarea" id="chordContent" placeholder="Digite o conteúdo da cifra..."></textarea>
+                        <span class="wcifras-form-error" id="chordContentError"></span>
+                    </div>
+                    
+                    <div class="wcifras-form-controls">
+                        <button class="wcifras-form-control-btn" data-section="INTRO">+ Intro</button>
+                        <button class="wcifras-form-control-btn" data-section="VERSO">+ Verso</button>
+                        <button class="wcifras-form-control-btn" data-section="REFRÃO">+ Refrão</button>
+                        <button class="wcifras-form-control-btn" data-section="PONTE">+ Ponte</button>
+                        <button class="wcifras-form-control-btn" data-section="SOLO">+ Solo</button>
+                    </div>
+                    
+                    <div class="wcifras-form-hint">
+                        Use os acordes entre colchetes ou na linha acima da letra.<br>
+                        Exemplo: [G] Deus é bom ou G na linha acima
+                    </div>
+                </div>
+            </div>
+            <div class="wcifras-modal-footer">
+                <button class="wcifras-btn wcifras-btn-secondary" id="addChordModalCancel">Cancelar</button>
+                <button class="wcifras-btn wcifras-btn-primary" id="addChordModalPublish">PUBLICAR CIFRA</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Action Buttons -->
+    <div class="wcifras-fab-container" id="wcifrasFabContainer">
+        <button class="wcifras-fab wcifras-fab-primary" id="wcifrasCreatePlaylistBtn" title="Criar playlist">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+        </button>
+        <button class="wcifras-fab wcifras-fab-secondary" id="wcifrasCurrentPlaylistBtn" style="display: none;" title="Abrir playlist">
+            <span class="wcifras-playlist-cover-letter"></span>
+        </button>
+    </div>
+
+    <!-- Create Playlist Modal -->
+    <div class="wcifras-modal-overlay" id="wcifrasPlaylistModal">
+        <div class="wcifras-modal wcifras-modal-large">
+            <div class="wcifras-modal-header">
+                <h2 class="wcifras-modal-title">CRIAR PLAYLIST</h2>
+                <button class="wcifras-modal-close" id="wcifrasPlaylistModalClose" aria-label="Fechar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="wcifras-modal-body">
+                <div class="wcifras-form-group">
+                    <label class="wcifras-form-label" for="wcifrasPlaylistName">Nome da playlist *</label>
+                    <input type="text" class="wcifras-form-input" id="wcifrasPlaylistName" placeholder="Ex: Culto Domingo" required>
+                </div>
+                
+                <div class="wcifras-form-group">
+                    <label class="wcifras-form-label" for="wcifrasPlaylistDescription">Descrição</label>
+                    <textarea class="wcifras-form-textarea" id="wcifrasPlaylistDescription" rows="2" placeholder="Ex: Culto de celebração - domingo à noite"></textarea>
+                </div>
+                
+                <div class="wcifras-form-divider"></div>
+                
+                <div class="wcifras-form-group">
+                    <label class="wcifras-form-label">ADICIONAR MÚSICAS</label>
+                    <input type="text" class="wcifras-form-input" id="wcifrasPlaylistSearch" placeholder="Pesquisar músicas...">
+                </div>
+                
+                <div class="wcifras-playlist-search-results" id="wcifrasPlaylistSearchResults">
+                    <!-- Search results will appear here -->
+                </div>
+                
+                <div class="wcifras-form-divider"></div>
+                
+                <div class="wcifras-form-group">
+                    <label class="wcifras-form-label">MÚSICAS DA PLAYLIST</label>
+                    <div class="wcifras-playlist-songs" id="wcifrasPlaylistSongs">
+                        <p class="wcifras-playlist-empty">Nenhuma música adicionada ainda.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="wcifras-modal-footer">
+                <button class="wcifras-btn wcifras-btn-secondary" id="wcifrasPlaylistModalCancel">Cancelar</button>
+                <button class="wcifras-btn wcifras-btn-primary" id="wcifrasPlaylistModalSave">Salvar playlist</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Playlist View -->
+    <div class="wcifras-playlist-view" id="wcifrasPlaylistView" style="display: none;">
+        <div class="wcifras-playlist-header">
+            <button class="wcifras-back-btn" id="wcifrasPlaylistBackBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+                Voltar para Cifras
+            </button>
+            <div class="wcifras-playlist-info">
+                <h1 class="wcifras-playlist-title" id="wcifrasPlaylistTitle"></h1>
+                <p class="wcifras-playlist-description" id="wcifrasPlaylistDescription"></p>
+                <div class="wcifras-playlist-actions">
+                    <button class="wcifras-playlist-action-btn" id="wcifrasPlaylistEditBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        </svg>
+                        Editar
+                    </button>
+                    <button class="wcifras-playlist-action-btn wcifras-playlist-action-danger" id="wcifrasPlaylistDeleteBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                        Excluir
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="wcifras-playlist-songs-container">
+            <div class="wcifras-playlist-songs-list" id="wcifrasPlaylistSongsList">
+                <!-- Playlist songs will be rendered here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Playlist Actions Menu Overlay -->
+    <div class="wcifras-playlist-actions-overlay" id="wcifrasPlaylistActionsOverlay">
+        <div class="wcifras-playlist-actions-menu" id="wcifrasPlaylistActionsMenu">
+            <h2 class="wcifras-playlist-actions-title" id="wcifrasPlaylistActionsTitle">PLAYLIST</h2>
+            <button class="wcifras-playlist-actions-item" id="wcifrasPlaylistActionsEdit">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+                Editar
+            </button>
+            <button class="wcifras-playlist-actions-item" id="wcifrasPlaylistActionsShare">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="18" cy="5" r="3"></circle>
+                    <circle cx="6" cy="12" r="3"></circle>
+                    <circle cx="18" cy="19" r="3"></circle>
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                </svg>
+                Compartilhar
+            </button>
+            <button class="wcifras-playlist-actions-item wcifras-playlist-actions-danger" id="wcifrasPlaylistActionsDelete">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+                Excluir
+            </button>
+            <button class="wcifras-playlist-actions-item wcifras-playlist-actions-cancel" id="wcifrasPlaylistActionsCancel">Cancelar</button>
+        </div>
+    </div>
+
+    <!-- Delete Playlist Confirmation Modal -->
+    <div class="wcifras-modal-overlay" id="wcifrasDeletePlaylistModal" style="display: none;">
+        <div class="wcifras-modal wcifras-modal-small">
+            <div class="wcifras-modal-header">
+                <h2 class="wcifras-modal-title">Excluir playlist?</h2>
+                <button class="wcifras-modal-close" id="wcifrasDeletePlaylistModalClose" aria-label="Fechar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="wcifras-modal-body">
+                <p class="wcifras-modal-text">Essa ação irá excluir permanentemente esta playlist.</p>
+            </div>
+            <div class="wcifras-modal-footer">
+                <button class="wcifras-btn wcifras-btn-secondary" id="wcifrasDeletePlaylistCancel">Cancelar</button>
+                <button class="wcifras-btn wcifras-btn-primary wcifras-btn-danger" id="wcifrasDeletePlaylistConfirm">Excluir playlist</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="wcifras.js"></script>
+</body>
+</html>

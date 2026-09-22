@@ -115,10 +115,11 @@ function loadSharedServicePlans(userId) {
                     name: data.name,
                     date: data.date,
                     items: data.items || [],
+                    highlightColor: data.highlightColor || null,
                     createdAt: data.createdAt,
                     updatedAt: data.updatedAt
                 };
-                console.log('[SHARED] Loaded plan:', dateKey, data.name);
+                console.log('[SHARED] Loaded plan:', dateKey, data.name, 'color:', data.highlightColor);
             });
 
             servicePlans = plans;

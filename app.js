@@ -347,7 +347,11 @@ class MultracksApp {
         this.musicGrid = document.getElementById('musicGrid');
         this.emptyState = document.getElementById('emptyState');
         this.libraryCount = document.getElementById('libraryCount');
-        
+
+        // Cifras search elements
+        this.cifrasSearchContainer = document.getElementById('cifrasSearchContainer');
+        this.cifrasSearchInput = document.getElementById('cifrasSearchInput');
+
         // Don't render here - wait for storage to load first
         // renderLibrary() will be called after storage.load() completes
     }
@@ -1133,7 +1137,13 @@ class MultracksApp {
 
         // Small delay to ensure loading is visible if present
         await new Promise(resolve => setTimeout(resolve, 500));
-        
+
+        // Handle special filters
+        if (filter === 'playlists') {
+            this.renderPlaylists(searchTerm);
+            return;
+        }
+
         let projects = storage.getProjectsByFilter(filter);
         console.log('[LIBRARY] PROJECT IDS FROM STORAGE:', projects.map(p => p.id));
         console.log('[LIBRARY] Projects count from storage:', projects.length);
@@ -1185,6 +1195,13 @@ class MultracksApp {
 
         // Update title and count text based on filter
         const libraryTitle = document.querySelector('.library-title');
+
+        // Hide cifras search container for non-cifras filters
+        const cifrasSearchContainer = document.getElementById('cifrasSearchContainer');
+        if (cifrasSearchContainer) {
+            cifrasSearchContainer.style.display = 'none';
+        }
+
         if (filter === 'favorites') {
             if (libraryTitle) libraryTitle.textContent = 'Meus favoritos';
             this.libraryCount.textContent = `${projects.length} favorito${projects.length !== 1 ? 's' : ''}`;
@@ -1238,7 +1255,7 @@ class MultracksApp {
                 const emptyTitle = this.emptyState.querySelector('.empty-title');
                 const emptyDescription = this.emptyState.querySelector('.empty-description');
                 const emptyCta = this.emptyState.querySelector('.empty-cta');
-                
+
                 if (emptyTitle) emptyTitle.textContent = 'Nenhuma música recente';
                 if (emptyDescription) emptyDescription.textContent = 'As músicas que você adicionar aparecerão aqui';
                 if (emptyCta) emptyCta.style.display = 'none';
@@ -1327,6 +1344,12 @@ class MultracksApp {
             // Add create playlist button to grid header
             this.addCreatePlaylistButton();
         }
+    }
+
+    renderCifras(searchTerm = '') {
+        // Cifras filter removed - redirect to W.Cifras
+        console.log('[CIFRAS] Cifras filter removed - redirecting to W.Cifras');
+        window.location.href = 'wcifras.html';
     }
 
     async searchLibrary(searchTerm) {
@@ -8497,6 +8520,13 @@ class MultracksApp {
     
     handleImportMethod(method) {
         this.importMethod = method;
+        
+        if (method === 'cifras') {
+            // Cifras feature - not implemented yet in this stage
+            console.log('[CIFRAS] Cifras option selected - feature coming soon');
+            alert('Funcionalidade de Cifras será implementada na próxima etapa.');
+            return;
+        }
         
         if (method === 'folder') {
             this.fileInput.setAttribute('webkitdirectory', '');

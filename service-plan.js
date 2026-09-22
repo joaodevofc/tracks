@@ -58,8 +58,346 @@ let currentServicePlan = {
 let editingItemId = null;
 let deletingItemId = null;
 
+// Music library (local storage)
+let musicLibrary = [];
+
+// Selected music from API (to be stored when adding item)
+let selectedMusicFromAPI = null;
+
+// Load music library from localStorage
+function loadMusicLibrary() {
+    const saved = localStorage.getItem('wtracks_music_library');
+    if (saved) {
+        try {
+            musicLibrary = JSON.parse(saved);
+            console.log('[MUSIC LIBRARY] Loaded library:', musicLibrary.length, 'songs');
+        } catch (e) {
+            console.error('[MUSIC LIBRARY] Error loading library:', e);
+            musicLibrary = [];
+        }
+    }
+}
+
+// Save music library to localStorage
+function saveMusicLibrary() {
+    localStorage.setItem('wtracks_music_library', JSON.stringify(musicLibrary));
+    console.log('[MUSIC LIBRARY] Saved library:', musicLibrary.length, 'songs');
+}
+
+// Add music to library (if not already exists)
+function addMusicToLibrary(name, artist = null, apiMetadata = null, updateLastUsed = true) {
+    if (!name || !name.trim()) return false;
+    
+    const normalizedName = name.trim().toLowerCase();
+    
+    // Check if music already exists
+    const existingIndex = musicLibrary.findIndex(music => 
+        music.name.toLowerCase() === normalizedName
+    );
+    
+    if (existingIndex !== -1) {
+        // Music already exists, update last used and potentially metadata
+        if (updateLastUsed) {
+            musicLibrary[existingIndex].lastUsedAt = Date.now();
+        }
+        musicLibrary[existingIndex].useCount = (musicLibrary[existingIndex].useCount || 0) + 1;
+        
+        // If API metadata is provided and the existing music doesn't have metadata, update it
+        if (apiMetadata && !musicLibrary[existingIndex].apiMetadata) {
+            musicLibrary[existingIndex].apiMetadata = apiMetadata;
+        }
+        
+        saveMusicLibrary();
+        return false; // Already existed
+    }
+    
+    // Add new music with API metadata if provided
+    const newMusic = {
+        id: generateUniqueId(),
+        name: name.trim(),
+        artist: artist ? artist.trim() : null,
+        createdAt: Date.now(),
+        lastUsedAt: updateLastUsed ? Date.now() : null,
+        useCount: 1,
+        apiMetadata: apiMetadata || null // Store API metadata if available
+    };
+    
+    musicLibrary.unshift(newMusic); // Add to beginning
+    saveMusicLibrary();
+    return true; // New music added
+}
+
+// Render saved music list
+function renderSavedMusicList() {
+    const savedList = document.getElementById('musicSavedList');
+    
+    if (!savedList) return;
+    
+    // Filter music based on current filter
+    let filteredMusic = musicLibrary;
+    
+    if (currentMusicFilter !== 'all') {
+        filteredMusic = musicLibrary.filter(music => {
+            const category = calculateUsageCategory(music.lastUsedAt);
+            return category === currentMusicFilter;
+        });
+    }
+    
+    if (filteredMusic.length === 0) {
+        // Show empty state
+        if (currentMusicFilter === 'all') {
+            savedList.innerHTML = `
+                <div class="music-saved-empty-state">
+                    <div class="music-saved-empty-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M9 18V5l12-2v13"></path>
+                            <circle cx="6" cy="18" r="3"></circle>
+                            <circle cx="18" cy="16" r="3"></circle>
+                        </svg>
+                    </div>
+                    <p class="music-saved-empty-text">Nenhuma música salva ainda.</p>
+                    <p class="music-saved-empty-hint">Adicione músicas para que apareçam aqui.</p>
+                </div>
+            `;
+        } else {
+            savedList.innerHTML = `
+                <div class="music-saved-empty-state">
+                    <div class="music-saved-empty-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                    </div>
+                    <p class="music-saved-empty-text">Nenhuma música neste período.</p>
+                    <p class="music-saved-empty-hint">Selecione outro filtro ou adicione músicas.</p>
+                </div>
+            `;
+        }
+        return;
+    }
+    
+    // Sort music by lastUsedAt (most recent first)
+    filteredMusic.sort((a, b) => {
+        // Music without lastUsedAt goes to the end
+        if (!a.lastUsedAt && !b.lastUsedAt) return 0;
+        if (!a.lastUsedAt) return 1;
+        if (!b.lastUsedAt) return -1;
+        return b.lastUsedAt - a.lastUsedAt;
+    });
+    
+    // Render music items
+    savedList.innerHTML = '';
+    
+    filteredMusic.forEach(music => {
+        const musicItem = document.createElement('div');
+        musicItem.className = 'music-saved-item';
+        musicItem.dataset.musicId = music.id;
+        
+        // Check if music has API metadata with artwork
+        const hasArtwork = music.apiMetadata && music.apiMetadata.artwork;
+        const artworkUrl = hasArtwork ? (music.apiMetadata.artworkLarge || music.apiMetadata.artwork) : null;
+        
+        // Create cover element
+        let coverElement;
+        if (hasArtwork && artworkUrl) {
+            coverElement = document.createElement('img');
+            coverElement.className = 'music-saved-item-cover';
+            coverElement.src = artworkUrl;
+            coverElement.alt = music.name;
+            coverElement.onerror = function() {
+                this.style.display = 'none';
+                this.nextElementSibling.style.display = 'flex';
+            };
+        } else {
+            coverElement = document.createElement('div');
+            coverElement.className = 'music-saved-item-cover';
+            coverElement.textContent = '♪';
+        }
+        
+        // Placeholder for failed image load
+        const placeholder = document.createElement('div');
+        placeholder.className = 'music-saved-item-cover';
+        placeholder.textContent = '♪';
+        placeholder.style.display = 'none';
+        
+        musicItem.appendChild(coverElement);
+        musicItem.appendChild(placeholder);
+        
+        // Info
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'music-saved-item-info';
+        
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'music-saved-item-name';
+        nameDiv.textContent = music.name;
+        
+        const artistDiv = document.createElement('div');
+        artistDiv.className = 'music-saved-item-artist';
+        artistDiv.textContent = music.artist || '';
+        
+        infoDiv.appendChild(nameDiv);
+        if (music.artist) {
+            infoDiv.appendChild(artistDiv);
+        }
+        
+        // Add usage status
+        const statusDiv = document.createElement('div');
+        statusDiv.className = 'music-saved-item-status';
+        const usageStatus = calculateUsageStatus(music.lastUsedAt);
+        statusDiv.textContent = `Usado pela última vez: ${usageStatus}`;
+        infoDiv.appendChild(statusDiv);
+        
+        musicItem.appendChild(infoDiv);
+        
+        // Add button
+        const addButton = document.createElement('button');
+        addButton.className = 'music-saved-item-add';
+        addButton.title = 'Usar esta música';
+        addButton.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+        `;
+        
+        // Add click handler to select music
+        addButton.addEventListener('click', () => {
+            selectMusicFromLibrary(music);
+        });
+        
+        musicItem.appendChild(addButton);
+        
+        savedList.appendChild(musicItem);
+    });
+}
+
+// Select music from library and fill the name field
+function selectMusicFromLibrary(music) {
+    const nameInput = document.getElementById('itemName');
+    const noteInput = document.getElementById('itemNote');
+    
+    if (nameInput) {
+        nameInput.value = music.name;
+    }
+    
+    if (noteInput) {
+        // If note is empty or only contains artist, set artist
+        const currentNote = noteInput.value.trim();
+        if (!currentNote || currentNote === music.artist) {
+            noteInput.value = music.artist || '';
+        }
+    }
+    
+    // Don't update lastUsedAt here - only when confirming addition
+    // Just increment useCount to track selection
+    const musicIndex = musicLibrary.findIndex(m => m.id === music.id);
+    if (musicIndex !== -1) {
+        musicLibrary[musicIndex].useCount = (musicLibrary[musicIndex].useCount || 0) + 1;
+        saveMusicLibrary();
+    }
+    
+    // If music has API metadata, set it as selected music
+    if (music.apiMetadata) {
+        selectedMusicFromAPI = {
+            id: music.apiMetadata.trackId,
+            title: music.apiMetadata.trackName,
+            artist: music.apiMetadata.artistName,
+            album: music.apiMetadata.collectionName,
+            artwork: music.apiMetadata.artwork,
+            artworkLarge: music.apiMetadata.artworkLarge,
+            url: music.apiMetadata.trackViewUrl,
+            trackId: music.apiMetadata.trackId,
+            artistId: music.apiMetadata.artistId,
+            collectionId: music.apiMetadata.collectionId,
+            trackName: music.apiMetadata.trackName,
+            artistName: music.apiMetadata.artistName,
+            collectionName: music.apiMetadata.collectionName,
+            artworkUrl100: music.apiMetadata.artworkUrl100,
+            trackViewUrl: music.apiMetadata.trackViewUrl
+        };
+    } else {
+        selectedMusicFromAPI = null;
+    }
+    
+    // Close the panel
+    closeMusicSearchPanel();
+    
+    // Focus on the name input
+    nameInput.focus();
+}
+
+// Helper function to escape HTML
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Calculate usage status based on lastUsedAt
+function calculateUsageStatus(lastUsedAt) {
+    if (!lastUsedAt) {
+        return 'Sem uso registrado';
+    }
+    
+    const now = Date.now();
+    const diffMs = now - lastUsedAt;
+    const diffHours = diffMs / (1000 * 60 * 60);
+    const diffDays = diffHours / 24;
+    
+    if (diffHours < 24) {
+        return 'Menos de 24h';
+    } else if (diffHours >= 24 && diffHours < 36) {
+        return '24h';
+    } else if (diffHours >= 36 && diffDays < 7) {
+        return '36h';
+    } else if (diffDays >= 7 && diffDays < 21) {
+        return '1 semana';
+    } else if (diffDays >= 21 && diffDays < 30) {
+        return '3 semanas';
+    } else if (diffDays >= 30 && diffDays < 31) {
+        return '1 mês';
+    } else {
+        return 'Mais de 1 mês';
+    }
+}
+
+// Calculate usage category for filtering
+function calculateUsageCategory(lastUsedAt) {
+    if (!lastUsedAt) {
+        return 'none';
+    }
+    
+    const now = Date.now();
+    const diffMs = now - lastUsedAt;
+    const diffHours = diffMs / (1000 * 60 * 60);
+    const diffDays = diffHours / 24;
+    
+    if (diffHours < 24) {
+        return 'less24h';
+    } else if (diffHours >= 24 && diffHours < 36) {
+        return '24h';
+    } else if (diffHours >= 36 && diffDays < 7) {
+        return '36h';
+    } else if (diffDays >= 7 && diffDays < 21) {
+        return '1week';
+    } else if (diffDays >= 21 && diffDays < 30) {
+        return '3weeks';
+    } else if (diffDays >= 30 && diffDays < 31) {
+        return '1month';
+    } else {
+        return 'more1month';
+    }
+}
+
+// Current filter state
+let currentMusicFilter = 'all';
+
 // Initialize the page
 document.addEventListener('DOMContentLoaded', () => {
+    // Load music library
+    loadMusicLibrary();
+    
     // Start with loading state
     isLoadingServicePlans = true;
     showLoadingState();
@@ -68,6 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderCalendar(currentMonth, currentYear);
     initSidePanel();
     initEditorEventListeners();
+    initMusicSearchPanel();
     
     // Wait for Firebase to be available before initializing Service Plans
     waitForFirebaseAndInit();
@@ -1255,6 +1594,31 @@ function initEditorEventListeners() {
         document.getElementById('itemName').classList.remove('error');
         document.getElementById('itemNameError').classList.remove('visible');
     });
+
+    // Add click handler for name input when type is MUSIC
+    document.getElementById('itemName').addEventListener('click', (e) => {
+        const itemType = document.getElementById('itemType').value;
+        if (itemType === 'MUSIC') {
+            // Prevent focus from being lost when panel opens
+            e.preventDefault();
+            openMusicSearchPanel();
+            // Re-focus on the input after panel opens
+            setTimeout(() => {
+                document.getElementById('itemName').focus();
+            }, 350);
+        }
+    });
+
+    // Add change handler for item type to handle UI changes
+    document.getElementById('itemType').addEventListener('change', () => {
+        const itemType = document.getElementById('itemType').value;
+        const nameInput = document.getElementById('itemName');
+        
+        // If not MUSIC, ensure music search panel is closed
+        if (itemType !== 'MUSIC') {
+            closeMusicSearchPanel();
+        }
+    });
     
     document.getElementById('itemTime').addEventListener('input', () => {
         document.getElementById('itemTime').classList.remove('error');
@@ -1274,7 +1638,9 @@ function initEditorEventListeners() {
     // ESC key for modals
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            if (document.getElementById('deleteItemModal').classList.contains('active')) {
+            if (document.getElementById('musicSearchPanelOverlay').classList.contains('active')) {
+                closeMusicSearchPanel();
+            } else if (document.getElementById('deleteItemModal').classList.contains('active')) {
                 closeDeleteItemModal();
             } else if (document.getElementById('editItemModal').classList.contains('active')) {
                 closeEditItemModal();
@@ -1419,18 +1785,22 @@ function openAddItemModal() {
     document.getElementById('itemTime').classList.remove('error');
     document.getElementById('itemTimeError').classList.remove('visible');
     
+    // Clear selected music from API
+    selectedMusicFromAPI = null;
+    
     // Show modal
     modal.classList.add('active');
     
-    // Focus on name input
-    setTimeout(() => {
-        document.getElementById('itemName').focus();
-    }, 100);
+    // Don't auto-focus to avoid opening music panel
+    // User will click to focus when ready
 }
 
 function closeAddItemModal() {
     const modal = document.getElementById('addItemModal');
     modal.classList.remove('active');
+    
+    // Also close music search panel if it's open
+    closeMusicSearchPanel();
 }
 
 function handleAddItem() {
@@ -1464,6 +1834,39 @@ function handleAddItem() {
         time: time || null,
         note: note || null
     };
+    
+    // If music was selected from API, add metadata
+    if (type === 'MUSIC' && selectedMusicFromAPI) {
+        newItem.musicMetadata = {
+            trackId: selectedMusicFromAPI.trackId,
+            trackName: selectedMusicFromAPI.trackName,
+            artistId: selectedMusicFromAPI.artistId,
+            artistName: selectedMusicFromAPI.artistName,
+            collectionId: selectedMusicFromAPI.collectionId,
+            collectionName: selectedMusicFromAPI.collectionName,
+            artworkUrl100: selectedMusicFromAPI.artworkUrl100,
+            trackViewUrl: selectedMusicFromAPI.trackViewUrl
+        };
+    }
+    
+    // If type is MUSIC, add to music library
+    if (type === 'MUSIC' && name) {
+        const artist = selectedMusicFromAPI ? selectedMusicFromAPI.artist : null;
+        // Pass API metadata if available
+        const apiMetadata = selectedMusicFromAPI ? {
+            trackId: selectedMusicFromAPI.trackId,
+            trackName: selectedMusicFromAPI.trackName,
+            artistId: selectedMusicFromAPI.artistId,
+            artistName: selectedMusicFromAPI.artistName,
+            collectionId: selectedMusicFromAPI.collectionId,
+            collectionName: selectedMusicFromAPI.collectionName,
+            artworkUrl100: selectedMusicFromAPI.artworkUrl100,
+            trackViewUrl: selectedMusicFromAPI.trackViewUrl,
+            artwork: selectedMusicFromAPI.artwork,
+            artworkLarge: selectedMusicFromAPI.artworkLarge
+        } : null;
+        addMusicToLibrary(name, artist, apiMetadata);
+    }
     
     // Add to service plan
     currentServicePlan.items.push(newItem);
@@ -1500,6 +1903,9 @@ function openEditItemModal(itemId) {
     if (!item) return;
     
     editingItemId = itemId;
+    
+    // Clear selected music from API
+    selectedMusicFromAPI = null;
     
     // Fill form with current values
     document.getElementById('editItemType').value = item.type;
@@ -1556,6 +1962,8 @@ function handleEditItem() {
     // Update item
     const itemIndex = currentServicePlan.items.findIndex(i => i.id === editingItemId);
     if (itemIndex !== -1) {
+        const oldItem = currentServicePlan.items[itemIndex];
+        
         currentServicePlan.items[itemIndex] = {
             ...currentServicePlan.items[itemIndex],
             type: type,
@@ -1563,6 +1971,41 @@ function handleEditItem() {
             time: time || null,
             note: note || null
         };
+        
+        // If music was selected from API, add/update metadata
+        if (type === 'MUSIC' && selectedMusicFromAPI) {
+            currentServicePlan.items[itemIndex].musicMetadata = {
+                trackId: selectedMusicFromAPI.trackId,
+                trackName: selectedMusicFromAPI.trackName,
+                artistId: selectedMusicFromAPI.artistId,
+                artistName: selectedMusicFromAPI.artistName,
+                collectionId: selectedMusicFromAPI.collectionId,
+                collectionName: selectedMusicFromAPI.collectionName,
+                artworkUrl100: selectedMusicFromAPI.artworkUrl100,
+                trackViewUrl: selectedMusicFromAPI.trackViewUrl
+            };
+        }
+        
+        // If type is MUSIC and name changed or type changed to MUSIC, add to library
+        if (type === 'MUSIC' && name) {
+            const artist = selectedMusicFromAPI ? selectedMusicFromAPI.artist : null;
+            // Pass API metadata if available
+            const apiMetadata = selectedMusicFromAPI ? {
+                trackId: selectedMusicFromAPI.trackId,
+                trackName: selectedMusicFromAPI.trackName,
+                artistId: selectedMusicFromAPI.artistId,
+                artistName: selectedMusicFromAPI.artistName,
+                collectionId: selectedMusicFromAPI.collectionId,
+                collectionName: selectedMusicFromAPI.collectionName,
+                artworkUrl100: selectedMusicFromAPI.artworkUrl100,
+                trackViewUrl: selectedMusicFromAPI.trackViewUrl,
+                artwork: selectedMusicFromAPI.artwork,
+                artworkLarge: selectedMusicFromAPI.artworkLarge
+            } : null;
+            if (oldItem.type !== 'MUSIC' || oldItem.name !== name) {
+                addMusicToLibrary(name, artist, apiMetadata);
+            }
+        }
         
         // Update service plan in storage
         const dateKey = formatDateKey(selectedDate);
@@ -1630,6 +2073,387 @@ function handleDeleteItem() {
     // Close modal and re-render
     closeDeleteItemModal();
     renderServicePlanItems();
+}
+
+// ========================================
+// MUSIC SEARCH SIDE PANEL
+// ========================================
+
+function openMusicSearchPanel() {
+    const overlay = document.getElementById('musicSearchPanelOverlay');
+    
+    // Clear search input
+    document.getElementById('musicSearchInput').value = '';
+    
+    // Clear API states
+    hideAllMusicAPIStates();
+    
+    // Render saved music list
+    renderSavedMusicList();
+    
+    // Render selected music if exists
+    if (selectedMusicFromAPI) {
+        renderSelectedMusic(selectedMusicFromAPI);
+    } else {
+        clearSelectedMusicDisplay();
+    }
+    
+    // Show overlay
+    overlay.classList.add('active');
+    
+    // Focus on search input
+    setTimeout(() => {
+        document.getElementById('musicSearchInput').focus();
+    }, 100);
+}
+
+function closeMusicSearchPanel() {
+    const overlay = document.getElementById('musicSearchPanelOverlay');
+    overlay.classList.remove('active');
+}
+
+// Initialize music search panel
+function initMusicSearchPanel() {
+    const overlay = document.getElementById('musicSearchPanelOverlay');
+    const closeBtn = document.getElementById('closeMusicSearchPanel');
+    const searchInput = document.getElementById('musicSearchInput');
+    const removeSelectedBtn = document.getElementById('musicSelectedRemove');
+    const filterBtn = document.getElementById('musicSavedFilterBtn');
+    const filterDropdown = document.getElementById('musicSavedFilterDropdown');
+    
+    // Close button
+    closeBtn.addEventListener('click', closeMusicSearchPanel);
+    
+    // Don't close when clicking outside since overlay is transparent
+    // Users should use the X button or ESC to close
+    
+    // Prevent clicking inside panel from affecting anything else
+    const panel = document.getElementById('musicSearchPanel');
+    panel.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+    
+    // Search input with debounce
+    if (searchInput && window.MusicAPI) {
+        const debouncedSearch = window.MusicAPI.debounce(handleMusicSearch, 400);
+        searchInput.addEventListener('input', debouncedSearch);
+    }
+    
+    // Remove selected music button
+    if (removeSelectedBtn) {
+        removeSelectedBtn.addEventListener('click', removeSelectedMusic);
+    }
+    
+    // Filter dropdown toggle
+    if (filterBtn && filterDropdown) {
+        filterBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isVisible = filterDropdown.style.display !== 'none';
+            filterDropdown.style.display = isVisible ? 'none' : 'block';
+        });
+        
+        // Filter option clicks
+        const filterOptions = filterDropdown.querySelectorAll('.filter-dropdown-option');
+        filterOptions.forEach(option => {
+            option.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const filter = option.dataset.filter;
+                currentMusicFilter = filter;
+                
+                // Update active state
+                filterOptions.forEach(opt => {
+                    opt.classList.remove('active');
+                    opt.querySelector('.filter-option-check').textContent = '';
+                });
+                option.classList.add('active');
+                option.querySelector('.filter-option-check').textContent = '✓';
+                
+                // Re-render list with new filter
+                renderSavedMusicList();
+                
+                // Close dropdown
+                filterDropdown.style.display = 'none';
+            });
+        });
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!filterDropdown.contains(e.target) && !filterBtn.contains(e.target)) {
+                filterDropdown.style.display = 'none';
+            }
+        });
+    }
+}
+
+// Handle music search
+async function handleMusicSearch() {
+    const searchInput = document.getElementById('musicSearchInput');
+    const query = searchInput.value.trim();
+    
+    // Hide all states
+    hideAllMusicAPIStates();
+    
+    if (!query) {
+        return; // Don't search if empty
+    }
+    
+    // Show loading state
+    showMusicAPILoading();
+    
+    try {
+        if (window.MusicAPI) {
+            const results = await window.MusicAPI.searchMusic(query);
+            renderMusicAPIResults(results);
+        }
+    } catch (error) {
+        console.error('[SERVICE PLAN] Error searching music:', error);
+        showMusicAPIError();
+    }
+}
+
+// Render API results
+function renderMusicAPIResults(results) {
+    const resultsSection = document.getElementById('musicApiResultsSection');
+    const resultsList = document.getElementById('musicApiResultsList');
+    
+    if (!resultsSection || !resultsList) return;
+    
+    // Hide all states
+    hideAllMusicAPIStates();
+    
+    if (results.length === 0) {
+        showMusicAPINoResults();
+        return;
+    }
+    
+    // Clear previous results
+    resultsList.innerHTML = '';
+    
+    // Render each result
+    results.forEach(music => {
+        const resultItem = createMusicAPIResultItem(music);
+        resultsList.appendChild(resultItem);
+    });
+    
+    // Show results section
+    resultsSection.style.display = 'block';
+}
+
+// Create API result item element
+function createMusicAPIResultItem(music) {
+    const resultItem = document.createElement('div');
+    resultItem.className = 'music-api-result-item';
+    
+    // Artwork
+    let artworkElement;
+    if (music.artwork) {
+        artworkElement = document.createElement('img');
+        artworkElement.className = 'music-api-result-artwork';
+        artworkElement.src = music.artworkLarge || music.artwork;
+        artworkElement.alt = music.title;
+        artworkElement.onerror = function() {
+            this.style.display = 'none';
+            this.nextElementSibling.style.display = 'flex';
+        };
+    } else {
+        artworkElement = document.createElement('div');
+        artworkElement.className = 'music-api-result-artwork-placeholder';
+        artworkElement.textContent = '♪';
+    }
+    
+    // Placeholder for failed image load
+    const placeholder = document.createElement('div');
+    placeholder.className = 'music-api-result-artwork-placeholder';
+    placeholder.textContent = '♪';
+    placeholder.style.display = 'none';
+    
+    resultItem.appendChild(artworkElement);
+    resultItem.appendChild(placeholder);
+    
+    // Info
+    const infoDiv = document.createElement('div');
+    infoDiv.className = 'music-api-result-info';
+    
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'music-api-result-title';
+    titleDiv.textContent = music.title;
+    
+    const artistDiv = document.createElement('div');
+    artistDiv.className = 'music-api-result-artist';
+    artistDiv.textContent = music.artist;
+    
+    infoDiv.appendChild(titleDiv);
+    infoDiv.appendChild(artistDiv);
+    resultItem.appendChild(infoDiv);
+    
+    // Add button
+    const addButton = document.createElement('button');
+    addButton.className = 'music-api-result-add';
+    addButton.title = 'Selecionar esta música';
+    addButton.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+    `;
+    
+    addButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectMusicFromAPI(music);
+    });
+    
+    resultItem.appendChild(addButton);
+    
+    return resultItem;
+}
+
+// Select music from API
+function selectMusicFromAPI(music) {
+    const nameInput = document.getElementById('itemName');
+    const noteInput = document.getElementById('itemNote');
+    
+    if (nameInput) {
+        nameInput.value = music.title;
+    }
+    
+    if (noteInput) {
+        // If note is empty or only contains artist, set artist
+        const currentNote = noteInput.value.trim();
+        if (!currentNote || currentNote === music.artist) {
+            noteInput.value = music.artist;
+        }
+    }
+    
+    // Store selected music for later use when adding item
+    selectedMusicFromAPI = music;
+    
+    // Update selected music display in panel
+    renderSelectedMusic(music);
+    
+    // Close the panel
+    closeMusicSearchPanel();
+    
+    // Focus on the note input for user to edit if needed
+    if (noteInput) {
+        noteInput.focus();
+    }
+}
+
+// Render selected music in panel
+function renderSelectedMusic(music) {
+    const selectedSection = document.getElementById('musicSelectedSection');
+    const selectedItem = document.getElementById('musicSelectedItem');
+    
+    if (!selectedSection || !selectedItem) return;
+    
+    if (!music) {
+        selectedSection.style.display = 'none';
+        return;
+    }
+    
+    // Create selected music item
+    selectedItem.innerHTML = '';
+    
+    // Artwork
+    let artworkElement;
+    if (music.artwork) {
+        artworkElement = document.createElement('img');
+        artworkElement.className = 'music-selected-artwork';
+        artworkElement.src = music.artworkLarge || music.artwork;
+        artworkElement.alt = music.title;
+        artworkElement.onerror = function() {
+            this.style.display = 'none';
+            this.nextElementSibling.style.display = 'flex';
+        };
+    } else {
+        artworkElement = document.createElement('div');
+        artworkElement.className = 'music-selected-artwork-placeholder';
+        artworkElement.textContent = '♪';
+    }
+    
+    // Placeholder for failed image load
+    const placeholder = document.createElement('div');
+    placeholder.className = 'music-selected-artwork-placeholder';
+    placeholder.textContent = '♪';
+    placeholder.style.display = 'none';
+    
+    selectedItem.appendChild(artworkElement);
+    selectedItem.appendChild(placeholder);
+    
+    // Info
+    const infoDiv = document.createElement('div');
+    infoDiv.className = 'music-selected-info';
+    
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'music-selected-title-text';
+    titleDiv.textContent = music.title;
+    
+    const artistDiv = document.createElement('div');
+    artistDiv.className = 'music-selected-artist';
+    artistDiv.textContent = music.artist;
+    
+    infoDiv.appendChild(titleDiv);
+    infoDiv.appendChild(artistDiv);
+    selectedItem.appendChild(infoDiv);
+    
+    // Check icon
+    const checkDiv = document.createElement('div');
+    checkDiv.className = 'music-selected-check';
+    checkDiv.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+    `;
+    selectedItem.appendChild(checkDiv);
+    
+    // Add click handler to allow re-selection or viewing
+    selectedItem.addEventListener('click', () => {
+        // Could add functionality to show more details or re-select
+        console.log('Selected music clicked:', music);
+    });
+    
+    // Show selected section
+    selectedSection.style.display = 'block';
+}
+
+// Clear selected music display
+function clearSelectedMusicDisplay() {
+    const selectedSection = document.getElementById('musicSelectedSection');
+    if (selectedSection) {
+        selectedSection.style.display = 'none';
+    }
+}
+
+// Remove selected music
+function removeSelectedMusic() {
+    // Clear the selected music variable
+    selectedMusicFromAPI = null;
+    
+    // Clear the display
+    clearSelectedMusicDisplay();
+    
+    // Don't clear the name/note fields - user may want to keep the text
+    // Just remove the API association
+}
+
+// Show/hide API states
+function showMusicAPILoading() {
+    document.getElementById('musicApiLoading').style.display = 'flex';
+}
+
+function showMusicAPIError() {
+    document.getElementById('musicApiError').style.display = 'flex';
+}
+
+function showMusicAPINoResults() {
+    document.getElementById('musicApiNoResults').style.display = 'flex';
+}
+
+function hideAllMusicAPIStates() {
+    document.getElementById('musicApiResultsSection').style.display = 'none';
+    document.getElementById('musicApiLoading').style.display = 'none';
+    document.getElementById('musicApiError').style.display = 'none';
+    document.getElementById('musicApiNoResults').style.display = 'none';
 }
 
 // ========================================

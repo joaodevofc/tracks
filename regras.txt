@@ -541,10 +541,59 @@ service cloud.firestore {
       // Usuário pode deletar o próprio token.
       // Admin pode deletar qualquer token.
       allow delete: if request.auth != null
-                     && (
-                       isAdmin()
-                       || resource.data.uid == request.auth.uid
-                     );
+                    && (
+                      isAdmin()
+                      || resource.data.uid == request.auth.uid
+                    );
+    }
+
+
+    // ============================================================
+    // CHORDS (W.CIFRAS - Sistema de Cifras)
+    // ============================================================
+
+    match /chords/{chordId} {
+
+      // Público para leitura (qualquer pessoa pode visualizar cifras)
+      allow read: if true;
+
+      // Usuário autenticado pode criar cifras
+      allow create: if request.auth != null;
+
+      // Autor pode alterar/excluir a própria cifra
+      // Admin pode alterar/excluir qualquer cifra
+      allow update, delete: if request.auth != null
+                            && (
+                              isAuthorizedAdmin()
+                              || resource.data.author.uid == request.auth.uid
+                            );
+    }
+
+
+    // ============================================================
+    // PLAYLISTS (W.CIFRAS - Sistema de Playlists)
+    // ============================================================
+
+    match /playlists/{playlistId} {
+
+      // Dono pode ler suas próprias playlists
+      // Admin pode ler todas as playlists
+      allow read: if request.auth != null
+                  && (
+                    isAuthorizedAdmin()
+                    || resource.data.ownerUid == request.auth.uid
+                  );
+
+      // Usuário autenticado pode criar playlists
+      allow create: if request.auth != null;
+
+      // Dono pode alterar/excluir suas próprias playlists
+      // Admin pode alterar/excluir qualquer playlist
+      allow update, delete: if request.auth != null
+                            && (
+                              isAuthorizedAdmin()
+                              || resource.data.ownerUid == request.auth.uid
+                            );
     }
 
 

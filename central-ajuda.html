@@ -4264,6 +4264,1043 @@
                             `
                         }
                     ]
+                },
+                {
+                    id: 'service-plan',
+                    title: 'Service Plan',
+                    questions: [
+                        {
+                            id: 'o-que-service-plan',
+                            title: 'O que é o Service Plan?',
+                            content: `
+                                <p>O Service Plan é uma ferramenta de planejamento de serviços e eventos do W.Tracks, projetada especificamente para líderes de louvor, ministérios de música e organizações que precisam organizar a programação de cultos, reuniões e eventos. Ele permite criar planos detalhados para cada data, adicionar itens como músicas, mensagens, orações e outros elementos, e manter tudo organizado em um calendário visual.</p>
+                                
+                                <h3>Para que serve o Service Plan?</h3>
+                                <p>O Service Plan serve para:</p>
+                                <ul>
+                                    <li><strong>Organizar cultos:</strong> Planejar a ordem de louvor, mensagens e outros elementos de cada culto</li>
+                                    <li><strong>Gerenciar múltiplos serviços:</strong> Manter planos para diferentes cultos (domingo manhã, noite, quartas, etc.)</li>
+                                    <li><strong>Categorizar itens:</strong> Adicionar músicas, mensagens, ofertas, avisos e outros tipos de itens</li>
+                                    <li><strong>Definir horários:</strong> Estabelecer horários para cada item do serviço</li>
+                                    <li><strong>Adicionar notas:</strong> Incluir informações adicionais como tom, capotraste, instruções especiais</li>
+                                    <li><strong>Organizar músicas:</strong> Vincular músicas da sua biblioteca aos itens do serviço</li>
+                                    <li><strong>Compartilhar planos:</strong> Compartilhar o calendário mensal com outros membros da equipe</li>
+                                    <li><strong>Identificar datas:</strong> Usar cores para destacar tipos especiais de serviços</li>
+                                </ul>
+                                
+                                <h3>Calendário mensal</h3>
+                                <p>A interface principal do Service Plan é um calendário mensal:</p>
+                                <ul>
+                                    <li>Você pode navegar entre meses usando o carousel no topo da página</li>
+                                    <li>Cada dia do calendário mostra se há um plano de serviço criado</li>
+                                    <li>Dias com planos exibem o nome do serviço na visualização do calendário</li>
+                                    <li>Clicar em um dia abre o painel lateral com os detalhes do plano</li>
+                                    <li>Dias podem ser coloridos para indicar tipos especiais de serviços</li>
+                                </ul>
+                                
+                                <h3>Itens de serviço</h3>
+                                <p>Cada plano de serviço pode conter múltiplos itens:</p>
+                                <ul>
+                                    <li><strong>ABERTURA:</strong> Música ou elemento de abertura do serviço</li>
+                                    <li><strong>MÚSICA:</strong> Músicas de louvor e adoração</li>
+                                    <li><strong>MENSAGEM:</strong> Pregação ou palavra</li>
+                                    <li><strong>OFERTA:</strong> Momento de oferta</li>
+                                    <li><strong>SANTA CEIA:</strong> Celebração da ceia</li>
+                                    <li><strong>ORAÇÃO:</strong> Momentos de oração</li>
+                                    <li><strong>AVISOS:</strong> Anúncios e comunicados</li>
+                                    <li><strong>VÍDEO:</strong> Exibição de vídeos</li>
+                                    <li><strong>INSTRUMENTAL:</strong> Músicas instrumentais</li>
+                                    <li><strong>PAUSA:</strong> Momentos de silêncio ou transição</li>
+                                    <li><strong>ENCERRAMENTO:</strong> Música ou elemento de encerramento</li>
+                                    <li><strong>PERSONALIZADO:</strong> Tipos personalizados conforme sua necessidade</li>
+                                </ul>
+                                
+                                <h3>Integração com músicas</h3>
+                                <p>O Service Plan se integra com sua biblioteca de músicas:</p>
+                                <ul>
+                                    <li>Você pode pesquisar músicas adicionadas ao W.Tracks</li>
+                                    <li>Músicas recentes são mostradas com filtros por período (24h, 1 semana, etc.)</li>
+                                    <li>Organize músicas por tempo desde que foram adicionadas para facilitar seleção</li>
+                                    <li>Cada item de música pode ter notas específicas para aquele serviço</li>
+                                </ul>
+                                
+                                <h3>Compartilhamento</h3>
+                                <p>O Service Plan permite compartilhar calendários:</p>
+                                <ul>
+                                    <li>Compartilhe um mês completo com outros membros da equipe</li>
+                                    <li>O link compartilhado é read-only — visualização apenas</li>
+                                    <li>Outros podem ver todos os planos do mês compartilhado</li>
+                                    <li>Ideal para enviar planejamento para equipe de louvor, técnicos, etc.</li>
+                                </ul>
+                            `
+                        },
+                        {
+                            id: 'criar-service-plan',
+                            title: 'Como criar um Service Plan?',
+                            content: `
+                                <p>Criar um Service Plan é o primeiro passo para organizar seus serviços. Cada plano representa a programação completa de um serviço específico — um culto de domingo, uma reunião de quarta-feira, um evento especial, etc. O processo é simples e intuitivo, permitindo que você crie planos rapidamente e depois adicione detalhes conforme necessário.</p>
+                                
+                                <h3>Acessando o Service Plan</h3>
+                                <p>Para começar a usar o Service Plan:</p>
+                                <ul>
+                                    <li>No menu de navegação principal, clique no seu perfil (ícone de usuário)</li>
+                                    <li>No menu dropdown, clique em "Service Plan"</li>
+                                    <li>Você será redirecionado para a página service-plan.html</li>
+                                    <li>A primeira visualização será o calendário do mês atual</li>
+                                </ul>
+                                
+                                <h3>Criando um plano para uma data</h3>
+                                <p>Para criar um novo Service Plan:</p>
+                                <ul>
+                                    <li>No calendário, clique no dia para o qual deseja criar um plano</li>
+                                    <li>Um painel lateral abrirá mostrando as informações da data selecionada</li>
+                                    <li>Se ainda não houver plano para essa data, você verá a opção de criar</li>
+                                    <li>Preencha o campo "NOME DO PLANO DE SERVIÇO" (ex: "Culto de Domingo", "Reunião de Oração")</li>
+                                    <li>Clique no botão "CRIAR PLANO DE SERVIÇO"</li>
+                                    <li>O plano será criado e aparecerá no calendário</li>
+                                </ul>
+                                
+                                <h3>Após criar o plano</h3>
+                                <p>Depois de criar o plano básico:</p>
+                                <ul>
+                                    <li>O painel lateral mostrará as opções do plano criado</li>
+                                    <li>Você pode abrir o editor para adicionar itens</li>
+                                    <li>Editar o nome do plano se necessário</li>
+                                    <li>Definir uma cor para destacar esse dia no calendário</li>
+                                    <li>Compartilhar o mês com outros membros da equipe</li>
+                                </ul>
+                                
+                                <h3>Nomes de planos</h3>
+                                <p>Dê nomes descritivos aos seus planos:</p>
+                                <ul>
+                                    <li>Use nomes que identifiquem claramente o tipo de serviço</li>
+                                    <li>Exemplos: "Culto Domingo Manhã", "Culto Domingo Noite", "Reunião Quarta", "Culto de Jovens"</li>
+                                    <li>Nomes descritivos ajudam a identificar rapidamente o tipo de serviço no calendário</li>
+                                    <li>O nome aparece na visualização do calendário para facilitar identificação</li>
+                                </ul>
+                                
+                                <h3>Múltiplos planos por dia</h3>
+                                <p>Atualmente, o sistema permite um plano por dia:</p>
+                                <ul>
+                                    <li>Se você precisa de múltiplos serviços no mesmo dia, considere criar planos com nomes diferentes</li>
+                                    <li>Exemplo: "Culto Manhã" e "Culto Noite" podem ser planos separados em dias diferentes, ou use um nome combinado</li>
+                                    <li>A interface é otimizada para um plano principal por data</li>
+                                </ul>
+                                
+                                <h3>Salvamento automático</h3>
+                                <p>O Service Plan salva automaticamente:</p>
+                                <ul>
+                                    <li>Quando você cria um plano, ele é salvo imediatamente no Firestore</li>
+                                    <li>Alterações nos itens são salvas em tempo real</li>
+                                    <li>Não há botão de salvar manual — tudo é persistido automaticamente</li>
+                                    <li>Isso garante que você não perca trabalho por fechamento acidental do navegador</li>
+                                </ul>
+                            `
+                        },
+                        {
+                            id: 'adicionar-itens-service-plan',
+                            title: 'Como adicionar itens a um Service Plan?',
+                            content: `
+                                <p>Adicionar itens ao seu Service Plan é onde a programação do serviço realmente toma forma. Cada item representa um elemento da ordem do culto — uma música, a mensagem, uma oração, etc. Você pode adicionar quantos itens precisar, definir horários, adicionar notas e organizar tudo na ordem desejada.</p>
+                                
+                                <h3>Abrindo o editor de itens</h3>
+                                <p>Para adicionar itens a um plano:</p>
+                                <ul>
+                                    <li>Clique no dia do calendário que tem o plano que deseja editar</li>
+                                    <li>No painel lateral, clique em "ABRIR PLANO DE SERVIÇO"</li>
+                                    <li>O editor de Service Plan abrirá, mostrando a lista de itens atual</li>
+                                    <li>Se o plano estiver vazio, você verá um estado vazio com opção de adicionar o primeiro item</li>
+                                </ul>
+                                
+                                <h3>Adicionando um item</h3>
+                                <p>Para adicionar um novo item:</p>
+                                <ul>
+                                    <li>Clique no botão "+ ADICIONAR ITEM" no topo da lista</li>
+                                    <li>Um modal abrirá com o formulário de criação de item</li>
+                                    <li>Selecione o TIPO do item (Abertura, Música, Mensagem, etc.)</li>
+                                    <li>Preencha o NOME do item (ex: "Bondade de Deus", "Mensagem sobre Fé")</li>
+                                    <li>Opcionalmente, preencha o HORÁRIO (ex: "19:05")</li>
+                                    <li>Opcionalmente, adicione uma NOTA com informações adicionais</li>
+                                    <li>Clique em "ADICIONAR ITEM" para confirmar</li>
+                                </ul>
+                                
+                                <h3>Tipos de itens disponíveis</h3>
+                                <p>O Service Plan oferece diversos tipos de itens:</p>
+                                <ul>
+                                    <li><strong>ABERTURA:</strong> Primeira música ou elemento do serviço</li>
+                                    <li><strong>MÚSICA:</strong> Músicas de louvor durante o culto</li>
+                                    <li><strong>MENSAGEM:</strong> Pregação ou palavra principal</li>
+                                    <li><strong>OFERTA:</strong> Momento de oferta ou dízimo</li>
+                                    <li><strong>SANTA CEIA:</strong> Celebração da ceia do Senhor</li>
+                                    <li><strong>ORAÇÃO:</strong> Momentos de oração (início, meio, fim)</li>
+                                    <li><strong>AVISOS:</strong> Anúncios importantes para a congregação</li>
+                                    <li><strong>VÍDEO:</strong> Exibição de vídeos (testemunhos, promocionais, etc.)</li>
+                                    <li><strong>INSTRUMENTAL:</strong> Músicas instrumentais ou background</li>
+                                    <li><strong>PAUSA:</strong> Momentos de silêncio ou transição</li>
+                                    <li><strong>ENCERRAMENTO:</strong> Música ou elemento final do serviço</li>
+                                    <li><strong>PERSONALIZADO:</strong> Qualquer tipo personalizado que você precise</li>
+                                </ul>
+                                
+                                <h3>Horários dos itens</h3>
+                                <p>Definir horários ajuda no planejamento:</p>
+                                <ul>
+                                    <li>O campo horário é opcional — use se planeja horários específicos</li>
+                                    <li>Formato: HH:MM (ex: 19:05, 20:30)</li>
+                                    <li>Horários aparecem ao lado do nome do item na lista</li>
+                                    <li>Ajuda a equipe técnica e musicais a saber quando cada elemento começa</li>
+                                </ul>
+                                
+                                <h3>Notas dos itens</h3>
+                                <p>Use notas para informações importantes:</p>
+                                <ul>
+                                    <li>Para músicas: tom, capotraste, versão, instruções para banda</li>
+                                    <li>Para mensagens: tema, referências bíblicas, duração estimada</li>
+                                    <li>Para vídeos: nome do arquivo, duração, instruções técnicas</li>
+                                    <li>Para orações: tipo de oração, quem liderará, instruções especiais</li>
+                                    <li>Notas aparecem abaixo do nome do item na lista</li>
+                                </ul>
+                                
+                                <h3>Organização dos itens</h3>
+                                <p>Os itens aparecem na ordem em que são adicionados:</p>
+                                <ul>
+                                    <li>Adicione itens na ordem desejada do serviço</li>
+                                    <li>Os itens são numerados (01, 02, 03...) para fácil referência</li>
+                                    <li>Você pode editar itens para ajustar detalhes sem recriar</li>
+                                    <li>Para reordenar, exclua e recrie na ordem desejada (funcionalidade de drag-and-drop pode ser adicionada no futuro)</li>
+                                </ul>
+                                
+                                <h3>Vinculando músicas</h3>
+                                <p>Para itens do tipo MÚSICA:</p>
+                                <ul>
+                                    <li>No modal de edição, clique em "PESQUISAR MÚSICAS"</li>
+                                    <li>Um painel lateral abrirá com opções de busca</li>
+                                    <li>Digite o nome da música para pesquisar na API</li>
+                                    <li>Selecione uma música da lista de resultados</li>
+                                    <li>Alternativamente, escolha das suas músicas salvas organizadas por período</li>
+                                    <li>A música selecionada ficará vinculada ao item</li>
+                                </ul>
+                            `
+                        },
+                        {
+                            id: 'editar-excluir-itens',
+                            title: 'Como editar ou excluir itens do Service Plan?',
+                            content: `
+                                <p>Depois de adicionar itens ao seu Service Plan, você pode precisar fazer ajustes — corrigir o nome de uma música, mudar o horário, adicionar informações que esqueceu, ou remover um item que não será mais usado. O editor do Service Plan permite editar e excluir itens facilmente a qualquer momento.</p>
+                                
+                                <h3>Editando um item existente</h3>
+                                <p>Para editar um item:</p>
+                                <ul>
+                                    <li>No editor de Service Plan, localize o item que deseja editar</li>
+                                    <li>Clique no botão de edição (ícone de lápis) ao lado do item</li>
+                                    <li>O modal de edição abrirá com os dados atuais do item preenchidos</li>
+                                    <li>Altere qualquer campo: tipo, nome, horário ou nota</li>
+                                    <li>Clique em "SALVAR ALTERAÇÕES" para confirmar as mudanças</li>
+                                    <li>O item será atualizado imediatamente na lista</li>
+                                </ul>
+                                
+                                <h3>Campos editáveis</h3>
+                                <p>Todos os campos de um item podem ser editados:</p>
+                                <ul>
+                                    <li><strong>TIPO:</strong> Mude o tipo do item (ex: de MÚSICA para INSTRUMENTAL)</li>
+                                    <li><strong>NOME:</strong> Corrija o nome ou altere conforme necessário</li>
+                                    <li><strong>HORÁRIO:</strong> Ajuste o horário se o planejamento mudou</li>
+                                    <li><strong>NOTA:</strong> Adicione ou modifique informações adicionais</li>
+                                    <li>As alterações são salvas automaticamente ao confirmar</li>
+                                </ul>
+                                
+                                <h3>Excluindo um item</h3>
+                                <p>Para remover um item do plano:</p>
+                                <ul>
+                                    <li>No editor de Service Plan, localize o item que deseja excluir</li>
+                                    <li>Clique no botão de exclusão (ícone de lixeira) ao lado do item</li>
+                                    <li>Um modal de confirmação aparecerá</li>
+                                    <li>O modal mostrará o nome do item que será excluído</li>
+                                    <li>Clique em "EXCLUIR" para confirmar a remoção</li>
+                                    <li>O item será removido permanentemente da lista</li>
+                                </ul>
+                                
+                                <h3>Confirmação de exclusão</h3>
+                                <p>O modal de confirmação é importante porque:</p>
+                                <ul>
+                                    <li>Previne exclusões acidentais</li>
+                                    <li>Permite verificar se você está excluindo o item correto</li>
+                                    <li>Mostra o nome do item para confirmação visual</li>
+                                    <li>Se clicar em "CANCELAR", o item permanece inalterado</li>
+                                </ul>
+                                
+                                <h3>Edição do nome do plano</h3>
+                                <p>Você também pode editar o nome do plano inteiro:</p>
+                                <ul>
+                                    <li>No painel lateral (não no editor de itens), clique em "EDITAR NOME"</li>
+                                    <li>Um campo de texto aparecerá para editar o nome</li>
+                                    <li>Altere o nome conforme necessário</li>
+                                    <li>Salve as alterações</li>
+                                    <li>O nome atualizado aparecerá no calendário</li>
+                                </ul>
+                                
+                                <h3>Excluindo o plano inteiro</h3>
+                                <p>Para excluir um Service Plan completo:</p>
+                                <ul>
+                                    <li>No painel lateral, clique em "EXCLUIR PLANO DE SERVIÇO"</li>
+                                    <li>Uma confirmação será solicitada</li>
+                                    <li>Confirmar excluirá o plano e todos os seus itens</li>
+                                    <li>O dia ficará vazio no calendário após a exclusão</li>
+                                    <li>Esta ação não pode ser desfeita</li>
+                                </ul>
+                                
+                                <h3>Salvamento automático</h3>
+                                <p>Edições são salvas automaticamente:</p>
+                                <ul>
+                                    <li>Não há botão de salvar manual para itens</li>
+                                    <li>Clicar em "SALVAR ALTERAÇÕES" persiste as mudanças no Firestore</li>
+                                    <li>As alterações ficam imediatamente visíveis na lista</li>
+                                    <li>Se você fechar o navegador, as alterações permanecem salvas</li>
+                                </ul>
+                            `
+                        },
+                        {
+                            id: 'compartilhar-service-plan',
+                            title: 'Como compartilhar um Service Plan?',
+                            content: `
+                                <p>O compartilhamento do Service Plan permite que você envie o calendário mensal para outros membros da equipe — músicos, técnicos, líderes, etc. O compartilhamento é feito através de um link especial que permite visualização apenas (read-only), garantindo que outros possam ver o planejamento sem alterá-lo acidentalmente.</p>
+                                
+                                <h3>Compartilhando um mês</h3>
+                                <p>Para compartilhar o calendário de um mês:</p>
+                                <ul>
+                                    <li>No calendário, selecione qualquer dia do mês que deseja compartilhar</li>
+                                    <li>No painel lateral, clique em "COMPARTILHAR MÊS"</li>
+                                    <li>O sistema gerará um link de compartilhamento para o mês inteiro</li>
+                                    <li>Copie o link gerado</li>
+                                    <li>Envie o link para as pessoas que precisam ver o planejamento</li>
+                                </ul>
+                                
+                                <h3>O que o link compartilhado mostra</h3>
+                                <p>Quando alguém abre o link compartilhado:</p>
+                                <ul>
+                                    <li>Vê o calendário do mês que foi compartilhado</li>
+                                    <li>Pode clicar em qualquer dia com plano para ver os detalhes</li>
+                                    <li>Vê todos os itens do plano (músicas, horários, notas)</li>
+                                    <li>A visualização é apenas leitura — não pode editar nada</li>
+                                    <li>Não precisa fazer login para visualizar</li>
+                                </ul>
+                                
+                                <h3>Modo de visualização compartilhada</h3>
+                                <p>A página compartilhada é simplificada:</p>
+                                <ul>
+                                    <li>Mostra apenas o calendário e os itens de música</li>
+                                    <li>Outros tipos de itens podem ser filtrados ou ocultados</li>
+                                    <li>Botões de edição, exclusão e criação não aparecem</li>
+                                    <li>Foco está na visualização clara da programação</li>
+                                </ul>
+                                
+                                <h3>Copiar o link</h3>
+                                <p>O link é gerado automaticamente:</p>
+                                <ul>
+                                    <li>O sistema copia o link para a área de transferência automaticamente</li>
+                                    <li>Se não copiar automaticamente, você pode copiar manualmente</li>
+                                    <li>O link contém parâmetros: mês, ano e ID do usuário</li>
+                                    <li>Links são únicos para cada usuário e mês</li>
+                                </ul>
+                                
+                                <h3>Quando usar o compartilhamento</h3>
+                                <p>O compartilhamento é útil para:</p>
+                                <ul>
+                                    <li>Enviar planejamento semanal para a equipe de louvor</li>
+                                    <li>Compartilhar com técnicos de som e luz</li>
+                                    <li>Enviar para pastores ou líderes para aprovação</li>
+                                    <li>Coordenar com departamentos (infantil, recepção, etc.)</li>
+                                    <li>Manter registro histórico de planejamentos</li>
+                                </ul>
+                                
+                                <h3>Privacidade do compartilhamento</h3>
+                                <p>O compartilhamento é seguro:</p>
+                                <ul>
+                                    <li>Links contêm IDs criptografados que não revelam informações sensíveis</li>
+                                    <li>Quem tem o link pode visualizar, mas não editar</li>
+                                    <li>Se precisar revogar acesso, você pode mudar os planos (o link ainda funcionará mas mostrará dados atualizados)</li>
+                                    <li>Não há controle granular de permissões no momento — é tudo ou nada para o mês</li>
+                                </ul>
+                                
+                                <h3>Links expiram?</h3>
+                                <p>Sobre a validade dos links:</p>
+                                <ul>
+                                    <li>Links de compartilhamento não expiram</li>
+                                    <li>Um link compartilhado continuará funcionando indefinidamente</li>
+                                    <li>Se você excluir planos, eles não aparecerão mais mesmo com o link antigo</li>
+                                    <li>Se você editar planos, as alterações aparecerão no link compartilhado</li>
+                                </ul>
+                            `
+                        },
+                        {
+                            id: 'cores-dias-service-plan',
+                            title: 'Como usar cores nos dias do Service Plan?',
+                            content: `
+                                <p>O Service Plan permite colorir dias específicos do calendário para destacar tipos especiais de serviços ou eventos. Isso ajuda na identificação visual rápida — você pode, por exemplo, marcar domingos de culto especial em roxo, cultos de jovens em azul, ou eventos especiais em vermelho. As cores são uma ferramenta visual poderosa para organização.</p>
+                                
+                                <h3>Acessando as opções de cor</h3>
+                                <p>Para definir a cor de um dia:</p>
+                                <ul>
+                                    <li>No calendário, clique no dia que deseja colorir</li>
+                                    <li>No painel lateral, localize a seção "COR DO DIA"</li>
+                                    <li>Você verá uma paleta de cores disponíveis</li>
+                                    <li>A primeira opção é um X, que remove a cor (volta ao padrão)</li>
+                                </ul>
+                                
+                                <h3>Cores disponíveis</h3>
+                                <p>A paleta inclui diversas opções:</p>
+                                <ul>
+                                    <li><strong>Sem cor:</strong> Remove a cor (volta ao estilo padrão)</li>
+                                    <li><strong>Roxo (#9b59b6):</strong> Bom para cultos especiais ou temáticos</li>
+                                    <li><strong>Rosa (#e91e63):</strong> Para eventos femininos ou datas especiais</li>
+                                    <li><strong>Azul (#2196f3):</strong> Cultos regulares ou eventos gerais</li>
+                                    <li><strong>Ciano (#00bcd4):</strong> Cultos de jovens ou eventos informais</li>
+                                    <li><strong>Verde (#4caf50):</strong> Cultos ao ar livre ou eventos de natureza</li>
+                                    <li><strong>Amarelo (#ffeb3b):</strong> Cultos matinais ou eventos de manhã</li>
+                                    <li><strong>Laranja (#ff9800):</strong> Cultos noturnos ou eventos de tarde</li>
+                                    <li><strong>Vermelho (#f44336):</strong> Eventos especiais, feriados ou cultos solenes</li>
+                                </ul>
+                                
+                                <h3>Aplicando uma cor</h3>
+                                <p>Para colorir um dia:</p>
+                                <ul>
+                                    <li>Clique na cor desejada na paleta</li>
+                                    <li>O dia no calendário mudará imediatamente para a cor selecionada</li>
+                                    <li>O texto do dia muda para branco para contraste em cores escuras</li>
+                                    <li>A cor é salva automaticamente no Firestore</li>
+                                </ul>
+                                
+                                <h3>Removendo a cor</h3>
+                                <p>Para voltar ao estilo padrão:</p>
+                                <ul>
+                                    <li>Clique na primeira opção da paleta (o X)</li>
+                                    <li>Isso remove a cor do dia</li>
+                                    <li>O dia volta ao estilo padrão (fundo preto, texto branco)</li>
+                                </ul>
+                                
+                                <h3>Sugestões de uso de cores</h3>
+                                <p>Algumas ideias para organizar com cores:</p>
+                                <ul>
+                                    <li><strong>Por tipo de culto:</strong> Culto dominical em azul, culto de jovens em ciano</li>
+                                    <li><strong>Por período:</strong> Cultos matinais em amarelo, noturnos em laranja</li>
+                                    <li><strong>Por especialidade:</strong> Cultos de louvor em roxo, cultos de ensino em verde</li>
+                                    <li><strong>Por feriados:</strong> Natal em vermelho, Páscoa em roxo, etc.</li>
+                                    <li><strong>Por departamento:</strong> Culto infantil em rosa, culto de jovens em ciano</li>
+                                </ul>
+                                
+                                <h3>Consistência</h3>
+                                <p>Para melhor organização:</p>
+                                <ul>
+                                    <li>Use cores consistentemente — um tipo de evento sempre com a mesma cor</li>
+                                    <li>Documente seu sistema de cores se precisar compartilhar com a equipe</li>
+                                    <li>Evite usar muitas cores diferentes — 3-4 cores é geralmente suficiente</li>
+                                    <li>Seja consistente mês a mês para facilitar identificação</li>
+                                </ul>
+                                
+                                <h3>Visualização no calendário</h3>
+                                <p>Como as cores aparecem:</p>
+                                <ul>
+                                    <li>Dias coloridos destacam-se visualmente no calendário</li>
+                                    <li>O número do dia e o nome do serviço permanecem visíveis</li>
+                                    <li>Contraste é ajustado automaticamente (texto branco em fundos escuros)</li>
+                                    <li>Cores facilitam identificação rápida de tipos de serviços</li>
+                                </ul>
+                            `
+                        }
+                    ]
+                },
+                {
+                    id: 'wcifras',
+                    title: 'W.Cifras',
+                    questions: [
+                        {
+                            id: 'o-que-wcifras',
+                            title: 'O que é o W.Cifras?',
+                            content: `
+                                <p>O W.Cifras é o sistema de cifras do W.Tracks, uma ferramenta completa para visualizar, gerenciar e organizar cifras de músicas. Ele foi projetado para músicos, líderes de louvor e ministérios que precisam de acesso rápido e confiável a cifras durante ensaios, cultos e apresentações. O sistema oferece visualização clara, transposição de tonalidade, seleção de instrumentos e gerenciamento de playlists.</p>
+                                
+                                <h3>Principais funcionalidades</h3>
+                                <p>O W.Cifras oferece:</p>
+                                <ul>
+                                    <li><strong>Catálogo de cifras:</strong> Acesso a uma biblioteca de cifras de músicas</li>
+                                    <li><strong>Visualização clara:</strong> Exibição otimizada para leitura durante apresentações</li>
+                                    <li><strong>Transposição:</strong> Altere a tonalidade instantaneamente (C, D, E, etc.)</li>
+                                    <li><strong>Modos de exibição:</strong> Normal ou Simplificada (apenas acordes)</li>
+                                    <li><strong>Instrumentos:</strong> Seleção entre violão, guitarra, baixo, ukulele, cavaquinho, viola caipira, bandolim e mais</li>
+                                    <li><strong>Playlists:</strong> Crie e gerencie playlists de músicas para serviços</li>
+                                    <li><strong>Compartilhamento:</strong> Compartilhe cifras através de links</li>
+                                    <li><strong>Edição:</strong> Adicione e edite suas próprias cifras</li>
+                                    <li><strong>Favoritos:</strong> Marque cifras como favoritas para acesso rápido</li>
+                                    <li><strong>Busca:</strong> Pesquise cifras por nome</li>
+                                </ul>
+                                
+                                <h3>Acessando o W.Cifras</h3>
+                                <p>Para usar o W.Cifras:</p>
+                                <ul>
+                                    <li>No menu de navegação principal, clique no seu perfil (ícone de usuário)</li>
+                                    <li>No menu dropdown, clique em "W.Cifras"</li>
+                                    <li>Você será redirecionado para a página wcifras.html</li>
+                                    <li>A primeira visualização será o catálogo de cifras disponíveis</li>
+                                </ul>
+                                
+                                <h3>Diferença do W.Tracks principal</h3>
+                                <p>O W.Cifras é complementar ao W.Tracks:</p>
+                                <ul>
+                                    <li><strong>W.Tracks:</strong> Focado em áudio multitrack, mixagem, stems e reprodução</li>
+                                    <li><strong>W.Cifras:</strong> Focado em cifras textuais, acordes e partituras simplificadas</li>
+                                    <li>Os dois sistemas funcionam de forma independente</li>
+                                    <li>Você pode usar um sem usar o outro, ou ambos juntos</li>
+                                    <li>Não há sobreposição de funcionalidades entre os sistemas</li>
+                                </ul>
+                                
+                                <h3>Catálogo de cifras</h3>
+                                <p>A biblioteca do W.Cifras:</p>
+                                <ul>
+                                    <li>Mostra todas as cifras disponíveis em cards</li>
+                                    <li>Cada card mostra o nome da música e informações relevantes</li>
+                                    <li>Use a barra de busca para encontrar músicas específicas</li>
+                                    <li>Clique em uma cifra para abrir o leitor</li>
+                                    <li>O catálogo é atualizado regularmente com novas cifras</li>
+                                </ul>
+                                
+                                <h3>Leitor de cifras</h3>
+                                <p>O leitor é onde você visualiza a cifra:</p>
+                                <ul>
+                                    <li>Exibe a cifra com acordes posicionados acima das letras</li>
+                                    <li>Barra lateral mostra músicas relacionadas ou da playlist</li>
+                                    <li>Controles de transposição alteram a tonalidade instantaneamente</li>
+                                    <li>Seletor de instrumento adapta a cifra para o instrumento escolhido</li>
+                                    <li>Modo simplificada mostra apenas os acordes sem a letra</li>
+                                    <li>Botões de compartilhar, editar, baixar e imprimir</li>
+                                </ul>
+                                
+                                <h3>Integração com Service Plan</h3>
+                                <p>O W.Cifras pode ser usado com o Service Plan:</p>
+                                <ul>
+                                    <li>No Service Plan, adicione itens do tipo MÚSICA</li>
+                                    <li>Vincule músicas do W.Cifras aos itens do plano</li>
+                                    <li>Use playlists do W.Cifras para organizar músicas de cultos</li>
+                                    <li>Compartilhe playlists com a equipe através do Service Plan</li>
+                                </ul>
+                            `
+                        },
+                        {
+                            id: 'transpor-cifra',
+                            title: 'Como transpor uma cifra?',
+                            content: `
+                                <p>A transposição é uma das funcionalidades mais úteis do W.Cifras. Ela permite alterar a tonalidade de uma música instantaneamente — por exemplo, mudar uma cifra de C para D, ou de G para A. Isso é essencial para músicos que precisam adaptar músicas para a voz do cantor, para o instrumento que estão tocando, ou para facilitar a execução.</p>
+                                
+                                <h3>O que é transposição?</h3>
+                                <p>Transposição significa:</p>
+                                <ul>
+                                    <li>Mudar todos os acordes de uma música para uma tonalidade diferente</li>
+                                    <li>Manter a estrutura e o intervalo entre os acordes</li>
+                                    <li>Adaptar a música para diferentes vozes ou instrumentos</li>
+                                    <li>Facilitar a execução se a tonalidade original é difícil</li>
+                                </ul>
+                                
+                                <h3>Como transpor no W.Cifras</h3>
+                                <p>Para alterar a tonalidade:</p>
+                                <ul>
+                                    <li>Abra uma cifra no leitor do W.Cifras</li>
+                                    <li>Na barra lateral, localize o seletor de tonalidade (KEY)</li>
+                                    <li>Clique no seletor para abrir o dropdown de tonalidades</li>
+                                    <li>Selecione a tonalidade desejada (C, C#, D, D#, E, F, F#, G, G#, A, A#, B)</li>
+                                    <li>A cifra será transposta instantaneamente para a nova tonalidade</li>
+                                    <li>Todos os acordes na cifra serão recalculados</li>
+                                </ul>
+                                
+                                <h3>Tonalidades disponíveis</h3>
+                                <p>O W.Cifras suporta todas as tonalidades cromáticas:</p>
+                                <ul>
+                                    <li><strong>C (Dó):</strong> Tonalidade comum, relativamente fácil</li>
+                                    <li><strong>C# / Db (Dó sustenido / Ré bemol):</strong> Uma semitom acima de C</li>
+                                    <li><strong>D (Ré):</strong> Tonalidade popular e fácil</li>
+                                    <li><strong>D# / Eb (Ré sustenido / Mi bemol):</strong> Uma semitom acima de D</li>
+                                    <li><strong>E (Mi):</strong> Tonalidade fácil para guitarra</li>
+                                    <li><strong>F (Fá):</strong> Tonalidade relativamente fácil</li>
+                                    <li><strong>F# / Gb (Fá sustenido / Sol bemol):</strong> Uma semitom acima de F</li>
+                                    <li><strong>G (Sol):</strong> Tonalidade muito comum e fácil</li>
+                                    <li><strong>G# / Ab (Sol sustenido / Lá bemol):</strong> Uma semitom acima de G</li>
+                                    <li><strong>A (Lá):</strong> Tonalidade padrão para muitos instrumentos</li>
+                                    <li><strong>A# / Bb (Lá sustenido / Si bemol):</strong> Uma semitom acima de A</li>
+                                    <li><strong>B (Si):</strong> Tonalidade fácil para alguns instrumentos</li>
+                                </ul>
+                                
+                                <h3>Transposição automática</h3>
+                                <p>O sistema recalcula automaticamente:</p>
+                                <ul>
+                                    <li>Quando você muda a tonalidade, todos os acordes são recalculados</li>
+                                    <li>O intervalo entre os acordes é mantido (se era C → Am, será D → Bm na nova tonalidade)</li>
+                                    <li>Acordes complexos (C7, Gmaj7, etc.) são corretamente transpostos</li>
+                                    <li>Bemois e sustenidos são aplicados conforme apropriado</li>
+                                </ul>
+                                
+                                <h3>Instrumentos e transposição</h3>
+                                <p>Diferentes instrumentos podem precisar de transposições diferentes:</p>
+                                <ul>
+                                    <li><strong>Violão/Guitarra:</strong> Tonalidade padrão geralmente funciona</li>
+                                    <li><strong>Baixo:</strong> Uma oitava abaixo, mas a tonalidade visual permanece a mesma</li>
+                                    <li><strong>Ukulele:</strong> Tonalidade visual pode precisar ajuste para afinação diferente</li>
+                                    <li><strong>Cavaquinho:</strong> Afinação diferente pode exigir transposição adicional</li>
+                                    <li><strong>Viola caipira:</strong> Afinação específica (cebolão) pode requerer ajuste</li>
+                                </ul>
+                                
+                                <h3>Quando transpor</h3>
+                                <p>Situações comuns para transposição:</p>
+                                <ul>
+                                    <li><strong>Voz do cantor:</strong> Adaptar para a tessitura vocal</li>
+                                    <li><strong>Dificuldade técnica:</strong> Mover para tonalidade mais fácil de tocar</li>
+                                    <li><strong>Instrumento específico:</strong> Adaptar para o instrumento que está tocando</li>
+                                    <li><strong>Padrão de banda:</strong> Seguir a tonalidade que a banda está usando</li>
+                                    <li><strong>Harmonização:</strong> Criar versões em diferentes tonalidades para diferentes arranjos</li>
+                                </ul>
+                                
+                                <h3>Limitações</h3>
+                                <p>Coisas a considerar ao transpor:</p>
+                                <ul>
+                                    <li>Transposições extremas podem tornar acordes muito difíceis</li>
+                                    <li>Algumas músicas soam melhor em certas tonalidades</li>
+                                    <li>Transposição altera a altura absoluta, mas não o caráter emocional</li>
+                                    <li>Vozes e instrumentos reais precisam acompanhar a transposição visual</li>
+                                </ul>
+                            `
+                        },
+                        {
+                            id: 'instrumentos-wcifras',
+                            title: 'Quais instrumentos estão disponíveis no W.Cifras?',
+                            content: `
+                                <p>O W.Cifras oferece suporte a múltiplos instrumentos, adaptando a exibição das cifras para cada um. Isso é importante porque diferentes instrumentos têm afinações, digitacões e convenções de notação diferentes. Ao selecionar o instrumento apropriado, a cifra é exibida de forma otimizada para aquele instrumento específico.</p>
+                                
+                                <h3>Instrumentos disponíveis</h3>
+                                <p>O W.Cifras suporta:</p>
+                                <ul>
+                                    <li><strong>Violão / Guitarra:</strong> Afinação padrão EADGBE</li>
+                                    <li><strong>Baixo:</strong> Afinação uma oitava abaixo (EADG)</li>
+                                    <li><strong>Ukulele:</strong> Afinação GCEA (soprano/concerto)</li>
+                                    <li><strong>Cavaquinho:</strong> Afinação DGBD</li>
+                                    <li><strong>Viola Caipira:</strong> Afinação cebolão (EADGBE)</li>
+                                    <li><strong>Bandolim:</strong> Afinação GDAE</li>
+                                    <li><strong>Piano:</strong> Notação padrão (quando disponível)</li>
+                                    <li><strong>Teclado:</strong> Similar ao piano</li>
+                                </ul>
+                                
+                                <h3>Como selecionar o instrumento</h3>
+                                <p>Para mudar o instrumento:</p>
+                                <ul>
+                                    <li>Abra uma cifra no leitor do W.Cifras</li>
+                                    <li>Na barra lateral, localize a seção "INSTRUMENTO"</li>
+                                    <li>As categorias são: CORDAS, TECLAS, SOPROS, PERCUSSÃO</li>
+                                    <li>Clique na categoria desejada para expandir</li>
+                                    <li>Selecione o instrumento específico dentro da categoria</li>
+                                    <li>A cifra será adaptada para o instrumento selecionado</li>
+                                </ul>
+                                
+                                <h3>Violão / Guitarra</h3>
+                                <p>O instrumento mais comum:</p>
+                                <ul>
+                                    <li>Afinação padrão: E (mi) - A (lá) - D (ré) - G (sol) - B (si) - E (mi)</li>
+                                    <li>Acordes são exibidos com digitação padrão</li>
+                                    <li>Adequado para maioria das músicas de louvor</li>
+                                    <li>Base para a notação de cifras</li>
+                                </ul>
+                                
+                                <h3>Baixo</h3>
+                                <p>Para baixistas:</p>
+                                <ul>
+                                    <li>Afinação uma oitava abaixo do violão</li>
+                                    <li>4 cordas: E (mi) - A (lá) - D (ré) - G (sol)</li>
+                                    <li>Acordes mostram as notas fundamentais e importantes</li>
+                                    <li>Focado na linha de baixo da música</li>
+                                </ul>
+                                
+                                <h3>Ukulele</h3>
+                                <p>Instrumento popular:</p>
+                                <ul>
+                                    <li>Afinação GCEA (soprano/concerto)</li>
+                                    <li>4 cordas, afinação mais alta que violão</li>
+                                    <li>Acordes são simplificados para 4 cordas</li>
+                                    <li>Popular em música infantil e folk</li>
+                                </ul>
+                                
+                                <h3>Cavaquinho</h3>
+                                <p>Instrumento brasileiro:</p>
+                                <ul>
+                                    <li>Afinação DGBD (ré - sol - si - ré)</li>
+                                    <li>4 cordas, muito usado em samba e choro</li>
+                                    <li>Acordes adaptados para afinação específica</li>
+                                    <li>Popular em música brasileira tradicional</li>
+                                </ul>
+                                
+                                <h3>Viola Caipira</h3>
+                                <p>Instrumento tradicional brasileiro:</p>
+                                <ul>
+                                    <li>Afinação cebolão: EADGBE (mesma que violão)</li>
+                                    <li>10 cordas em 5 pares</li>
+                                    <li>Acordes consideram os pares de cordas</li>
+                                    <li>Usado em música sertaneja e caipira</li>
+                                </ul>
+                                
+                                <h3>Bandolim</h3>
+                                <p>Instrumento de cordas:</p>
+                                <ul>
+                                    <li>Afinação GDAE (sol - ré - lá - mi)</li>
+                                    <li>8 cordas em 4 pares</li>
+                                    <li>Similar a violino mas com trastes</li>
+                                    <li>Usado em choro, samba e música regional</li>
+                                </ul>
+                                
+                                <h3>Adaptação automática</h3>
+                                <p>O sistema adapta automaticamente:</p>
+                                <ul>
+                                    <li>Quando você muda o instrumento, a cifra é recalculada</li>
+                                    <li>Acordes são simplificados ou expandidos conforme necessário</li>
+                                    <li>Posições de acordes podem mudar para adequar ao instrumento</li>
+                                    <li>A tonalidade visual pode precisar ajuste para afinação diferente</li>
+                                </ul>
+                                
+                                <h3>Salvamento de preferência</h3>
+                                <p>O instrumento selecionado:</p>
+                                <ul>
+                                    <li>Fica salvo na sua sessão atual</li>
+                                    <li>Quando você abre outra cifra, o mesmo instrumento permanece selecionado</li>
+                                    <li>Isso facilita o trabalho quando você sempre toca o mesmo instrumento</li>
+                                    <li>Em sessões futuras, você pode precisar selecionar novamente</li>
+                                </ul>
+                            `
+                        },
+                        {
+                            id: 'modos-exibicao-wcifras',
+                            title: 'Quais são os modos de exibição do W.Cifras?',
+                            content: `
+                                <p>O W.Cifras oferece dois modos principais de exibição das cifras: Normal e Simplificada. Cada modo atende a necessidades diferentes — o modo Normal é ideal para leitura completa com letra e acordes, enquanto o modo Simplificada mostra apenas os acordes para quem já conhece a música ou precisa focar apenas na harmonia.</p>
+                                
+                                <h3>Modo Normal</h3>
+                                <p>O modo padrão de exibição:</p>
+                                <ul>
+                                    <li>Mostra a letra completa da música</li>
+                                    <li>Acordes são posicionados acima das letras onde devem ser tocados</li>
+                                    <li>Ideal para quem está aprendendo a música</li>
+                                    <li>Permite seguir a letra enquanto toca</li>
+                                    <li>Formato tradicional de cifras</li>
+                                </ul>
+                                
+                                <h3>Modo Simplificada</h3>
+                                <p>Foco apenas nos acordes:</p>
+                                <ul>
+                                    <li>Mostra apenas os acordes da música</li>
+                                    <li>A letra é removida ou ocultada</li>
+                                    <li>Ideal para quem já conhece a letra de memória</li>
+                                    <li>Útil para focar na progressão de acordes</li>
+                                    <li>Limpa a visualização para menos distração</li>
+                                </ul>
+                                
+                                <h3>Como alternar entre modos</h3>
+                                <p>Para mudar o modo de exibição:</p>
+                                <ul>
+                                    <li>Abra uma cifra no leitor do W.Cifras</li>
+                                    <li>Na barra lateral, localize o seletor de modo (MODE)</li>
+                                    <li>Clique no seletor para abrir o dropdown</li>
+                                    <li>Selecione "Normal" ou "Simplificada"</li>
+                                    <li>A cifra será atualizada imediatamente</li>
+                                </ul>
+                                
+                                <h3>Quando usar cada modo</h3>
+                                <p>Situações para o modo Normal:</p>
+                                <ul>
+                                    <li>Aprendendo uma música nova</li>
+                                    <li>Seguindo a letra enquanto canta</li>
+                                    <li>Lendo a cifra detalhadamente</li>
+                                    <li>Ensaiando com a banda e precisa de referência completa</li>
+                                    <li>Apresentações onde você precisa da letra</li>
+                                </ul>
+                                
+                                <p>Situações para o modo Simplificada:</p>
+                                <ul>
+                                    <li>Você já conhece a letra de memória</li>
+                                    <li>Focando apenas na harmonia e progressão</li>
+                                    <li>Visualização rápida durante apresentação</li>
+                                    <li>Ensaio onde a letra não é necessária</li>
+                                    <li>Estudando a estrutura de acordes</li>
+                                </ul>
+                                
+                                <h3>Transposição e modos</h3>
+                                <p>A transposição funciona em ambos os modos:</p>
+                                <ul>
+                                    <li>Modo Normal: Acordes transpostos aparecem com a letra</li>
+                                    <li>Modo Simplificada: Apenas os acordes transpostos aparecem</li>
+                                    <li>Mudar o modo não afeta a tonalidade selecionada</li>
+                                    <li>Você pode transpor e mudar modo em qualquer ordem</li>
+                                </ul>
+                                
+                                <h3>Instrumentos e modos</h3>
+                                <p>O instrumento selecionado é mantido:</p>
+                                <ul>
+                                    <li>Mudar o modo não altera o instrumento selecionado</li>
+                                    <li>Se você está em violão no modo Normal, permanece em violão no Simplificada</li>
+                                    <li>Isso permite combinar instrumento + modo conforme sua preferência</li>
+                                </ul>
+                                
+                                <h3>Salvamento de preferência</h3>
+                                <p>O modo selecionado:</p>
+                                <ul>
+                                    <li>Fica salvo na sua sessão atual</li>
+                                    <li>Quando você abre outra cifra, o mesmo modo permanece</li>
+                                    <li>Isso mantém consistência se você prefere sempre um modo específico</li>
+                                    <li>Em sessões futuras, você pode precisar selecionar novamente</li>
+                                </ul>
+                                
+                                <h3>Impressão e download</h3>
+                                <p>Ao baixar ou imprimir:</p>
+                                <ul>
+                                    <li>O arquivo baixado estará no modo atual (Normal ou Simplificada)</li>
+                                    <li>Se você quer imprimir no modo Normal, certifique-se de estar nesse modo antes</li>
+                                    <li>A impressão reflete exatamente o que está na tela</li>
+                                </ul>
+                            `
+                        },
+                        {
+                            id: 'playlists-wcifras',
+                            title: 'Como funcionam as playlists do W.Cifras?',
+                            content: `
+                                <p>As playlists do W.Cifras permitem organizar músicas em coleções temáticas ou funcionais. Você pode criar playlists para cultos específicos, para ensaios, para um determinado período, ou qualquer outra organização que faça sentido para seu ministério. As playlists facilitam o acesso rápido às músicas que você precisa para determinado contexto.</p>
+                                
+                                <h3>O que é uma playlist?</h3>
+                                <p>Uma playlist é:</p>
+                                <ul>
+                                    <li>Uma coleção de músicas organizadas em uma ordem específica</li>
+                                    <li>Pode ter um nome e uma descrição personalizados</li>
+                                    <li>Contém referências às músicas (não copia as cifras)</li>
+                                    <li>Fica salva na nuvem associada à sua conta</li>
+                                    <li>Pode ser compartilhada com outros através de um link</li>
+                                </ul>
+                                
+                                <h3>Criando uma playlist</h3>
+                                <p>Para criar uma nova playlist:</p>
+                                <ul>
+                                    <li>No catálogo do W.Cifras, clique no botão "+" (Adicionar cifra)</li>
+                                    <li>No modal, clique na aba "PLAYLISTS" ou use o botão de criar playlist</li>
+                                    <li>Alternativamente, localize o botão de playlist na parte inferior da tela</li>
+                                    <li>Preencha o nome da playlist (ex: "Culto Domingo Manhã")</li>
+                                    <li>Opcionalmente, adicione uma descrição</li>
+                                    <li>Selecione as músicas que deseja incluir na playlist</li>
+                                    <li>Arraste as músicas para organizar na ordem desejada</li>
+                                    <li>Clique em "Salvar" para criar a playlist</li>
+                                </ul>
+                                
+                                <h3>Adicionando músicas a uma playlist</h3>
+                                <p>Para adicionar músicas:</p>
+                                <ul>
+                                    <li>Abra uma playlist existente</li>
+                                    <li>Clique em "+ Adicionar música" ou botão similar</li>
+                                    <li>Pesquise ou navegue pelo catálogo de cifras</li>
+                                    <li>Selecione as músicas que deseja adicionar</li>
+                                    <li>As músicas serão adicionadas ao final da playlist</li>
+                                    <li>Você pode reorganizar a ordem arrastando as músicas</li>
+                                </ul>
+                                
+                                <h3>Abrindo uma playlist</h3>
+                                <p>Para visualizar e usar uma playlist:</p>
+                                <ul>
+                                    <li>No catálogo, clique no botão da playlist atual (ícone com letra da capa)</li>
+                                    <li>A playlist abrirá no leitor com a primeira música</li>
+                                    <li>A barra lateral mostrará todas as músicas da playlist</li>
+                                    <li>A música atual fica destacada em laranja</li>
+                                    <li>Clique em outras músicas da sidebar para navegar</li>
+                                </ul>
+                                
+                                <h3>Navegando dentro de uma playlist</h3>
+                                <p>Enquanto está em uma playlist:</p>
+                                <ul>
+                                    <li>A sidebar mostra todas as músicas da playlist</li>
+                                    <li>Clique em qualquer música para abrir</li>
+                                    <li>O contexto da playlist é mantido — você continua na playlist</li>
+                                    <li>Isso permite navegar entre músicas da playlist facilmente</li>
+                                    <li>Para sair da playlist, clique em "Voltar para Cifras"</li>
+                                </ul>
+                                
+                                <h3>Editando uma playlist</h3>
+                                <p>Para modificar uma playlist existente:</p>
+                                <ul>
+                                    <li>Pressione e segure o botão da playlist por aproximadamente 1,9 segundos</li>
+                                    <li>Um menu de ações aparecerá com desfoque no fundo</li>
+                                    <li>Clique em "Editar"</li>
+                                    <li>O modal de criação abrirá com os dados atuais preenchidos</li>
+                                    <li>Altere o nome, descrição ou músicas conforme necessário</li>
+                                    <li>Adicione ou remova músicas</li>
+                                    <li>Reorganize a ordem arrastando</li>
+                                    <li>Clique em "Salvar alterações" para atualizar</li>
+                                </ul>
+                                
+                                <h3>Excluindo uma playlist</h3>
+                                <p>Para remover uma playlist:</p>
+                                <ul>
+                                    <li>Pressione e segure o botão da playlist por aproximadamente 1,9 segundos</li>
+                                    <li>No menu de ações, clique em "Excluir"</li>
+                                    <li>Uma confirmação será solicitada</li>
+                                    <li>Confirmar excluirá a playlist permanentemente do Firestore</li>
+                                    <li>As músicas não são excluídas — apenas a playlist</li>
+                                    <li>O botão da playlist desaparecerá se era a playlist atual</li>
+                                </ul>
+                                
+                                <h3>Compartilhando uma playlist</h3>
+                                <p>Para compartilhar com outros:</p>
+                                <ul>
+                                    <li>Pressione e segure o botão da playlist</li>
+                                    <li>No menu de ações, clique em "Compartilhar"</li>
+                                    <li>Se o navegador suportar, use o menu de compartilhamento nativo</li>
+                                    <li>Caso contrário, o link será copiado para a área de transferência</li>
+                                    <li>Envie o link para quem precisa acessar a playlist</li>
+                                </ul>
+                                
+                                <h3>Capa da playlist</h3>
+                                <p>A capa é gerada automaticamente:</p>
+                                <ul>
+                                    <li>Mostra a primeira letra do nome da playlist em maiúscula</li>
+                                    <li>Fundo laranja seguindo a identidade visual do W.Cifras</li>
+                                    <li>Atualiza automaticamente se você mudar o nome</li>
+                                    <li>Não há upload de imagem — é gerado visualmente</li>
+                                </ul>
+                                
+                                <h3>Long press para ações</h3>
+                                <p>O menu de ações usa long press:</p>
+                                <ul>
+                                    <li>Pressione e segure o botão da playlist por ~1,9 segundos</li>
+                                    <li>O dispositivo vibrará se suportado</li>
+                                    <li>O menu de ações aparecerá com desfoque real no fundo</li>
+                                    <li>Um clique normal abre a playlist diretamente</li>
+                                    <li>O long press previne o clique normal de abrir a playlist</li>
+                                </ul>
+                            `
+                        },
+                        {
+                            id: 'adicionar-cifra',
+                            title: 'Como adicionar uma nova cifra?',
+                            content: `
+                                <p>Adicionar uma nova cifra ao W.Cifras permite expandir a biblioteca com músicas que você precisa mas que ainda não estão disponíveis. Você pode adicionar suas próprias cifras, criar versões personalizadas de músicas existentes, ou contribuir com músicas que não estão no catálogo oficial.</p>
+                                
+                                <h3>Acessando o formulário de adição</h3>
+                                <p>Para adicionar uma nova cifra:</p>
+                                <ul>
+                                    <li>No catálogo do W.Cifras, clique no botão "+ Adicionar cifra"</li>
+                                    <li>Um modal abrirá com o formulário de criação</li>
+                                    <li>Preencha os campos obrigatórios</li>
+                                    <li>Cole ou digite a cifra no campo apropriado</li>
+                                    <li>Clique em "Salvar" para adicionar ao catálogo</li>
+                                </ul>
+                                
+                                <h3>Campos obrigatórios</h3>
+                                <p>Para criar uma cifra, você precisa:</p>
+                                <ul>
+                                    <li><strong>Nome da música:</strong> Título completo e correto</li>
+                                    <li><strong>Artista/Banda:</strong> Nome do artista ou compositor</li>
+                                    <li><strong>Cifra:</strong> O conteúdo da cifra com acordes e letra</li>
+                                    <li><strong>Tonalidade original:</strong> Tonalidade em que a cifra está escrita</li>
+                                </ul>
+                                
+                                <h3>Campos opcionais</h3>
+                                <p>Informações adicionais úteis:</p>
+                                <ul>
+                                    <li><strong>Álbum:</strong> Nome do álbum se aplicável</li>
+                                    <li><strong>Ano:</strong> Ano de lançamento ou composição</li>
+                                    <li><strong>Gênero:</strong> Categoria musical (louvor, rock, etc.)</li>
+                                    <li><strong>BPM:</strong> Andamento da música se conhecido</li>
+                                    <li><strong>Descrição:</strong> Notas sobre a cifra ou contexto</li>
+                                </ul>
+                                
+                                <h3>Formato da cifra</h3>
+                                <p>Como formatar o conteúdo da cifra:</p>
+                                <ul>
+                                    <li>Use o formato padrão de cifras brasileiras</li>
+                                    <li>Acordes em letras maiúsculas (C, D, E, etc.)</li>
+                                    <li>Posicione acordes acima das letras onde devem ser tocados</li>
+                                    <li>Use colchetes para acordes complexos se necessário: [C7], [G/B]</li>
+                                    <li>Use hífens ou espaços para alinhar acordes com a letra</li>
+                                    <li>Exemplo:</li>
+                                </ul>
+                                
+                                <p><code>C          G          Am</code></p>
+                                <p><code>Graças te dou, Senhor</code></p>
+                                
+                                <h3>Validação</h3>
+                                <p>O sistema valida:</p>
+                                <ul>
+                                    <li>Campos obrigatórios não podem estar vazios</li>
+                                    <li>A cifra deve conter pelo menos um acorde</li>
+                                    <li>O formato dos acordes é verificado</li>
+                                    <li>Erros são mostrados com mensagens claras</li>
+                                </ul>
+                                
+                                <h3>Salvamento</h3>
+                                <p>Após salvar:</p>
+                                <ul>
+                                    <li>A cifra é adicionada ao Firestore</li>
+                                    <li>Aparece imediatamente no catálogo</li>
+                                    <li>Fica associada à sua conta</li>
+                                    <li>Pode ser editada posteriormente se necessário</li>
+                                </ul>
+                                
+                                <h3>Edição posterior</h3>
+                                <p>Para modificar uma cifra que você adicionou:</p>
+                                <ul>
+                                    <li>Abra a cifra no leitor</li>
+                                    <li>Clique no botão "Editar"</li>
+                                    <li>O formulário de edição abrirá com os dados atuais</li>
+                                    <li>Faça as alterações necessárias</li>
+                                    <li>Clique em "Salvar" para atualizar</li>
+                                </ul>
+                                
+                                <h3>Privacidade</h3>
+                                <p>Sobre cifras que você adiciona:</p>
+                                <ul>
+                                    <li>Cifras que você adiciona ficam associadas à sua conta</li>
+                                    <li>Outros usuários podem ver cifras públicas se apropriado</li>
+                                    <li>Você pode excluir suas cifras a qualquer momento</li>
+                                    <li>Verifique direitos autorais antes de compartilhar músicas protegidas</li>
+                                </ul>
+                            `
+                        },
+                        {
+                            id: 'favoritar-cifra',
+                            title: 'Como favoritar uma cifra?',
+                            content: `
+                                <p>Favoritar cifras no W.Cifras permite marcar músicas que você usa frequentemente para acesso rápido. Em vez de procurar a mesma música repetidamente no catálogo, você pode adicioná-la aos favoritos e encontrá-la facilmente na lista de favoritos.</p>
+                                
+                                <h3>Como favoritar</h3>
+                                <p>Para marcar uma cifra como favorita:</p>
+                                <ul>
+                                    <li>No catálogo, localize a cifra que deseja favoritar</li>
+                                    <li>Clique no ícone de coração (ou estrela) no card da cifra</li>
+                                    <li>O ícone ficará preenchido indicando que é favorito</li>
+                                    <li>A cifra será adicionada à sua lista de favoritos</li>
+                                </ul>
+                                
+                                <h3>Removendo dos favoritos</h3>
+                                <p>Para desfavoritar:</p>
+                                <ul>
+                                    <li>No catálogo, clique novamente no ícone de coração</li>
+                                    <li>O ícone ficará vazio novamente</li>
+                                    <li>A cifra será removida dos favoritos</li>
+                                    <li>A cifra permanece no catálogo geral</li>
+                                </ul>
+                                
+                                <h3>Acessando favoritos</h3>
+                                <p>Para ver suas cifras favoritas:</p>
+                                <ul>
+                                    <li>No catálogo, use o filtro "Favoritos"</li>
+                                    <li>Apenas suas cifras favoritas serão mostradas</li>
+                                    <li>Isso facilita encontrar músicas que você usa frequentemente</li>
+                                </ul>
+                                
+                                <h3>Salvamento automático</h3>
+                                <p>O sistema salva automaticamente:</p>
+                                <ul>
+                                    <li>Favoritos são salvos no Firestore associados à sua conta</li>
+                                    <li>Aparecem em qualquer dispositivo onde você faz login</li>
+                                    <li>Não há botão de salvar manual — é instantâneo</li>
+                                </ul>
+                            `
+                        }
+                    ]
                 }
             ]
         };

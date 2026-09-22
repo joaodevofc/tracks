@@ -386,6 +386,145 @@
         </div>
     </div>
 
+    <!-- MUSIC SEARCH SIDE PANEL -->
+    <div class="music-search-panel-overlay" id="musicSearchPanelOverlay">
+        <div class="music-search-panel" id="musicSearchPanel">
+            <div class="music-search-panel-header">
+                <h3 class="music-search-panel-title">PESQUISAR MÚSICAS</h3>
+                <button class="music-search-panel-close" id="closeMusicSearchPanel" aria-label="Fechar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="music-search-panel-content">
+                <!-- Search Section -->
+                <div class="music-search-section">
+                    <div class="music-search-input-wrapper">
+                        <svg class="music-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <path d="M21 21l-4.35-4.35"></path>
+                        </svg>
+                        <input type="text" class="music-search-input" id="musicSearchInput" placeholder="Pesquisar músicas..." autocomplete="off">
+                    </div>
+                </div>
+
+                <!-- API Results Section -->
+                <div class="music-api-results-section" id="musicApiResultsSection" style="display: none;">
+                    <div class="music-api-results-list" id="musicApiResultsList">
+                        <!-- API results will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- API Loading State -->
+                <div class="music-api-loading" id="musicApiLoading" style="display: none;">
+                    <p class="music-api-loading-text">Pesquisando músicas...</p>
+                </div>
+
+                <!-- API Error State -->
+                <div class="music-api-error" id="musicApiError" style="display: none;">
+                    <p class="music-api-error-text">Não foi possível pesquisar músicas. Tente novamente.</p>
+                </div>
+
+                <!-- API No Results State -->
+                <div class="music-api-no-results" id="musicApiNoResults" style="display: none;">
+                    <p class="music-api-no-results-text">Nenhuma música encontrada.</p>
+                </div>
+
+                <!-- Selected Music Section -->
+                <div class="music-selected-section" id="musicSelectedSection" style="display: none;">
+                    <div class="music-selected-header">
+                        <h4 class="music-selected-title">MÚSICA SELECIONADA</h4>
+                        <button class="music-selected-remove" id="musicSelectedRemove" title="Remover seleção">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="music-selected-item" id="musicSelectedItem">
+                        <!-- Selected music will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- Divider -->
+                <div class="music-search-divider"></div>
+
+                <!-- Saved Music Section -->
+                <div class="music-saved-section">
+                    <div class="music-saved-header">
+                        <h4 class="music-saved-title">MÚSICAS</h4>
+                        <button class="music-saved-filter-btn" id="musicSavedFilterBtn" title="Organizar músicas">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="4" y1="21" x2="4" y2="14"></line>
+                                <line x1="4" y1="10" x2="4" y2="3"></line>
+                                <circle cx="12" cy="5" r="1"></circle>
+                                <circle cx="12" cy="12" r="1"></circle>
+                                <circle cx="12" cy="19" r="1"></circle>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <!-- Filter Dropdown Menu -->
+                    <div class="music-saved-filter-dropdown" id="musicSavedFilterDropdown" style="display: none;">
+                        <div class="filter-dropdown-header">ORGANIZAR POR</div>
+                        <div class="filter-dropdown-options">
+                            <button class="filter-dropdown-option active" data-filter="all">
+                                <span class="filter-option-label">Todas as músicas</span>
+                                <span class="filter-option-check">✓</span>
+                            </button>
+                            <button class="filter-dropdown-option" data-filter="less24h">
+                                <span class="filter-option-label">Menos de 24h</span>
+                                <span class="filter-option-check"></span>
+                            </button>
+                            <button class="filter-dropdown-option" data-filter="24h">
+                                <span class="filter-option-label">24h</span>
+                                <span class="filter-option-check"></span>
+                            </button>
+                            <button class="filter-dropdown-option" data-filter="36h">
+                                <span class="filter-option-label">36h</span>
+                                <span class="filter-option-check"></span>
+                            </button>
+                            <button class="filter-dropdown-option" data-filter="1week">
+                                <span class="filter-option-label">1 semana</span>
+                                <span class="filter-option-check"></span>
+                            </button>
+                            <button class="filter-dropdown-option" data-filter="3weeks">
+                                <span class="filter-option-label">3 semanas</span>
+                                <span class="filter-option-check"></span>
+                            </button>
+                            <button class="filter-dropdown-option" data-filter="1month">
+                                <span class="filter-option-label">1 mês</span>
+                                <span class="filter-option-check"></span>
+                            </button>
+                            <button class="filter-dropdown-option" data-filter="more1month">
+                                <span class="filter-option-label">Mais de 1 mês</span>
+                                <span class="filter-option-check"></span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="music-saved-list" id="musicSavedList">
+                        <!-- Music items will be rendered here -->
+                        <div class="music-saved-empty-state">
+                            <div class="music-saved-empty-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                    <path d="M9 18V5l12-2v13"></path>
+                                    <circle cx="6" cy="18" r="3"></circle>
+                                    <circle cx="18" cy="16" r="3"></circle>
+                                </svg>
+                            </div>
+                            <p class="music-saved-empty-text">Nenhuma música salva ainda.</p>
+                            <p class="music-saved-empty-hint">Adicione músicas para que apareçam aqui.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="music-api.js"></script>
     <script src="service-plan.js"></script>
 </body>
 </html>

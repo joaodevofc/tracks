@@ -382,11 +382,15 @@ class HttpStorageManager {
     getProjectsByFilter(filter) {
         switch (filter) {
             case 'recent':
-                return this.getAllProjects().sort((a, b) => 
+                return this.getAllProjects().sort((a, b) =>
                     new Date(b.updatedAt) - new Date(a.updatedAt)
                 );
             case 'favorites':
                 return this.getAllProjects().filter(p => p.favorite);
+            case 'cifras':
+                // Cifras filter - not implemented yet, return empty array
+                console.log('[HTTP STORAGE] Cifras filter - returning empty array (feature coming soon)');
+                return [];
             default:
                 return this.getAllProjects();
         }
