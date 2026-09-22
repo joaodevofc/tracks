@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste - Aviso de Expiração de Plano</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-case {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-case h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Teste - Aviso de Expiração de Plano</h1>
+    <p>Este teste verifica a lógica de quando mostrar o aviso de expiração.</p>
+
+    <div class="test-case">
+        <h3>Teste 1: Mais de 5 dias - Não mostrar aviso</h3>
+        <button onclick="test1()">Executar</button>
+        <div id="result1" class="result"></div>
+    </div>
+
+    <div class="test-case">
+        <h3>Teste 2: Exatamente 5 dias - Mostrar aviso</h3>
+        <button onclick="test2()">Executar</button>
+        <div id="result2" class="result"></div>
+    </div>
+
+    <div class="test-case">
+        <h3>Teste 3: 3 dias - Mostrar aviso</h3>
+        <button onclick="test3()">Executar</button>
+        <div id="result3" class="result"></div>
+    </div>
+
+    <div class="test-case">
+        <h3>Teste 4: 1 dia - Mostrar aviso</h3>
+        <button onclick="test4()">Executar</button>
+        <div id="result4" class="result"></div>
+    </div>
+
+    <div class="test-case">
+        <h3>Teste 5: Menos de 24 horas - "Expira hoje"</h3>
+        <button onclick="test5()">Executar</button>
+        <div id="result5" class="result"></div>
+    </div>
+
+    <div class="test-case">
+        <h3>Teste 6: Expirado - "Expirou"</h3>
+        <button onclick="test6()">Executar</button>
+        <div id="result6" class="result"></div>
+    </div>
+
+    <div class="test-case">
+        <h3>Teste 7: Plano Track - Não mostrar aviso</h3>
+        <button onclick="test7()">Executar</button>
+        <div id="result7" class="result"></div>
+    </div>
+
+    <div class="test-case">
+        <h3>Teste 8: Track Pro sem planExpiresAt - Não mostrar aviso</h3>
+        <button onclick="test8()">Executar</button>
+        <div id="result8" class="result"></div>
+    </div>
+
+    <script>
+        const WARNING_DAYS_THRESHOLD = 5;
+
+        function shouldShowWarning(userData) {
+            if (!userData) return { show: false, message: 'Sem dados' };
+
+            let effectivePlan = userData.plan;
+            if (userData.plan === 'track_pro' && userData.planExpiresAt) {
+                const now = new Date();
+                const expiresDate = new Date(userData.planExpiresAt);
+                const remainingMs = expiresDate - now;
+                const remainingDays = remainingMs / (1000 * 60 * 60 * 24);
+
+                if (remainingMs <= 0) {
+                    return { show: true, message: 'Sua assinatura expirou.', state: 'expired' };
+                }
+
+                if (remainingDays <= WARNING_DAYS_THRESHOLD) {
+                    if (remainingDays < 1) {
+                        return { show: true, message: 'Sua assinatura expira hoje.', state: 'today' };
+                    } else {
+                        const days = Math.floor(remainingDays);
+                        const message = days === 1 
+                            ? 'Falta 1 dia para sua assinatura expirar.'
+                            : `Faltam ${days} dias para sua assinatura expirar.`;
+                        return { show: true, message: message, state: 'days' };
+                    }
+                }
+            }
+
+            return { show: false, message: 'Não mostrar aviso' };
+        }
+
+        function test1() {
+            const futureDate = new Date();
+            futureDate.setDate(futureDate.getDate() + 10);
+            const userData = { plan: 'track_pro', planExpiresAt: futureDate.toISOString() };
+            const result = shouldShowWarning(userData);
+            document.getElementById('result1').className = 'result ' + (result.show ? 'error' : 'success');
+            document.getElementById('result1').textContent = result.show ? '❌ FAIL: Deveria não mostrar aviso' : '✅ PASS: Não mostrou aviso corretamente';
+        }
+
+        function test2() {
+            const futureDate = new Date();
+            futureDate.setDate(futureDate.getDate() + 5);
+            const userData = { plan: 'track_pro', planExpiresAt: futureDate.toISOString() };
+            const result = shouldShowWarning(userData);
+            document.getElementById('result2').className = 'result ' + (result.show && result.state === 'days' ? 'success' : 'error');
+            document.getElementById('result2').textContent = result.show ? `✅ PASS: ${result.message}` : '❌ FAIL: Deveria mostrar aviso de 5 dias';
+        }
+
+        function test3() {
+            const futureDate = new Date();
+            futureDate.setDate(futureDate.getDate() + 3);
+            const userData = { plan: 'track_pro', planExpiresAt: futureDate.toISOString() };
+            const result = shouldShowWarning(userData);
+            document.getElementById('result3').className = 'result ' + (result.show && result.state === 'days' ? 'success' : 'error');
+            document.getElementById('result3').textContent = result.show ? `✅ PASS: ${result.message}` : '❌ FAIL: Deveria mostrar aviso de 3 dias';
+        }
+
+        function test4() {
+            const futureDate = new Date();
+            futureDate.setDate(futureDate.getDate() + 1);
+            const userData = { plan: 'track_pro', planExpiresAt: futureDate.toISOString() };
+            const result = shouldShowWarning(userData);
+            document.getElementById('result4').className = 'result ' + (result.show && result.state === 'days' ? 'success' : 'error');
+            document.getElementById('result4').textContent = result.show ? `✅ PASS: ${result.message}` : '❌ FAIL: Deveria mostrar aviso de 1 dia';
+        }
+
+        function test5() {
+            const futureDate = new Date();
+            futureDate.setHours(futureDate.getHours() + 12);
+            const userData = { plan: 'track_pro', planExpiresAt: futureDate.toISOString() };
+            const result = shouldShowWarning(userData);
+            document.getElementById('result5').className = 'result ' + (result.show && result.state === 'today' ? 'success' : 'error');
+            document.getElementById('result5').textContent = result.show ? `✅ PASS: ${result.message}` : '❌ FAIL: Deveria mostrar "expira hoje"';
+        }
+
+        function test6() {
+            const pastDate = new Date();
+            pastDate.setDate(pastDate.getDate() - 1);
+            const userData = { plan: 'track_pro', planExpiresAt: pastDate.toISOString() };
+            const result = shouldShowWarning(userData);
+            document.getElementById('result6').className = 'result ' + (result.show && result.state === 'expired' ? 'success' : 'error');
+            document.getElementById('result6').textContent = result.show ? `✅ PASS: ${result.message}` : '❌ FAIL: Deveria mostrar "expirou"';
+        }
+
+        function test7() {
+            const userData = { plan: 'track' };
+            const result = shouldShowWarning(userData);
+            document.getElementById('result7').className = 'result ' + (result.show ? 'error' : 'success');
+            document.getElementById('result7').textContent = result.show ? '❌ FAIL: Não deveria mostrar aviso para Track' : '✅ PASS: Não mostrou aviso para Track';
+        }
+
+        function test8() {
+            const userData = { plan: 'track_pro' };
+            const result = shouldShowWarning(userData);
+            document.getElementById('result8').className = 'result ' + (result.show ? 'error' : 'success');
+            document.getElementById('result8').textContent = result.show ? '❌ FAIL: Não deveria mostrar aviso sem planExpiresAt' : '✅ PASS: Não mostrou aviso sem planExpiresAt';
+        }
+    </script>
+</body>
+</html>

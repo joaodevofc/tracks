@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>W.TRACKS SYSTEM</title>
+<style>
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    background: #000000;
+    color: #ffffff;
+    font-family: 'Courier New', 'Consolas', 'Lucida Console', monospace;
+    font-size: 14px;
+    line-height: 1.4;
+    padding: 20px;
+    min-height: 100vh;
+  }
+
+  .system-container {
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .header {
+    border-bottom: 1px solid #333;
+    padding-bottom: 20px;
+    margin-bottom: 30px;
+  }
+
+  .header h1 {
+    font-size: 24px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    margin-bottom: 5px;
+  }
+
+  .header .subtitle {
+    color: #888;
+    font-size: 12px;
+  }
+
+  .section {
+    margin-bottom: 30px;
+  }
+
+  .section-title {
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 15px;
+    color: #fff;
+  }
+
+  .separator {
+    border: none;
+    border-top: 1px solid #333;
+    margin: 20px 0;
+  }
+
+  .status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+  }
+
+  .status-item {
+    padding: 10px;
+    border: 1px solid #333;
+  }
+
+  .status-label {
+    color: #888;
+    font-size: 11px;
+    margin-bottom: 5px;
+  }
+
+  .status-value {
+    font-size: 13px;
+    font-weight: bold;
+  }
+
+  .status-value.online {
+    color: #4CAF50;
+  }
+
+  .status-value.offline {
+    color: #ff5252;
+  }
+
+  .status-value.warning {
+    color: #ff9800;
+  }
+
+  .user-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  .user-table th,
+  .user-table td {
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid #333;
+  }
+
+  .user-table th {
+    color: #888;
+    font-weight: normal;
+    font-size: 11px;
+  }
+
+  .user-table tr:hover {
+    background: #111;
+  }
+
+  .user-table tr.cursor-pointer {
+    cursor: pointer;
+  }
+
+  .status-active {
+    color: #4CAF50;
+  }
+
+  .status-expired {
+    color: #ff5252;
+  }
+
+  .status-free {
+    color: #888;
+  }
+
+  .log-container {
+    background: #0a0a0a;
+    border: 1px solid #333;
+    padding: 15px;
+    max-height: 400px;
+    overflow-y: auto;
+    font-size: 11px;
+  }
+
+  .log-entry {
+    margin-bottom: 5px;
+    color: #ccc;
+  }
+
+  .log-entry .timestamp {
+    color: #666;
+    margin-right: 10px;
+  }
+
+  .log-entry .category {
+    color: #888;
+    margin-right: 10px;
+  }
+
+  .log-entry.info .level {
+    color: #4CAF50;
+  }
+
+  .log-entry.warning .level {
+    color: #ff9800;
+  }
+
+  .log-entry.error .level {
+    color: #ff5252;
+  }
+
+  .filters {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+  }
+
+  .filter-input {
+    background: #0a0a0a;
+    border: 1px solid #333;
+    color: #fff;
+    padding: 8px 12px;
+    font-family: inherit;
+    font-size: 12px;
+    min-width: 200px;
+  }
+
+  .filter-input:focus {
+    outline: none;
+    border-color: #666;
+  }
+
+  .filter-select {
+    background: #0a0a0a;
+    border: 1px solid #333;
+    color: #fff;
+    padding: 8px 12px;
+    font-family: inherit;
+    font-size: 12px;
+    min-width: 150px;
+  }
+
+  .filter-select:focus {
+    outline: none;
+    border-color: #666;
+  }
+
+  .user-detail {
+    background: #0a0a0a;
+    border: 1px solid #333;
+    padding: 20px;
+    margin-top: 20px;
+  }
+
+  .user-detail-row {
+    display: flex;
+    margin-bottom: 10px;
+  }
+
+  .user-detail-label {
+    width: 150px;
+    color: #888;
+  }
+
+  .user-detail-value {
+    color: #fff;
+  }
+
+  .remaining-time {
+    font-size: 18px;
+    font-weight: bold;
+    color: #4CAF50;
+  }
+
+  .remaining-time.expired {
+    color: #ff5252;
+  }
+
+  .close-detail {
+    background: #0a0a0a;
+    border: 1px solid #333;
+    color: #fff;
+    padding: 5px 10px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    margin-bottom: 15px;
+  }
+
+  .close-detail:hover {
+    background: #111;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+  }
+
+  .stat-item {
+    padding: 15px;
+    border: 1px solid #333;
+    text-align: center;
+  }
+
+  .stat-value {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 5px;
+  }
+
+  .stat-label {
+    color: #888;
+    font-size: 11px;
+  }
+
+  .actions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+  }
+
+  .action-button {
+    background: #0a0a0a;
+    border: 1px solid #333;
+    color: #fff;
+    padding: 8px 16px;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .action-button:hover {
+    background: #111;
+  }
+
+  .hidden {
+    display: none;
+  }
+
+  .loading {
+    color: #888;
+    font-size: 12px;
+  }
+
+  .auth-form {
+    background: #0a0a0a;
+    border: 1px solid #333;
+    padding: 20px;
+    max-width: 400px;
+  }
+
+  .form-group {
+    margin-bottom: 15px;
+  }
+
+  .form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: #888;
+    font-size: 11px;
+  }
+</style>
+</head>
+<body>
+  <div class="system-container">
+    <div class="header">
+      <h1>W.TRACKS SYSTEM</h1>
+      <div class="subtitle">PLAN MANAGEMENT / REAL-TIME SUBSCRIPTION MONITOR</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">SYSTEM STATUS</div>
+      <hr class="separator">
+      <div class="status-grid">
+        <div class="status-item">
+          <div class="status-label">TIME SOURCE</div>
+          <div class="status-value" id="timeSource">INITIALIZING...</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">PLAN ENGINE</div>
+          <div class="status-value" id="planEngineStatus">INITIALIZING...</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">FIREBASE</div>
+          <div class="status-value" id="firebaseStatus">INITIALIZING...</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">LAST SYNC</div>
+          <div class="status-value" id="lastSync">--:--:--</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">STATISTICS</div>
+      <hr class="separator">
+      <div class="stats-grid">
+        <div class="stat-item">
+          <div class="stat-value" id="totalUsers">0</div>
+          <div class="stat-label">TOTAL USERS</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="activePlans">0</div>
+          <div class="stat-label">ACTIVE PLANS</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="expiredPlans">0</div>
+          <div class="stat-label">EXPIRED PLANS</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="freeUsers">0</div>
+          <div class="stat-label">FREE USERS</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">ACTIVE USERS</div>
+      <hr class="separator">
+      <div class="filters">
+        <input type="text" class="filter-input" id="searchFilter" placeholder="Search by name, email, or UID...">
+        <select class="filter-select" id="planFilter">
+          <option value="">All Plans</option>
+          <option value="track">Track</option>
+          <option value="track_pro">Track Pro</option>
+        </select>
+        <select class="filter-select" id="statusFilter">
+          <option value="">All Status</option>
+          <option value="active">Active</option>
+          <option value="expired">Expired</option>
+          <option value="free">Free</option>
+        </select>
+        <select class="filter-select" id="typeFilter">
+          <option value="">All Types</option>
+          <option value="trial">Trial</option>
+          <option value="monthly">Monthly</option>
+          <option value="annual">Annual</option>
+        </select>
+      </div>
+      <div class="actions">
+        <button class="action-button" id="refreshButton">REFRESH</button>
+        <button class="action-button" id="checkExpiredButton">CHECK EXPIRED</button>
+        <button class="action-button" id="exportButton">EXPORT LOGS</button>
+      </div>
+      <div id="loadingUsers" class="loading">Loading users...</div>
+      <table class="user-table hidden" id="userTable">
+        <thead>
+          <tr>
+            <th>USER</th>
+            <th>EMAIL</th>
+            <th>PLAN</th>
+            <th>TYPE</th>
+            <th>EXPIRES</th>
+            <th>REMAINING</th>
+            <th>STATUS</th>
+          </tr>
+        </thead>
+        <tbody id="userTableBody">
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section hidden" id="authSection">
+      <div class="section-title">ADMIN AUTHENTICATION</div>
+      <hr class="separator">
+      <div class="auth-form">
+        <div class="form-group">
+          <label class="user-detail-label">EMAIL</label>
+          <input type="email" class="filter-input" id="adminEmail" placeholder="admin@wtracks.com">
+        </div>
+        <div class="form-group">
+          <label class="user-detail-label">PASSWORD</label>
+          <input type="password" class="filter-input" id="adminPassword" placeholder="Password">
+        </div>
+        <button class="action-button" id="adminLoginBtn">LOGIN</button>
+        <div id="authError" class="status-value offline" style="margin-top: 10px;"></div>
+      </div>
+    </div>
+
+    <div class="section hidden" id="userDetailSection">
+      <div class="section-title">USER DETAIL</div>
+      <hr class="separator">
+      <button class="close-detail" id="closeDetail">CLOSE</button>
+      <div class="user-detail" id="userDetailContent">
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">SYSTEM LOG</div>
+      <hr class="separator">
+      <div class="log-container" id="logContainer">
+      </div>
+    </div>
+  </div>
+
+  <script src="planEngine.js"></script>
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getFirestore, doc, getDoc, updateDoc, collection, addDoc, getDocs, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDW6P_V4_LRLRg6-FEe2E7QJa9J3oidY5g",
+      authDomain: "wtracks-acff8.firebaseapp.com",
+      projectId: "wtracks-acff8",
+      storageBucket: "wtracks-acff8.firebasestorage.app",
+      messagingSenderId: "719838064855",
+      appId: "1:719838064855:web:3c0631a882aac30cf3c092"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    window.firebaseDB = {
+      db,
+      doc,
+      getDoc,
+      updateDoc,
+      collection,
+      addDoc,
+      getDocs,
+      serverTimestamp
+    };
+
+    window.firebaseAuth = {
+      auth,
+      signInWithEmailAndPassword,
+      onAuthStateChanged,
+      signOut,
+      sendPasswordResetEmail
+    };
+
+    let users = [];
+    let updateInterval = null;
+    let selectedUser = null;
+    let isAdmin = false;
+
+    function updateStatus(elementId, status, text) {
+      const element = document.getElementById(elementId);
+      element.className = 'status-value ' + status;
+      element.textContent = text;
+    }
+
+    function formatDateTime(isoString) {
+      if (!isoString) return '--';
+      const date = new Date(isoString);
+      return date.toISOString().replace('T', ' ').substring(0, 19);
+    }
+
+    function formatDate(isoString) {
+      if (!isoString) return '--';
+      const date = new Date(isoString);
+      return date.toISOString().substring(0, 10);
+    }
+
+    function formatTime(isoString) {
+      if (!isoString) return '--:--:--';
+      const date = new Date(isoString);
+      return date.toISOString().substring(11, 19);
+    }
+
+    function truncateUid(uid) {
+      if (!uid) return '--';
+      return uid.substring(0, 8) + '...';
+    }
+
+    function renderLogs() {
+      const logs = window.planEngine.getLogs();
+      const container = document.getElementById('logContainer');
+      
+      container.innerHTML = logs.map(log => `
+        <div class="log-entry ${log.level}">
+          <span class="timestamp">${formatTime(log.timestamp)}</span>
+          <span class="category">${log.category}</span>
+          <span class="level">[${log.level.toUpperCase()}]</span>
+          <span class="message">${log.message}</span>
+        </div>
+      `).join('');
+    }
+
+    function renderUserTable(filteredUsers) {
+      const tbody = document.getElementById('userTableBody');
+      
+      tbody.innerHTML = filteredUsers.map(user => {
+        const status = window.planEngine.checkPlanStatus(user);
+        const remaining = status.remaining ? window.planEngine.formatRemainingTime(status.remaining) : '--';
+        const statusClass = status.status === 'active' ? 'status-active' : 
+                           status.status === 'expired' ? 'status-expired' : 'status-free';
+
+        const expiresAt = user.planExpiresAt || user.trialEndsAt || user.validadeAcesso;
+        
+        // CORREÇÃO: Usar plano EFETIVO para considerar expiração
+        let effectivePlan = user.plan;
+        if (window.planEngine && window.planEngine.initialized) {
+          effectivePlan = window.planEngine.getEffectivePlan(user);
+        }
+        
+        return `
+          <tr class="cursor-pointer" data-uid="${user.uid}">
+            <td>${user.displayName || user.name || 'Unknown'}</td>
+            <td>${user.email || '--'}</td>
+            <td>${effectivePlan === 'track_pro' ? 'Track Pro' : 'Track'}</td>
+            <td>${user.planType || '--'}</td>
+            <td>${expiresAt ? formatDate(expiresAt) : '--'}</td>
+            <td>${remaining}</td>
+            <td class="${statusClass}">${status.status.toUpperCase()}</td>
+          </tr>
+        `;
+      }).join('');
+
+      document.querySelectorAll('.cursor-pointer').forEach(row => {
+        row.addEventListener('click', () => {
+          const uid = row.dataset.uid;
+          showUserDetail(uid);
+        });
+      });
+    }
+
+    function showUserDetail(uid) {
+      const user = users.find(u => u.uid === uid);
+      if (!user) return;
+
+      selectedUser = user;
+      const status = window.planEngine.checkPlanStatus(user);
+      const remaining = status.remaining;
+      
+      // CORREÇÃO: Usar plano EFETIVO para considerar expiração
+      let effectivePlan = user.plan;
+      if (window.planEngine && window.planEngine.initialized) {
+        effectivePlan = window.planEngine.getEffectivePlan(user);
+      }
+      
+      const planTypeNames = {
+        'trial': 'Trial - 7 Days',
+        'monthly': 'Monthly - 30 Days',
+        'annual': 'Annual - 365 Days'
+      };
+
+      const expiresAt = user.planExpiresAt || user.trialEndsAt || user.validadeAcesso;
+      const startedAt = user.planStartedAt || user.trialStartedAt;
+
+      const detailContent = document.getElementById('userDetailContent');
+      detailContent.innerHTML = `
+        <div class="user-detail-row">
+          <div class="user-detail-label">USER</div>
+          <div class="user-detail-value">${user.displayName || user.name || 'Unknown'}</div>
+        </div>
+        <div class="user-detail-row">
+          <div class="user-detail-label">EMAIL</div>
+          <div class="user-detail-value">${user.email || '--'}</div>
+        </div>
+        <div class="user-detail-row">
+          <div class="user-detail-label">UID</div>
+          <div class="user-detail-value">${user.uid}</div>
+        </div>
+        <hr class="separator">
+        <div class="user-detail-row">
+          <div class="user-detail-label">PLAN</div>
+          <div class="user-detail-value">${effectivePlan === 'track_pro' ? 'Track Pro' : 'Track'}</div>
+        </div>
+        <div class="user-detail-row">
+          <div class="user-detail-label">TYPE</div>
+          <div class="user-detail-value">${planTypeNames[user.planType] || user.planType || '--'}</div>
+        </div>
+        <div class="user-detail-row">
+          <div class="user-detail-label">STARTED</div>
+          <div class="user-detail-value">${startedAt ? formatDateTime(startedAt) + ' UTC' : '--'}</div>
+        </div>
+        <div class="user-detail-row">
+          <div class="user-detail-label">EXPIRES</div>
+          <div class="user-detail-value">${expiresAt ? formatDateTime(expiresAt) + ' UTC' : '--'}</div>
+        </div>
+        <div class="user-detail-row">
+          <div class="user-detail-label">REMAINING</div>
+          <div class="user-detail-value">
+            ${remaining ? `<span class="remaining-time ${remaining.isExpired ? 'expired' : ''}">${window.planEngine.formatRemainingTime(remaining)}</span>` : '--'}
+          </div>
+        </div>
+        <div class="user-detail-row">
+          <div class="user-detail-label">STATUS</div>
+          <div class="user-detail-value ${status.status === 'active' ? 'status-active' : status.status === 'expired' ? 'status-expired' : 'status-free'}">${status.status.toUpperCase()}</div>
+        </div>
+      `;
+
+      document.getElementById('userDetailSection').classList.remove('hidden');
+    }
+
+    function updateStats() {
+      const totalUsers = users.length;
+      const activePlans = users.filter(u => {
+        const status = window.planEngine.checkPlanStatus(u);
+        return status.status === 'active';
+      }).length;
+      const expiredPlans = users.filter(u => {
+        const status = window.planEngine.checkPlanStatus(u);
+        return status.status === 'expired';
+      }).length;
+      const freeUsers = users.filter(u => u.plan === 'track').length;
+
+      document.getElementById('totalUsers').textContent = totalUsers;
+      document.getElementById('activePlans').textContent = activePlans;
+      document.getElementById('expiredPlans').textContent = expiredPlans;
+      document.getElementById('freeUsers').textContent = freeUsers;
+    }
+
+    function filterUsers() {
+      const searchTerm = document.getElementById('searchFilter').value.toLowerCase();
+      const planFilter = document.getElementById('planFilter').value;
+      const statusFilter = document.getElementById('statusFilter').value;
+      const typeFilter = document.getElementById('typeFilter').value;
+
+      const filtered = users.filter(user => {
+        const matchesSearch = !searchTerm || 
+          (user.email && user.email.toLowerCase().includes(searchTerm)) ||
+          (user.uid && user.uid.toLowerCase().includes(searchTerm)) ||
+          (user.displayName && user.displayName.toLowerCase().includes(searchTerm)) ||
+          (user.name && user.name.toLowerCase().includes(searchTerm));
+
+        const matchesPlan = !planFilter || user.plan === planFilter;
+        
+        const status = window.planEngine.checkPlanStatus(user);
+        const matchesStatus = !statusFilter || status.status === statusFilter;
+        
+        const matchesType = !typeFilter || user.planType === typeFilter;
+
+        return matchesSearch && matchesPlan && matchesStatus && matchesType;
+      });
+
+      renderUserTable(filtered);
+    }
+
+    async function loadUsers() {
+      try {
+        document.getElementById('loadingUsers').classList.remove('hidden');
+        document.getElementById('userTable').classList.add('hidden');
+        
+        users = await window.planEngine.getAllUsers();
+        
+        document.getElementById('loadingUsers').classList.add('hidden');
+        document.getElementById('userTable').classList.remove('hidden');
+        
+        filterUsers();
+        updateStats();
+        
+        updateStatus('lastSync', 'online', formatTime(new Date().toISOString()));
+      } catch (error) {
+        console.error('Error loading users:', error);
+        document.getElementById('loadingUsers').textContent = 'Error loading users: ' + error.message;
+      }
+    }
+
+    async function checkExpiredPlans() {
+      try {
+        const count = await window.planEngine.checkExpiredPlans();
+        alert(`Checked and processed ${count} expired plans`);
+        await loadUsers();
+      } catch (error) {
+        alert('Error checking expired plans: ' + error.message);
+      }
+    }
+
+    function exportLogs() {
+      const logs = window.planEngine.getLogs();
+      const logText = logs.map(log => 
+        `${log.timestamp} [${log.level.toUpperCase()}] ${log.category}: ${log.message}`
+      ).join('\n');
+      
+      const blob = new Blob([logText], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `wtracks-system-logs-${new Date().toISOString().substring(0, 10)}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function startRealTimeUpdates() {
+      if (updateInterval) clearInterval(updateInterval);
+      
+      updateInterval = setInterval(() => {
+        if (selectedUser) {
+          showUserDetail(selectedUser.uid);
+        }
+        filterUsers();
+        renderLogs();
+        updateStatus('lastSync', 'online', formatTime(new Date().toISOString()));
+      }, 1000);
+    }
+
+    async function checkAdminStatus(uid) {
+      try {
+        const { db, doc, getDoc } = window.firebaseDB;
+        const adminDoc = await getDoc(doc(db, 'adminUsers', uid));
+        
+        if (adminDoc.exists()) {
+          const adminData = adminDoc.data();
+          return adminData.active === true && (adminData.role === 'admin' || adminData.role === 'superadmin');
+        }
+        
+        return false;
+      } catch (error) {
+        console.error('Error checking admin status:', error);
+        return false;
+      }
+    }
+
+    async function handleAdminLogin() {
+      const email = document.getElementById('adminEmail').value;
+      const password = document.getElementById('adminPassword').value;
+      const errorDiv = document.getElementById('authError');
+      
+      if (!email || !password) {
+        errorDiv.textContent = 'Please enter email and password';
+        return;
+      }
+
+      try {
+        const userCredential = await window.firebaseAuth.signInWithEmailAndPassword(auth, email, password);
+        const uid = userCredential.user.uid;
+        
+        const isAdminUser = await checkAdminStatus(uid);
+        
+        if (isAdminUser) {
+          isAdmin = true;
+          document.getElementById('authSection').classList.add('hidden');
+          document.getElementById('loadingUsers').classList.remove('hidden');
+          await loadUsers();
+        } else {
+          errorDiv.textContent = 'Access denied: User is not an admin';
+          await window.firebaseAuth.signOut(auth);
+        }
+      } catch (error) {
+        errorDiv.textContent = 'Login failed: ' + error.message;
+      }
+    }
+
+    async function initialize() {
+      try {
+        await window.planEngine.initialize();
+        
+        updateStatus('timeSource', 'online', window.planEngine.timeSource.toUpperCase());
+        updateStatus('planEngineStatus', 'online', 'ONLINE');
+        updateStatus('firebaseStatus', 'online', 'CONNECTED');
+        
+        // Check if user is already authenticated and is admin
+        window.firebaseAuth.onAuthStateChanged(auth, async (user) => {
+          if (user) {
+            const isAdminUser = await checkAdminStatus(user.uid);
+            
+            if (isAdminUser) {
+              isAdmin = true;
+              document.getElementById('authSection').classList.add('hidden');
+              await loadUsers();
+              renderLogs();
+              startRealTimeUpdates();
+            } else {
+              isAdmin = false;
+              document.getElementById('authSection').classList.remove('hidden');
+              updateStatus('planEngineStatus', 'warning', 'ADMIN REQUIRED');
+            }
+          } else {
+            isAdmin = false;
+            document.getElementById('authSection').classList.remove('hidden');
+            updateStatus('planEngineStatus', 'warning', 'AUTH REQUIRED');
+          }
+        });
+        
+        document.getElementById('adminLoginBtn').addEventListener('click', handleAdminLogin);
+        document.getElementById('refreshButton').addEventListener('click', loadUsers);
+        document.getElementById('checkExpiredButton').addEventListener('click', checkExpiredPlans);
+        document.getElementById('exportButton').addEventListener('click', exportLogs);
+        document.getElementById('closeDetail').addEventListener('click', () => {
+          document.getElementById('userDetailSection').classList.add('hidden');
+          selectedUser = null;
+        });
+        
+        document.getElementById('searchFilter').addEventListener('input', filterUsers);
+        document.getElementById('planFilter').addEventListener('change', filterUsers);
+        document.getElementById('statusFilter').addEventListener('change', filterUsers);
+        document.getElementById('typeFilter').addEventListener('change', filterUsers);
+        
+      } catch (error) {
+        console.error('Initialization error:', error);
+        updateStatus('planEngineStatus', 'offline', 'ERROR');
+        updateStatus('firebaseStatus', 'offline', 'ERROR');
+      }
+    }
+
+    initialize();
+  </script>
+</body>
+</html>

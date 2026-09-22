@@ -13,7 +13,154 @@
     <link rel="stylesheet" href="mobile.css" media="(max-width: 768px)">
     <link rel="icon" type="image/png" href="icon-black-transparent.png">
     <script type="module">
-import{initializeApp as a}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';import{getFirestore as b,doc as c,setDoc as d,getDoc as e,runTransaction as f,updateDoc as g}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';import{getAuth as h,signInWithEmailAndPassword as i,createUserWithEmailAndPassword as j,onAuthStateChanged as k}from'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';const l={apiKey:"AIzaSyDW6P_V4_LRLRg6-FEe2E7QJa9J3oidY5g",authDomain:"wtracks-acff8.firebaseapp.com",projectId:"wtracks-acff8",storageBucket:"wtracks-acff8.firebasestorage.app",messagingSenderId:"719838064855",appId:"1:719838064855:web:3c0631a882aac30cf3c092"};const m=a(l);const n=b(m);const o=h(m);const p='anual';const q=365;const r=new URLSearchParams(window.location.search);const s=r.get('transaction_id')||r.get('slug');const t=r.get('custom_id');if(!s||s.trim()===''){document.body.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#000000;color:#ffffff;font-family:'Poppins',sans-serif;text-align:center;padding:20px;"><div style="width:80px;height:80px;background:linear-gradient(135deg,#ff5252,#ff1744);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:30px;"><svg width="40"height="40"viewBox="0 0 24 24"fill="none"stroke="white"stroke-width="3"><line x1="18"y1="6"x2="6"y2="18"></line><line x1="6"y1="6"x2="18"y2="18"></line></svg></div><h1 style="font-size:28px;font-weight:700;margin-bottom:12px;color:#ffffff;">Transação Não Encontrada</h1><p style="font-size:16px;color:#888;margin-bottom:30px;line-height:1.5;max-width:400px;">Esta página deve ser acessada através do link de pagamento do InfinitePay. Por favor, retorne à página de planos para assinar.</p><a href="index.html"style="display:inline-flex;align-items:center;justify-content:center;padding:16px 32px;background:linear-gradient(135deg,#ffffff,#e0e0e0);color:#000000;font-size:16px;font-weight:600;border:none;border-radius:12px;cursor:pointer;text-decoration:none;font-family:'Poppins',sans-serif;transition:all 0.3s ease;">Ir para o App</a></div>`;throw new Error('No transaction_id provided');}const u=document.getElementById('loadingSpinner');const v=document.getElementById('errorMessage');const w=document.getElementById('authForm');const x=document.getElementById('goToAppBtn');const y=document.getElementById('emailInput');const z=document.getElementById('passwordInput');const A=document.getElementById('authButton');function B(C){v.textContent=C;v.style.display='block';u.style.display='none';}function D(){v.style.display='none';}async function E(F,G){try{await f(n,async(H)=>{const I=c(n,'users',F);const J=await H.get(I);if(!J.exists())throw new Error('Usuário não encontrado');const K=J.data();if(K.lastTransactionId===G)throw new Error('Esta transação já foi processada');const L=K.validadeAcesso?new Date(K.validadeAcesso):null;const M=new Date();let N=M;if(L&&L>M)N=L;const O=new Date(N);O.setHours(0,0,0,0);O.setDate(O.getDate()+q);O.setHours(23,59,59,999);const P={plan:'track_pro',planType:p,planActivatedAt:M.toISOString(),validadeAcesso:O.toISOString(),paymentOrigin:'infinitepay',statusPagamento:'ativo',trialUsed:true,subscriptionStatus:'active',lastPaymentAt:M.toISOString(),lastTransactionId:G};H.update(I,P);});return true;}catch(Q){throw Q;}}async function R(){return false;}function S(){u.style.display='none';w.style.display='none';x.style.display='inline-flex';}function T(){u.style.display='none';w.style.display='block';x.style.display='none';}async function U(){const V=y.value.trim();const W=z.value;if(!V||!W){B('Por favor, preencha todos os campos');return;}A.disabled=true;A.textContent='Processando...';u.style.display='block';D();try{let X;try{X=await j(o,V,W);}catch(Y){if(Y.code==='auth/email-already-in-use'){X=await i(o,V,W);}else{throw Y;}}await E(X.user.uid,s);S();}catch(Z){B(Z.message||'Erro ao processar autenticação');A.disabled=false;A.textContent='Criar conta e ativar plano';u.style.display='none';}}A.addEventListener('click',U);k(o,async(aa)=>{if(aa){u.style.display='block';D();try{await E(aa.uid,s);S();}catch(ab){B(ab.message||'Erro ao ativar plano');}}else{const ac=await R();if(!ac)T();}});
+      import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+      import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, addDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+      import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyDW6P_V4_LRLRg6-FEe2E7QJa9J3oidY5g",
+        authDomain: "wtracks-acff8.firebaseapp.com",
+        projectId: "wtracks-acff8",
+        storageBucket: "wtracks-acff8.firebasestorage.app",
+        messagingSenderId: "719838064855",
+        appId: "1:719838064855:web:3c0631a882aac30cf3c092"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      const auth = getAuth(app);
+
+      const PLAN_TYPE = 'anual';
+      const PLAN_DURATION_DAYS = 365;
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const transactionId = urlParams.get('transaction_id') || urlParams.get('slug');
+      const customId = urlParams.get('custom_id');
+
+      if (!transactionId || transactionId.trim() === '') {
+        document.body.innerHTML = `
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#000000;color:#ffffff;font-family:'Poppins',sans-serif;text-align:center;padding:20px;">
+            <div style="width:80px;height:80px;background:linear-gradient(135deg,#ff5252,#ff1744);border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:30px;">
+              <svg width="40"height="40"viewBox="0 0 24 24"fill="none"stroke="white"stroke-width="3"><line x1="18"y1="6"x2="6"y2="18"></line><line x1="6"y1="6"x2="18"y2="18"></line></svg>
+            </div>
+            <h1 style="font-size:28px;font-weight:700;margin-bottom:12px;color:#ffffff;">Transação Não Encontrada</h1>
+            <p style="font-size:16px;color:#888;margin-bottom:30px;line-height:1.5;max-width:400px;">Esta página deve ser acessada através do link de pagamento do InfinitePay. Por favor, retorne à página de planos para assinar.</p>
+            <a href="index.html"style="display:inline-flex;align-items:center;justify-content:center;padding:16px 32px;background:linear-gradient(135deg,#ffffff,#e0e0e0);color:#000000;font-size:16px;font-weight:600;border:none;border-radius:12px;cursor:pointer;text-decoration:none;font-family:'Poppins',sans-serif;">Voltar para Planos</a>
+          </div>
+        `;
+        throw new Error('Transaction ID not found');
+      }
+
+      function calculateExpiryDate(activationDate) {
+        const expiry = new Date(activationDate);
+        expiry.setDate(expiry.getDate() + PLAN_DURATION_DAYS);
+        return expiry;
+      }
+
+      function formatDateTime(date) {
+        return date.toISOString();
+      }
+
+      onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          await activateUserPlan(user.uid, user.email);
+        } else {
+          showAuthForm();
+        }
+      });
+
+      async function activateUserPlan(uid, email) {
+        try {
+          const now = new Date();
+          const planActivatedAt = formatDateTime(now);
+          const planExpiresAt = formatDateTime(calculateExpiryDate(now));
+
+          const planData = {
+            plan: 'track_pro',
+            planType: PLAN_TYPE,
+            planStartedAt: planActivatedAt,
+            planExpiresAt: planExpiresAt,
+            planActivatedAt: planActivatedAt,
+            validadeAcesso: planExpiresAt,
+            paymentOrigin: 'site',
+            statusPagamento: 'ativo',
+            subscriptionStatus: 'active',
+            lastPaymentAt: planActivatedAt,
+            lastTransactionId: transactionId,
+            updatedAt: planActivatedAt
+          };
+
+          await updateDoc(doc(db, 'users', uid), planData);
+
+          await addDoc(collection(db, 'subscriptionHistory'), {
+            uid: uid,
+            email: email,
+            plan: 'track_pro',
+            planType: PLAN_TYPE,
+            paymentOrigin: 'site',
+            activatedAt: planActivatedAt,
+            expiresAt: planExpiresAt,
+            transactionId: transactionId,
+            createdAt: planActivatedAt
+          });
+
+          console.log('[SUCCESS] Track Pro activated for user:', uid);
+          showSuccessAndRedirect();
+        } catch (error) {
+          console.error('[SUCCESS] Error activating plan:', error);
+          showError('Erro ao ativar plano: ' + error.message);
+        }
+      }
+
+      function showAuthForm() {
+        document.getElementById('authForm').style.display = 'block';
+        document.getElementById('loadingSpinner').style.display = 'none';
+      }
+
+      document.getElementById('authButton').addEventListener('click', async () => {
+        const email = document.getElementById('emailInput').value;
+        const password = document.getElementById('passwordInput').value;
+
+        if (!email || !password) {
+          showError('Por favor, preencha todos os campos.');
+          return;
+        }
+
+        try {
+          document.getElementById('authButton').disabled = true;
+          document.getElementById('authButton').textContent = 'Processando...';
+          document.getElementById('loadingSpinner').style.display = 'block';
+
+          try {
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            console.log('[SUCCESS] User signed in:', userCredential.user.email);
+          } catch (signInError) {
+            console.log('[SUCCESS] Sign in failed, trying to create account:', signInError.message);
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            console.log('[SUCCESS] User created:', userCredential.user.email);
+          }
+        } catch (error) {
+          console.error('[SUCCESS] Auth error:', error);
+          document.getElementById('authButton').disabled = false;
+          document.getElementById('authButton').textContent = 'Criar conta e ativar plano';
+          document.getElementById('loadingSpinner').style.display = 'none';
+          showError('Erro: ' + error.message);
+        }
+      });
+
+      function showSuccessAndRedirect() {
+        document.getElementById('loadingSpinner').style.display = 'none';
+        document.getElementById('authForm').style.display = 'none';
+        document.getElementById('errorMessage').style.display = 'none';
+        document.getElementById('goToAppBtn').style.display = 'inline-flex';
+      }
+
+      function showError(message) {
+        const errorDiv = document.getElementById('errorMessage');
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+        document.getElementById('loadingSpinner').style.display = 'none';
+      }
     </script>
     <style>
         *{margin:0;padding:0;box-sizing:border-box}

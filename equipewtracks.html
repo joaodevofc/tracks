@@ -3702,15 +3702,20 @@ function renderContas(contas){
 
     // Payment badge for Track Pro users with site payment
     let paymentBadge = '';
-    if (conta.plan === 'track_pro' && conta.paymentOrigin === 'site' && conta.statusPagamento === 'ativo') {
+    // CORREÇÃO: Usar plano EFETIVO para considerar expiração
+    let effectivePlan = conta.plan;
+    if (window.planEngine && window.planEngine.initialized) {
+      effectivePlan = window.planEngine.getEffectivePlan(conta);
+    }
+    if (effectivePlan === 'track_pro' && conta.paymentOrigin === 'site' && conta.statusPagamento === 'ativo') {
       paymentBadge = '<span class="payment-badge-site">Assinatura Site</span>';
     }
 
     // Days remaining for all users (main feature now)
     let daysRemainingHtml = '';
-    if (conta.plan === 'track_pro' && conta.validadeAcesso) {
+    if (effectivePlan === 'track_pro' && conta.validadeAcesso) {
       daysRemainingHtml = getDaysRemainingText(conta.validadeAcesso);
-    } else if (conta.plan === 'track') {
+    } else if (effectivePlan === 'track') {
       daysRemainingHtml = '<span style="color: var(--subtle); font-size: 0.75rem;">Plano gratuito</span>';
     } else {
       daysRemainingHtml = '<span style="color: var(--subtle); font-size: 0.75rem;">Sem validade</span>';
@@ -3752,8 +3757,8 @@ function renderContas(contas){
             style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-card); color: var(--white-dim); font-size: 0.85rem; cursor: pointer;"
             ${conta.status !== 'active' ? 'disabled' : ''}
           >
-            <option value="track" ${conta.plan === 'track' ? 'selected' : ''}>Track</option>
-            <option value="track_pro" ${conta.plan === 'track_pro' ? 'selected' : ''}>Track Pro</option>
+            <option value="track" ${effectivePlan === 'track' ? 'selected' : ''}>Track</option>
+            <option value="track_pro" ${effectivePlan === 'track_pro' ? 'selected' : ''}>Track Pro</option>
           </select>
           ${paymentBadge}
         </div>
@@ -4017,8 +4022,13 @@ async function loadUpgradeAccounts(){
     });
 
     // Also check users collection for track_pro users without history records
+    // CORREÇÃO: Usar plano EFETIVO para considerar expiração
     contasCache.forEach((conta) => {
-      if (conta.plan === 'track_pro' && !historyUids.has(conta.id)) {
+      let effectivePlan = conta.plan;
+      if (window.planEngine && window.planEngine.initialized) {
+        effectivePlan = window.planEngine.getEffectivePlan(conta);
+      }
+      if (effectivePlan === 'track_pro' && !historyUids.has(conta.id)) {
         // User has track_pro but no history record
         const activatedAt = conta.planActivatedAt ? new Date(conta.planActivatedAt) : null;
         const expiresAt = conta.validadeAcesso ? new Date(conta.validadeAcesso) : null;

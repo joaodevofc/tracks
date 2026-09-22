@@ -60,12 +60,55 @@ async function getUserPlan(userId) {
     }
 
     try {
-        const { db, doc, getDoc } = window.firebaseDB;
+        const { db, doc, getDoc, updateDoc } = window.firebaseDB;
         const userDoc = await getDoc(doc(db, 'users', userId));
 
         if (userDoc.exists()) {
             const userData = userDoc.data();
-            const plan = userData.plan || 'track';
+            
+            // CORREÇÃO: Usar Plan Engine para obter plano EFETIVO (considerando expiração)
+            if (window.planEngine && window.planEngine.initialized) {
+                const effectivePlan = window.planEngine.getEffectivePlan(userData);
+                
+                // Se plano efetivo é track mas Firestore ainda tem track_pro, fazer downgrade
+                if (effectivePlan === 'track' && userData.plan === 'track_pro') {
+                    console.log('[PLAN SYSTEM] Track Pro expired, downgrading user to track');
+                    
+                    try {
+                        await window.planEngine.downgradeExpiredUser(userId);
+                        console.log('[PLAN SYSTEM] User plan downgraded to track');
+                    } catch (updateError) {
+                        console.error('[PLAN SYSTEM] Error downgrading user plan:', updateError);
+                        // Ainda retorna track mesmo se update falhar
+                    }
+                }
+                
+                console.log('[PLAN SYSTEM] User effective plan:', effectivePlan);
+                return effectivePlan;
+            }
+            
+            // Fallback para lógica legada se Plan Engine não disponível
+            let plan = userData.plan || 'track';
+            const expiration = checkPlanExpiration(userData);
+
+            if (expiration.expired && plan === 'track_pro') {
+                console.log('[PLAN SYSTEM] Downgrading user from track_pro to track due to expired trial');
+                
+                try {
+                    await updateDoc(doc(db, 'users', userId), {
+                        plan: 'track',
+                        trialStatus: 'expired',
+                        updatedAt: new Date().toISOString()
+                    });
+                    
+                    plan = 'track';
+                    console.log('[PLAN SYSTEM] User plan updated to track');
+                } catch (updateError) {
+                    console.error('[PLAN SYSTEM] Error updating user plan:', updateError);
+                    plan = 'track';
+                }
+            }
+
             console.log('[PLAN SYSTEM] User plan from Firebase:', plan);
             return plan;
         } else {
@@ -179,6 +222,60 @@ function isTrackProCached(planName) {
 }
 
 /**
+ * Verifica e processa a expiração do teste de 7 dias
+ * @param {Object} userData - Dados do usuário do Firestore
+ * @returns {Object} - Objeto com { expired: boolean, downgraded: boolean, plan: string }
+ */
+function checkPlanExpiration(userData) {
+    if (!userData) {
+        console.log('[PLAN VALIDITY] No user data provided');
+        return { expired: false, downgraded: false, plan: 'track' };
+    }
+
+    // Use Plan Engine if available for centralized validation
+    if (window.planEngine && window.planEngine.initialized) {
+        const status = window.planEngine.checkPlanStatus(userData);
+        return { 
+            expired: !status.isActive, 
+            downgraded: false, 
+            plan: status.isActive ? userData.plan : 'track' 
+        };
+    }
+
+    // Fallback to legacy logic for compatibility
+    const plan = userData.plan || 'track';
+    const planType = userData.planType;
+    const planExpiresAt = userData.planExpiresAt || userData.trialEndsAt || userData.validadeAcesso;
+    const now = new Date();
+
+    console.log('[PLAN VALIDITY] Current plan:', plan);
+    console.log('[PLAN VALIDITY] Plan type:', planType);
+    console.log('[PLAN VALIDITY] Plan expires:', planExpiresAt);
+    console.log('[PLAN VALIDITY] Current time:', now.toISOString());
+
+    // Check expiration for any track_pro plan (trial, monthly, annual)
+    if (plan === 'track_pro' && planExpiresAt) {
+        const expiresAt = new Date(planExpiresAt);
+        const isExpired = expiresAt <= now;
+
+        console.log('[PLAN VALIDITY] Plan expired:', isExpired);
+
+        if (isExpired) {
+            console.log('[PLAN VALIDITY] Track Pro plan expired');
+            console.log('[PLAN VALIDITY] User downgraded to Track');
+            return { expired: true, downgraded: false, plan: 'track' };
+        } else {
+            console.log('[PLAN VALIDITY] Track Pro plan is still active');
+            return { expired: false, downgraded: false, plan: 'track_pro' };
+        }
+    }
+
+    // For plans without expiration date or regular Track
+    console.log('[PLAN VALIDITY] No expiration check needed');
+    return { expired: false, downgraded: false, plan: plan };
+}
+
+/**
  * Verifica se o Track Pro do usuário está expirado
  * @param {string} userId - ID do usuário
  * @returns {Promise<boolean>} - true se está expirado, false caso contrário
@@ -194,17 +291,8 @@ async function isTrackProExpired(userId) {
 
         if (userDoc.exists()) {
             const userData = userDoc.data();
-            
-            // Only check expiration if user is currently track_pro
-            if (userData.plan === 'track_pro' && userData.validadeAcesso) {
-                const expiryDate = new Date(userData.validadeAcesso);
-                const now = new Date();
-                
-                if (expiryDate <= now) {
-                    console.log('[PLAN SYSTEM] Track Pro expired for user:', userId, 'expired at:', expiryDate);
-                    return true;
-                }
-            }
+            const expiration = checkPlanExpiration(userData);
+            return expiration.expired;
         }
         
         return false;
@@ -225,14 +313,20 @@ async function checkAndUpdateExpiredPlan(userId) {
     }
 
     try {
-        const { db, doc, getDoc, updateDoc, collection, addDoc } = window.firebaseDB;
+        const { db, doc, getDoc, updateDoc, collection, addDoc, getDocs } = window.firebaseDB;
         
         // If specific userId provided, check only that user
         if (userId) {
-            const isExpired = await isTrackProExpired(userId);
-            if (isExpired) {
-                await downgradeExpiredUser(userId);
-                return true;
+            const userDoc = await getDoc(doc(db, 'users', userId));
+            
+            if (userDoc.exists()) {
+                const userData = userDoc.data();
+                const expiration = checkPlanExpiration(userData);
+                
+                if (expiration.expired) {
+                    await downgradeExpiredUser(userId);
+                    return true;
+                }
             }
             return false;
         }
@@ -243,16 +337,12 @@ async function checkAndUpdateExpiredPlan(userId) {
         
         for (const userDoc of usersSnapshot.docs) {
             const userData = userDoc.data();
+            const expiration = checkPlanExpiration(userData);
             
-            if (userData.plan === 'track_pro' && userData.validadeAcesso) {
-                const expiryDate = new Date(userData.validadeAcesso);
-                const now = new Date();
-                
-                if (expiryDate <= now) {
-                    console.log('[PLAN SYSTEM] Downgrading expired Track Pro user:', userDoc.id);
-                    await downgradeExpiredUser(userDoc.id);
-                    updatedCount++;
-                }
+            if (expiration.expired) {
+                console.log('[PLAN SYSTEM] Downgrading expired Track Pro user:', userDoc.id);
+                await downgradeExpiredUser(userDoc.id);
+                updatedCount++;
             }
         }
         
@@ -284,30 +374,28 @@ async function downgradeExpiredUser(userId) {
             const userData = userDoc.data();
             
             // Add to subscription history before downgrading
-            if (userData.planActivatedAt) {
+            if (userData.trialStartedAt) {
                 await addDoc(collection(db, 'subscriptionHistory'), {
                     uid: userId,
                     email: userData.email,
                     plan: 'track_pro',
-                    planType: userData.planType || 'mensal',
-                    paymentOrigin: userData.paymentOrigin || 'unknown',
-                    activatedAt: userData.planActivatedAt,
-                    expiresAt: userData.validadeAcesso,
-                    transactionId: userData.lastTransactionId || null,
+                    planType: userData.planType || 'trial',
+                    paymentOrigin: userData.paymentOrigin || 'trial',
+                    activatedAt: userData.trialStartedAt,
+                    expiresAt: userData.trialEndsAt,
+                    transactionId: null,
                     expiredAt: new Date().toISOString(),
-                    reason: 'expired',
+                    reason: 'trial_expired',
                     createdAt: new Date().toISOString()
                 });
             }
             
-            // Downgrade to track, but preserve planActivatedAt
+            // Downgrade to track, but preserve trial metadata
             await updateDoc(doc(db, 'users', userId), {
                 plan: 'track',
-                planType: null,
-                subscriptionStatus: 'expired',
-                statusPagamento: 'expirado',
+                trialStatus: 'expired',
                 updatedAt: new Date().toISOString()
-                // Note: planActivatedAt is preserved for historical reference
+                // Note: trialUsed, trialStartedAt, trialEndsAt, trialExpiresAt are preserved
             });
             
             console.log('[PLAN SYSTEM] User downgraded from track_pro to track:', userId);
@@ -331,6 +419,7 @@ if (typeof module !== 'undefined' && module.exports) {
         hasCloudStorageAccess,
         isTrackPro,
         isTrackProCached,
+        checkPlanExpiration,
         isTrackProExpired,
         checkAndUpdateExpiredPlan,
         downgradeExpiredUser
@@ -350,6 +439,7 @@ window.PlanSystem = {
     hasCloudStorageAccess,
     isTrackPro,
     isTrackProCached,
+    checkPlanExpiration,
     isTrackProExpired,
     checkAndUpdateExpiredPlan,
     downgradeExpiredUser

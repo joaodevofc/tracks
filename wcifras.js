@@ -19,6 +19,7 @@ let selectedMode = 'normal'; // 'normal' or 'simplified'
 let currentInstrument = 'guitar'; // default instrument
 let allChords = []; // Store all chords for search/filtering
 let currentChordData = null; // Store current chord data for editing
+let userFavorites = []; // Store user's favorite chord IDs
 let currentPlaylist = null; // Current playlist being edited/viewed
 let playlistSongs = []; // Songs in current playlist (for editing)
 let userPlaylists = []; // All user playlists
@@ -2466,34 +2467,152 @@ function loadChordsFromFirestore() {
         console.warn('[W.CIFRAS] Firebase DB not available, cannot load chords');
         return;
     }
-    
+
+    // Show loading state
+    const loadingContainer = document.getElementById('wcifrasLoadingContainer');
+    const listContainer = document.getElementById('wcifrasList');
+    const emptyState = document.getElementById('wcifrasEmptyState');
+
+    if (loadingContainer) loadingContainer.style.display = 'flex';
+    if (listContainer) listContainer.style.display = 'none';
+    if (emptyState) emptyState.style.display = 'none';
+
     const { db, collection, query, orderBy, onSnapshot } = window.firebaseDB;
-    
+
     // Query chords ordered by creation date (newest first)
     const chordsQuery = query(
         collection(db, 'chords'),
         orderBy('createdAt', 'desc')
     );
-    
+
     // Real-time listener
     onSnapshot(chordsQuery, (snapshot) => {
         const chords = [];
-        
+
         snapshot.forEach((doc) => {
             chords.push({
                 id: doc.id,
                 ...doc.data()
             });
         });
-        
+
         // Store all chords for search
         allChords = chords;
-        
+
+        // Load user favorites
+        loadUserFavorites();
+
+        // Hide loading and show list
+        if (loadingContainer) loadingContainer.style.display = 'none';
+        if (listContainer) listContainer.style.display = 'flex';
+
         renderChordsList(chords);
         console.log('[W.CIFRAS] Loaded', chords.length, 'chords from Firestore');
     }, (error) => {
         console.error('[W.CIFRAS] Error loading chords:', error);
+        // Hide loading on error
+        if (loadingContainer) loadingContainer.style.display = 'none';
+        if (listContainer) listContainer.style.display = 'none';
+        if (emptyState) emptyState.style.display = 'flex';
     });
+}
+
+// Load user favorites from Firestore
+function loadUserFavorites() {
+    if (typeof window.firebaseDB === 'undefined' || !window.firebaseAuth) {
+        console.log('[W.CIFRAS] Firebase not available for favorites');
+        return;
+    }
+
+    const { db, collection, doc, getDoc, onSnapshot } = window.firebaseDB;
+    const { auth } = window.firebaseAuth;
+
+    if (!auth.currentUser) {
+        console.log('[W.CIFRAS] No user logged in for favorites');
+        return;
+    }
+
+    const userId = auth.currentUser.uid;
+    const userDocRef = doc(db, 'users', userId);
+
+    getDoc(userDocRef).then((docSnapshot) => {
+        if (docSnapshot.exists()) {
+            const userData = docSnapshot.data();
+            userFavorites = userData.favorites || [];
+            console.log('[W.CIFRAS] Loaded user favorites:', userFavorites.length);
+            // Re-render with favorites
+            renderChordsList(allChords);
+        } else {
+            userFavorites = [];
+            console.log('[W.CIFRAS] No user document found for favorites');
+        }
+    }).catch((error) => {
+        console.error('[W.CIFRAS] Error loading favorites:', error);
+        userFavorites = [];
+    });
+}
+
+// Toggle favorite status
+async function toggleFavorite(chordId, buttonElement) {
+    if (typeof window.firebaseDB === 'undefined' || !window.firebaseAuth) {
+        console.log('[W.CIFRAS] Firebase not available for favorites');
+        buttonElement.classList.toggle('active');
+        return;
+    }
+
+    const { db, collection, doc, getDoc, updateDoc, setDoc, arrayUnion, arrayRemove } = window.firebaseDB;
+    const { auth } = window.firebaseAuth;
+
+    if (!auth.currentUser) {
+        alert('Faça login para favoritar músicas');
+        return;
+    }
+
+    const userId = auth.currentUser.uid;
+    const userDocRef = doc(db, 'users', userId);
+
+    try {
+        const docSnapshot = await getDoc(userDocRef);
+
+        if (docSnapshot.exists()) {
+            const userData = docSnapshot.data();
+            const currentFavorites = userData.favorites || [];
+            const isFavorite = currentFavorites.includes(chordId);
+
+            if (isFavorite) {
+                // Remove from favorites
+                await updateDoc(userDocRef, {
+                    favorites: arrayRemove(chordId)
+                });
+                userFavorites = userFavorites.filter(id => id !== chordId);
+                buttonElement.classList.remove('active');
+                console.log('[W.CIFRAS] Removed from favorites:', chordId);
+            } else {
+                // Add to favorites
+                await updateDoc(userDocRef, {
+                    favorites: arrayUnion(chordId)
+                });
+                userFavorites.push(chordId);
+                buttonElement.classList.add('active');
+                console.log('[W.CIFRAS] Added to favorites:', chordId);
+            }
+
+            // Re-render list to show favorites first
+            renderChordsList(allChords);
+        } else {
+            // Create user document with first favorite using setDoc
+            await setDoc(userDocRef, {
+                favorites: [chordId]
+            });
+            userFavorites = [chordId];
+            buttonElement.classList.add('active');
+            console.log('[W.CIFRAS] Created user document with first favorite:', chordId);
+            renderChordsList(allChords);
+        }
+    } catch (error) {
+        console.error('[W.CIFRAS] Error toggling favorite:', error);
+        alert('Erro ao favoritar. Tente novamente.');
+    }
 }
 
 // Filter chords based on search query
@@ -2520,28 +2639,55 @@ function filterChords(searchTerm) {
 function renderChordsList(chords) {
     const listContainer = document.getElementById('wcifrasList');
     const emptyState = document.getElementById('wcifrasEmptyState');
-    
+    const loadingContainer = document.getElementById('wcifrasLoadingContainer');
+
     if (!listContainer || !emptyState) {
         console.error('[W.CIFRAS] List containers not found');
         return;
     }
-    
+
     // Clear existing content
     listContainer.innerHTML = '';
-    
+
+    // Hide loading container
+    if (loadingContainer) loadingContainer.style.display = 'none';
+
     // Show empty state if no chords
     if (chords.length === 0) {
         emptyState.style.display = 'flex';
         listContainer.style.display = 'none';
         return;
     }
-    
+
     // Show list and hide empty state
     emptyState.style.display = 'none';
     listContainer.style.display = 'flex';
-    
+
+    // Sort: favorites first, then shuffle the rest
+    const sortedChords = [...chords].sort((a, b) => {
+        const aIsFavorite = userFavorites.includes(a.id);
+        const bIsFavorite = userFavorites.includes(b.id);
+
+        if (aIsFavorite && !bIsFavorite) return -1;
+        if (!aIsFavorite && bIsFavorite) return 1;
+        return 0;
+    });
+
+    // Shuffle non-favorites
+    const favorites = sortedChords.filter(c => userFavorites.includes(c.id));
+    const nonFavorites = sortedChords.filter(c => !userFavorites.includes(c.id));
+
+    // Fisher-Yates shuffle for non-favorites
+    for (let i = nonFavorites.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [nonFavorites[i], nonFavorites[j]] = [nonFavorites[j], nonFavorites[i]];
+    }
+
+    // Combine: favorites first (in order they were favorited), then shuffled non-favorites
+    const finalOrder = [...favorites, ...nonFavorites];
+
     // Render each chord card
-    chords.forEach(chord => {
+    finalOrder.forEach(chord => {
         const card = createChordCard(chord);
         listContainer.appendChild(card);
     });
@@ -2626,12 +2772,16 @@ function createChordCard(chord) {
             <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
         </svg>
     `;
+
+    // Set active state if favorited
+    if (userFavorites.includes(chord.id)) {
+        favoriteBtn.classList.add('active');
+    }
     
     // Prevent card click when clicking favorite button
     favoriteBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        favoriteBtn.classList.toggle('active');
-        console.log('[W.CIFRAS] Favorite toggled for chord:', chord.id);
+        toggleFavorite(chord.id, favoriteBtn);
     });
     
     // Assemble card
@@ -2680,5 +2830,4 @@ document.addEventListener('DOMContentLoaded', () => {
 // - Firebase integration
 // - Chord display viewer
 // - Transposition
-// - Real favorites system
 // - Upload/edit chords

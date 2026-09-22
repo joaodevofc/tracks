@@ -43,9 +43,46 @@ class MultracksApp {
                 console.log('[PLAN] Plan system or userPlan not available for feature check:', feature);
                 return false;
             }
-            const plan = window.PlanSystem.getPlanRules(this.userPlan);
+            
+            // CORREÇÃO: Se Plan Engine disponível, usar getEffectivePlan para considerar expiração
+            let effectivePlan = this.userPlan;
+            
+            if (window.planEngine && window.planEngine.initialized && window.firebaseDB) {
+                try {
+                    const currentUser = window.firebaseAuth?.auth?.currentUser;
+                    if (currentUser) {
+                        // Tenta obter dados do usuário para verificação de expiração
+                        // Se não tiver dados cacheados, usa plano atual mas continua async em background
+                        const userData = window.planEngine.getUserData(currentUser.uid);
+                        if (userData) {
+                            effectivePlan = window.planEngine.getEffectivePlan(userData);
+                            if (effectivePlan !== this.userPlan) {
+                                this.userPlan = effectivePlan;
+                                console.log('[PLAN] Effective plan updated immediately:', this.userPlan);
+                            }
+                        } else {
+                            // Dados não cacheados - verifica async
+                            window.planEngine.getUserById(currentUser.uid).then(userData => {
+                                if (userData) {
+                                    const newEffectivePlan = window.planEngine.getEffectivePlan(userData);
+                                    if (newEffectivePlan !== this.userPlan) {
+                                        this.userPlan = newEffectivePlan;
+                                        console.log('[PLAN] Effective plan updated from async check:', this.userPlan);
+                                    }
+                                }
+                            }).catch(err => {
+                                console.log('[PLAN] Error getting user data for effective plan check:', err);
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.log('[PLAN] Error in effective plan check:', error);
+                }
+            }
+            
+            const plan = window.PlanSystem.getPlanRules(effectivePlan);
             const hasAccess = plan.features[feature] || false;
-            console.log('[PLAN] Feature access check:', feature, 'for plan:', this.userPlan, 'result:', hasAccess);
+            console.log('[PLAN] Feature access check:', feature, 'for effective plan:', effectivePlan, 'result:', hasAccess);
             return hasAccess;
         };
         
@@ -8215,7 +8252,7 @@ class MultracksApp {
                 const userDoc = await getDoc(doc(db, 'users', user.uid));
                 if (userDoc.exists()) {
                     const userData = userDoc.data();
-                    this.updateSettingsUI(userData, user);
+                    await this.updateSettingsUI(userData, user);
                     return;
                 } else {
                     // Fallback: try to find by uid field (old method with auto-generated IDs)
@@ -8223,7 +8260,7 @@ class MultracksApp {
                     const querySnapshot = await getDocs(q);
                     if (!querySnapshot.empty) {
                         const userData = querySnapshot.docs[0].data();
-                        this.updateSettingsUI(userData, user);
+                        await this.updateSettingsUI(userData, user);
                         return;
                     }
                 }
@@ -8233,7 +8270,7 @@ class MultracksApp {
         }
 
         // Fallback to basic user data
-        this.updateSettingsUI({
+        await this.updateSettingsUI({
             displayName: displayName,
             email: email,
             profilePhoto: profilePhoto,
@@ -8242,7 +8279,7 @@ class MultracksApp {
         }, user);
     }
 
-    updateSettingsUI(userData, user) {
+    async updateSettingsUI(userData, user) {
         console.log('[SETTINGS] updateSettingsUI called with userData:', userData);
 
         let displayName = userData.displayName || user.displayName;
@@ -8251,8 +8288,13 @@ class MultracksApp {
 
         const accountType = userData.accountType || user.accountType || 'Usuário';
 
-        // Get plan from userData
-        const plan = userData.plan || 'track';
+        // Get plan from PlanSystem (includes expiration check)
+        let plan = 'track';
+        if (window.PlanSystem && user) {
+            plan = await window.PlanSystem.getUserPlan(user.uid);
+        } else {
+            plan = userData.plan || 'track';
+        }
         const planDisplayName = window.PlanSystem ? window.PlanSystem.PLANS[plan]?.displayName || 'Track' : 'Track';
 
         // Update app's userPlan

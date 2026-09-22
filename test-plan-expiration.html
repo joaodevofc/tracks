@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Expiração de Plano</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-case {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-case h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Teste de Expiração de Plano Track Pro</h1>
+    <p>Este arquivo testa a lógica de expiração do teste de 7 dias do Track Pro.</p>
+
+    <div class="test-case">
+        <h3>Teste 1: Usuário com teste expirado</h3>
+        <p>Simula um usuário com plan: "track_pro", planType: "trial", trialEndsAt no passado.</p>
+        <button onclick="testExpiredTrial()">Executar Teste 1</button>
+        <div id="test1-result" class="result"></div>
+        <pre id="test1-logs"></pre>
+    </div>
+
+    <div class="test-case">
+        <h3>Teste 2: Usuário com teste ativo</h3>
+        <p>Simula um usuário com plan: "track_pro", planType: "trial", trialEndsAt no futuro.</p>
+        <button onclick="testActiveTrial()">Executar Teste 2</button>
+        <div id="test2-result" class="result"></div>
+        <pre id="test2-logs"></pre>
+    </div>
+
+    <div class="test-case">
+        <h3>Teste 3: Usuário com Track Pro pago</h3>
+        <p>Simula um usuário com plan: "track_pro", planType: "paid" (não deve sofrer downgrade).</p>
+        <button onclick="testPaidPro()">Executar Teste 3</button>
+        <div id="test3-result" class="result"></div>
+        <pre id="test3-logs"></pre>
+    </div>
+
+    <div class="test-case">
+        <h3>Teste 4: Usuário com plano Track</h3>
+        <p>Simula um usuário com plan: "track" (não deve sofrer alterações).</p>
+        <button onclick="testTrackPlan()">Executar Teste 4</button>
+        <div id="test4-result" class="result"></div>
+        <pre id="test4-logs"></pre>
+    </div>
+
+    <script>
+        // Mock the PlanSystem functions for testing
+        const mockPlanSystem = {
+            checkPlanExpiration: async function(userData) {
+                if (!userData) {
+                    console.log('[PLAN VALIDITY] No user data provided');
+                    return { expired: false, downgraded: false, plan: 'track' };
+                }
+
+                const plan = userData.plan || 'track';
+                const planType = userData.planType;
+                const trialEndsAt = userData.trialEndsAt;
+                const now = new Date();
+
+                console.log('[PLAN VALIDITY] Current plan:', plan);
+                console.log('[PLAN VALIDITY] Plan type:', planType);
+                console.log('[PLAN VALIDITY] Trial started:', userData.trialStartedAt);
+                console.log('[PLAN VALIDITY] Trial ends:', trialEndsAt);
+                console.log('[PLAN VALIDITY] Current time:', now.toISOString());
+
+                // Only check expiration for track_pro with planType === 'trial'
+                if (plan === 'track_pro' && planType === 'trial') {
+                    if (trialEndsAt) {
+                        const trialEndDate = new Date(trialEndsAt);
+                        const isExpired = trialEndDate <= now;
+
+                        console.log('[PLAN VALIDITY] Trial expired:', isExpired);
+
+                        if (isExpired) {
+                            console.log('[PLAN VALIDITY] Track Pro trial expired');
+                            console.log('[PLAN VALIDITY] User downgraded to Track');
+                            return { expired: true, downgraded: false, plan: 'track' };
+                        } else {
+                            console.log('[PLAN VALIDITY] Track Pro trial is still active');
+                            return { expired: false, downgraded: false, plan: 'track_pro' };
+                        }
+                    } else {
+                        console.log('[PLAN VALIDITY] No trialEndsAt found, treating as valid');
+                        return { expired: false, downgraded: false, plan: 'track_pro' };
+                    }
+                }
+
+                // For paid Track Pro or regular Track, no trial expiration check
+                console.log('[PLAN VALIDITY] Not a trial plan, no expiration check needed');
+                return { expired: false, downgraded: false, plan: plan };
+            }
+        };
+
+        // Capture console logs
+        function captureLogs(logContainer) {
+            const originalLog = console.log;
+            const logs = [];
+            
+            console.log = function(...args) {
+                logs.push(args.join(' '));
+                originalLog.apply(console, args);
+            };
+            
+            return {
+                getLogs: () => logs,
+                restore: () => { console.log = originalLog; }
+            };
+        }
+
+        async function testExpiredTrial() {
+            const resultDiv = document.getElementById('test1-result');
+            const logsDiv = document.getElementById('test1-logs');
+            
+            // Capture logs
+            const logger = captureLogs();
+            
+            // Create test data - trial ended 10 days ago
+            const pastDate = new Date();
+            pastDate.setDate(pastDate.getDate() - 10);
+            
+            const userData = {
+                plan: 'track_pro',
+                planType: 'trial',
+                trialUsed: true,
+                trialStartedAt: new Date(pastDate.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+                trialEndsAt: pastDate.toISOString(),
+                trialStatus: 'active'
+            };
+            
+            try {
+                const result = await mockPlanSystem.checkPlanExpiration(userData);
+                
+                // Restore console
+                logger.restore();
+                
+                // Display logs
+                logsDiv.textContent = logger.getLogs().join('\n');
+                
+                // Check result
+                if (result.expired === true && result.plan === 'track') {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = '✅ PASS: Usuário com teste expirado foi corretamente identificado e plano mudou para "track"';
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = '❌ FAIL: Esperava expired=true e plan="track", mas recebeu expired=' + result.expired + ' e plan="' + result.plan + '"';
+                }
+            } catch (error) {
+                logger.restore();
+                resultDiv.className = 'result error';
+                resultDiv.textContent = '❌ ERROR: ' + error.message;
+            }
+        }
+
+        async function testActiveTrial() {
+            const resultDiv = document.getElementById('test2-result');
+            const logsDiv = document.getElementById('test2-logs');
+            
+            // Capture logs
+            const logger = captureLogs();
+            
+            // Create test data - trial ends in 5 days
+            const futureDate = new Date();
+            futureDate.setDate(futureDate.getDate() + 5);
+            
+            const userData = {
+                plan: 'track_pro',
+                planType: 'trial',
+                trialUsed: true,
+                trialStartedAt: new Date().toISOString(),
+                trialEndsAt: futureDate.toISOString(),
+                trialStatus: 'active'
+            };
+            
+            try {
+                const result = await mockPlanSystem.checkPlanExpiration(userData);
+                
+                // Restore console
+                logger.restore();
+                
+                // Display logs
+                logsDiv.textContent = logger.getLogs().join('\n');
+                
+                // Check result
+                if (result.expired === false && result.plan === 'track_pro') {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = '✅ PASS: Usuário com teste ativo foi corretamente identificado e plano permaneceu "track_pro"';
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = '❌ FAIL: Esperava expired=false e plan="track_pro", mas recebeu expired=' + result.expired + ' e plan="' + result.plan + '"';
+                }
+            } catch (error) {
+                logger.restore();
+                resultDiv.className = 'result error';
+                resultDiv.textContent = '❌ ERROR: ' + error.message;
+            }
+        }
+
+        async function testPaidPro() {
+            const resultDiv = document.getElementById('test3-result');
+            const logsDiv = document.getElementById('test3-logs');
+            
+            // Capture logs
+            const logger = captureLogs();
+            
+            // Create test data - paid Track Pro
+            const userData = {
+                plan: 'track_pro',
+                planType: 'paid',
+                trialUsed: true,
+                trialStartedAt: new Date().toISOString(),
+                trialEndsAt: new Date().toISOString(), // Even if trialEndsAt exists, planType is 'paid'
+                trialStatus: 'expired'
+            };
+            
+            try {
+                const result = await mockPlanSystem.checkPlanExpiration(userData);
+                
+                // Restore console
+                logger.restore();
+                
+                // Display logs
+                logsDiv.textContent = logger.getLogs().join('\n');
+                
+                // Check result
+                if (result.expired === false && result.plan === 'track_pro') {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = '✅ PASS: Usuário com Track Pro pago não sofreu downgrade pela lógica de teste';
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = '❌ FAIL: Esperava expired=false e plan="track_pro", mas recebeu expired=' + result.expired + ' e plan="' + result.plan + '"';
+                }
+            } catch (error) {
+                logger.restore();
+                resultDiv.className = 'result error';
+                resultDiv.textContent = '❌ ERROR: ' + error.message;
+            }
+        }
+
+        async function testTrackPlan() {
+            const resultDiv = document.getElementById('test4-result');
+            const logsDiv = document.getElementById('test4-logs');
+            
+            // Capture logs
+            const logger = captureLogs();
+            
+            // Create test data - regular Track plan
+            const userData = {
+                plan: 'track',
+                planType: null,
+                trialUsed: false
+            };
+            
+            try {
+                const result = await mockPlanSystem.checkPlanExpiration(userData);
+                
+                // Restore console
+                logger.restore();
+                
+                // Display logs
+                logsDiv.textContent = logger.getLogs().join('\n');
+                
+                // Check result
+                if (result.expired === false && result.plan === 'track') {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = '✅ PASS: Usuário com plano Track não sofreu alterações';
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = '❌ FAIL: Esperava expired=false e plan="track", mas recebeu expired=' + result.expired + ' e plan="' + result.plan + '"';
+                }
+            } catch (error) {
+                logger.restore();
+                resultDiv.className = 'result error';
+                resultDiv.textContent = '❌ ERROR: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

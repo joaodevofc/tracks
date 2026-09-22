@@ -1173,3 +1173,41 @@ html, body {
     width: 100%;
     padding: var(--spacing-md);
 }
+
+/* ========================================
+   PLAN EXPIRATION WARNING - MOBILE
+   ======================================== */
+
+.plan-expiration-warning {
+    bottom: 10px;
+    left: 5px;
+    right: 5px;
+    transform: none;
+    width: calc(100vw - 10px);
+    max-width: none;
+    min-width: auto;
+    padding: 10px 15px;
+}
+
+.plan-warning-content {
+    gap: 8px;
+}
+
+.plan-warning-icon {
+    font-size: 16px;
+}
+
+.plan-warning-message {
+    font-size: 13px;
+}
+
+.plan-warning-renew {
+    padding: 5px 12px;
+    font-size: 12px;
+}
+
+.plan-warning-close {
+    width: 22px;
+    height: 22px;
+    font-size: 16px;
+}

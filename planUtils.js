@@ -4,35 +4,30 @@
  */
 
 /**
- * Check if the plan is expired based on expiration dates
+ * Check if the plan is expired based on trial expiration
+ * This function uses the new plan system (track/track_pro) and ignores legacy fields
  * @param {Object} userData - User data object from Firestore
  * @returns {boolean} - True if plan is expired, false otherwise
  */
 function isPlanExpired(userData) {
-    const currentPlan = (userData.plan || userData.plano || 'home').toLowerCase();
-    const validadeAcesso = userData.validadeAcesso;
-    const trialExpiresAt = userData.trialExpiresAt;
-    const paymentOrigin = userData.paymentOrigin;
-    const currentDate = new Date();
-    
-    if (currentPlan !== 'studio') {
-        return false; // Only Studio plans can expire
+    if (!userData) {
+        return false;
     }
-    
-    // Check if this is a paid subscription (not trial)
-    const isPaidSubscription = paymentOrigin === 'site' && validadeAcesso;
-    
-    if (isPaidSubscription) {
-        const expiryDate = new Date(validadeAcesso);
-        return currentDate > expiryDate;
-    } else if (trialExpiresAt) {
-        // Check trial validity
-        const trialExpiryDate = new Date(trialExpiresAt);
-        return currentDate > trialExpiryDate;
+
+    const plan = userData.plan || 'track';
+    const planType = userData.planType;
+    const trialEndsAt = userData.trialEndsAt;
+    const now = new Date();
+
+    // Only check expiration for track_pro with planType === 'trial'
+    if (plan === 'track_pro' && planType === 'trial') {
+        if (trialEndsAt) {
+            const trialEndDate = new Date(trialEndsAt);
+            return trialEndDate <= now;
+        }
     }
-    
-    // If no expiration date exists, consider it not expired
-    // (this handles edge cases where the plan field might be out of sync)
+
+    // For paid Track Pro or regular Track, no expiration
     return false;
 }
 

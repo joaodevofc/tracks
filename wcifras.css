@@ -247,6 +247,62 @@ html, body {
     min-height: 200px;
 }
 
+/* LOADING CONTAINER */
+.wcifras-loading-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+}
+
+.wcifras-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.loading-spinner-large {
+    width: 80px;
+    height: 80px;
+    position: relative;
+}
+
+.loading-spinner-large::before,
+.loading-spinner-large::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 4px solid transparent;
+}
+
+.loading-spinner-large::before {
+    border-top-color: var(--wcifras-accent);
+    border-right-color: var(--wcifras-accent);
+    animation: wcifras-spin 1.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+}
+
+.loading-spinner-large::after {
+    border-bottom-color: rgba(255, 255, 255, 0.3);
+    border-left-color: rgba(255, 255, 255, 0.3);
+    animation: wcifras-spin 2s linear infinite reverse;
+}
+
+@keyframes wcifras-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 .wcifras-list {
     display: flex;
     flex-direction: column;

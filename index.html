@@ -63,6 +63,15 @@
       };
 
       console.log('[FIREBASE] Firebase initialized (Firestore + Auth + Google)');
+      
+      // Initialize Plan Engine when Firebase is ready
+      if (window.planEngine) {
+        window.planEngine.initialize().then(() => {
+          console.log('[PLAN ENGINE] Initialized successfully');
+        }).catch(error => {
+          console.error('[PLAN ENGINE] Initialization failed:', error);
+        });
+      }
     </script>
 
     <script src="communitytracks.js"></script>
@@ -72,6 +81,8 @@
     <script src="firestore-sync.js"></script>
     <script src="setlists.js"></script>
     <script src="pwa.js"></script>
+    <script src="planEngine.js"></script>
+    <script src="planSystem.js"></script>
     <script>
         // Telegram support function
         function openTelegramSupport() {
@@ -1286,18 +1297,6 @@
                             <span class="import-label">Adicionar tracks</span>
                             <span class="import-description">Selecione os arquivos um por um</span>
                         </button>
-                        
-                        <button class="import-option" data-method="cifras">
-                            <div class="import-icon">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                                    <path d="M9 18V5l12-2v13"></path>
-                                    <circle cx="6" cy="18" r="3"></circle>
-                                    <circle cx="18" cy="16" r="3"></circle>
-                                </svg>
-                            </div>
-                            <span class="import-label">Cifras</span>
-                            <span class="import-description">Adicione cifras de músicas</span>
-                        </button>
                     </div>
                     <input type="file" id="fileInput" multiple accept=".wav,.mp3,.flac,.ogg,.aiff" hidden>
                 </div>
@@ -1711,6 +1710,7 @@
     <script src="storage.js"></script>
     <script src="player.js"></script>
     <script src="planSystem.js"></script>
+    <script src="planExpirationWarning.js"></script>
     
     <!-- Developer Mode System -->
     <script src="developer-mode.js"></script>

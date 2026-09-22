@@ -16,7 +16,7 @@
     <script type="module">
       import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
       import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-      import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, where, doc, getDoc, updateDoc, serverTimestamp, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+      import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, where, doc, getDoc, updateDoc, serverTimestamp, deleteDoc, arrayUnion, arrayRemove, setDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
       const firebaseConfig = {
         apiKey: "AIzaSyDW6P_V4_LRLRg6-FEe2E7QJa9J3oidY5g",
@@ -48,7 +48,10 @@
         getDoc,
         updateDoc,
         deleteDoc,
-        serverTimestamp
+        serverTimestamp,
+        arrayUnion,
+        arrayRemove,
+        setDoc
       };
 
       console.log('[W.CIFRAS] Firebase initialized (Auth + Firestore)');
@@ -98,7 +101,14 @@
             
             <!-- Chords List Area -->
             <div class="wcifras-list-container">
-                <div class="wcifras-list" id="wcifrasList">
+                <!-- Loading State -->
+                <div class="wcifras-loading-container" id="wcifrasLoadingContainer" style="display: flex;">
+                    <div class="wcifras-loading">
+                        <div class="loading-spinner-large"></div>
+                    </div>
+                </div>
+
+                <div class="wcifras-list" id="wcifrasList" style="display: none;">
                     <!-- Chords cards will be rendered here by JavaScript -->
                 </div>
                 <div class="wcifras-empty-state" id="wcifrasEmptyState" style="display: none;">

@@ -93,13 +93,15 @@
         try {
           const now = new Date();
           const planActivatedAt = formatDateTime(now);
-          const validadeAcesso = formatDateTime(calculateExpiryDate(now));
+          const planExpiresAt = formatDateTime(calculateExpiryDate(now));
 
           const planData = {
             plan: 'track_pro',
             planType: PLAN_TYPE,
+            planStartedAt: planActivatedAt,
+            planExpiresAt: planExpiresAt,
             planActivatedAt: planActivatedAt,
-            validadeAcesso: validadeAcesso,
+            validadeAcesso: planExpiresAt,
             paymentOrigin: 'site',
             statusPagamento: 'ativo',
             subscriptionStatus: 'active',
@@ -119,7 +121,7 @@
             planType: PLAN_TYPE,
             paymentOrigin: 'site',
             activatedAt: planActivatedAt,
-            expiresAt: validadeAcesso,
+            expiresAt: planExpiresAt,
             transactionId: transactionId,
             createdAt: planActivatedAt
           });
