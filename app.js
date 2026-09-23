@@ -2515,7 +2515,16 @@ class MultracksApp {
                     
                     if (Math.abs(diff) > 0.5) {
                         allAtZero = false;
-                        item.element.style.bottom = `${currentBottom + diff * 0.1}%`; // Smooth descent
+                        // Use easing for more realistic movement - slower at start, then faster
+                        const easingFactor = 0.05; // Slower, more realistic descent
+                        const newBottom = currentBottom + diff * easingFactor;
+                        item.element.style.bottom = `${newBottom}%`; // Smooth descent
+                        
+                        // Also update the fader fill to match
+                        const faderFill = item.element.parentElement.querySelector('.fader-fill');
+                        if (faderFill) {
+                            faderFill.style.height = `${newBottom}%`;
+                        }
                     }
                 });
                 
@@ -2527,14 +2536,23 @@ class MultracksApp {
                 // Phase 1: Calibration wave - sequential movement from minimum
                 const thumb = faderThumbs[this.faderCalibrationIndex];
                 if (thumb) {
-                    // Calibration wave pattern: -∞ → ↑ → ↓ → ↑ → ↓
-                    // Wave starts at 0% and oscillates
+                    // Calibration wave pattern: 0% → 100% → 0% → next fader → 100% → 0% → next...
+                    // Wave starts at 0% and goes to full height (100%)
+                    // Use eased sine wave for more realistic movement
                     const wavePosition = (Math.sin(this.faderCalibrationWavePosition) + 1) / 2; // 0 to 1
-                    const waveOffset = wavePosition * 20; // +/- 20% movement from minimum
+                    // Apply easing for more natural fader movement - slower at extremes
+                    const easedWave = wavePosition * wavePosition * (3 - 2 * wavePosition); // Smoothstep easing
+                    const waveOffset = easedWave * 100; // 0% to 100% full range with easing
                     thumb.style.bottom = `${waveOffset}%`;
                     
-                    // Advance wave position
-                    this.faderCalibrationWavePosition += 0.15;
+                    // Also update the fader fill to match
+                    const faderFill = thumb.parentElement.querySelector('.fader-fill');
+                    if (faderFill) {
+                        faderFill.style.height = `${waveOffset}%`;
+                    }
+                    
+                    // Advance wave position - slower for more realistic movement
+                    this.faderCalibrationWavePosition += 0.08; // Reduced from 0.15 for smoother wave
                     
                     // Move to next fader after completing wave cycle
                     if (this.faderCalibrationWavePosition >= Math.PI * 2) {
@@ -2557,7 +2575,16 @@ class MultracksApp {
                     
                     if (Math.abs(diff) > 0.5) {
                         allReturned = false;
-                        item.element.style.bottom = `${parseFloat(currentBottom) + diff * 0.1}%`;
+                        // Use easing for more realistic return movement
+                        const easingFactor = 0.05; // Slower, more realistic return
+                        const newBottom = parseFloat(currentBottom) + diff * easingFactor;
+                        item.element.style.bottom = `${newBottom}%`;
+                        
+                        // Also update the fader fill to match
+                        const faderFill = item.element.parentElement.querySelector('.fader-fill');
+                        if (faderFill) {
+                            faderFill.style.height = `${newBottom}%`;
+                        }
                     }
                 });
                 
