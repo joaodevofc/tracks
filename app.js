@@ -234,14 +234,6 @@ class MultracksApp {
         this.loopHoldTimer = null;
         this.LOOP_HOLD_THRESHOLD = 450; // ms to trigger loop marking mode
         
-        // Song structure marking state
-        this.songStructure = []; // Array of structure objects: { id, start, end, name, color }
-        this.selectedColor = '#FF6B6B'; // Default selected color for part marking
-        this.partMarkingModalOpen = false;
-        this.markingMode = false; // Whether in marking selection mode
-        this.markingStartTime = null; // Start time of current marking selection
-        this.markingEndTime = null; // End time of current marking selection
-        
         // Pointer state machine for Canvas interaction
         this.pointerState = 'idle'; // idle, pressing, dragging, loop_marking
         this.pointerId = null;
@@ -2375,17 +2367,6 @@ class MultracksApp {
         // Effects data storage
         this.currentClickTime = null; // Store current click position in seconds
         
-        // Song structure marking
-        this.openMarkingBtn = document.getElementById('openMarkingBtn');
-        this.partMarkingModal = document.getElementById('partMarkingModal');
-        this.partMarkingInterval = document.getElementById('partMarkingInterval');
-        this.partSelect = document.getElementById('partSelect');
-        this.colorPicker = document.getElementById('colorPicker');
-        this.cancelPartMarkingBtn = document.getElementById('cancelPartMarkingBtn');
-        this.savePartMarkingBtn = document.getElementById('savePartMarkingBtn');
-        this.markHereButton = document.getElementById('markHereButton');
-        this.selectionOverlay = document.getElementById('selectionOverlay');
-        
         // Timeline scrubbing/dragging
         this.isDragging = false;
         this.dragStartTime = 0;
@@ -2534,16 +2515,7 @@ class MultracksApp {
                     
                     if (Math.abs(diff) > 0.5) {
                         allAtZero = false;
-                        // Use easing for more realistic movement - slower at start, then faster
-                        const easingFactor = 0.05; // Slower, more realistic descent
-                        const newBottom = currentBottom + diff * easingFactor;
-                        item.element.style.bottom = `${newBottom}%`; // Smooth descent
-                        
-                        // Also update the fader fill to match
-                        const faderFill = item.element.parentElement.querySelector('.fader-fill');
-                        if (faderFill) {
-                            faderFill.style.height = `${newBottom}%`;
-                        }
+                        item.element.style.bottom = `${currentBottom + diff * 0.1}%`; // Smooth descent
                     }
                 });
                 
@@ -2555,23 +2527,14 @@ class MultracksApp {
                 // Phase 1: Calibration wave - sequential movement from minimum
                 const thumb = faderThumbs[this.faderCalibrationIndex];
                 if (thumb) {
-                    // Calibration wave pattern: 0% → 100% → 0% → next fader → 100% → 0% → next...
-                    // Wave starts at 0% and goes to full height (100%)
-                    // Use eased sine wave for more realistic movement
+                    // Calibration wave pattern: -∞ → ↑ → ↓ → ↑ → ↓
+                    // Wave starts at 0% and oscillates
                     const wavePosition = (Math.sin(this.faderCalibrationWavePosition) + 1) / 2; // 0 to 1
-                    // Apply easing for more natural fader movement - slower at extremes
-                    const easedWave = wavePosition * wavePosition * (3 - 2 * wavePosition); // Smoothstep easing
-                    const waveOffset = easedWave * 100; // 0% to 100% full range with easing
+                    const waveOffset = wavePosition * 20; // +/- 20% movement from minimum
                     thumb.style.bottom = `${waveOffset}%`;
                     
-                    // Also update the fader fill to match
-                    const faderFill = thumb.parentElement.querySelector('.fader-fill');
-                    if (faderFill) {
-                        faderFill.style.height = `${waveOffset}%`;
-                    }
-                    
-                    // Advance wave position - slower for more realistic movement
-                    this.faderCalibrationWavePosition += 0.08; // Reduced from 0.15 for smoother wave
+                    // Advance wave position
+                    this.faderCalibrationWavePosition += 0.15;
                     
                     // Move to next fader after completing wave cycle
                     if (this.faderCalibrationWavePosition >= Math.PI * 2) {
@@ -2594,16 +2557,7 @@ class MultracksApp {
                     
                     if (Math.abs(diff) > 0.5) {
                         allReturned = false;
-                        // Use easing for more realistic return movement
-                        const easingFactor = 0.05; // Slower, more realistic return
-                        const newBottom = parseFloat(currentBottom) + diff * easingFactor;
-                        item.element.style.bottom = `${newBottom}%`;
-                        
-                        // Also update the fader fill to match
-                        const faderFill = item.element.parentElement.querySelector('.fader-fill');
-                        if (faderFill) {
-                            faderFill.style.height = `${newBottom}%`;
-                        }
+                        item.element.style.bottom = `${parseFloat(currentBottom) + diff * 0.1}%`;
                     }
                 });
                 
@@ -3939,9 +3893,6 @@ class MultracksApp {
             // Load loop state after project is loaded
             this.loadLoopState();
             
-            // Load song structure state after project is loaded
-            this.loadSongStructureState();
-            
             console.log('[APP] [PROJECT LOAD] generation:', currentGeneration, 'completed');
             
             // Remove cleanup function for completed load
@@ -4124,16 +4075,12 @@ class MultracksApp {
         // Generate fake waveform data once (fixed pattern)
         this.fakeWaveformData = this.generateFakeWaveformData(width);
         
-        // Animation state for blinking (slower)
-        this.waveformLoadingOpacity = 1;
-        this.waveformLoadingDirection = -0.02; // Slower opacity change per frame
-        this.waveformLoadingMinOpacity = 0.4;
-        this.waveformLoadingMaxOpacity = 1;
+        // Animation state
+        this.waveformLoadingProgress = 0;
+        this.waveformLoadingDirection = 1; // 1 = drawing, -1 = erasing
+        this.waveformLoadingSpeed = width / 120; // Complete in ~2 seconds (120 frames at 60fps)
         
-        // Draw complete waveform once
-        this.drawFakeWaveform(ctx, width, height);
-        
-        // Start blinking animation loop
+        // Start animation loop
         const animate = () => {
             if (!this.waveformLoading) {
                 // Clear canvas if loading is done
@@ -4141,23 +4088,31 @@ class MultracksApp {
                 return;
             }
             
-            // Update opacity
-            this.waveformLoadingOpacity += this.waveformLoadingDirection;
+            // Update progress
+            this.waveformLoadingProgress += this.waveformLoadingSpeed * this.waveformLoadingDirection;
             
             // Reverse direction at bounds
-            if (this.waveformLoadingOpacity >= this.waveformLoadingMaxOpacity) {
-                this.waveformLoadingOpacity = this.waveformLoadingMaxOpacity;
-                this.waveformLoadingDirection = -this.waveformLoadingDirection;
-            } else if (this.waveformLoadingOpacity <= this.waveformLoadingMinOpacity) {
-                this.waveformLoadingOpacity = this.waveformLoadingMinOpacity;
-                this.waveformLoadingDirection = -this.waveformLoadingDirection;
+            if (this.waveformLoadingProgress >= width) {
+                this.waveformLoadingProgress = width;
+                this.waveformLoadingDirection = -1; // Start erasing
+            } else if (this.waveformLoadingProgress <= 0) {
+                this.waveformLoadingProgress = 0;
+                this.waveformLoadingDirection = 1; // Start drawing
             }
             
-            // Clear and redraw with current opacity
+            // Clear canvas
             ctx.clearRect(0, 0, width, height);
-            ctx.globalAlpha = this.waveformLoadingOpacity;
+            
+            // Draw waveform with clipping based on progress
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, 0, this.waveformLoadingProgress, height);
+            ctx.clip();
+            
+            // Draw the fake waveform
             this.drawFakeWaveform(ctx, width, height);
-            ctx.globalAlpha = 1;
+            
+            ctx.restore();
             
             // Continue animation
             this.waveformLoadingAnimationId = requestAnimationFrame(animate);
@@ -4646,9 +4601,6 @@ class MultracksApp {
         const playheadPercentage = this.currentTime / this.totalDuration;
         const playheadX = playheadPercentage * width;
         
-        // Create canvas object for structure rendering
-        const canvas = { width, height };
-        
         // Create gradient for played section (ice color)
         const playedGradient = ctx.createLinearGradient(0, centerY - maxAmplitude, 0, centerY + maxAmplitude);
         playedGradient.addColorStop(0, 'rgba(232, 230, 224, 0.3)');
@@ -4676,9 +4628,6 @@ class MultracksApp {
             // Draw symmetric waveform (above and below center)
             ctx.fillRect(i, centerY - barHeight, 1, barHeight * 2);
         }
-        
-        // Draw song structure markings on top of waveform
-        this.renderSongStructureBase(ctx, canvas);
     }
     
     drawPlaceholderWaveform(ctx, width, height) {
@@ -4699,9 +4648,6 @@ class MultracksApp {
         }
         
         ctx.stroke();
-        
-        // Draw song structure markings on top of placeholder waveform
-        this.renderSongStructureBase(ctx, { width, height });
     }
     
     // ========================================
@@ -5037,9 +4983,6 @@ class MultracksApp {
         const percentage = x / canvasWidth;
         const currentTime = percentage * this.totalDuration;
         this.currentTimeDisplay.textContent = this.formatTime(currentTime);
-        
-        // Update currentTime property for marking mode to work correctly
-        this.currentTime = currentTime;
     }
     
     // Helper method to reset drag state (called when leaving player view)
@@ -5928,20 +5871,6 @@ class MultracksApp {
         });
     }
     
-    saveSongStructureState() {
-        if (!this.currentProject) return;
-        
-        // Update project song structure state
-        this.currentProject.songStructure = this.songStructure;
-        
-        // Save to storage
-        storage.updateProject(this.currentProject.id, {
-            songStructure: this.songStructure
-        });
-        
-        console.log('[STRUCTURE] Saved song structure state:', this.songStructure);
-    }
-    
     async loadLoopState() {
         if (!this.currentProject) return;
         
@@ -5988,18 +5917,6 @@ class MultracksApp {
             
             this.updateLoopIndicatorBtn();
         }
-    }
-    
-    loadSongStructureState() {
-        if (!this.currentProject) return;
-        
-        // Load song structure state from project
-        this.songStructure = this.currentProject.songStructure || [];
-        
-        console.log('[STRUCTURE] Loaded song structure state - markings:', this.songStructure.length, 'markings');
-        
-        // Render the loaded structure
-        this.renderSongStructure();
     }
     
     togglePlay() {
@@ -6059,14 +5976,6 @@ class MultracksApp {
             const percentage = (time / this.totalDuration) * 100;
             this.playhead.style.left = `${percentage}%`;
         }
-        
-        // Update selection visual if in marking mode
-        if (this.markingMode) {
-            this.updateSelectionVisual();
-        }
-        
-        // Update song structure highlight
-        this.updateCurrentPartHighlight();
     }
     
     setTotalDuration(duration) {
@@ -10190,37 +10099,6 @@ class MultracksApp {
             }
         });
         
-        // Open marking button in effect popover
-        this.openMarkingBtn?.addEventListener('click', () => this.startMarkingMode());
-        
-        // Part marking modal controls
-        this.cancelPartMarkingBtn?.addEventListener('click', () => this.closePartMarkingModal());
-        this.savePartMarkingBtn?.addEventListener('click', () => this.savePartMarking());
-        
-        // Mark here button (during selection)
-        this.markHereButton?.addEventListener('click', () => this.openPartMarkingModalFromSelection());
-        
-        // Color picker selection
-        this.colorPicker?.addEventListener('click', (e) => {
-            if (e.target.classList.contains('color-option')) {
-                // Remove selected class from all options
-                this.colorPicker.querySelectorAll('.color-option').forEach(opt => {
-                    opt.classList.remove('selected');
-                });
-                // Add selected class to clicked option
-                e.target.classList.add('selected');
-                // Store selected color
-                this.selectedColor = e.target.dataset.color;
-            }
-        });
-        
-        // Window resize handler for structure canvas
-        window.addEventListener('resize', () => {
-            if (this.structureCanvas && this.songStructure.length > 0) {
-                this.renderSongStructure();
-            }
-        });
-        
         // Timeline click for seeking and loop point marking
         // Timeline scrubbing with drag support
         // State machine: idle -> pressing -> (dragging | loop_marking) -> idle
@@ -10311,11 +10189,6 @@ class MultracksApp {
             
             // Update playhead position during drag
             this.updatePlayheadPosition(x, rect.width);
-            
-            // Update selection visual if in marking mode
-            if (this.markingMode) {
-                this.updateSelectionVisual();
-            }
         };
         
         // Handle drag end (bound to check isDragging)
@@ -10402,15 +10275,6 @@ class MultracksApp {
                 this.playhead.classList.remove('dragging');
                 this.hideEffectPopover();
                 this.hideClickIndicator();
-                
-                // Cancel marking mode if active
-                if (this.markingMode) {
-                    this.markingMode = false;
-                    this.markingStartTime = null;
-                    this.markingEndTime = null;
-                    this.markHereButton.style.display = 'none';
-                    this.selectionOverlay.style.display = 'none';
-                }
                 
                 // Reset pointer state
                 this.resetPointerState();
@@ -12010,249 +11874,6 @@ class MultracksApp {
     }
     
     // ========================================
-    // SONG STRUCTURE MARKING SYSTEM
-    // ========================================
-    startMarkingMode() {
-        if (!this.audioPlayer || this.totalDuration === 0) {
-            alert('Carregue uma música primeiro para marcar partes.');
-            return;
-        }
-        
-        // Set marking mode
-        this.markingMode = true;
-        this.markingStartTime = this.currentTime;
-        this.markingEndTime = this.currentTime;
-        
-        // Hide effect popover
-        this.hideEffectPopover();
-        this.hideClickIndicator();
-        
-        // Show selection overlay
-        this.updateSelectionVisual();
-        
-        console.log('[STRUCTURE] Starting marking mode at time:', this.markingStartTime);
-    }
-    
-    updateSelectionVisual() {
-        if (!this.markingMode || !this.selectionOverlay) return;
-        
-        const startTime = this.markingStartTime;
-        const endTime = this.currentTime;
-        
-        // Ensure start is before end
-        const actualStart = Math.min(startTime, endTime);
-        const actualEnd = Math.max(startTime, endTime);
-        
-        // Calculate positions on timeline
-        const timelineWaveform = document.getElementById('timelineWaveform');
-        const timelineWidth = timelineWaveform.offsetWidth;
-        
-        const startX = (actualStart / this.totalDuration) * timelineWidth;
-        const endX = (actualEnd / this.totalDuration) * timelineWidth;
-        const width = Math.abs(endX - startX);
-        const left = Math.min(startX, endX);
-        
-        // Update selection overlay
-        this.selectionOverlay.style.display = 'block';
-        this.selectionOverlay.style.left = `${left}px`;
-        this.selectionOverlay.style.width = `${width}px`;
-        
-        // Update mark here button position
-        this.markHereButton.style.display = 'block';
-        this.markHereButton.style.left = `${endX}px`;
-        
-        console.log('[STRUCTURE] Selection updated:', actualStart, '→', actualEnd);
-    }
-    
-    openPartMarkingModalFromSelection() {
-        if (!this.markingMode) return;
-        
-        // Calculate final interval
-        const startTime = this.markingStartTime;
-        const endTime = this.currentTime;
-        const actualStart = Math.min(startTime, endTime);
-        const actualEnd = Math.max(startTime, endTime);
-        
-        // Update modal with interval
-        this.partMarkingInterval.textContent = `${this.formatTime(actualStart)} → ${this.formatTime(actualEnd)}`;
-        
-        // Reset color selection to default
-        this.selectedColor = '#FF6B6B';
-        this.colorPicker.querySelectorAll('.color-option').forEach(opt => {
-            opt.classList.remove('selected');
-            if (opt.dataset.color === this.selectedColor) {
-                opt.classList.add('selected');
-            }
-        });
-        
-        // Reset part selection
-        this.partSelect.selectedIndex = 0;
-        
-        // Hide selection visual elements
-        this.markHereButton.style.display = 'none';
-        this.selectionOverlay.style.display = 'none';
-        
-        // Show modal
-        this.partMarkingModal.classList.add('active');
-        this.partMarkingModalOpen = true;
-        
-        console.log('[STRUCTURE] Opening modal with interval:', actualStart, '→', actualEnd);
-    }
-    
-    closePartMarkingModal() {
-        this.partMarkingModal.classList.remove('active');
-        this.partMarkingModalOpen = false;
-        
-        // Exit marking mode
-        this.markingMode = false;
-        this.markingStartTime = null;
-        this.markingEndTime = null;
-        
-        // Hide selection visual elements
-        this.markHereButton.style.display = 'none';
-        this.selectionOverlay.style.display = 'none';
-        
-        console.log('[STRUCTURE] Closing part marking modal');
-    }
-    
-    savePartMarking() {
-        if (!this.audioPlayer) return;
-        
-        // Use the stored interval from marking mode
-        const startTime = this.markingStartTime;
-        const endTime = this.currentTime;
-        const actualStart = Math.min(startTime, endTime);
-        const actualEnd = Math.max(startTime, endTime);
-        
-        const partName = this.partSelect.value;
-        const color = this.selectedColor;
-        
-        // Create new marking with interval
-        const newMarking = {
-            id: Date.now(),
-            start: actualStart,
-            end: actualEnd,
-            name: partName,
-            color: color
-        };
-        
-        // Add to structure array and sort by start time
-        this.songStructure.push(newMarking);
-        this.songStructure.sort((a, b) => a.start - b.start);
-        
-        // Save to storage
-        this.saveSongStructureState();
-        
-        // Close modal
-        this.closePartMarkingModal();
-        
-        // Render updated structure
-        this.renderSongStructure();
-        
-        console.log('[STRUCTURE] Saved part marking:', newMarking);
-        console.log('[STRUCTURE] Current structure:', this.songStructure);
-    }
-    
-    renderSongStructure() {
-        // Re-render waveform to include structure markings
-        this.renderWaveform();
-    }
-    
-    updateCurrentPartHighlight() {
-        // Don't re-render entire waveform during playback - too expensive
-        // The structure is already rendered in renderSongStructureBase
-        // Just update the highlight overlay directly on the canvas
-        if (!this.waveformCanvas || this.songStructure.length === 0) return;
-        
-        const canvas = this.waveformCanvas;
-        const ctx = canvas.getContext('2d');
-        
-        // Find current part based on currentTime
-        const currentPart = this.songStructure.find((part) => {
-            return this.currentTime >= part.start && this.currentTime < part.end;
-        });
-        
-        if (currentPart) {
-            // Draw highlight overlay
-            const startX = (currentPart.start / this.totalDuration) * canvas.width;
-            const endX = (currentPart.end / this.totalDuration) * canvas.width;
-            const width = endX - startX;
-            
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-            ctx.fillRect(startX, 0, width, canvas.height);
-            
-            // Draw border
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 3;
-            ctx.strokeRect(startX, 0, width, canvas.height);
-        }
-    }
-    
-    renderSongStructureBase(ctx, canvas) {
-        if (!ctx || !canvas) return;
-        
-        if (this.songStructure.length === 0) {
-            return; // No structure to render
-        }
-        
-        const canvasWidth = canvas.width || canvas;
-        const canvasHeight = canvas.height || canvas;
-        
-        // Draw each part as overlay on waveform
-        this.songStructure.forEach((part, index) => {
-            const startX = (part.start / this.totalDuration) * canvasWidth;
-            const endX = (part.end / this.totalDuration) * canvasWidth;
-            const width = endX - startX;
-            
-            // Draw part rectangle with semi-transparent color
-            ctx.fillStyle = part.color + '40'; // Add transparency
-            ctx.fillRect(startX, 0, width, canvasHeight);
-            
-            // Draw part name
-            ctx.fillStyle = '#fff';
-            ctx.font = 'bold 12px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            
-            // Only draw text if part is wide enough
-            if (width > 50) {
-                ctx.fillText(part.name, startX + width / 2, canvasHeight / 2);
-            }
-            
-            // Draw separator lines
-            ctx.strokeStyle = part.color;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(startX, 0);
-            ctx.lineTo(startX, canvasHeight);
-            ctx.stroke();
-            
-            ctx.beginPath();
-            ctx.moveTo(endX, 0);
-            ctx.lineTo(endX, canvasHeight);
-            ctx.stroke();
-        });
-        
-        // Draw current part highlight
-        const currentPart = this.songStructure.find((part) => {
-            return this.currentTime >= part.start && this.currentTime < part.end;
-        });
-        
-        if (currentPart) {
-            const startX = (currentPart.start / this.totalDuration) * canvasWidth;
-            const endX = (currentPart.end / this.totalDuration) * canvasWidth;
-            const width = endX - startX;
-            
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-            ctx.fillRect(startX, 0, width, canvasHeight);
-            
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 3;
-            ctx.strokeRect(startX, 0, width, canvasHeight);
-        }
-    }
-    
-    // ========================================
     // PAD SYSTEM
     // ========================================
     initPadSystem() {
@@ -13760,64 +13381,7 @@ class MultracksApp {
     }
 }
 
-// FPS Counter System
-class FpsCounter {
-    constructor() {
-        this.fpsElement = null;
-        this.frameCount = 0;
-        this.lastTime = performance.now();
-        this.fpsUpdateInterval = 500; // Update every 500ms
-        this.lastFpsUpdate = 0;
-        this.animationFrame = null;
-    }
-
-    init() {
-        this.fpsElement = document.getElementById('playerFps');
-        if (this.fpsElement) {
-            this.start();
-        }
-    }
-
-    start() {
-        const updateFps = (currentTime) => {
-            this.frameCount++;
-            
-            if (currentTime - this.lastFpsUpdate >= this.fpsUpdateInterval) {
-                const fps = Math.round((this.frameCount * 1000) / (currentTime - this.lastFpsUpdate));
-                this.fpsElement.textContent = fps + ' FPS';
-                
-                // Change color to red when FPS is below 15
-                if (fps < 15) {
-                    this.fpsElement.style.color = '#ff6b6b';
-                    this.fpsElement.style.opacity = '1';
-                } else {
-                    this.fpsElement.style.color = '';
-                    this.fpsElement.style.opacity = '';
-                }
-                
-                this.frameCount = 0;
-                this.lastFpsUpdate = currentTime;
-            }
-            
-            this.animationFrame = requestAnimationFrame(updateFps);
-        };
-        
-        this.animationFrame = requestAnimationFrame(updateFps);
-    }
-
-    stop() {
-        if (this.animationFrame) {
-            cancelAnimationFrame(this.animationFrame);
-            this.animationFrame = null;
-        }
-    }
-}
-
-// Initialize FPS counter
-const fpsCounter = new FpsCounter();
-
 // Initialize app when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     window.multracksApp = new MultracksApp();
-    fpsCounter.init();
 });
