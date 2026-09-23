@@ -27,6 +27,12 @@ class MultracksApp {
 
         this.callbacksSetup = false; // Prevent duplicate callback setup
         this.waveformLoading = false; // Track waveform loading state
+        this.waveformLoadingAnimationId = null; // Animation frame ID for loading waveform
+        this.fakeWaveformData = null; // Cached fake waveform data for loading animation
+        
+        // Fader calibration animation for waveform loading
+        this.faderCalibrationAnimationId = null;
+        this.faderOriginalPositions = null;
         
         // Community favorites
         this.communityFavorites = [];
@@ -219,6 +225,7 @@ class MultracksApp {
         this.padFadeOutTimer = null;
         this.padFadeInTimer = null;
         this.padTransitionDuration = 500; // ms for smooth transitions
+        this.padVisualizationInterval = null; // Interval for pad level meter updates
         
         // Loop point marking state
         this.loops = []; // Array of loop objects: { id, start, end, enabled }
@@ -2302,9 +2309,6 @@ class MultracksApp {
             this.stopPad();
         }
         
-        // Deactivate idle wave when leaving player
-        this.deactivateIdleWave();
-        
         await this.renderLibrary();
     }
 
@@ -2331,9 +2335,6 @@ class MultracksApp {
         if (this.padIsPlaying) {
             this.stopPad();
         }
-        
-        // Deactivate idle wave when leaving player
-        this.deactivateIdleWave();
         
         this.renderExplore();
     }
@@ -2396,11 +2397,6 @@ class MultracksApp {
         this.addSongModalClose = document.getElementById('addSongModalClose');
         this.songSearchInput = document.getElementById('songSearchInput');
         this.songList = document.getElementById('songList');
-        
-        // Idle wave timer for faders
-        this.idleTimer = null;
-        this.idleTimeout = 10000; // 10 seconds
-        this.initIdleTimer();
         
         // Initialize audio player
         try {
@@ -2468,98 +2464,131 @@ class MultracksApp {
             }
         }
     }
-    
-    initIdleTimer() {
-        // Reset timer on user interaction
-        const resetIdleTimer = () => {
-            this.resetIdleTimer();
-        };
-        
-        // Add event listeners for user interactions
-        document.addEventListener('mousemove', resetIdleTimer);
-        document.addEventListener('mousedown', resetIdleTimer);
-        document.addEventListener('touchstart', resetIdleTimer);
-        document.addEventListener('keydown', resetIdleTimer);
-        
-        // Also reset on fader input
-        document.addEventListener('input', (e) => {
-            if (e.target.classList.contains('fader-input')) {
-                // Immediately stop animation for this specific fader
-                this.stopIdleWaveForFader(e.target);
-                resetIdleTimer();
-            }
-        });
-        
-        // Start the idle timer
-        this.startIdleTimer();
-    }
-    
+
     startIdleTimer() {
-        // Clear existing timer
-        if (this.idleTimer) {
-            clearTimeout(this.idleTimer);
-        }
-        
-        // Only start timer if player is paused
-        if (this.audioPlayer && !this.audioPlayer.isPlaying) {
-            this.idleTimer = setTimeout(() => {
-                this.activateIdleWave();
-            }, this.idleTimeout);
-        }
+        // Idle wave removed - faders stay static after initialization
+        // No longer starting idle timer
     }
     
     resetIdleTimer() {
-        // Remove idle wave effect if active
-        this.deactivateIdleWave();
-        
-        // Restart timer if player is paused
-        this.startIdleTimer();
+        // Idle wave removed - no action needed
     }
     
     activateIdleWave() {
-        // Only activate if player is still paused
-        if (this.audioPlayer && !this.audioPlayer.isPlaying) {
-            const mixerContainer = document.querySelector('.mixer-container');
-            if (mixerContainer) {
-                mixerContainer.classList.add('idle-wave');
-                console.log('[APP] Idle wave activated');
-            }
-        }
+        // Idle wave removed - no action needed
     }
     
     deactivateIdleWave() {
-        const mixerContainer = document.querySelector('.mixer-container');
-        if (mixerContainer && mixerContainer.classList.contains('idle-wave')) {
-            // Add stopping class for smooth transition
-            mixerContainer.classList.remove('idle-wave');
-            mixerContainer.classList.add('idle-wave-stopping');
-            
-            // Remove stopping class after transition completes
-            setTimeout(() => {
-                if (mixerContainer) {
-                    mixerContainer.classList.remove('idle-wave-stopping');
-                }
-            }, 500); // Match the CSS transition duration
-        }
-        
-        // Clear timer
-        if (this.idleTimer) {
-            clearTimeout(this.idleTimer);
-            this.idleTimer = null;
-        }
+        // Idle wave removed - no action needed
     }
     
-    stopIdleWaveForFader(faderInput) {
-        // Immediately stop animation for the specific fader being interacted with
-        const trackChannel = faderInput.closest('.track-channel');
-        if (trackChannel) {
-            const trackFader = trackChannel.querySelector('.track-fader');
-            if (trackFader) {
-                // Remove animation immediately
-                trackFader.style.animation = 'none';
-                trackFader.style.transform = 'translateY(0)';
-                trackFader.style.transition = 'transform 0.2s ease-out';
+    startFaderCalibrationAnimation() {
+        const faderThumbs = document.querySelectorAll('.fader-thumb');
+        if (faderThumbs.length === 0) return;
+        
+        // Store original positions for return animation
+        this.faderOriginalPositions = Array.from(faderThumbs).map(thumb => {
+            return {
+                element: thumb,
+                originalBottom: thumb.style.bottom
+            };
+        });
+        
+        this.faderCalibrationAnimationId = null;
+        this.faderCalibrationPhase = 0; // 0: descend to -∞ (0%), 1: calibration wave, 2: return to original
+        this.faderCalibrationIndex = 0;
+        this.faderCalibrationWavePosition = 0; // Position in the calibration wave
+        
+        const animate = () => {
+            if (!this.waveformLoading) {
+                // If waveform finished, skip to return phase
+                this.faderCalibrationPhase = 2;
             }
+            
+            if (this.faderCalibrationPhase === 0) {
+                // Phase 0: Descend all faders to -∞ (0%) synchronously
+                let allAtZero = true;
+                this.faderOriginalPositions.forEach(item => {
+                    const currentBottom = parseFloat(item.element.style.bottom) || 50;
+                    const targetBottom = 0; // -∞ is at 0%
+                    const diff = targetBottom - currentBottom;
+                    
+                    if (Math.abs(diff) > 0.5) {
+                        allAtZero = false;
+                        item.element.style.bottom = `${currentBottom + diff * 0.1}%`; // Smooth descent
+                    }
+                });
+                
+                if (allAtZero) {
+                    this.faderCalibrationPhase = 1;
+                    this.faderCalibrationIndex = 0;
+                }
+            } else if (this.faderCalibrationPhase === 1) {
+                // Phase 1: Calibration wave - sequential movement from minimum
+                const thumb = faderThumbs[this.faderCalibrationIndex];
+                if (thumb) {
+                    // Calibration wave pattern: -∞ → ↑ → ↓ → ↑ → ↓
+                    // Wave starts at 0% and oscillates
+                    const wavePosition = (Math.sin(this.faderCalibrationWavePosition) + 1) / 2; // 0 to 1
+                    const waveOffset = wavePosition * 20; // +/- 20% movement from minimum
+                    thumb.style.bottom = `${waveOffset}%`;
+                    
+                    // Advance wave position
+                    this.faderCalibrationWavePosition += 0.15;
+                    
+                    // Move to next fader after completing wave cycle
+                    if (this.faderCalibrationWavePosition >= Math.PI * 2) {
+                        this.faderCalibrationWavePosition = 0;
+                        this.faderCalibrationIndex++;
+                        
+                        if (this.faderCalibrationIndex >= faderThumbs.length) {
+                            // Wave completed, move to return phase
+                            this.faderCalibrationPhase = 2;
+                        }
+                    }
+                }
+            } else if (this.faderCalibrationPhase === 2) {
+                // Phase 2: Return all faders to original positions
+                let allReturned = true;
+                this.faderOriginalPositions.forEach(item => {
+                    const targetBottom = item.originalBottom;
+                    const currentBottom = item.element.style.bottom;
+                    const diff = parseFloat(targetBottom) - parseFloat(currentBottom);
+                    
+                    if (Math.abs(diff) > 0.5) {
+                        allReturned = false;
+                        item.element.style.bottom = `${parseFloat(currentBottom) + diff * 0.1}%`;
+                    }
+                });
+                
+                if (allReturned) {
+                    // Clear the animation
+                    if (this.faderCalibrationAnimationId) {
+                        cancelAnimationFrame(this.faderCalibrationAnimationId);
+                        this.faderCalibrationAnimationId = null;
+                    }
+                    return;
+                }
+            }
+            
+            this.faderCalibrationAnimationId = requestAnimationFrame(animate);
+        };
+        
+        this.faderCalibrationAnimationId = requestAnimationFrame(animate);
+    }
+    
+    stopFaderCalibrationAnimation() {
+        if (this.faderCalibrationAnimationId) {
+            cancelAnimationFrame(this.faderCalibrationAnimationId);
+            this.faderCalibrationAnimationId = null;
+        }
+        
+        // Return all faders to original positions
+        if (this.faderOriginalPositions) {
+            this.faderOriginalPositions.forEach(item => {
+                item.element.style.bottom = item.originalBottom;
+            });
+            this.faderOriginalPositions = null;
         }
     }
     
@@ -2786,8 +2815,15 @@ class MultracksApp {
                 </div>
                 <div class="fader-thumb" style="bottom: ${volumePercent}%"></div>
             </div>
-            <div class="track-db-value">${this.formatDbValue(db)}</div>
+            <!-- CONTADOR DE dB DESATIVADO TEMPORARIAMENTE NOS FADERS DE TRACKS -->
+            <!-- <div class="track-db-value">${this.formatDbValue(db)}</div> -->
+            <div class="track-db-separator"></div>
             <div class="track-pan-container">
+                <div class="track-pan-meter">
+                    <div class="track-pan-meter-left" id="trackPanMeterLeft_${track.id}"></div>
+                    <div class="track-pan-meter-center" id="trackPanMeterCenter_${track.id}"></div>
+                    <div class="track-pan-meter-right" id="trackPanMeterRight_${track.id}"></div>
+                </div>
                 <input type="range" class="track-pan-input" min="-100" max="100" value="${Math.round(track.pan * 100)}" data-track-id="${track.id}" data-action="pan" ${isFaderLocked ? 'disabled' : ''}>
             </div>
         `;
@@ -2820,7 +2856,7 @@ class MultracksApp {
         const faderContainer = channel.querySelector('.track-fader');
 
         // Custom fader interaction - calculate volume from click position
-        const handleFaderInteraction = (clientY) => {
+        const handleFaderInteraction = (clientY, immediate = false) => {
             if (isFaderLocked) return; // Don't allow interaction if locked
 
             const rect = faderContainer.getBoundingClientRect();
@@ -2834,7 +2870,8 @@ class MultracksApp {
             const gain = this.dbToGain(db);
 
             // Update audio player with gain (not linear volume)
-            this.setTrackVolume(track.id, gain);
+            // Use immediate=true during drag for 1:1 response
+            this.setTrackVolume(track.id, gain, immediate);
 
             // Update visual feedback (thumb and fader fill)
             const thumb = channel.querySelector('.fader-thumb');
@@ -2843,7 +2880,8 @@ class MultracksApp {
 
             if (thumb) thumb.style.bottom = `${volumePercent}%`;
             if (faderFill) faderFill.style.height = `${volumePercent}%`;
-            if (dbValue) dbValue.textContent = this.formatDbValue(db);
+            // CONTADOR DE dB DESATIVADO TEMPORARIAMENTE NOS FADERS DE TRACKS
+            // if (dbValue) dbValue.textContent = this.formatDbValue(db);
 
             // Update input value for consistency
             volumeInput.value = volumePercent;
@@ -2852,67 +2890,41 @@ class MultracksApp {
             this.checkFadersModified();
         };
 
-        // Mouse events on entire fader container
-        faderContainer?.addEventListener('mousedown', (e) => {
+        // Pointer Events for unified mouse/touch/pen handling
+        faderContainer?.addEventListener('pointerdown', (e) => {
             if (isFaderLocked) return; // Don't allow interaction if locked
 
-            handleFaderInteraction(e.clientY);
+            // Capture pointer for consistent tracking
+            faderContainer.setPointerCapture(e.pointerId);
 
-            const handleMouseMove = (moveEvent) => {
-                handleFaderInteraction(moveEvent.clientY);
-            };
+            // Immediate response on initial interaction
+            handleFaderInteraction(e.clientY, true);
 
-            const handleMouseUp = () => {
-                document.removeEventListener('mousemove', handleMouseMove);
-                document.removeEventListener('mouseup', handleMouseUp);
-            };
-
-            document.addEventListener('mousemove', handleMouseMove);
-            document.addEventListener('mouseup', handleMouseUp);
-        });
-        
-        // Touch events for mobile with reduced sensitivity
-        faderContainer.addEventListener('touchstart', (e) => {
-            if (isFaderLocked) return; // Don't allow interaction if locked
-
-            const startX = e.touches[0].clientX;
-            const startY = e.touches[0].clientY;
-            let gestureDecided = false;
-            let isVerticalDrag = false;
-            const threshold = 6;
-
-            const handleTouchMove = (moveEvent) => {
-                if (!gestureDecided) {
-                    const deltaX = Math.abs(moveEvent.touches[0].clientX - startX);
-                    const deltaY = Math.abs(moveEvent.touches[0].clientY - startY);
-
-                    if (deltaX < threshold && deltaY < threshold) {
-                        return;
-                    }
-
-                    gestureDecided = true;
-                    isVerticalDrag = deltaY > deltaX;
-
-                    if (isVerticalDrag) {
-                        moveEvent.preventDefault();
-                        handleFaderInteraction(moveEvent.touches[0].clientY);
-                    } else {
-                        document.removeEventListener('touchmove', handleTouchMove);
-                        document.removeEventListener('touchend', handleTouchEnd);
-                    }
-                } else if (isVerticalDrag) {
-                    moveEvent.preventDefault();
-                    handleFaderInteraction(moveEvent.touches[0].clientY);
+            const handlePointerMove = (moveEvent) => {
+                if (moveEvent.pointerId === e.pointerId) {
+                    handleFaderInteraction(moveEvent.clientY, true);
                 }
             };
 
-            const handleTouchEnd = () => {
-                document.removeEventListener('touchmove', handleTouchMove);
-                document.removeEventListener('touchend', handleTouchEnd);
+            const handlePointerUp = (upEvent) => {
+                if (upEvent.pointerId === e.pointerId) {
+                    faderContainer.releasePointerCapture(e.pointerId);
+                    faderContainer.removeEventListener('pointermove', handlePointerMove);
+                    faderContainer.removeEventListener('pointerup', handlePointerUp);
+                    
+                    // Apply smooth transition at end of drag
+                    const rect = faderContainer.getBoundingClientRect();
+                    const clickY = upEvent.clientY - rect.top;
+                    const percentage = 1 - (clickY / rect.height);
+                    const position = Math.max(0, Math.min(1, percentage));
+                    const db = this.positionToDb(position);
+                    const gain = this.dbToGain(db);
+                    this.setTrackVolume(track.id, gain, false);
+                }
             };
 
-            document.addEventListener('touchmove', handleTouchMove);
-            document.addEventListener('touchend', handleTouchEnd);
+            faderContainer.addEventListener('pointermove', handlePointerMove);
+            faderContainer.addEventListener('pointerup', handlePointerUp);
         });
 
         // Prevent default input event to avoid conflicts with custom handling
@@ -2921,11 +2933,11 @@ class MultracksApp {
 
             e.preventDefault();
             const newVolume = e.target.value / 100;
-            this.setTrackVolume(track.id, newVolume);
+            this.setTrackVolume(track.id, newVolume, true);
 
             // Update visual feedback immediately during drag
             const thumb = channel.querySelector('.fader-thumb');
-            const fill = channel.querySelector('.track-meter-fill');
+            const fill = channel.querySelector('.fader-fill');
             const volumePercent = Math.round(newVolume * 100);
 
             if (thumb) thumb.style.bottom = `${volumePercent}%`;
@@ -2982,8 +2994,15 @@ class MultracksApp {
                 </div>
                 <div class="fader-thumb" style="bottom: ${volumePercent}%"></div>
             </div>
-            <div class="track-db-value">${this.formatDbValue(db)}</div>
+            <!-- CONTADOR DE dB DESATIVADO TEMPORARIAMENTE NO METRONOME -->
+            <!-- <div class="track-db-value">${this.formatDbValue(db)}</div> -->
+            <div class="track-db-separator"></div>
             <div class="track-pan">
+                <div class="track-pan-meter">
+                    <div class="track-pan-meter-left" id="trackPanMeterLeft_metronome"></div>
+                    <div class="track-pan-meter-center"></div>
+                    <div class="track-pan-meter-right" id="trackPanMeterRight_metronome"></div>
+                </div>
                 <input type="range" class="track-pan-input metronome-pan" min="-1" max="1" step="0.1" value="${this.metronomePan}">
             </div>
         `;
@@ -3017,68 +3036,33 @@ class MultracksApp {
 
             if (thumb) thumb.style.bottom = `${volumePercent}%`;
             if (faderFill) faderFill.style.height = `${volumePercent}%`;
-            if (dbValue) dbValue.textContent = this.formatDbValue(db);
+            // CONTADOR DE dB DESATIVADO TEMPORARIAMENTE NO METRONOME
+            // if (dbValue) dbValue.textContent = this.formatDbValue(db);
 
             volumeInput.value = volumePercent;
         };
         
-        // Mouse events on entire fader container
-        faderContainer?.addEventListener('mousedown', (e) => {
+        // Pointer Events for unified mouse/touch/pen handling
+        faderContainer?.addEventListener('pointerdown', (e) => {
+            faderContainer.setPointerCapture(e.pointerId);
             handleFaderInteraction(e.clientY);
-            
-            const handleMouseMove = (moveEvent) => {
-                handleFaderInteraction(moveEvent.clientY);
-            };
-            
-            const handleMouseUp = () => {
-                document.removeEventListener('mousemove', handleMouseMove);
-                document.removeEventListener('mouseup', handleMouseUp);
-            };
-            
-            document.addEventListener('mousemove', handleMouseMove);
-            document.addEventListener('mouseup', handleMouseUp);
-        });
-        
-        // Touch events for mobile
-        faderContainer.addEventListener('touchstart', (e) => {
-            const startX = e.touches[0].clientX;
-            const startY = e.touches[0].clientY;
-            let gestureDecided = false;
-            let isVerticalDrag = false;
-            const threshold = 6;
-            
-            const handleTouchMove = (moveEvent) => {
-                if (!gestureDecided) {
-                    const deltaX = Math.abs(moveEvent.touches[0].clientX - startX);
-                    const deltaY = Math.abs(moveEvent.touches[0].clientY - startY);
-                    
-                    if (deltaX < threshold && deltaY < threshold) {
-                        return;
-                    }
-                    
-                    gestureDecided = true;
-                    isVerticalDrag = deltaY > deltaX;
-                    
-                    if (isVerticalDrag) {
-                        moveEvent.preventDefault();
-                        handleFaderInteraction(moveEvent.touches[0].clientY);
-                    } else {
-                        document.removeEventListener('touchmove', handleTouchMove);
-                        document.removeEventListener('touchend', handleTouchEnd);
-                    }
-                } else if (isVerticalDrag) {
-                    moveEvent.preventDefault();
-                    handleFaderInteraction(moveEvent.touches[0].clientY);
+
+            const handlePointerMove = (moveEvent) => {
+                if (moveEvent.pointerId === e.pointerId) {
+                    handleFaderInteraction(moveEvent.clientY);
                 }
             };
-            
-            const handleTouchEnd = () => {
-                document.removeEventListener('touchmove', handleTouchMove);
-                document.removeEventListener('touchend', handleTouchEnd);
+
+            const handlePointerUp = (upEvent) => {
+                if (upEvent.pointerId === e.pointerId) {
+                    faderContainer.releasePointerCapture(e.pointerId);
+                    faderContainer.removeEventListener('pointermove', handlePointerMove);
+                    faderContainer.removeEventListener('pointerup', handlePointerUp);
+                }
             };
-            
-            document.addEventListener('touchmove', handleTouchMove);
-            document.addEventListener('touchend', handleTouchEnd);
+
+            faderContainer.addEventListener('pointermove', handlePointerMove);
+            faderContainer.addEventListener('pointerup', handlePointerUp);
         });
         
         const panInput = channel.querySelector('.metronome-pan');
@@ -3942,6 +3926,12 @@ class MultracksApp {
             loadingIndicator.style.display = 'flex';
         }
         
+        // Start loading waveform animation
+        this.startWaveformLoadingAnimation();
+        
+        // Start fader calibration animation
+        this.startFaderCalibrationAnimation();
+        
         // Disable play button during loading
         if (this.playPauseBtn) {
             this.playPauseBtn.disabled = true;
@@ -4010,6 +4000,12 @@ class MultracksApp {
             loadingIndicator.style.display = 'none';
         }
         
+        // Stop loading waveform animation
+        this.stopWaveformLoadingAnimation();
+        
+        // Stop fader calibration animation and return to real positions
+        this.stopFaderCalibrationAnimation();
+        
         // Enable play button after loading
         if (this.playPauseBtn) {
             this.playPauseBtn.disabled = false;
@@ -4018,6 +4014,104 @@ class MultracksApp {
         
         // Update effect positions after waveform is loaded
         this.updateEffectPositions();
+    }
+    
+    startWaveformLoadingAnimation() {
+        const loadingCanvas = document.getElementById('waveformLoadingCanvas');
+        if (!loadingCanvas) return;
+        
+        const ctx = loadingCanvas.getContext('2d');
+        const width = loadingCanvas.width = this.waveformCanvas.width;
+        const height = loadingCanvas.height = this.waveformCanvas.height;
+        
+        // Generate fake waveform data once (fixed pattern)
+        this.fakeWaveformData = this.generateFakeWaveformData(width);
+        
+        // Animation state
+        this.waveformLoadingProgress = 0;
+        this.waveformLoadingDirection = 1; // 1 = drawing, -1 = erasing
+        this.waveformLoadingSpeed = width / 120; // Complete in ~2 seconds (120 frames at 60fps)
+        
+        // Start animation loop
+        const animate = () => {
+            if (!this.waveformLoading) {
+                // Clear canvas if loading is done
+                ctx.clearRect(0, 0, width, height);
+                return;
+            }
+            
+            // Update progress
+            this.waveformLoadingProgress += this.waveformLoadingSpeed * this.waveformLoadingDirection;
+            
+            // Reverse direction at bounds
+            if (this.waveformLoadingProgress >= width) {
+                this.waveformLoadingProgress = width;
+                this.waveformLoadingDirection = -1; // Start erasing
+            } else if (this.waveformLoadingProgress <= 0) {
+                this.waveformLoadingProgress = 0;
+                this.waveformLoadingDirection = 1; // Start drawing
+            }
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, width, height);
+            
+            // Draw waveform with clipping based on progress
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, 0, this.waveformLoadingProgress, height);
+            ctx.clip();
+            
+            // Draw the fake waveform
+            this.drawFakeWaveform(ctx, width, height);
+            
+            ctx.restore();
+            
+            // Continue animation
+            this.waveformLoadingAnimationId = requestAnimationFrame(animate);
+        };
+        
+        this.waveformLoadingAnimationId = requestAnimationFrame(animate);
+    }
+    
+    stopWaveformLoadingAnimation() {
+        if (this.waveformLoadingAnimationId) {
+            cancelAnimationFrame(this.waveformLoadingAnimationId);
+            this.waveformLoadingAnimationId = null;
+        }
+    }
+    
+    generateFakeWaveformData(width) {
+        // Generate a simple, clean waveform pattern
+        const data = [];
+        
+        for (let x = 0; x < width; x++) {
+            // Simple pattern with varying amplitude
+            const t = x / width;
+            const wave = Math.sin(t * Math.PI * 12) * 0.4 + Math.sin(t * Math.PI * 24) * 0.2;
+            const amplitude = Math.abs(wave);
+            data.push(amplitude);
+        }
+        
+        return data;
+    }
+    
+    drawFakeWaveform(ctx, width, height) {
+        if (!this.fakeWaveformData) return;
+        
+        const centerY = height / 2;
+        const maxAmplitude = height * 0.35;
+        
+        // Simple white/cinza waveform
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        
+        for (let x = 0; x < width; x++) {
+            const amplitude = this.fakeWaveformData[x] * maxAmplitude;
+            const barHeight = amplitude * 2;
+            const y = centerY - amplitude;
+            
+            // Thin line (1px)
+            ctx.fillRect(x, y, 1, barHeight);
+        }
     }
     
     updateEffectPositions() {
@@ -5343,16 +5437,184 @@ class MultracksApp {
     handleSpeedButtonClick() {
         console.log('[SPEED] Button clicked, current speed:', this.playbackSpeed.toFixed(2), 'x');
         
-        // If speed is not 1.0x, reset to 1.0x first, then open modal
-        if (this.playbackSpeed !== 1.0) {
-            this.setPlaybackSpeed(1.0);
+        // Open the speed view (carousel)
+        this.openSpeedView();
+    }
+
+    openSpeedView() {
+        const mixerTracks = document.getElementById('mixerTracks');
+        const padView = document.getElementById('padView');
+        const speedView = document.getElementById('speedView');
+        
+        if (!mixerTracks || !speedView) return;
+        
+        // Hide faders and pad view, show speed view
+        mixerTracks.style.display = 'none';
+        if (padView) padView.style.display = 'none';
+        speedView.style.display = 'flex';
+        
+        // Setup close button if not already set up
+        const speedViewClose = document.getElementById('speedViewClose');
+        if (speedViewClose && !speedViewClose.hasAttribute('data-setup')) {
+            speedViewClose.setAttribute('data-setup', 'true');
+            speedViewClose.addEventListener('click', () => {
+                this.closeSpeedView();
+            });
         }
         
-        // Open the speed modal
-        this.openSpeedModal();
+        // Render speed carousel
+        this.renderSpeedCarousel();
+        
+        // Setup carousel drag interaction
+        this.setupSpeedCarouselDrag();
+    }
+
+    closeSpeedView() {
+        const mixerTracks = document.getElementById('mixerTracks');
+        const speedView = document.getElementById('speedView');
+        
+        if (mixerTracks && speedView) {
+            // Show faders and hide speed view
+            mixerTracks.style.display = 'flex';
+            speedView.style.display = 'none';
+        }
+    }
+
+    renderSpeedCarousel() {
+        const speedCarousel = document.getElementById('speedCarousel');
+        if (!speedCarousel) return;
+        
+        speedCarousel.innerHTML = '';
+        
+        // Generate speed values from 0.5 to 2.0 in 0.1 increments
+        const speeds = [];
+        for (let i = 5; i <= 20; i++) {
+            speeds.push((i / 10).toFixed(1));
+        }
+        
+        speeds.forEach(speed => {
+            const speedItem = document.createElement('div');
+            speedItem.className = 'speed-carousel-item';
+            speedItem.dataset.speed = speed;
+            speedItem.textContent = speed + 'x';
+            
+            // Mark current speed as active
+            if (Math.abs(parseFloat(speed) - this.playbackSpeed) < 0.01) {
+                speedItem.classList.add('active');
+            }
+            
+            speedCarousel.appendChild(speedItem);
+        });
+        
+        // Center the active item
+        this.centerActiveSpeedItem();
+    }
+
+    centerActiveSpeedItem() {
+        const speedCarousel = document.getElementById('speedCarousel');
+        if (!speedCarousel) return;
+        
+        const activeItem = speedCarousel.querySelector('.speed-carousel-item.active');
+        if (!activeItem) return;
+        
+        const containerWidth = speedCarousel.parentElement.offsetWidth;
+        const itemLeft = activeItem.offsetLeft;
+        const itemWidth = activeItem.offsetWidth;
+        
+        // Calculate center position
+        const scrollPosition = itemLeft - (containerWidth / 2) + (itemWidth / 2);
+        
+        speedCarousel.style.transform = `translateX(${-scrollPosition}px)`;
+    }
+
+    setupSpeedCarouselDrag() {
+        const container = document.getElementById('speedCarouselContainer');
+        const carousel = document.getElementById('speedCarousel');
+        
+        if (!container || !carousel) return;
+        
+        let isDragging = false;
+        let startX = 0;
+        let currentX = 0;
+        let dragThreshold = 50; // Minimum drag distance to change speed
+        let lastSpeedChange = 0;
+        
+        const handleStart = (x) => {
+            isDragging = true;
+            startX = x;
+            currentX = x;
+            carousel.style.transition = 'none';
+        };
+        
+        const handleMove = (x) => {
+            if (!isDragging) return;
+            currentX = x;
+            
+            const diff = startX - currentX;
+            carousel.style.transform = `translateX(${diff}px)`;
+        };
+        
+        const handleEnd = () => {
+            if (!isDragging) return;
+            isDragging = false;
+            
+            const diff = startX - currentX;
+            carousel.style.transition = 'transform 0.3s ease-out';
+            
+            // Check if drag exceeded threshold
+            if (Math.abs(diff) > dragThreshold) {
+                const now = Date.now();
+                if (now - lastSpeedChange > 200) { // Debounce to prevent rapid changes
+                    if (diff > 0) {
+                        // Dragged left (right movement) - increase speed
+                        this.incrementSpeed(0.1);
+                    } else {
+                        // Dragged right (left movement) - decrease speed
+                        this.incrementSpeed(-0.1);
+                    }
+                    lastSpeedChange = now;
+                }
+            }
+            
+            // Re-center the active item
+            this.centerActiveSpeedItem();
+        };
+        
+        // Mouse events
+        container.addEventListener('mousedown', (e) => handleStart(e.clientX));
+        document.addEventListener('mousemove', (e) => handleMove(e.clientX));
+        document.addEventListener('mouseup', handleEnd);
+        
+        // Touch events
+        container.addEventListener('touchstart', (e) => handleStart(e.touches[0].clientX));
+        document.addEventListener('touchmove', (e) => handleMove(e.touches[0].clientX));
+        document.addEventListener('touchend', handleEnd);
+        
+        // Click on individual items
+        carousel.addEventListener('click', (e) => {
+            const item = e.target.closest('.speed-carousel-item');
+            if (item && !isDragging) {
+                const speed = parseFloat(item.dataset.speed);
+                this.setPlaybackSpeed(speed);
+            }
+        });
+    }
+
+    incrementSpeed(delta) {
+        const newSpeed = this.playbackSpeed + delta;
+        const clampedSpeed = Math.max(0.5, Math.min(2.0, newSpeed));
+        
+        // Round to 1 decimal place
+        const roundedSpeed = Math.round(clampedSpeed * 10) / 10;
+        
+        if (Math.abs(roundedSpeed - this.playbackSpeed) >= 0.1) {
+            this.setPlaybackSpeed(roundedSpeed);
+        }
     }
 
     initSpeedModalControls() {
+        // Legacy speed modal controls - kept for compatibility but no longer used
+        // The new speed carousel interface is used instead
         const speedModal = document.getElementById('speedModal');
         const speedModalClose = document.getElementById('speedModalClose');
         const speedFader = document.getElementById('speedFader');
@@ -5450,6 +5712,7 @@ class MultracksApp {
         // Update UI
         this.updateSpeedButton();
         this.updateSpeedModalUI();
+        this.updateSpeedCarouselUI();
     }
 
     updateSpeedButton() {
@@ -5466,6 +5729,29 @@ class MultracksApp {
                 speedBtn.classList.remove('active');
             }
         }
+    }
+
+    updateSpeedCarouselUI() {
+        const speedCarousel = document.getElementById('speedCarousel');
+        if (!speedCarousel) return;
+        
+        // Update active class on carousel items
+        const items = speedCarousel.querySelectorAll('.speed-carousel-item');
+        items.forEach(item => {
+            const speed = parseFloat(item.dataset.speed);
+            if (Math.abs(speed - this.playbackSpeed) < 0.01) {
+                item.classList.add('active');
+                item.classList.remove('adjacent');
+            } else if (Math.abs(speed - this.playbackSpeed) < 0.15) {
+                item.classList.add('adjacent');
+                item.classList.remove('active');
+            } else {
+                item.classList.remove('active', 'adjacent');
+            }
+        });
+        
+        // Re-center the active item
+        this.centerActiveSpeedItem();
     }
 
     updateSpeedModalUI() {
@@ -5601,8 +5887,6 @@ class MultracksApp {
             this.resetIdleTimer();
         } else {
             this.audioPlayer.play();
-            // Remove idle wave effect immediately when playing
-            this.deactivateIdleWave();
         }
         
         // Don't manually update isPlaying here - the onPlayStateChange callback
@@ -5954,6 +6238,19 @@ class MultracksApp {
     }
     
     setTrackPan(trackId, pan) {
+        // Special handling for PAD track
+        if (trackId === 'pad-track' && this.padTrackNodes) {
+            this.padTrackNodes.panner.pan.value = pan;
+            if (this.currentProject) {
+                const track = this.currentProject.tracks.find(t => t.id === trackId);
+                if (track) {
+                    track.pan = pan;
+                }
+            }
+            this.checkFadersModified();
+            return;
+        }
+        
         if (!this.audioPlayer) return;
         
         this.audioPlayer.setTrackPan(trackId, pan);
@@ -6286,7 +6583,7 @@ class MultracksApp {
         });
     }
     
-    setTrackVolume(trackId, gain) {
+    setTrackVolume(trackId, gain, immediate = false) {
         // Special handling for PAD track
         if (trackId === 'pad-track' && this.padTrackNodes) {
             this.padTrackNodes.gain.gain.value = gain;
@@ -6310,7 +6607,8 @@ class MultracksApp {
 
                 if (thumb) thumb.style.bottom = `${volumePercent}%`;
                 if (faderFill) faderFill.style.height = `${volumePercent}%`;
-                if (dbValue) dbValue.textContent = this.formatDbValue(db);
+                // CONTADOR DE dB DESATIVADO TEMPORARIAMENTE NOS FADERS DE TRACKS
+                // if (dbValue) dbValue.textContent = this.formatDbValue(db);
                 if (volumeInput) volumeInput.value = volumePercent;
             }
             this.checkFadersModified();
@@ -6319,7 +6617,7 @@ class MultracksApp {
         
         if (!this.audioPlayer) return;
 
-        this.audioPlayer.setTrackVolume(trackId, gain);
+        this.audioPlayer.setTrackVolume(trackId, gain, immediate);
 
         // Update track volume in project data
         if (this.currentProject) {
@@ -6344,7 +6642,8 @@ class MultracksApp {
 
             if (thumb) thumb.style.bottom = `${volumePercent}%`;
             if (faderFill) faderFill.style.height = `${volumePercent}%`;
-            if (dbValue) dbValue.textContent = this.formatDbValue(db);
+            // CONTADOR DE dB DESATIVADO TEMPORARIAMENTE NOS FADERS DE TRACKS
+            // if (dbValue) dbValue.textContent = this.formatDbValue(db);
             if (volumeInput) volumeInput.value = volumePercent;
         }
 
@@ -6403,12 +6702,12 @@ class MultracksApp {
                 this.padTrackNodes.panner.pan.value = track.pan;
             } else {
                 // Update audio player for normal tracks
-                this.audioPlayer.setTrackVolume(track.id, normalGain);
+                this.audioPlayer.setTrackVolume(track.id, normalGain, false);
                 this.audioPlayer.setTrackPan(track.id, track.pan);
             }
 
             // Update UI immediately (no delay)
-            this.setTrackVolume(track.id, normalGain);
+            this.setTrackVolume(track.id, normalGain, false);
 
             // Add animation class to fader
             const channel = this.mixerTracks.querySelector(`[data-track-id="${track.id}"]`);
@@ -6841,6 +7140,36 @@ class MultracksApp {
             const peakPercent = Math.min(100, Math.round(scaledPeak * 100));
             peakBar.style.height = `${peakPercent}%`;
         }
+        
+        // Update pan meter visualization
+        this.updateTrackPanMeter(trackId, level);
+    }
+    
+    updateTrackPanMeter(trackId, level) {
+        const track = this.currentProject?.tracks.find(t => t.id === trackId);
+        if (!track) return;
+        
+        const panLeft = document.getElementById(`trackPanMeterLeft_${trackId}`);
+        const panRight = document.getElementById(`trackPanMeterRight_${trackId}`);
+        
+        if (panLeft && panRight) {
+            // Calculate pan distribution (-1 to 1)
+            const pan = track.pan || 0;
+            
+            // Base intensity from audio level
+            const levelIntensity = Math.min(1, level);
+            
+            // Calculate left and right intensity based on pan position
+            // pan = -1 (full left), pan = 0 (center), pan = 1 (full right)
+            const leftIntensity = levelIntensity * (1 - pan) / 2;
+            const rightIntensity = levelIntensity * (1 + pan) / 2;
+            
+            // Update left meter - same color as faders
+            panLeft.style.background = `rgba(46, 158, 69, ${leftIntensity})`;
+            
+            // Update right meter - same color as faders
+            panRight.style.background = `rgba(46, 158, 69, ${rightIntensity})`;
+        }
     }
     
     updateMetronomeLevelMeter(level) {
@@ -6871,58 +7200,104 @@ class MultracksApp {
                 levelBar.style.boxShadow = `0 0 ${8}px rgba(124, 227, 139, 0.3)`;
             }
         }
+        
+        // Update metronome pan meter
+        this.updateMetronomePanMeter(level);
     }
     
-    handleSongEnded() {
-        console.log('[APP] Song ended, handling auto-advance/repeat logic');
+    updateMetronomePanMeter(level) {
+        const panLeft = document.getElementById('trackPanMeterLeft_metronome');
+        const panRight = document.getElementById('trackPanMeterRight_metronome');
+        
+        if (panLeft && panRight) {
+            // Calculate pan distribution (-1 to 1)
+            const pan = this.metronomePan || 0;
+            
+            // Base intensity from audio level
+            const levelIntensity = Math.min(1, level);
+            
+            // Calculate left and right intensity based on pan position
+            const leftIntensity = levelIntensity * (1 - pan) / 2;
+            const rightIntensity = levelIntensity * (1 + pan) / 2;
+            
+            // Update left meter - same color as faders
+            panLeft.style.background = `rgba(46, 158, 69, ${leftIntensity})`;
+            
+            // Update right meter - same color as faders
+            panRight.style.background = `rgba(46, 158, 69, ${rightIntensity})`;
+        }
+    }
+    
+    async handleSongEnded() {
+        console.log('[PLAYBACK] Project ended');
         
         // Get settings from localStorage
         const repeatMode = localStorage.getItem('repeatMode') === 'true';
         const autoAdvanceMode = localStorage.getItem('autoAdvanceMode') === 'true';
         const transitionMode = localStorage.getItem('transitionMode') === 'true';
         
+        console.log('[PLAYBACK] Repeat:', repeatMode);
+        console.log('[PLAYBACK] Auto advance:', autoAdvanceMode);
+        console.log('[PLAYBACK] Transition:', transitionMode);
+        console.log('[PLAYBACK] Current project:', this.currentProject?.name);
+        console.log('[PLAYBACK] Player session length:', this.playerSession.length);
+        
+        // Priority: Repeat has highest priority
         if (repeatMode) {
-            // Repeat current song
-            console.log('[APP] Repeat mode enabled, restarting current song');
-            this.audioPlayer.seek(0, false);
-            this.audioPlayer.play();
-        } else if (autoAdvanceMode && this.playerSession.length > 1) {
-            // Auto-advance to next song
+            console.log('[PLAYBACK] Repeat mode enabled - restarting from beginning');
+            await this.audioPlayer.restartFromBeginning();
+            return;
+        }
+        
+        // Auto-advance to next song
+        if (autoAdvanceMode) {
             const currentIndex = this.playerSession.findIndex(p => p.id === this.currentProject.id);
+            console.log('[PLAYBACK] Current index:', currentIndex);
+            
+            if (currentIndex === -1) {
+                console.log('[PLAYBACK] Current project not found in session, stopping');
+                return;
+            }
+            
             const nextIndex = currentIndex + 1;
+            console.log('[PLAYBACK] Next index:', nextIndex);
             
             if (nextIndex < this.playerSession.length) {
                 const nextProject = this.playerSession[nextIndex];
-                console.log('[APP] Auto-advancing to next song:', nextProject.name);
+                console.log('[PLAYBACK] Advancing to:', nextProject.name);
                 
                 const playNext = async () => {
-                    if (transitionMode && this.audioPlayer.masterGain) {
-                        // Fade out current song
-                        await this.fadeMasterVolume(0, 400);
-                    }
+                    try {
+                        if (transitionMode && this.audioPlayer.masterGain) {
+                            console.log('[PLAYBACK] Transition fade out');
+                            await this.fadeMasterVolume(0, 400);
+                        }
 
-                    this.currentProject = nextProject;
-                    this.renderMusicSelector();
-                    this.renderProjectInfo();
-                    this.renderMixer();
-                    await this.loadProjectAudio();
+                        this.currentProject = nextProject;
+                        this.renderMusicSelector();
+                        this.renderProjectInfo();
+                        this.renderMixer();
+                        await this.loadProjectAudio();
 
-                    if (transitionMode && this.audioPlayer.masterGain) {
-                        // Start with volume at 0, then fade in
-                        this.audioPlayer.masterGain.gain.value = 0;
-                        this.audioPlayer.play();
-                        await this.fadeMasterVolume(1, 400);
-                    } else {
-                        this.audioPlayer.play();
+                        if (transitionMode && this.audioPlayer.masterGain) {
+                            console.log('[PLAYBACK] Transition fade in');
+                            this.audioPlayer.masterGain.gain.value = 0;
+                            this.audioPlayer.play();
+                            await this.fadeMasterVolume(1, 400);
+                        } else {
+                            this.audioPlayer.play();
+                        }
+                    } catch (error) {
+                        console.error('[PLAYBACK] Error during auto-advance:', error);
                     }
                 };
                 
                 playNext();
             } else {
-                console.log('[APP] Reached end of playlist, stopping');
+                console.log('[PLAYBACK] Reached end of playlist, stopping');
             }
         } else {
-            console.log('[APP] No auto-advance or repeat, stopping playback');
+            console.log('[PLAYBACK] No auto-advance or repeat, stopping playback');
         }
     }
     
@@ -7155,7 +7530,8 @@ class MultracksApp {
         menu.style.top = `${topPosition}px`;
 
         const items = [
-            { label: 'Editar Tracks (suporte só pra desktop)', action: () => this.openTrackEditor(project.id) },
+            // OPÇÃO DE EDITAR TRACKS DESATIVADA TEMPORARIAMENTE
+            // { label: 'Editar Tracks (suporte só pra desktop)', action: () => this.openTrackEditor(project.id) },
             { label: 'Renomear', action: () => this.showRenameModal(project) },
             { label: 'Editar', action: () => this.showEditProjectModal(project) },
             { label: project.favorite ? 'Remover favorito' : 'Favoritar', action: () => this.toggleFavorite(project.id) },
@@ -10030,6 +10406,63 @@ class MultracksApp {
                 }
             }
         });
+
+        // BPM stepper controls
+        const bpmStepUp = document.getElementById('bpmStepUp');
+        const bpmStepDown = document.getElementById('bpmStepDown');
+
+        const incrementBpm = (delta) => {
+            const currentBpm = parseInt(this.bpmInput.value) || 120;
+            const newBpm = Math.max(40, Math.min(240, currentBpm + delta));
+            
+            if (newBpm !== currentBpm) {
+                this.bpmInput.value = newBpm;
+                
+                if (this.audioPlayer) {
+                    this.audioPlayer.setMetronomeBpm(newBpm);
+                }
+                
+                if (this.currentProject) {
+                    this.currentProject.bpm = newBpm;
+                    storage.updateProject(this.currentProject.id, this.currentProject);
+                }
+            }
+        };
+
+        bpmStepUp?.addEventListener('click', () => incrementBpm(1));
+        bpmStepDown?.addEventListener('click', () => incrementBpm(-1));
+
+        // Hold to continue incrementing/decrementing
+        let holdInterval = null;
+        const startHold = (delta) => {
+            incrementBpm(delta);
+            holdInterval = setInterval(() => incrementBpm(delta), 150);
+        };
+
+        const stopHold = () => {
+            if (holdInterval) {
+                clearInterval(holdInterval);
+                holdInterval = null;
+            }
+        };
+
+        bpmStepUp?.addEventListener('mousedown', () => startHold(1));
+        bpmStepUp?.addEventListener('mouseup', stopHold);
+        bpmStepUp?.addEventListener('mouseleave', stopHold);
+        bpmStepUp?.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            startHold(1);
+        });
+        bpmStepUp?.addEventListener('touchend', stopHold);
+
+        bpmStepDown?.addEventListener('mousedown', () => startHold(-1));
+        bpmStepDown?.addEventListener('mouseup', stopHold);
+        bpmStepDown?.addEventListener('mouseleave', stopHold);
+        bpmStepDown?.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            startHold(-1);
+        });
+        bpmStepDown?.addEventListener('touchend', stopHold);
         
         this.timeSignatureSelect?.addEventListener('change', (e) => {
             const timeSignature = e.target.value;
@@ -11441,11 +11874,13 @@ class MultracksApp {
     showPadSelectionModal() {
         const mixerTracks = document.getElementById('mixerTracks');
         const padView = document.getElementById('padView');
+        const speedView = document.getElementById('speedView');
         
         if (!mixerTracks || !padView) return;
         
-        // Hide faders and show pad view
+        // Hide faders and speed view, show pad view
         mixerTracks.style.display = 'none';
+        if (speedView) speedView.style.display = 'none';
         padView.style.display = 'flex';
         
         // Setup close button if not already set up
@@ -11722,6 +12157,16 @@ class MultracksApp {
             
             this.padAudioElement = new Audio();
             
+            // Set preservesPitch to true to maintain pitch when changing playback speed
+            // This ensures the tonality remains stable when speed changes
+            this.padAudioElement.preservesPitch = true;
+            if ('mozPreservesPitch' in this.padAudioElement) {
+                this.padAudioElement.mozPreservesPitch = true;
+            }
+            if ('webkitPreservesPitch' in this.padAudioElement) {
+                this.padAudioElement.webkitPreservesPitch = true;
+            }
+            
             // Use the renamed folder without spaces
             const padPath = `pads_w.tracks/${encodeURIComponent(pad.file)}`;
             this.padAudioElement.src = padPath;
@@ -11806,7 +12251,8 @@ class MultracksApp {
                     if (faderFill) faderFill.style.height = `${volumePercent}%`;
                     
                     const db = this.positionToDb(position);
-                    if (dbValue) dbValue.textContent = this.formatDbValue(db);
+                    // CONTADOR DE dB DESATIVADO TEMPORARIAMENTE NO PAD
+                    // if (dbValue) dbValue.textContent = this.formatDbValue(db);
                 }
             }
             
@@ -12743,8 +13189,72 @@ class MultracksApp {
             };
             
             console.log('[PAD] Pad audio nodes setup complete');
+            
+            // Start pad visualization
+            this.startPadVisualization();
         } catch (error) {
             console.error('[PAD] Error setting up pad audio nodes:', error);
+        }
+    }
+    
+    startPadVisualization() {
+        this.stopPadVisualization();
+        
+        const updatePadLevel = () => {
+            if (!this.padIsPlaying || !this.padTrackNodes || !this.padTrackNodes.analyser) return;
+            
+            try {
+                const analyser = this.padTrackNodes.analyser;
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                analyser.getByteFrequencyData(dataArray);
+                
+                // Calculate RMS for level
+                let sum = 0;
+                for (let i = 0; i < dataArray.length; i++) {
+                    sum += dataArray[i] * dataArray[i];
+                }
+                const rms = Math.sqrt(sum / dataArray.length);
+                const normalizedLevel = rms / 255;
+                
+                // Update pad pan meter
+                this.updatePadPanMeter(normalizedLevel);
+            } catch (error) {
+                console.error('[PAD] Error updating pad level:', error);
+            }
+        };
+        
+        this.padVisualizationInterval = setInterval(updatePadLevel, 50);
+    }
+    
+    stopPadVisualization() {
+        if (this.padVisualizationInterval) {
+            clearInterval(this.padVisualizationInterval);
+            this.padVisualizationInterval = null;
+        }
+        
+        // Reset pad pan meter
+        const padTrack = this.currentProject?.tracks.find(t => t.id === 'pad-track');
+        if (padTrack) {
+            this.updatePadPanMeter(0);
+        }
+    }
+    
+    updatePadPanMeter(level) {
+        const panLeft = document.getElementById('trackPanMeterLeft_pad-track');
+        const panRight = document.getElementById('trackPanMeterRight_pad-track');
+        
+        if (panLeft && panRight) {
+            const padTrack = this.currentProject?.tracks.find(t => t.id === 'pad-track');
+            if (!padTrack) return;
+            
+            const pan = padTrack.pan || 0;
+            const levelIntensity = Math.min(1, level);
+            
+            const leftIntensity = levelIntensity * (1 - pan) / 2;
+            const rightIntensity = levelIntensity * (1 + pan) / 2;
+            
+            panLeft.style.background = `rgba(46, 158, 69, ${leftIntensity})`;
+            panRight.style.background = `rgba(46, 158, 69, ${rightIntensity})`;
         }
     }
     
@@ -12758,6 +13268,9 @@ class MultracksApp {
             cancelAnimationFrame(this.padFadeInTimer);
             this.padFadeInTimer = null;
         }
+        
+        // Stop pad visualization
+        this.stopPadVisualization();
         
         if (this.padAudioElement) {
             this.padAudioElement.pause();

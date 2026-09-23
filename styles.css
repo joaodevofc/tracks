@@ -243,14 +243,20 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(135deg, rgba(0, 0, 0, 0.9) 0%, rgba(22, 22, 22, 0.95) 100%);
-    backdrop-filter: blur(10px);
+    background: transparent;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
     z-index: 10;
     animation: fadeIn 0.3s ease-in-out;
+}
+
+#waveformLoadingCanvas {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
 }
 
 @keyframes fadeIn {
@@ -3983,6 +3989,44 @@ body.fader-animations-disabled .led-pointer {
     gap: var(--spacing-xs);
 }
 
+.bpm-stepper {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.bpm-step-btn {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-black);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    color: var(--color-white-muted);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    padding: 0;
+}
+
+.bpm-step-btn:hover {
+    background: var(--color-black-hover);
+    border-color: var(--border-medium);
+    color: var(--color-white);
+}
+
+.bpm-step-btn:active {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: var(--color-white);
+}
+
+.bpm-step-btn svg {
+    width: 12px;
+    height: 12px;
+}
+
 .bpm-label {
     font-size: var(--font-size-xs);
     color: var(--color-white-muted);
@@ -4586,7 +4630,7 @@ body.fader-animations-disabled .led-pointer {
     width: 130px;
     cursor: pointer;
     display: flex;
-    touch-action: pan-x;
+    touch-action: none;
     user-select: none;
     -webkit-user-select: none;
     align-items: center;
@@ -4634,7 +4678,7 @@ body.fader-animations-disabled .led-pointer {
     left: 0;
     right: 0;
     background: rgba(255, 255, 255, 0.06);
-    transition: height var(--transition-normal);
+    /* No transition for immediate response */
     transform-origin: bottom;
 }
 
@@ -4648,7 +4692,7 @@ body.fader-animations-disabled .led-pointer {
     border: 1px solid #b8b6b0;
     border-radius: var(--radius-md);
     cursor: grab;
-    transition: all var(--transition-fast);
+    /* No transition for immediate response */
     z-index: 2;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
     user-select: none;
@@ -4659,11 +4703,13 @@ body.fader-animations-disabled .led-pointer {
 .fader-thumb:hover {
     background: #e8e6e0;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.2);
+    /* No transition for immediate response */
     transform: translateX(-50%) scale(1.05);
 }
 
 .fader-thumb:active {
     cursor: grabbing;
+    /* No transition for immediate response */
     transform: translateX(-50%) scale(0.98);
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
 }
@@ -4780,6 +4826,7 @@ body.fader-animations-disabled .led-pointer {
     appearance: none;
     background: transparent;
     pointer-events: none; /* Disabled since we use custom interaction */
+    touch-action: none;
 }
 
 /* Webkit slider thumb (hidden but functional) */
@@ -4851,6 +4898,42 @@ body.fader-animations-disabled .led-pointer {
     background: var(--color-black-elevated);
     border-radius: var(--radius-sm);
     border: 1px solid var(--border-subtle);
+}
+
+/* Discrete separator line replacing dB counter */
+.track-db-separator {
+    height: 1px;
+    background: var(--border-subtle);
+    margin: var(--spacing-xs) 0;
+    opacity: 0.5;
+}
+
+/* Pan meter visualization */
+.track-pan-meter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 8px;
+    width: 100%;
+    margin-bottom: var(--spacing-xs);
+    position: relative;
+}
+
+.track-pan-meter-left,
+.track-pan-meter-right {
+    flex: 1;
+    height: 100%;
+    background: var(--color-black-elevated);
+    border-radius: 2px;
+    transition: background 0.1s ease-out;
+}
+
+.track-pan-meter-center {
+    width: 2px;
+    height: 100%;
+    background: var(--border-subtle);
+    margin: 0 2px;
+    border-radius: 1px;
 }
 
 /* Metronome channel styling */
@@ -5160,34 +5243,26 @@ body.fader-animations-disabled .led-pointer {
     animation: digital-reset 0.4s ease-out;
 }
 
-.track-fader.animating .fader-thumb {
-    transition: bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.track-fader.animating .fader-fill {
-    transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
 /* Digital mixer effect: faders go down when solo is active on other tracks */
 .track-channel.solo-muted .track-fader .fader-thumb {
-    transition: bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    /* No transition for immediate response */
     bottom: 0% !important;
 }
 
 .track-channel.solo-muted .track-fader .fader-fill {
-    transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    /* No transition for immediate response */
     height: 0% !important;
     opacity: 0.3;
 }
 
 /* Digital mixer effect: faders go down when track is muted */
 .track-channel.muted .track-fader .fader-thumb {
-    transition: bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    /* No transition for immediate response */
     bottom: 0% !important;
 }
 
 .track-channel.muted .track-fader .fader-fill {
-    transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    /* No transition for immediate response */
     height: 0% !important;
     opacity: 0.3;
 }
@@ -5241,68 +5316,6 @@ body.fader-animations-disabled .led-pointer {
     margin-top: 4px;
     font-weight: 600;
     letter-spacing: 0.5px;
-}
-
-/* Idle wave animation for faders when player is paused and idle */
-.mixer-container.idle-wave .fader-thumb {
-    animation: faderWave 3s ease-in-out infinite;
-}
-
-/* Smooth transition when stopping idle wave */
-.mixer-container.idle-wave-stopping .fader-thumb {
-    animation: none;
-    transition: transform 0.5s ease-out;
-    transform: translateX(-50%) translateY(0);
-}
-
-@keyframes faderWave {
-    0%, 100% {
-        transform: translateX(-50%) translateY(0);
-    }
-    50% {
-        transform: translateX(-50%) translateY(-35px);
-    }
-}
-
-/* Staggered animation delays for wave effect across faders */
-.mixer-container.idle-wave .track-channel:nth-child(1) .fader-thumb {
-    animation-delay: 0s;
-}
-
-.mixer-container.idle-wave .track-channel:nth-child(2) .fader-thumb {
-    animation-delay: 0.15s;
-}
-
-.mixer-container.idle-wave .track-channel:nth-child(3) .fader-thumb {
-    animation-delay: 0.3s;
-}
-
-.mixer-container.idle-wave .track-channel:nth-child(4) .fader-thumb {
-    animation-delay: 0.45s;
-}
-
-.mixer-container.idle-wave .track-channel:nth-child(5) .fader-thumb {
-    animation-delay: 0.6s;
-}
-
-.mixer-container.idle-wave .track-channel:nth-child(6) .fader-thumb {
-    animation-delay: 0.75s;
-}
-
-.mixer-container.idle-wave .track-channel:nth-child(7) .fader-thumb {
-    animation-delay: 0.9s;
-}
-
-.mixer-container.idle-wave .track-channel:nth-child(8) .fader-thumb {
-    animation-delay: 1.05s;
-}
-
-.mixer-container.idle-wave .track-channel:nth-child(9) .fader-thumb {
-    animation-delay: 1.2s;
-}
-
-.mixer-container.idle-wave .track-channel:nth-child(10) .fader-thumb {
-    animation-delay: 1.35s;
 }
 
 
@@ -6088,6 +6101,109 @@ body.fader-animations-disabled .led-pointer {
 .pad-view .pad-grid {
     flex: 1;
     overflow-y: auto;
+}
+
+/* Speed View - replaces faders when speed control is active */
+.speed-view {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    gap: var(--spacing-md);
+}
+
+.speed-view-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.speed-view-title {
+    font-size: var(--font-size-md);
+    font-weight: 600;
+    color: var(--color-white);
+    margin: 0;
+}
+
+.speed-view-close {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-black-elevated);
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-sm);
+    color: var(--color-white-muted);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.speed-view-close:hover {
+    background: var(--color-black-hover);
+    border-color: var(--color-accent);
+    color: var(--color-white);
+}
+
+.speed-carousel-container {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+    user-select: none;
+    touch-action: pan-y;
+}
+
+.speed-carousel {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-lg) 0;
+    transition: transform 0.3s ease-out;
+    cursor: grab;
+}
+
+.speed-carousel:active {
+    cursor: grabbing;
+}
+
+.speed-carousel-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 80px;
+    height: 80px;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-white-muted);
+    border-radius: var(--radius-md);
+    transition: all 0.3s ease;
+    opacity: 0.5;
+    transform: scale(0.8);
+}
+
+.speed-carousel-item.active {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--color-white);
+    background: var(--color-accent);
+    opacity: 1;
+    transform: scale(1.2);
+    box-shadow: 0 0 20px rgba(214, 91, 51, 0.4);
+}
+
+.speed-carousel-item.adjacent {
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    color: var(--color-white);
+    opacity: 0.7;
+    transform: scale(0.95);
 }
 
 .pad-key {

@@ -360,13 +360,17 @@ class MultitrackPlayer {
             console.log('[PLAYER] [PLAYER TRACK] generation:', generation, 'trackId:', track.id, 'objectUrl created');
             audioElement.src = objectUrl;
             
-            // Set preservesPitch to false to prevent audio overlap/echo issues during speed changes
-            // This ensures clean playback rate changes without pitch preservation artifacts
-            audioElement.preservesPitch = false;
-            audioElement.mozPreservesPitch = false;
-            audioElement.webkitPreservesPitch = false;
+            // Set preservesPitch to true to maintain pitch when changing playback speed
+            // This ensures the tonality remains stable when speed changes
+            audioElement.preservesPitch = true;
+            if ('mozPreservesPitch' in audioElement) {
+                audioElement.mozPreservesPitch = true;
+            }
+            if ('webkitPreservesPitch' in audioElement) {
+                audioElement.webkitPreservesPitch = true;
+            }
             
-            console.log('[PLAYER] Created audio element for track:', track.name, 'preservesPitch:', audioElement.preservesPitch);
+            console.log('[PLAYER] Created audio element for track:', track.name, 'preservesPitch:', audioElement.preservesPitch, '(pitch preserved)');
             
             // Wait for metadata to load to get duration
             await new Promise((resolve, reject) => {
@@ -981,6 +985,60 @@ class MultitrackPlayer {
     }
     
     /**
+     * Restart playback from beginning (for repeat mode)
+     * This is a specialized restart that ensures synchronized playback from 0
+     */
+    async restartFromBeginning() {
+        console.log('[PLAYER] Restart from beginning started');
+        
+        // Stop current playback first
+        this.stopPlaybackTimer();
+        
+        // Reset all audio elements to position 0
+        this.trackNodes.forEach((nodes, trackId) => {
+            if (nodes.audioElement) {
+                try {
+                    nodes.audioElement.currentTime = 0;
+                    nodes.audioElement.pause();
+                } catch (e) {
+                    console.error('[PLAYER] Error resetting track:', trackId, e);
+                }
+            }
+        });
+        
+        this.currentTime = 0;
+        this.songEndedNotified = false; // Reset for new playback cycle
+        
+        console.log('[PLAYER] All tracks reset to 0');
+        
+        // Ensure AudioContext is active
+        if (this.audioContext.state === 'suspended') {
+            await this.audioContext.resume();
+        }
+        
+        // Reset synchronization timing
+        this.playbackStartContextTime = 0;
+        this.playbackStartOffset = 0;
+        
+        // Start metronome if enabled
+        if (this.metronome && this.metronomeEnabled) {
+            console.log('[PLAYER] Starting metronome at position 0');
+            this.metronome.start(0);
+        }
+        
+        // Record playback start time for hardware clock synchronization
+        this.playbackStartContextTime = this.audioContext.currentTime;
+        this.playbackStartOffset = 0;
+        console.log('[PLAYER] Recorded playback start - contextTime:', this.playbackStartContextTime.toFixed(3), 'offset:', this.playbackStartOffset.toFixed(3));
+        
+        // Start synchronized playback (this will also start timer, visualization and notify UI)
+        await this.startSynchronizedPlayback();
+        
+        console.log('[PLAYER] Restart from beginning completed');
+        console.log('[PLAYER] isPlaying:', this.isPlaying);
+    }
+    
+    /**
      * Seek to specific time with synchronized node recreation
      * @param {number} time - Target time in seconds
      * @param {boolean} pauseAfterSeek - If true, always pause after seek (for rewind/forward buttons)
@@ -1063,10 +1121,13 @@ class MultitrackPlayer {
     }
     
     /**
-     * Set track volume with smooth transition
+     * Set track volume with immediate response for fader interaction
      * Note: volume parameter is the final gain value from app.js (already converted via positionToDb/dbToGain)
+     * @param {string} trackId - The track ID to set volume for
+     * @param {number} volume - The gain value to set
+     * @param {boolean} immediate - If true, use setValueAtTime for immediate response (during fader drag)
      */
-    setTrackVolume(trackId, volume) {
+    setTrackVolume(trackId, volume, immediate = false) {
         const nodes = this.trackNodes.get(trackId);
         if (nodes && nodes.gain) {
             nodes.baseVolume = volume; // Update base volume (final gain from app.js)
@@ -1075,7 +1136,7 @@ class MultitrackPlayer {
             const track = this.currentProject?.tracks.find(t => t.id === trackId);
             if (track) {
                 track.volume = volume;
-                this.applyMuteSoloToTrack(trackId);
+                this.applyMuteSoloToTrack(trackId, false, immediate);
             }
         }
     }
@@ -1460,8 +1521,9 @@ class MultitrackPlayer {
      * Note: baseVolume contains the final gain value from app.js (already converted via positionToDb/dbToGain)
      * @param {string} trackId - The track ID to apply mute/solo to
      * @param {boolean} padHasSolo - Optional parameter to indicate if PAD has solo enabled
+     * @param {boolean} immediate - If true, use setValueAtTime for immediate response (during fader drag)
      */
-    applyMuteSoloToTrack(trackId, padHasSolo = false) {
+    applyMuteSoloToTrack(trackId, padHasSolo = false, immediate = false) {
         const nodes = this.trackNodes.get(trackId);
         const track = this.currentProject?.tracks.find(t => t.id === trackId);
         
@@ -1477,9 +1539,16 @@ class MultitrackPlayer {
             effectiveGain = 0;
         }
         
-        // Apply smooth transition to avoid clicks (15ms ramp)
+        // Apply gain - use immediate setValueAtTime during fader drag for 1:1 response
+        // Use smooth setTargetAtTime for other operations to avoid clicks
         const currentTime = this.audioContext ? this.audioContext.currentTime : 0;
-        nodes.gain.gain.setTargetAtTime(effectiveGain, currentTime, 0.015);
+        if (immediate) {
+            // Immediate response during fader interaction
+            nodes.gain.gain.setValueAtTime(effectiveGain, currentTime);
+        } else {
+            // Smooth transition to avoid clicks (15ms ramp)
+            nodes.gain.gain.setTargetAtTime(effectiveGain, currentTime, 0.015);
+        }
         
         console.log('[PLAYER] Applied mute/solo to track:', track.name, 'baseVolume:', nodes.baseVolume, 'effectiveGain:', effectiveGain.toFixed(4), 'mute:', track.mute, 'solo:', track.solo, 'hasSoloTracks:', this.hasSoloTracks(padHasSolo), 'padHasSolo:', padHasSolo);
     }
@@ -1518,11 +1587,15 @@ class MultitrackPlayer {
         let updatedCount = 0;
         this.trackNodes.forEach((nodes, trackId) => {
             if (nodes.audioElement) {
-                // Set preservesPitch to false to prevent audio overlap/echo issues
-                // This ensures clean playback rate changes without pitch preservation artifacts
-                nodes.audioElement.preservesPitch = false;
-                nodes.audioElement.mozPreservesPitch = false;
-                nodes.audioElement.webkitPreservesPitch = false;
+                // Set preservesPitch to true to maintain pitch when changing playback speed
+                // This ensures the tonality remains stable when speed changes
+                nodes.audioElement.preservesPitch = true;
+                if ('mozPreservesPitch' in nodes.audioElement) {
+                    nodes.audioElement.mozPreservesPitch = true;
+                }
+                if ('webkitPreservesPitch' in nodes.audioElement) {
+                    nodes.audioElement.webkitPreservesPitch = true;
+                }
                 
                 nodes.audioElement.playbackRate = clampedSpeed;
                 updatedCount++;
@@ -1765,9 +1838,9 @@ class MultitrackPlayer {
                     this.stop();
 
                     // Notify app that song ended (only once)
-                    if (onSongEnded && !this.songEndedNotified) {
+                    if (this.onSongEnded && !this.songEndedNotified) {
                         this.songEndedNotified = true;
-                        onSongEnded();
+                        this.onSongEnded();
                     }
                     return;
                 }

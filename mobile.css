@@ -32,24 +32,24 @@ html, body {
 
 /* Digital mixer effect: faders go down when solo is active on other tracks */
 .track-channel.solo-muted .track-fader .fader-thumb {
-    transition: bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    /* No transition for immediate response */
     bottom: 0% !important;
 }
 
 .track-channel.solo-muted .track-fader .fader-fill {
-    transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    /* No transition for immediate response */
     height: 0% !important;
     opacity: 0.3;
 }
 
 /* Digital mixer effect: faders go down when track is muted */
 .track-channel.muted .track-fader .fader-thumb {
-    transition: bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    /* No transition for immediate response */
     bottom: 0% !important;
 }
 
 .track-channel.muted .track-fader .fader-fill {
-    transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    /* No transition for immediate response */
     height: 0% !important;
     opacity: 0.3;
 }
@@ -103,68 +103,6 @@ html, body {
     margin-top: 3px;
     font-weight: 600;
     letter-spacing: 0.5px;
-}
-
-/* Idle wave animation for faders when player is paused and idle */
-.mixer-container.idle-wave .track-fader {
-    animation: faderWave 3s ease-in-out infinite;
-}
-
-/* Smooth transition when stopping idle wave */
-.mixer-container.idle-wave-stopping .track-fader {
-    animation: none;
-    transition: transform 0.5s ease-out;
-    transform: translateY(0);
-}
-
-@keyframes faderWave {
-    0%, 100% {
-        transform: translateY(0);
-    }
-    50% {
-        transform: translateY(-35px);
-    }
-}
-
-/* Staggered animation delays for wave effect across faders */
-.mixer-container.idle-wave .track-channel:nth-child(1) .track-fader {
-    animation-delay: 0s;
-}
-
-.mixer-container.idle-wave .track-channel:nth-child(2) .track-fader {
-    animation-delay: 0.15s;
-}
-
-.mixer-container.idle-wave .track-channel:nth-child(3) .track-fader {
-    animation-delay: 0.3s;
-}
-
-.mixer-container.idle-wave .track-channel:nth-child(4) .track-fader {
-    animation-delay: 0.45s;
-}
-
-.mixer-container.idle-wave .track-channel:nth-child(5) .track-fader {
-    animation-delay: 0.6s;
-}
-
-.mixer-container.idle-wave .track-channel:nth-child(6) .track-fader {
-    animation-delay: 0.75s;
-}
-
-.mixer-container.idle-wave .track-channel:nth-child(7) .track-fader {
-    animation-delay: 0.9s;
-}
-
-.mixer-container.idle-wave .track-channel:nth-child(8) .track-fader {
-    animation-delay: 1.05s;
-}
-
-.mixer-container.idle-wave .track-channel:nth-child(9) .track-fader {
-    animation-delay: 1.2s;
-}
-
-.mixer-container.idle-wave .track-channel:nth-child(10) .track-fader {
-    animation-delay: 1.35s;
 }
 
 /* PLAYER VIEW positioning adjustments for portrait */

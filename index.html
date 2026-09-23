@@ -461,6 +461,13 @@
                                 </svg>
                                 W.Cifras
                             </a>
+                            <a href="track-editor.html" class="profile-menu-item">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 20h9"></path>
+                                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                                </svg>
+                                Tracks editor
+                            </a>
                             <button class="profile-menu-item" id="myTracksBtn" style="display: none;">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M9 18V5l12-2v13"></path>
@@ -1060,7 +1067,19 @@
                 </button>
                 
                 <div class="bpm-display">
-                    <input type="number" class="bpm-input" id="bpmInput" min="40" max="240" value="120">
+                    <div class="bpm-stepper">
+                        <button class="bpm-step-btn bpm-step-up" id="bpmStepUp" aria-label="Aumentar BPM">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="18 15 12 9 6 15"></polyline>
+                            </svg>
+                        </button>
+                        <input type="number" class="bpm-input" id="bpmInput" min="40" max="240" value="120">
+                        <button class="bpm-step-btn bpm-step-down" id="bpmStepDown" aria-label="Diminuir BPM">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </button>
+                    </div>
                     <div class="bpm-label">BPM</div>
                 </div>
                 
@@ -1130,9 +1149,7 @@
                 <canvas id="waveformCanvas"></canvas>
                 <div class="playhead" id="playhead"></div>
                 <div class="waveform-loading" id="waveformLoading">
-                    <div class="loading-spinner"></div>
-                    <span class="loading-text">Carregando waveform</span>
-                    <span class="loading-subtext">Por favor, aguarde...</span>
+                    <canvas id="waveformLoadingCanvas"></canvas>
                 </div>
                 <!-- Click Indicator -->
                 <div class="click-indicator" id="clickIndicator"></div>
@@ -1187,6 +1204,24 @@
                 </div>
                 <div class="pad-grid" id="padGrid">
                     <!-- Pads will be rendered here -->
+                </div>
+            </div>
+
+            <!-- Speed View (replaces faders when speed control is active) -->
+            <div class="speed-view" id="speedView" style="display: none;">
+                <div class="speed-view-header">
+                    <h3 class="speed-view-title">Velocidade</h3>
+                    <button class="speed-view-close" id="speedViewClose" aria-label="Fechar">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+                <div class="speed-carousel-container" id="speedCarouselContainer">
+                    <div class="speed-carousel" id="speedCarousel">
+                        <!-- Speed values will be rendered here -->
+                    </div>
                 </div>
             </div>
             

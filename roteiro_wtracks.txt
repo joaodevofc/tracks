@@ -1,0 +1,198 @@
+W.TRACKS - DESCRIÇÃO PARA ROTEIRO
+
+O QUE É O W.TRACKS:
+O W.Tracks é uma plataforma profissional para projetos multitrack e stems musicais. É um estúdio virtual na nuvem que permite aos músicos e produtores trabalhar com arquivos de áudio separados (stems) de forma prática e organizada.
+
+PÚBLICO-ALVO:
+- Músicos que tocam em bandas
+- Produtores musicais
+- Técnicos de som
+- Compositores
+- Cover bands que precisam ensaiar com backing tracks
+- Qualquer pessoa que trabalha com áudio multitrack
+
+O QUE O SITE PODE AJUDAR:
+- Organizar projetos musicais com múltiplas faixas de áudio (stems)
+- Permitir ensaios sem precisar da banda completa (usando backing tracks)
+- Facilitar mixagem e produção musical em qualquer lugar
+- Compartilhar projetos entre músicos
+- Gerenciar setlists para apresentações ao vivo
+- Acessar projetos de qualquer dispositivo com internet
+
+O QUE O SITE PODE FORNECER:
+- Biblioteca de projetos multitrack
+- Player de áudio com controle individual de cada faixa (faders)
+- Sistema de setlists para organizar músicas
+- Sincronização em nuvem para acessar projetos de qualquer lugar
+- Armazenamento seguro dos arquivos de áudio
+- Sistema de planos com recursos avançados (loops, pads, efeitos)
+- Teste grátis de 7 dias para experimentar recursos premium
+
+POR QUE O W.TRACKS FOI CRIADO:
+O W.Tracks foi criado para resolver um problema real dos músicos: a dificuldade de trabalhar com arquivos multitrack de forma prática. Antes, os músicos precisavam de softwares complexos de DAW (Digital Audio Workstation) para trabalhar com stems, o que exigia conhecimento técnico e equipamentos caros.
+
+O W.Tracks simplifica todo esse processo, permitindo que qualquer pessoa com acesso à internet possa:
+- Carregar arquivos de áudio separados (voz, guitarra, bateria, baixo, etc.)
+- Controlar o volume de cada faixa individualmente
+- Criar playlists de músicas para ensaios ou apresentações
+- Compartilhar projetos com outros músicos
+- Trabalhar de qualquer lugar, sem precisar de equipamentos complexos
+
+FUNCIONALIDADES PRINCIPAIS:
+
+SISTEMA MULTITRACK:
+- Player de áudio com controle individual de cada faixa (faders)
+- Biblioteca de projetos multitrack
+- Upload e gerenciamento de arquivos de áudio (stems)
+- Track Editor - editor de timeline multitrack para alinhamento de faixas
+- Waveforms visuais para cada faixa
+- Controle de volume, mute e solo por faixa
+
+SISTEMA DE SETLISTS:
+- Criação e organização de setlists (playlists)
+- Setlists compartilhadas (links públicos)
+- Organização de músicas para apresentações ao vivo
+- Setlist-new - criação de novas setlists
+- Setlist-shared - visualização de setlists compartilhadas
+- Gerenciamento de ordem das músicas
+
+W.CIFRAS:
+- Sistema completo de cifras (acordes) para músicas
+- Biblioteca de cifras integrada aos projetos
+- Visualização de acordes junto com os tracks
+- Ideal para ensaios e apresentações
+- Cifras sincronizadas com áudio
+
+SERVICE PLAN:
+- Planejamento e organização de serviços e eventos
+- Calendário de apresentações
+- Gerenciamento de datas e horários de shows
+- Service-plan-shared - compartilhamento de calendários
+- Organização de equipe para eventos
+
+PAINEL DE EQUIPE:
+- Equipe v2 - painel administrativo para gestão de equipe
+- Controle de acesso e permissões
+- Gestão de membros da equipe
+- Monitoramento de atividades
+
+PLANO TRACK (GRÁTIS):
+- Até 5 faders (faixas de áudio)
+- 1 setlist
+- Até 5 músicas por setlist
+- Duração máxima de 5 minutos por música
+- Funcionalidades básicas de reprodução
+- Acesso a W.Cifras básico
+- Service Plan limitado
+
+PLANO TRACK PRO (PAGO):
+- Faders ilimitados
+- Setlists ilimitadas
+- Músicas ilimitadas por setlist
+- Duração ilimitada por música
+- Loops (repetição de trechos)
+- Pads (controladores de efeitos)
+- Efeitos canvas (visualização e manipulação)
+- Sincronização em nuvem
+- Armazenamento em nuvem
+- Track Editor completo
+- W.Cifras completo
+- Service Plan ilimitado
+- Compartilhamento avançado
+- Teste grátis de 7 dias
+
+COMO O USUÁRIO USA O SITE:
+1. Faz login/cadastro na plataforma
+2. Escolhe o plano desejado (começa com o plano grátis Track)
+3. Pode fazer um teste de 7 dias do Track Pro
+4. Cria projetos multitrack carregando arquivos de áudio
+5. Organiza seus projetos em setlists
+6. Usa o player para controlar cada faixa individualmente
+7. Acessa seus projetos de qualquer dispositivo
+
+VALOR PARA O USUÁRIO:
+- Facilidade de uso: interface intuitiva, não precisa de conhecimento técnico avançado
+- Portabilidade: acessa projetos de qualquer lugar
+- Colaboração: compartilha projetos com outros músicos
+- Economia: alternativa mais acessível que softwares profissionais
+- Organização: mantém todos os projetos musicais em um só lugar
+- Flexibilidade: funciona em computador, tablet e celular
+
+DIFERENCIAIS:
+- Focado especificamente em multitrack e stems
+- Interface simples e intuitiva
+- Acessível via navegador (não precisa instalar software)
+- Sistema de planos flexível
+- Suporte via Telegram
+- Comunidade de músicos
+
+CENÁRIOS DE USO:
+1. Banda que precisa ensaiar sem o baterista: usa backing tracks do W.Tracks
+2. Músico solo que faz covers: controla cada instrumento separadamente
+3. Produtor que trabalha remotamente: compartilha projetos com clientes
+4. Cover band: organiza setlists para shows e ensaios
+5. Compositor: demonstra ideias musicais com faixas separadas
+
+PÁGINAS E FUNCIONALIDADES DO SITE:
+
+INDEX (PÁGINA PRINCIPAL):
+- Login e cadastro de usuários
+- Biblioteca de projetos multitrack
+- Carrossel de novidades
+- Acesso rápido às funcionalidades
+- Notícias e atualizações
+
+PLANOS:
+- Comparação entre planos Track e Track Pro
+- Sistema de checkout e pagamento
+- Ativação de teste grátis de 7 dias
+- Formulário de feedback do trial
+- Gestão de assinaturas mensais e anuais
+
+TRACK EDITOR:
+- Editor de timeline multitrack
+- Alinhamento de faixas de áudio
+- Visualização de waveforms
+- Ferramentas de edição profissional
+- Controle preciso de timing
+
+W.CIFRAS:
+- Sistema de cifras e acordes
+- Biblioteca de cifras
+- Visualização sincronizada com áudio
+- Ferramentas para músicos
+- Integração com projetos multitrack
+
+SERVICE PLAN:
+- Planejamento de serviços e eventos
+- Calendário de apresentações
+- Organização de datas de shows
+- Compartilhamento de calendários
+- Gestão de equipe
+
+SETLISTS:
+- Criação de setlists/playlist
+- Organização de músicas
+- Setlists compartilhadas
+- Links públicos para setlists
+- Gerenciamento de ordem
+
+EQUIPE V2:
+- Painel administrativo
+- Gestão de membros da equipe
+- Controle de permissões
+- Monitoramento de atividades
+- Administração do sistema
+
+SUPORTE:
+- Central de ajuda
+- Suporte via Telegram
+- FAQ e tutoriais
+- Contato direto
+
+OUTRAS PÁGINAS:
+- Termos de uso e privacidade
+- Página de sucesso após pagamento
+- Página de reset de senha
+- Página 404
+- Página de projetos

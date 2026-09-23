@@ -37,6 +37,18 @@ class TrackEditor {
         // Selection state
         this.selectedTrackId = null;
         
+        // Slice tool state
+        this.sliceToolActive = false;
+        this.sliceHoverTrackId = null;
+        this.sliceCursorPosition = null;
+        
+        // FPS counter state
+        this.fpsCounter = {
+            frameCount: 0,
+            lastTime: performance.now(),
+            fps: 60
+        };
+        
         // Playhead drag state
         this.playheadDragState = {
             isDragging: false,
@@ -55,8 +67,20 @@ class TrackEditor {
         // Waveform cache for performance
         this.waveformCache = new Map();
         
+        // Import screen state
+        this.selectedImportFiles = [];
+        
         // Initialize audio storage
         this.audioStorage = new AudioStorage();
+        
+        // Setup slice tool listeners
+        this.setupSliceToolListeners();
+        
+        // Setup toolbar listeners
+        this.setupToolbarListeners();
+        
+        // Start FPS counter
+        this.startFpsCounter();
         
         this.init();
     }
@@ -84,19 +108,38 @@ class TrackEditor {
             await this.cleanupAndReturn();
         });
 
+        // Import screen back button
+        const importBackBtn = document.getElementById('importBackBtn');
+        if (importBackBtn) {
+            importBackBtn.addEventListener('click', async () => {
+                // If user has selected files but hasn't confirmed, reset the screen
+                if (this.selectedImportFiles.length > 0) {
+                    this.resetImportScreen();
+                } else {
+                    await this.cleanupAndReturn();
+                }
+            });
+        }
+
         // Save button
         document.getElementById('saveBtn').addEventListener('click', () => {
             this.saveConfiguration();
         });
 
-        // Play/Pause button
-        document.getElementById('playPauseBtn').addEventListener('click', () => {
-            this.togglePlayPause();
-        });
-
         // Toast close
         document.getElementById('toastClose').addEventListener('click', () => {
             this.hideToast();
+        });
+
+        // Import screen event listeners
+        this.setupImportScreenListeners();
+        
+        // Space key for play/pause
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && !e.target.matches('input, textarea')) {
+                e.preventDefault();
+                this.togglePlayPause();
+            }
         });
         
         // Time ruler click to seek (only here, not on tracks)
@@ -172,8 +215,13 @@ class TrackEditor {
         
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
-            // S or C key to split
-            if ((e.key === 's' || e.key === 'S' || e.key === 'c' || e.key === 'C') && this.selectedTrackId) {
+            // C key to toggle slice tool
+            if (e.key === 'c' || e.key === 'C') {
+                e.preventDefault();
+                this.toggleSliceTool();
+            }
+            // S or C key to split (if slice tool is active)
+            else if ((e.key === 's' || e.key === 'S' || e.key === 'c' || e.key === 'C') && this.selectedTrackId && !this.sliceToolActive) {
                 e.preventDefault();
                 this.splitSelectedClip();
             }
@@ -196,6 +244,646 @@ class TrackEditor {
             }
         });
     }
+
+    showImportScreen() {
+        console.log('[EDITOR] Showing import screen');
+        
+        // Hide main header and timeline
+        const mainHeader = document.getElementById('mainHeader');
+        const timeline = document.querySelector('.daw-timeline');
+        
+        if (mainHeader) mainHeader.style.display = 'none';
+        if (timeline) timeline.style.display = 'none';
+        
+        // Show import screen
+        const importScreen = document.getElementById('importScreen');
+        if (importScreen) {
+            importScreen.style.display = 'flex';
+        }
+    }
+
+    hideImportScreen() {
+        console.log('[EDITOR] Hiding import screen');
+        
+        // Show main header and timeline
+        const mainHeader = document.getElementById('mainHeader');
+        const timeline = document.querySelector('.daw-timeline');
+        
+        if (mainHeader) mainHeader.style.display = 'flex';
+        if (timeline) timeline.style.display = 'flex';
+        
+        // Hide import screen
+        const importScreen = document.getElementById('importScreen');
+        if (importScreen) {
+            importScreen.style.display = 'none';
+        }
+    }
+
+    setupImportScreenListeners() {
+        const dropzone = document.getElementById('importDropzone');
+        const selectFolderBtn = document.getElementById('selectFolderBtn');
+        const selectFilesBtn = document.getElementById('selectFilesBtn');
+        const confirmImportBtn = document.getElementById('confirmImportBtn');
+        const dropzoneText = document.getElementById('dropzoneText');
+
+        if (!dropzone) return;
+
+        // Drag and drop events
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            });
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzone.addEventListener(eventName, () => {
+                dropzone.classList.add('dragover');
+                if (dropzoneText) dropzoneText.textContent = 'Solte para importar as tracks';
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, () => {
+                dropzone.classList.remove('dragover');
+                if (dropzoneText) dropzoneText.textContent = 'Arraste sua pasta aqui';
+            });
+        });
+
+        dropzone.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const items = Array.from(e.dataTransfer.items);
+            console.log('[EDITOR] Drop items:', items.length);
+            
+            if (items.length > 0) {
+                // Use DataTransferItem API to handle folders
+                const audioFiles = await this.collectAudioFilesFromDataTransfer(items);
+                this.handleSelectedFiles(audioFiles);
+            } else {
+                // Fallback to regular files if items not available
+                const files = Array.from(e.dataTransfer.files);
+                this.handleSelectedFiles(files);
+            }
+        });
+
+        // Click on dropzone also triggers file selection
+        dropzone.addEventListener('click', () => {
+            this.triggerFileSelection('folder');
+        });
+
+        // Select folder button
+        if (selectFolderBtn) {
+            selectFolderBtn.addEventListener('click', () => {
+                this.triggerFileSelection('folder');
+            });
+        }
+
+        // Select files button
+        if (selectFilesBtn) {
+            selectFilesBtn.addEventListener('click', () => {
+                this.triggerFileSelection('files');
+            });
+        }
+
+        // Confirm import button
+        if (confirmImportBtn) {
+            confirmImportBtn.addEventListener('click', () => {
+                this.confirmImport();
+            });
+        }
+
+        // Cancel import button
+        const cancelImportBtn = document.getElementById('cancelImportBtn');
+        if (cancelImportBtn) {
+            cancelImportBtn.addEventListener('click', () => {
+                this.resetImportScreen();
+            });
+        }
+    }
+
+    triggerFileSelection(mode) {
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.multiple = true;
+        
+        if (mode === 'folder') {
+            fileInput.setAttribute('webkitdirectory', '');
+            fileInput.setAttribute('directory', '');
+        }
+        
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            // For folder selection via input, files are already flattened
+            this.handleSelectedFiles(files);
+        });
+        
+        fileInput.click();
+    }
+
+    async collectAudioFilesFromDataTransfer(items) {
+        console.log('[EDITOR] Collecting audio files from DataTransfer items');
+        
+        const audioFiles = [];
+        
+        for (const item of items) {
+            const entry = item.webkitGetAsEntry();
+            
+            if (entry) {
+                if (entry.isFile) {
+                    const file = await this.getFileFromEntry(entry);
+                    if (file && this.isAudioFile(file)) {
+                        audioFiles.push(file);
+                    }
+                } else if (entry.isDirectory) {
+                    const folderFiles = await this.collectAudioFilesFromFolder(entry);
+                    audioFiles.push(...folderFiles);
+                }
+            }
+        }
+        
+        console.log('[EDITOR] Collected audio files from DataTransfer:', audioFiles.length);
+        return audioFiles;
+    }
+
+    async collectAudioFilesFromFolder(directoryEntry) {
+        console.log('[EDITOR] Collecting audio files from folder:', directoryEntry.name);
+        
+        const audioFiles = [];
+        
+        const reader = directoryEntry.createReader();
+        const entries = await this.readAllDirectoryEntries(reader);
+        
+        for (const entry of entries) {
+            if (entry.isFile) {
+                const file = await this.getFileFromEntry(entry);
+                if (file && this.isAudioFile(file)) {
+                    audioFiles.push(file);
+                }
+            } else if (entry.isDirectory) {
+                // Recursively collect from subdirectories
+                const subFolderFiles = await this.collectAudioFilesFromFolder(entry);
+                audioFiles.push(...subFolderFiles);
+            }
+        }
+        
+        console.log('[EDITOR] Found', audioFiles.length, 'audio files in folder:', directoryEntry.name);
+        return audioFiles;
+    }
+
+    readAllDirectoryEntries(directoryReader) {
+        return new Promise((resolve) => {
+            const entries = [];
+            
+            const readEntries = () => {
+                directoryReader.readEntries((results) => {
+                    if (results.length === 0) {
+                        resolve(entries);
+                    } else {
+                        entries.push(...results);
+                        readEntries();
+                    }
+                });
+            };
+            
+            readEntries();
+        });
+    }
+
+    getFileFromEntry(fileEntry) {
+        return new Promise((resolve, reject) => {
+            fileEntry.file((file) => {
+                resolve(file);
+            }, reject);
+        });
+    }
+
+    isAudioFile(file) {
+        const audioExtensions = ['.wav', '.mp3', '.flac', '.ogg', '.aiff', '.m4a', '.aac', '.wma', '.opus'];
+        const fileName = file.name.toLowerCase();
+        
+        // Check by MIME type
+        if (file.type.startsWith('audio/')) {
+            return true;
+        }
+        
+        // Check by file extension
+        return audioExtensions.some(ext => fileName.endsWith(ext));
+    }
+
+    handleSelectedFiles(files) {
+        console.log('[EDITOR] Files selected:', files.length);
+        
+        // Filter audio files using the centralized isAudioFile function
+        const audioFiles = files.filter(file => this.isAudioFile(file));
+        
+        console.log('[EDITOR] Audio files found:', audioFiles.length);
+        console.log('[EDITOR] Audio file names:', audioFiles.map(f => f.name));
+        
+        if (audioFiles.length === 0) {
+            alert('Nenhum arquivo de áudio encontrado. Por favor, selecione arquivos de áudio válidos (WAV, MP3, FLAC, etc.)');
+            this.resetImportScreen();
+            return;
+        }
+        
+        // Store selected files for later processing
+        this.selectedImportFiles = audioFiles;
+        
+        // Show preview
+        this.showFilesPreview(audioFiles);
+    }
+
+    resetImportScreen() {
+        const dropzone = document.getElementById('importDropzone');
+        const previewContainer = document.getElementById('importFilesPreview');
+        const previewList = document.getElementById('previewList');
+        
+        if (dropzone) {
+            dropzone.classList.remove('hidden');
+        }
+        
+        if (previewContainer) {
+            previewContainer.classList.remove('visible');
+        }
+        
+        if (previewList) {
+            previewList.innerHTML = '';
+        }
+        
+        this.selectedImportFiles = [];
+    }
+
+    showFilesPreview(audioFiles) {
+        const previewContainer = document.getElementById('importFilesPreview');
+        const previewList = document.getElementById('previewList');
+        const previewTitle = document.getElementById('previewTitle');
+        const dropzone = document.getElementById('importDropzone');
+        
+        if (!previewContainer || !previewList) return;
+        
+        previewList.innerHTML = '';
+        
+        // Update title with count
+        if (previewTitle) {
+            previewTitle.textContent = `TRACKS ENCONTRADAS (${audioFiles.length})`;
+        }
+        
+        // Sort files alphabetically for consistent ordering
+        const sortedFiles = audioFiles.sort((a, b) => a.name.localeCompare(b.name));
+        
+        sortedFiles.forEach((file, index) => {
+            const li = document.createElement('li');
+            const number = (index + 1).toString().padStart(2, '0');
+            li.textContent = `${number}  ${file.name}`;
+            previewList.appendChild(li);
+        });
+        
+        // Hide dropzone and show preview in its place
+        if (dropzone) {
+            dropzone.classList.add('hidden');
+        }
+        
+        previewContainer.classList.add('visible');
+    }
+
+    async confirmImport() {
+        console.log('[EDITOR] Confirming import with', this.selectedImportFiles.length, 'files');
+        
+        // Create new project from imported files
+        await this.createNewProjectFromImport(this.selectedImportFiles);
+    }
+
+    async createNewProjectFromImport(audioFiles) {
+        console.log('[EDITOR] Creating new project from imported files');
+        
+        try {
+            // Resume AudioContext if suspended
+            if (this.audioContext && this.audioContext.state === 'suspended') {
+                await this.audioContext.resume();
+            }
+            
+            // Sort files alphabetically for consistent ordering
+            const sortedFiles = audioFiles.sort((a, b) => a.name.localeCompare(b.name));
+            
+            // Create project structure
+            const newProject = {
+                id: `project_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                name: 'Novo projeto',
+                tracks: []
+            };
+            
+            // Create track entries with loading state
+            for (const file of sortedFiles) {
+                const track = {
+                    id: `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                    name: file.name.replace(/\.[^/.]+$/, ''), // Remove extension
+                    audioFileId: null, // Will be set during processing
+                    file: file, // Runtime file for decoding
+                    offset: 0,
+                    startTime: 0,
+                    endTime: null,
+                    mute: false,
+                    solo: false,
+                    loading: true, // Loading state
+                    error: null // Error state
+                };
+                
+                newProject.tracks.push(track);
+            }
+            
+            console.log('[EDITOR] Created project with', newProject.tracks.length, 'tracks');
+            
+            // Set as current project
+            this.currentProject = newProject;
+            
+            // Hide import screen and show editor
+            this.hideImportScreen();
+            
+            // Update project info
+            this.updateProjectInfo();
+            
+            // Render timeline with loading states immediately
+            this.renderTimeline();
+            
+            // Process each track individually in background (don't await)
+            this.processTracksIndividually(newProject);
+            
+        } catch (error) {
+            console.error('[EDITOR] Error creating project from import:', error);
+            alert('Erro ao criar projeto. Tente novamente.');
+            this.showImportScreen();
+        }
+    }
+
+    async processTracksIndividually(project) {
+        console.log('[EDITOR] Processing tracks individually');
+        
+        // Show global loading indicator
+        this.showGlobalLoadingIndicator();
+        
+        for (const track of project.tracks) {
+            try {
+                console.log('[EDITOR] Processing track:', track.name);
+                
+                // Generate audioFileId
+                const audioFileId = `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                
+                // Store audio file in AudioStorage using the correct method
+                await this.audioStorage.saveAudioFile(audioFileId, track.file);
+                console.log('[EDITOR] Stored audio file:', track.name, 'ID:', audioFileId);
+                
+                // Update track with audioFileId
+                track.audioFileId = audioFileId;
+                
+                // Decode audio buffer
+                await this.decodeAudioBuffer(track);
+                
+                // Set endTime based on actual audio duration
+                const audioBuffer = this.audioBuffers.get(track.id);
+                if (audioBuffer) {
+                    track.endTime = audioBuffer.duration;
+                }
+                
+                // Update track state to ready
+                track.loading = false;
+                track.error = null;
+                
+                // Update the specific track in the timeline
+                this.updateTrackLoadingState(track.id, 'ready');
+                
+                // Update mute/solo visual state
+                this.updateTrackVisualState(track.id);
+                
+                // Check if all tracks are done processing
+                this.updateGlobalLoadingIndicator();
+                
+                console.log('[EDITOR] Track ready:', track.name);
+                
+            } catch (error) {
+                console.error('[EDITOR] Error processing track:', track.name, error);
+                track.loading = false;
+                track.error = error.message;
+                
+                // Update the specific track in the timeline
+                this.updateTrackLoadingState(track.id, 'error');
+                
+                // Check if all tracks are done processing
+                this.updateGlobalLoadingIndicator();
+            }
+        }
+        
+        console.log('[EDITOR] All tracks processed');
+        
+        // Hide global loading indicator
+        this.hideGlobalLoadingIndicator();
+        
+        // Save project configuration
+        await this.saveConfiguration();
+    }
+
+    showGlobalLoadingIndicator() {
+        const indicator = document.getElementById('globalLoadingIndicator');
+        if (indicator) {
+            indicator.classList.add('visible');
+        }
+    }
+
+    hideGlobalLoadingIndicator() {
+        const indicator = document.getElementById('globalLoadingIndicator');
+        if (indicator) {
+            indicator.classList.remove('visible');
+        }
+    }
+
+    updateGlobalLoadingIndicator() {
+        // Check if any track is still loading
+        const hasLoadingTracks = this.currentProject.tracks.some(track => track.loading);
+        
+        if (!hasLoadingTracks) {
+            this.hideGlobalLoadingIndicator();
+        }
+    }
+
+    setupToolbarListeners() {
+        // Toolbar Play/Pause button
+        const toolbarPlayPauseBtn = document.getElementById('toolbarPlayPauseBtn');
+        if (toolbarPlayPauseBtn) {
+            toolbarPlayPauseBtn.addEventListener('click', () => {
+                this.togglePlayPause();
+            });
+        }
+        
+        // Toolbar Slice button
+        const toolbarSliceBtn = document.getElementById('toolbarSliceBtn');
+        if (toolbarSliceBtn) {
+            toolbarSliceBtn.addEventListener('click', () => {
+                this.toggleSliceTool();
+            });
+        }
+    }
+
+    startFpsCounter() {
+        const updateFps = () => {
+            this.fpsCounter.frameCount++;
+            const currentTime = performance.now();
+            const elapsed = currentTime - this.fpsCounter.lastTime;
+            
+            if (elapsed >= 1000) {
+                this.fpsCounter.fps = Math.round((this.fpsCounter.frameCount * 1000) / elapsed);
+                this.fpsCounter.frameCount = 0;
+                this.fpsCounter.lastTime = currentTime;
+                
+                // Update FPS display
+                const fpsDisplay = document.getElementById('toolbarFpsDisplay');
+                if (fpsDisplay) {
+                    fpsDisplay.textContent = `FPS: ${this.fpsCounter.fps}`;
+                }
+            }
+            
+            requestAnimationFrame(updateFps);
+        };
+        
+        requestAnimationFrame(updateFps);
+    }
+
+    updateToolbarTimeDisplay() {
+        const toolbarTimeDisplay = document.getElementById('toolbarTimeDisplay');
+        if (toolbarTimeDisplay) {
+            const minutes = Math.floor(this.currentTime / 60);
+            const seconds = Math.floor(this.currentTime % 60);
+            const milliseconds = Math.floor((this.currentTime % 1) * 1000);
+            toolbarTimeDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
+        }
+    }
+
+    updateToolbarPlayPauseButton() {
+        const toolbarPlayIcon = document.getElementById('toolbarPlayIcon');
+        const toolbarPauseIcon = document.getElementById('toolbarPauseIcon');
+        
+        if (this.isPlaying) {
+            toolbarPlayIcon.style.display = 'none';
+            toolbarPauseIcon.style.display = 'block';
+        } else {
+            toolbarPlayIcon.style.display = 'block';
+            toolbarPauseIcon.style.display = 'none';
+        }
+    }
+
+    updateToolbarSliceButton() {
+        const toolbarSliceBtn = document.getElementById('toolbarSliceBtn');
+        if (toolbarSliceBtn) {
+            if (this.sliceToolActive) {
+                toolbarSliceBtn.classList.add('active');
+            } else {
+                toolbarSliceBtn.classList.remove('active');
+            }
+        }
+    }
+
+    updateTrackLoadingState(trackId, state) {
+        // Find the track timeline element
+        const timelineRow = document.querySelector(`.daw-playlist-track-timeline[data-track-id="${trackId}"]`);
+        const trackHeader = document.querySelector(`.daw-playlist-track-header[data-track-id="${trackId}"]`);
+        
+        if (!timelineRow || !trackHeader) {
+            console.warn('[EDITOR] Track elements not found for:', trackId);
+            return;
+        }
+        
+        // Remove existing loading/error state classes
+        timelineRow.classList.remove('loading', 'error');
+        trackHeader.classList.remove('loading', 'error');
+        
+        // Add new state class if loading or error
+        if (state === 'loading') {
+            timelineRow.classList.add('loading');
+            trackHeader.classList.add('loading');
+        } else if (state === 'error') {
+            timelineRow.classList.add('error');
+            trackHeader.classList.add('error');
+        }
+        
+        // Update the audio block based on state
+        const audioBlock = timelineRow.querySelector('.daw-audio-block');
+        if (audioBlock) {
+            if (state === 'ready') {
+                // Clear loading/error indicators and add waveform
+                audioBlock.innerHTML = '';
+                
+                const track = this.currentProject.tracks.find(t => t.id === trackId);
+                if (track) {
+                    // Get track config for dimensions
+                    const config = this.trackConfigs.get(trackId);
+                    if (!config) {
+                        // Initialize config if not exists
+                        const actualDuration = track.endTime || 180;
+                        config = {
+                            name: track.name,
+                            offset: track.offset || 0,
+                            trimIn: track.startTime || 0,
+                            trimOut: track.endTime || actualDuration,
+                            originalDuration: actualDuration,
+                            mute: track.mute || false,
+                            solo: track.solo || false
+                        };
+                        this.trackConfigs.set(trackId, config);
+                    }
+                    
+                    // Calculate block dimensions
+                    const trackOffset = track.offset || 0;
+                    const trackStart = track.startTime || 0;
+                    const trackEnd = track.endTime || config.originalDuration;
+                    
+                    const blockLeft = (trackOffset + trackStart) * this.pixelsPerSecond;
+                    const blockWidth = (trackEnd - trackStart) * this.pixelsPerSecond;
+                    
+                    // Update block position and size
+                    audioBlock.style.left = `${blockLeft}px`;
+                    audioBlock.style.width = `${blockWidth}px`;
+                    
+                    // Create waveform canvas
+                    const waveformCanvas = document.createElement('canvas');
+                    waveformCanvas.className = 'daw-audio-waveform';
+                    waveformCanvas.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;';
+                    audioBlock.appendChild(waveformCanvas);
+                    
+                    // Draw waveform
+                    const canvasWidth = blockWidth;
+                    const canvasHeight = 36;
+                    waveformCanvas.width = canvasWidth;
+                    waveformCanvas.height = canvasHeight;
+                    
+                    requestAnimationFrame(() => {
+                        this.drawWaveform(waveformCanvas, trackId, canvasWidth, canvasHeight, config.trimIn, config.trimOut);
+                    });
+                    
+                    // Track info
+                    const info = document.createElement('div');
+                    info.className = 'daw-audio-block-info';
+                    info.textContent = `${trackOffset.toFixed(2)}s`;
+                    audioBlock.appendChild(info);
+                    
+                    console.log('[EDITOR] Track visual updated to ready:', track.name);
+                }
+            } else if (state === 'loading') {
+                // Show loading indicator
+                audioBlock.innerHTML = `
+                    <div class="track-loading-indicator">
+                        <div class="loading-spinner-small"></div>
+                        <span>Carregando...</span>
+                    </div>
+                `;
+            } else if (state === 'error') {
+                // Show error indicator
+                audioBlock.innerHTML = `
+                    <div class="track-error-indicator">
+                        <span>⚠ Erro ao carregar</span>
+                    </div>
+                `;
+            }
+        }
+    }
     
     async loadProjectFromURL() {
         const urlParams = new URLSearchParams(window.location.search);
@@ -211,8 +899,8 @@ class TrackEditor {
         }
         
         if (!projectId) {
-            console.error('[EDITOR] No project ID provided');
-            this.showError('Projeto não encontrado', 'Nenhum ID de projeto foi fornecido.');
+            console.log('[EDITOR] No project ID provided, showing import screen');
+            this.showImportScreen();
             this.hideSplashScreen();
             return;
         }
@@ -617,27 +1305,35 @@ class TrackEditor {
         playlistContent.innerHTML = '';
         timeRuler.innerHTML = '';
         
-        // Calculate total duration from actual audio buffers
+        // Calculate total duration from actual audio buffers or fallback
         let maxDuration = 0;
+        let hasLoadedTracks = false;
+        
         for (const track of this.currentProject.tracks) {
             const audioBuffer = this.audioBuffers.get(track.id);
             if (audioBuffer) {
+                hasLoadedTracks = true;
                 const trackOffset = track.offset || 0;
                 const totalSpan = trackOffset + audioBuffer.duration;
                 if (totalSpan > maxDuration) {
                     maxDuration = totalSpan;
                 }
                 console.log('[EDITOR] Track:', track.name, 'duration:', audioBuffer.duration.toFixed(2) + 's', 'offset:', trackOffset.toFixed(2) + 's', 'total:', totalSpan.toFixed(2) + 's');
-            } else {
-                // Fallback to track.endTime if no buffer
+            } else if (!track.loading) {
+                // Track not loading and no buffer - use endTime
                 const duration = track.endTime || 180;
                 const trackOffset = track.offset || 0;
                 const totalSpan = trackOffset + duration;
                 if (totalSpan > maxDuration) {
                     maxDuration = totalSpan;
                 }
-                console.log('[EDITOR] Track:', track.name, 'no buffer, using endTime:', duration.toFixed(2) + 's', 'offset:', trackOffset.toFixed(2) + 's', 'total:', totalSpan.toFixed(2) + 's');
             }
+        }
+        
+        // If all tracks are still loading, use default duration
+        if (!hasLoadedTracks && maxDuration === 0) {
+            maxDuration = 180; // Default 3 minutes
+            console.log('[EDITOR] All tracks loading, using default duration:', maxDuration);
         }
         
         // Ensure minimum duration of 60 seconds
@@ -682,7 +1378,7 @@ class TrackEditor {
             this.renderPlaylistTrack(track, trackHeaders, playlistContent, maxDuration);
         }
         
-        // Update all track visual states based on mute/solo
+        // Update all track visual states based on loading/error/mute/solo
         this.updateAllTrackVisualStates();
         
         // Update zoom display
@@ -742,6 +1438,13 @@ class TrackEditor {
         header.className = 'daw-playlist-track-header';
         header.dataset.trackId = track.id;
         
+        // Add loading/error state class
+        if (track.loading) {
+            header.classList.add('loading');
+        } else if (track.error) {
+            header.classList.add('error');
+        }
+        
         // Track name
         const nameInput = document.createElement('input');
         nameInput.type = 'text';
@@ -794,6 +1497,13 @@ class TrackEditor {
         timelineRow.className = 'daw-playlist-track-timeline';
         timelineRow.dataset.trackId = track.id;
         
+        // Add loading/error state class
+        if (track.loading) {
+            timelineRow.classList.add('loading');
+        } else if (track.error) {
+            timelineRow.classList.add('error');
+        }
+        
         // Get actual audio duration from buffer
         const audioBuffer = this.audioBuffers.get(track.id);
         const actualDuration = audioBuffer ? audioBuffer.duration : (track.endTime || 180);
@@ -814,26 +1524,44 @@ class TrackEditor {
         block.style.left = `${blockLeft}px`;
         block.style.width = `${blockWidth}px`;
         
-        // Waveform canvas (lightweight visualization)
-        const waveformCanvas = document.createElement('canvas');
-        waveformCanvas.className = 'daw-audio-waveform';
-        waveformCanvas.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;';
-        block.appendChild(waveformCanvas);
-        
-        // Draw waveform after canvas is in DOM
-        requestAnimationFrame(() => {
-            const canvasWidth = blockWidth;
-            const canvasHeight = 36; // Match block height - padding
-            waveformCanvas.width = canvasWidth;
-            waveformCanvas.height = canvasHeight;
-            this.drawWaveform(waveformCanvas, track.id, canvasWidth, canvasHeight, trackStart, trackEnd);
-        });
-        
-        // Track info
-        const info = document.createElement('div');
-        info.className = 'daw-audio-block-info';
-        info.textContent = `${trackOffset.toFixed(2)}s`;
-        block.appendChild(info);
+        // Handle loading/error states
+        if (track.loading) {
+            // Show loading indicator
+            block.innerHTML = `
+                <div class="track-loading-indicator">
+                    <div class="loading-spinner-small"></div>
+                    <span>Carregando...</span>
+                </div>
+            `;
+        } else if (track.error) {
+            // Show error indicator
+            block.innerHTML = `
+                <div class="track-error-indicator">
+                    <span>⚠ Erro ao carregar</span>
+                </div>
+            `;
+        } else {
+            // Show waveform for ready tracks
+            const waveformCanvas = document.createElement('canvas');
+            waveformCanvas.className = 'daw-audio-waveform';
+            waveformCanvas.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;';
+            block.appendChild(waveformCanvas);
+            
+            // Draw waveform after canvas is in DOM
+            requestAnimationFrame(() => {
+                const canvasWidth = blockWidth;
+                const canvasHeight = 36; // Match block height - padding
+                waveformCanvas.width = canvasWidth;
+                waveformCanvas.height = canvasHeight;
+                this.drawWaveform(waveformCanvas, track.id, canvasWidth, canvasHeight, trackStart, trackEnd);
+            });
+            
+            // Track info
+            const info = document.createElement('div');
+            info.className = 'daw-audio-block-info';
+            info.textContent = `${trackOffset.toFixed(2)}s`;
+            block.appendChild(info);
+        }
         
         // Click handler for selection
         block.addEventListener('click', (e) => {
@@ -1167,8 +1895,8 @@ class TrackEditor {
     }
     
     updateZoomDisplay() {
-        const zoomPercent = Math.round((this.pixelsPerSecond / 100) * 100);
-        document.getElementById('zoomLevel').textContent = `${zoomPercent}%`;
+        // Zoom display removed from toolbar
+        // Function kept for potential future use
     }
     
     togglePlayPause() {
@@ -1177,6 +1905,9 @@ class TrackEditor {
         } else {
             this.play();
         }
+        
+        // Update toolbar play/pause button
+        this.updateToolbarPlayPauseButton();
     }
     
     play() {
@@ -1468,6 +2199,183 @@ class TrackEditor {
         console.log('[EDITOR] Clip split into two pieces');
     }
     
+    toggleSliceTool() {
+        this.sliceToolActive = !this.sliceToolActive;
+        
+        const timeline = document.querySelector('.daw-timeline');
+        const sliceLine = document.getElementById('sliceLine');
+        
+        if (this.sliceToolActive) {
+            console.log('[EDITOR] Slice tool activated');
+            timeline.classList.add('slice-active');
+            this.showToast('Ferramenta Slice ativada (C para desativar)');
+        } else {
+            console.log('[EDITOR] Slice tool deactivated');
+            timeline.classList.remove('slice-active');
+            if (sliceLine) {
+                sliceLine.classList.remove('visible');
+            }
+            this.sliceHoverTrackId = null;
+            this.sliceCursorPosition = null;
+        }
+        
+        // Update toolbar button state
+        this.updateToolbarSliceButton();
+    }
+    
+    setupSliceToolListeners() {
+        const timeline = document.querySelector('.daw-timeline');
+        const playlistViewport = document.getElementById('playlistViewport');
+        const sliceLine = document.getElementById('sliceLine');
+        
+        if (!timeline || !playlistViewport || !sliceLine) return;
+        
+        // Mouse move to show slice line
+        playlistViewport.addEventListener('mousemove', (e) => {
+            if (!this.sliceToolActive) return;
+            
+            const rect = playlistViewport.getBoundingClientRect();
+            const scrollLeft = playlistViewport.scrollLeft;
+            const x = e.clientX - rect.left + scrollLeft;
+            
+            // Convert pixel position to time
+            const timePosition = x / this.pixelsPerSecond;
+            
+            // Find which track is being hovered
+            const trackRow = e.target.closest('.daw-playlist-track-timeline');
+            if (trackRow) {
+                const trackId = trackRow.dataset.trackId;
+                this.sliceHoverTrackId = trackId;
+                this.sliceCursorPosition = timePosition;
+                
+                // Show slice line
+                sliceLine.style.left = `${x}px`;
+                sliceLine.classList.add('visible');
+                
+                // Highlight the hovered block
+                const audioBlock = trackRow.querySelector('.daw-audio-block');
+                if (audioBlock) {
+                    audioBlock.classList.add('slice-hover');
+                }
+            } else {
+                this.sliceHoverTrackId = null;
+                this.sliceCursorPosition = null;
+                sliceLine.classList.remove('visible');
+                
+                // Remove all highlights
+                document.querySelectorAll('.daw-audio-block.slice-hover').forEach(block => {
+                    block.classList.remove('slice-hover');
+                });
+            }
+        });
+        
+        // Mouse leave to hide slice line
+        playlistViewport.addEventListener('mouseleave', () => {
+            if (!this.sliceToolActive) return;
+            
+            sliceLine.classList.remove('visible');
+            this.sliceHoverTrackId = null;
+            this.sliceCursorPosition = null;
+            
+            // Remove all highlights
+            document.querySelectorAll('.daw-audio-block.slice-hover').forEach(block => {
+                block.classList.remove('slice-hover');
+            });
+        });
+        
+        // Click to perform slice
+        playlistViewport.addEventListener('click', (e) => {
+            if (!this.sliceToolActive) return;
+            
+            if (this.sliceHoverTrackId && this.sliceCursorPosition !== null) {
+                this.performSliceAtPosition(this.sliceHoverTrackId, this.sliceCursorPosition);
+            }
+        });
+    }
+    
+    performSliceAtPosition(trackId, splitTime) {
+        console.log('[EDITOR] Performing slice at position:', splitTime, 'for track:', trackId);
+        
+        const track = this.currentProject.tracks.find(t => t.id === trackId);
+        if (!track) {
+            console.error('[EDITOR] Track not found for slice:', trackId);
+            return;
+        }
+        
+        // Check if split time is within this clip's active range
+        const trackOffset = track.offset || 0;
+        const trackStart = track.startTime || 0;
+        const trackEnd = track.endTime || 180;
+        const trackStartTime = trackOffset + trackStart;
+        const trackEndTime = trackOffset + trackEnd;
+        
+        if (splitTime < trackStartTime || splitTime > trackEndTime) {
+            console.warn('[EDITOR] Split position not within clip range');
+            return;
+        }
+        
+        // Calculate split point relative to original audio
+        const splitPoint = splitTime - trackOffset;
+        
+        // Create first piece (left part)
+        const firstPiece = {
+            ...track,
+            id: track.id, // Keep original ID
+            endTime: splitPoint, // New trim-out
+            offset: trackOffset, // Keep original offset
+            startTime: trackStart // Keep original trim-in
+        };
+        
+        // Create second piece (right part)
+        const secondPiece = {
+            ...track,
+            id: `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // New ID
+            audioFileId: track.audioFileId, // Reuse same audio file
+            offset: splitTime, // New offset at split point
+            startTime: splitPoint, // New trim-in at split point
+            endTime: trackEnd, // Keep original trim-out
+            mute: false, // Reset mute for new piece
+            solo: false // Reset solo for new piece
+        };
+        
+        // Copy audio buffer to second piece (same underlying audio)
+        const originalBuffer = this.audioBuffers.get(track.id);
+        if (originalBuffer) {
+            this.audioBuffers.set(secondPiece.id, originalBuffer);
+        }
+        
+        // Remove original track and add both pieces
+        const trackIndex = this.currentProject.tracks.findIndex(t => t.id === track.id);
+        this.currentProject.tracks.splice(trackIndex, 1, firstPiece, secondPiece);
+        
+        // Update track configs
+        const originalConfig = this.trackConfigs.get(track.id) || {};
+        this.trackConfigs.set(firstPiece.id, {
+            ...originalConfig,
+            endTime: splitPoint
+        });
+        this.trackConfigs.set(secondPiece.id, {
+            ...originalConfig,
+            offset: splitTime,
+            trimIn: splitPoint,
+            trimOut: trackEnd
+        });
+        
+        // Recalculate max duration after split
+        this.maxDuration = this.getMaxDuration();
+        
+        // Update timeline width
+        this.updateTimelineWidth();
+        
+        // Select the newly created second piece
+        this.selectedTrackId = secondPiece.id;
+        
+        // Re-render timeline
+        this.renderTimeline();
+        
+        console.log('[EDITOR] Clip split into two pieces at timeline position:', splitTime);
+    }
+    
     pause() {
         this.isPlaying = false;
         this.updatePlayPauseButton();
@@ -1482,16 +2390,8 @@ class TrackEditor {
     }
     
     updatePlayPauseButton() {
-        const playIcon = document.getElementById('playIcon');
-        const pauseIcon = document.getElementById('pauseIcon');
-        
-        if (this.isPlaying) {
-            playIcon.style.display = 'none';
-            pauseIcon.style.display = 'block';
-        } else {
-            playIcon.style.display = 'block';
-            pauseIcon.style.display = 'none';
-        }
+        // Only update toolbar play/pause button
+        this.updateToolbarPlayPauseButton();
     }
     
     updatePlayhead() {
@@ -1517,10 +2417,8 @@ class TrackEditor {
     }
     
     updateTimeDisplay() {
-        const timeDisplay = document.getElementById('timeDisplay');
-        if (timeDisplay) {
-            timeDisplay.textContent = this.formatTime(Math.floor(this.currentTime));
-        }
+        // Only update toolbar time display
+        this.updateToolbarTimeDisplay();
     }
     
     seekToPosition(e) {

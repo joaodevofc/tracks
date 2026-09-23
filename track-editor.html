@@ -168,6 +168,47 @@
             border: 2px solid #667eea;
             box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
         }
+
+        /* Track loading state */
+        .track-loading-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            height: 100%;
+            color: #888;
+            font-size: 12px;
+        }
+
+        .loading-spinner-small {
+            width: 16px;
+            height: 16px;
+            border: 2px solid #1a1a1a;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        /* Track error state */
+        .track-error-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #ff6b6b;
+            font-size: 12px;
+        }
+
+        /* Track header loading/error states */
+        .daw-playlist-track-header.loading,
+        .daw-playlist-track-timeline.loading {
+            opacity: 0.6;
+        }
+
+        .daw-playlist-track-header.error,
+        .daw-playlist-track-timeline.error {
+            opacity: 0.8;
+        }
     </style>
     
     <script>
@@ -204,7 +245,7 @@
     </div>
 
     <!-- HEADER -->
-    <header class="daw-header">
+    <header class="daw-header" id="mainHeader">
         <div class="daw-header-left">
             <button class="daw-btn daw-btn-secondary" id="backBtn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -219,22 +260,6 @@
         </div>
         
         <div class="daw-header-right">
-            <div class="daw-playback-controls">
-                <button class="daw-btn" id="playPauseBtn" title="Play/Pause">
-                    <svg id="playIcon" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                    </svg>
-                    <svg id="pauseIcon" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="display: none;">
-                        <rect x="6" y="4" width="4" height="16"></rect>
-                        <rect x="14" y="4" width="4" height="16"></rect>
-                    </svg>
-                </button>
-                <span class="daw-time-display" id="timeDisplay">0:00</span>
-            </div>
-            <div class="daw-zoom-display">
-                <span class="daw-zoom-label">Zoom:</span>
-                <span class="daw-zoom-level" id="zoomLevel">100%</span>
-            </div>
             <button class="daw-btn daw-btn-primary" id="saveBtn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
@@ -245,6 +270,107 @@
             </button>
         </div>
     </header>
+
+    <!-- TOOLBAR -->
+    <div class="daw-toolbar" id="dawToolbar">
+        <div class="toolbar-section">
+            <button class="toolbar-btn" id="toolbarPlayPauseBtn" title="Play/Pause (Space)">
+                <svg id="toolbarPlayIcon" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+                <svg id="toolbarPauseIcon" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="display: none;">
+                    <rect x="6" y="4" width="4" height="16"></rect>
+                    <rect x="14" y="4" width="4" height="16"></rect>
+                </svg>
+            </button>
+            <div class="toolbar-time-display" id="toolbarTimeDisplay">00:00.000</div>
+            <div class="toolbar-fps-display" id="toolbarFpsDisplay">FPS: 60</div>
+        </div>
+        
+        <div class="toolbar-separator"></div>
+        
+        <div class="toolbar-section">
+            <button class="toolbar-btn" id="toolbarSliceBtn" title="Slice Tool (C)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="6" cy="6" r="3"></circle>
+                    <circle cx="6" cy="18" r="3"></circle>
+                    <line x1="20" y1="4" x2="8.12" y2="15.88"></line>
+                    <line x1="14.47" y1="14.48" x2="20" y1="20"></line>
+                    <line x1="8.12" y1="8.12" x2="12" y2="12"></line>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- IMPORT SCREEN (shown when no project) -->
+    <div class="import-screen" id="importScreen" style="display: none;">
+        <div class="import-header">
+            <button class="daw-btn daw-btn-secondary" id="importBackBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+                <span>Voltar</span>
+            </button>
+            <h1 class="import-title">TRACKS EDITOR</h1>
+        </div>
+        
+        <div class="import-content">
+            <h2 class="import-heading">Prepare suas tracks</h2>
+            <p class="import-subheading">Importe uma pasta para começar a editar</p>
+            
+            <div class="import-dropzone" id="importDropzone">
+                <div class="dropzone-content">
+                    <svg class="dropzone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <p class="dropzone-text" id="dropzoneText">Arraste sua pasta aqui</p>
+                </div>
+            </div>
+            
+            <div class="import-divider">
+                <span>ou</span>
+            </div>
+            
+            <div class="import-buttons">
+                <button class="import-btn primary" id="selectFolderBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    Selecionar pasta
+                </button>
+                <button class="import-btn secondary" id="selectFilesBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    Selecionar arquivos
+                </button>
+            </div>
+            
+            <div class="import-files-preview" id="importFilesPreview">
+                <h3 class="preview-title" id="previewTitle">TRACKS ENCONTRADAS</h3>
+                <ul class="preview-list" id="previewList"></ul>
+                <div class="preview-actions">
+                    <button class="import-cancel-btn" id="cancelImportBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                        Alterar seleção
+                    </button>
+                    <button class="import-confirm-btn" id="confirmImportBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        Confirmar importação
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- DAW TIMELINE -->
     <main class="daw-timeline">
@@ -286,6 +412,14 @@
             <button class="daw-toast-close" id="toastClose">&times;</button>
         </div>
     </div>
+
+    <!-- Global Loading Indicator -->
+    <div class="global-loading-indicator" id="globalLoadingIndicator">
+        <div class="global-spinner"></div>
+    </div>
+
+    <!-- Slice Line -->
+    <div class="slice-line" id="sliceLine"></div>
 
     <style>
         * {
@@ -427,15 +561,6 @@
             letter-spacing: 0.5px;
         }
 
-        .daw-zoom-level {
-            font-size: 12px;
-            color: #888;
-            min-width: 50px;
-            text-align: center;
-            font-family: 'Inter', monospace;
-            font-weight: 500;
-        }
-
         .daw-btn {
             display: flex;
             align-items: center;
@@ -477,6 +602,76 @@
         .daw-btn-primary:hover {
             background: #2a2a2a;
             border-color: #4a4a4a;
+        }
+
+        /* Toolbar */
+        .daw-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            padding: 12px 24px;
+            background: #0f0f0f;
+            border-bottom: 1px solid #1e1e1e;
+            flex-shrink: 0;
+        }
+
+        .toolbar-section {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .toolbar-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 6px;
+            color: #e0e0e0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .toolbar-btn:hover {
+            background: #252525;
+            border-color: #3a3a3a;
+        }
+
+        .toolbar-btn.active {
+            background: #667eea;
+            border-color: #764ba2;
+            color: white;
+            box-shadow: 0 0 8px rgba(102, 126, 234, 0.5);
+        }
+
+        .toolbar-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .toolbar-time-display {
+            font-family: 'Inter', monospace;
+            font-size: 14px;
+            color: #888;
+            min-width: 100px;
+            text-align: center;
+        }
+
+        .toolbar-fps-display {
+            font-family: 'Inter', monospace;
+            font-size: 12px;
+            color: #666;
+            min-width: 70px;
+        }
+
+        .toolbar-separator {
+            width: 1px;
+            height: 24px;
+            background: #2a2a2a;
         }
 
         /* Timeline */
@@ -961,6 +1156,499 @@
 
         .daw-track-headers::-webkit-scrollbar-thumb:hover {
             background: #252525;
+        }
+
+        /* Import Screen Styles */
+        .import-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #0a0a0a;
+            display: flex;
+            flex-direction: column;
+            z-index: 100;
+        }
+
+        .import-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px 24px;
+            background: #121212;
+            border-bottom: 1px solid #1e1e1e;
+        }
+
+        .import-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #ffffff;
+            margin: 0;
+        }
+
+        .import-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+            text-align: center;
+            overflow-y: auto;
+            box-sizing: border-box;
+            max-height: calc(100vh - 80px); /* Subtract header height */
+        }
+
+        .import-heading {
+            font-size: 32px;
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 12px;
+        }
+
+        .import-subheading {
+            font-size: 16px;
+            color: #a0a0a0;
+            margin-bottom: 48px;
+        }
+
+        .import-dropzone {
+            width: 100%;
+            max-width: 600px;
+            height: 180px;
+            border: 2px dashed #2a2a2a;
+            border-radius: 12px;
+            background: #121212;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 24px;
+            flex-shrink: 0;
+        }
+
+        .import-dropzone.hidden {
+            display: none;
+        }
+
+        .import-dropzone:hover {
+            border-color: #3a3a3a;
+            background: #1a1a1a;
+        }
+
+        .import-dropzone.dragover {
+            border-color: #667eea;
+            background: #1a1a1a;
+            transform: scale(1.02);
+        }
+
+        .dropzone-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .dropzone-icon {
+            width: 48px;
+            height: 48px;
+            color: #666;
+        }
+
+        .dropzone-text {
+            font-size: 16px;
+            color: #888;
+            margin: 0;
+        }
+
+        .import-dropzone.dragover .dropzone-text {
+            color: #667eea;
+        }
+
+        .import-dropzone.dragover .dropzone-icon {
+            color: #667eea;
+        }
+
+        .import-divider {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin: 24px 0;
+        }
+
+        .import-divider::before,
+        .import-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #2a2a2a;
+        }
+
+        .import-divider span {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .import-buttons {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .import-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 32px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .import-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .import-btn.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .import-btn.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .import-btn.secondary {
+            background: #1a1a1a;
+            color: #e0e0e0;
+            border: 1px solid #2a2a2a;
+        }
+
+        .import-btn.secondary:hover {
+            background: #252525;
+            border-color: #3a3a3a;
+        }
+
+        .import-files-preview {
+            width: 100%;
+            max-width: 600px;
+            max-height: 300px;
+            background: #121212;
+            border: 2px solid #2a2a2a;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            display: none;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .import-files-preview.visible {
+            display: flex;
+        }
+
+        .preview-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #e0e0e0;
+            margin-bottom: 16px;
+        }
+
+        .preview-list {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 16px 0;
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+            max-height: 200px;
+        }
+
+        .preview-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .preview-list::-webkit-scrollbar-track {
+            background: #0a0a0a;
+        }
+
+        .preview-list::-webkit-scrollbar-thumb {
+            background: #1a1a1a;
+            border-radius: 4px;
+        }
+
+        .preview-list::-webkit-scrollbar-thumb:hover {
+            background: #252525;
+        }
+
+        .preview-list li {
+            padding: 8px 12px;
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: #a0a0a0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .preview-list li::before {
+            content: '🎵';
+            font-size: 12px;
+        }
+
+        .import-confirm-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .import-confirm-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .import-confirm-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .preview-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .import-cancel-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .import-cancel-btn:hover {
+            background: #252525;
+            border-color: #3a3a3a;
+        }
+
+        .import-cancel-btn svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* Responsive styles */
+        @media (max-height: 700px) {
+            .import-content {
+                padding: 20px 20px;
+            }
+
+            .import-heading {
+                font-size: 24px;
+                margin-bottom: 8px;
+            }
+
+            .import-subheading {
+                font-size: 14px;
+                margin-bottom: 24px;
+            }
+
+            .import-dropzone {
+                height: 140px;
+                margin-bottom: 16px;
+            }
+
+            .import-files-preview {
+                max-height: 200px;
+                padding: 16px;
+            }
+
+            .preview-list {
+                max-height: 120px;
+            }
+
+            .import-buttons {
+                gap: 12px;
+            }
+
+            .import-btn {
+                padding: 12px 24px;
+                font-size: 14px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .import-content {
+                padding: 20px 16px;
+            }
+
+            .import-heading {
+                font-size: 24px;
+            }
+
+            .import-subheading {
+                font-size: 14px;
+            }
+
+            .import-dropzone {
+                height: 140px;
+            }
+
+            .import-files-preview {
+                max-height: 200px;
+                padding: 16px;
+            }
+
+            .preview-list {
+                max-height: 120px;
+            }
+
+            .import-buttons {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .import-btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .preview-actions {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .import-cancel-btn,
+            .import-confirm-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        @media (max-height: 500px) {
+            .import-content {
+                padding: 16px 20px;
+            }
+
+            .import-heading {
+                font-size: 20px;
+                margin-bottom: 6px;
+            }
+
+            .import-subheading {
+                font-size: 12px;
+                margin-bottom: 16px;
+            }
+
+            .import-dropzone {
+                height: 100px;
+                margin-bottom: 12px;
+            }
+
+            .import-files-preview {
+                max-height: 150px;
+                padding: 12px;
+            }
+
+            .preview-list {
+                max-height: 80px;
+            }
+
+            .import-buttons {
+                gap: 8px;
+            }
+
+            .import-btn {
+                padding: 10px 20px;
+                font-size: 13px;
+            }
+        }
+
+        /* Global Loading Indicator */
+        .global-loading-indicator {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10000;
+            pointer-events: none;
+            display: none;
+        }
+
+        .global-loading-indicator.visible {
+            display: block;
+        }
+
+        .global-spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid #1a1a1a;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: global-spin 1s linear infinite;
+        }
+
+        @keyframes global-spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Slice Tool */
+        .slice-cursor {
+            cursor: col-resize !important;
+        }
+
+        .slice-line {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #667eea;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 0 4px rgba(102, 126, 234, 0.5);
+        }
+
+        .slice-line.visible {
+            display: block;
+        }
+
+        .daw-timeline.slice-active {
+            cursor: col-resize;
+        }
+
+        .daw-audio-block.slice-hover {
+            border-color: #667eea;
+            box-shadow: 0 0 8px rgba(102, 126, 234, 0.3);
         }
     </style>
 
