@@ -2890,29 +2890,76 @@ class MultracksApp {
             this.checkFadersModified();
         };
 
-        // Pointer Events for unified mouse/touch/pen handling
+        // Pointer Events for unified mouse/touch/pen handling with direction detection
         faderContainer?.addEventListener('pointerdown', (e) => {
             if (isFaderLocked) return; // Don't allow interaction if locked
 
-            // Capture pointer for consistent tracking
-            faderContainer.setPointerCapture(e.pointerId);
+            // Store initial position and state for direction detection
+            const startX = e.clientX;
+            const startY = e.clientY;
+            const pointerId = e.pointerId;
+            let direction = null; // 'horizontal' or 'vertical'
+            let pointerCaptured = false;
+            const DIRECTION_THRESHOLD = 8; // pixels before deciding direction
 
-            // Immediate response on initial interaction
-            handleFaderInteraction(e.clientY, true);
+            // Get mixer tracks container for horizontal scrolling
+            const mixerTracks = this.mixerTracks;
+            const startScrollLeft = mixerTracks ? mixerTracks.scrollLeft : 0;
 
             const handlePointerMove = (moveEvent) => {
-                if (moveEvent.pointerId === e.pointerId) {
+                if (moveEvent.pointerId !== pointerId) return;
+
+                const deltaX = moveEvent.clientX - startX;
+                const deltaY = moveEvent.clientY - startY;
+                const absDeltaX = Math.abs(deltaX);
+                const absDeltaY = Math.abs(deltaY);
+
+                // Wait for threshold before deciding direction
+                if (direction === null) {
+                    if (Math.max(absDeltaX, absDeltaY) >= DIRECTION_THRESHOLD) {
+                        // Determine direction based on which delta is larger
+                        if (absDeltaX > absDeltaY) {
+                            direction = 'horizontal';
+                            // Horizontal: don't capture pointer, allow scroll
+                        } else {
+                            direction = 'vertical';
+                            // Vertical: capture pointer for fader control
+                            faderContainer.setPointerCapture(pointerId);
+                            pointerCaptured = true;
+                            // Initialize fader at current position
+                            handleFaderInteraction(moveEvent.clientY, true);
+                        }
+                    }
+                    return; // Don't process until direction is decided
+                }
+
+                // Process based on locked direction
+                if (direction === 'horizontal') {
+                    // Handle horizontal scroll
+                    if (mixerTracks) {
+                        mixerTracks.scrollLeft = startScrollLeft - deltaX;
+                    }
+                } else if (direction === 'vertical') {
+                    // Handle vertical fader movement
                     handleFaderInteraction(moveEvent.clientY, true);
                 }
             };
 
             const handlePointerUp = (upEvent) => {
-                if (upEvent.pointerId === e.pointerId) {
-                    faderContainer.releasePointerCapture(e.pointerId);
-                    faderContainer.removeEventListener('pointermove', handlePointerMove);
-                    faderContainer.removeEventListener('pointerup', handlePointerUp);
-                    
-                    // Apply smooth transition at end of drag
+                if (upEvent.pointerId !== pointerId) return;
+
+                // Cleanup
+                faderContainer.removeEventListener('pointermove', handlePointerMove);
+                faderContainer.removeEventListener('pointerup', handlePointerUp);
+                faderContainer.removeEventListener('pointercancel', handlePointerUp);
+
+                // Release pointer capture only if we captured it
+                if (pointerCaptured) {
+                    faderContainer.releasePointerCapture(pointerId);
+                }
+
+                // Apply smooth transition at end of vertical drag
+                if (direction === 'vertical') {
                     const rect = faderContainer.getBoundingClientRect();
                     const clickY = upEvent.clientY - rect.top;
                     const percentage = 1 - (clickY / rect.height);
@@ -2925,6 +2972,7 @@ class MultracksApp {
 
             faderContainer.addEventListener('pointermove', handlePointerMove);
             faderContainer.addEventListener('pointerup', handlePointerUp);
+            faderContainer.addEventListener('pointercancel', handlePointerUp);
         });
 
         // Prevent default input event to avoid conflicts with custom handling

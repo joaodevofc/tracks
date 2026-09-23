@@ -302,18 +302,15 @@ html, body {
 .mixer-container {
     padding: var(--spacing-xs) var(--spacing-md);
     -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x mandatory;
 }
 
 .mixer-tracks {
     -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x mandatory;
 }
 
 .track-channel {
     width: 70px;
     min-width: 70px;
-    scroll-snap-align: start;
 }
 
 .track-btn {
@@ -636,18 +633,15 @@ html, body {
         overflow-x: auto;
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
-        scroll-snap-type: x mandatory;
     }
     
     .mixer-tracks {
         -webkit-overflow-scrolling: touch;
-        scroll-snap-type: x mandatory;
     }
     
     .track-channel {
         width: 60px;
         min-width: 60px;
-        scroll-snap-align: start;
     }
     
     /* Even more compact faders for smartphone landscape */

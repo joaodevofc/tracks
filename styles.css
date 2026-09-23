@@ -1250,7 +1250,7 @@ input, select, textarea {
 }
 
 /* Reduced touch sensitivity for slider controls */
-.fader-input, .track-pan-input {
+.track-pan-input {
     touch-action: none;
     -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
@@ -1259,7 +1259,7 @@ input, select, textarea {
 }
 
 .fader-thumb {
-    touch-action: pan-x;
+    touch-action: none;
     -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
     pointer-events: auto;
@@ -4423,8 +4423,7 @@ body.fader-animations-disabled .led-pointer {
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x mandatory;
-    touch-action: pan-x;
+    touch-action: pan-x; /* Allow horizontal scroll via touch */
     user-select: none;
     -webkit-user-select: none;
     min-height: 0;
@@ -4438,7 +4437,9 @@ body.fader-animations-disabled .led-pointer {
     overflow-y: hidden;
     padding-bottom: var(--spacing-sm);
     -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x mandatory;
+    touch-action: pan-x; /* Allow horizontal scroll via touch */
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 /* Track Channel */
@@ -4456,7 +4457,6 @@ body.fader-animations-disabled .led-pointer {
     border-right: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 0;
     transition: background var(--transition-fast);
-    scroll-snap-align: start;
     user-select: none;
     -webkit-user-select: none;
     -webkit-touch-callout: none;
@@ -4826,7 +4826,7 @@ body.fader-animations-disabled .led-pointer {
     appearance: none;
     background: transparent;
     pointer-events: none; /* Disabled since we use custom interaction */
-    touch-action: none;
+    touch-action: none; /* Prevent default touch handling */
 }
 
 /* Webkit slider thumb (hidden but functional) */
