@@ -1034,6 +1034,7 @@
                     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                 </svg>
             </button>
+            <span class="player-fps" id="playerFps">60 FPS</span>
         </div>
         
         <!-- Loading Screen -->
@@ -1158,6 +1159,9 @@
                 <!-- Markers will be rendered here -->
             </div>
             
+            <!-- Selection Overlay -->
+            <div class="selection-overlay" id="selectionOverlay"></div>
+            
             <!-- Effect Upload Popover -->
             <div class="effect-popover" id="effectPopover">
                 <div class="popover-content">
@@ -1173,6 +1177,12 @@
                             </svg>
                             Fazer Upload de Efeito
                         </label>
+                        <button class="popover-btn marking-btn" id="openMarkingBtn">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+                            </svg>
+                            Adicionar Marcação
+                        </button>
                         <button class="popover-btn cancel-btn" id="cancelEffectBtn">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -1182,6 +1192,61 @@
                         </button>
                     </div>
                 </div>
+            </div>
+
+            <!-- Part Marking Modal -->
+            <div class="part-marking-modal" id="partMarkingModal">
+                <div class="part-marking-content">
+                    <h4 class="part-marking-title">Marcar Parte da Música</h4>
+                    <p class="part-marking-interval" id="partMarkingInterval">0:00 → 0:00</p>
+                    
+                    <div class="part-marking-section">
+                        <label class="part-marking-label">Qual parte da música?</label>
+                        <select class="part-marking-select" id="partSelect">
+                            <option value="Intro">Intro</option>
+                            <option value="Verso 1">Verso 1</option>
+                            <option value="Verso 2">Verso 2</option>
+                            <option value="Verso 3">Verso 3</option>
+                            <option value="Verso 4">Verso 4</option>
+                            <option value="Verso 5">Verso 5</option>
+                            <option value="Verso 6">Verso 6</option>
+                            <option value="Pré-refrão">Pré-refrão</option>
+                            <option value="Refrão">Refrão</option>
+                            <option value="Interlúdio">Interlúdio</option>
+                            <option value="Ponte">Ponte</option>
+                            <option value="Instrumental">Instrumental</option>
+                            <option value="Solo">Solo</option>
+                            <option value="Final">Final</option>
+                            <option value="Outro">Outro</option>
+                        </select>
+                    </div>
+                    
+                    <div class="part-marking-section">
+                        <label class="part-marking-label">Cor</label>
+                        <div class="color-picker" id="colorPicker">
+                            <button class="color-option" data-color="#FF6B6B" style="background-color: #FF6B6B;"></button>
+                            <button class="color-option" data-color="#4ECDC4" style="background-color: #4ECDC4;"></button>
+                            <button class="color-option" data-color="#45B7D1" style="background-color: #45B7D1;"></button>
+                            <button class="color-option" data-color="#96CEB4" style="background-color: #96CEB4;"></button>
+                            <button class="color-option" data-color="#FFEAA7" style="background-color: #FFEAA7;"></button>
+                            <button class="color-option" data-color="#DDA0DD" style="background-color: #DDA0DD;"></button>
+                            <button class="color-option" data-color="#98D8C8" style="background-color: #98D8C8;"></button>
+                            <button class="color-option" data-color="#F7DC6F" style="background-color: #F7DC6F;"></button>
+                            <button class="color-option" data-color="#BB8FCE" style="background-color: #BB8FCE;"></button>
+                            <button class="color-option" data-color="#85C1E9" style="background-color: #85C1E9;"></button>
+                        </div>
+                    </div>
+                    
+                    <div class="part-marking-actions">
+                        <button class="part-marking-btn cancel-btn" id="cancelPartMarkingBtn">Cancelar</button>
+                        <button class="part-marking-btn save-btn" id="savePartMarkingBtn">Salvar Marcação</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mark Here Button (floating during selection) -->
+            <div class="mark-here-button" id="markHereButton">
+                <span>MARCAR AQUI</span>
             </div>
         </div>
 
