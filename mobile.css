@@ -425,12 +425,13 @@ html, body {
 
 /* Waveform parts mobile adjustments */
 .waveform-part-label {
-    font-size: 8px;
+    font-size: 9px;
     top: 2px;
+    padding: 1px 4px;
 }
 
 .waveform-part-label.above {
-    top: -12px;
+    top: -16px;
 }
 
 .control-btn {

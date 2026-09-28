@@ -8662,6 +8662,12 @@ class MultracksApp {
             const endX = (part.end / this.totalDuration) * waveformWidth;
             const width = endX - startX;
 
+            // Skip if width is too small (less than 10px)
+            if (width < 10) {
+                console.log('[WAVEFORM PARTS] Skipping part with too small width:', width, part.name);
+                return;
+            }
+
             // Create part region
             const partRegion = document.createElement('div');
             partRegion.className = 'waveform-part-region';
@@ -8684,6 +8690,7 @@ class MultracksApp {
             } else {
                 // For normal regions, position inside
                 partLabel.style.left = `${startX + 4}px`;
+                partLabel.style.minWidth = `${minLabelWidth}px`;
                 partLabel.style.maxWidth = `${width - 8}px`;
             }
 
