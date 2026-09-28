@@ -751,6 +751,26 @@ service cloud.firestore {
 
 
     // ============================================================
+    // UPDATES (Atualizações do Sistema)
+    // ============================================================
+
+    match /updates/{updateId} {
+
+      // Usuários autenticados podem ler atualizações.
+      allow read: if request.auth != null;
+
+      // Apenas admin pode criar atualizações.
+      allow create: if isAuthorizedAdmin();
+
+      // Apenas admin pode atualizar atualizações.
+      allow update: if isAuthorizedAdmin();
+
+      // Apenas admin pode excluir atualizações.
+      allow delete: if isAuthorizedAdmin();
+    }
+
+
+    // ============================================================
     // REMOVIDO: Coleção admins antiga
     // Esta coleção foi substituída por adminUsers com sistema de segurança mais robusto
     // ============================================================

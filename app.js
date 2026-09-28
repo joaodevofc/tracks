@@ -306,6 +306,7 @@ class MultracksApp {
         this.initAuthModal();
         this.initGuestWarningModal();
         this.initPublicProfileModal();
+        this.initUpdatesModal();
         this.initPlayer();
         this.initWaveformPartsModal();
         this.initEventListeners();
@@ -11968,6 +11969,28 @@ class MultracksApp {
         this.currentProfileTracks = [];
     }
     
+    initUpdatesModal() {
+        this.updatesModal = document.getElementById('updatesModal');
+        this.updatesModalClose = document.getElementById('updatesModalClose');
+        this.updatesModalCloseBtn = document.getElementById('updatesModalCloseBtn');
+        this.updatesModalTitle = document.getElementById('updatesModalTitle');
+        this.updatesModalVersion = document.getElementById('updatesModalVersion');
+        this.updatesModalContent = document.getElementById('updatesModalContent');
+        this.updatesModalImage = document.getElementById('updatesModalImage');
+        this.updatesModalVisual = document.getElementById('updatesModalVisual');
+        
+        // Close button
+        this.updatesModalClose?.addEventListener('click', () => this.closeUpdatesModal());
+        this.updatesModalCloseBtn?.addEventListener('click', () => this.closeUpdatesModal());
+        
+        // Click outside to close
+        this.updatesModal?.addEventListener('click', (e) => {
+            if (e.target === this.updatesModal) {
+                this.closeUpdatesModal();
+            }
+        });
+    }
+    
     openPublicProfileModal(userId) {
         this.currentProfileUserId = userId;
         this.publicProfileModal.classList.add('active');
@@ -12109,6 +12132,132 @@ class MultracksApp {
         this.openModal();
     }
     
+    openUpdatesModal(updateData) {
+        // Check if we're on a page where updates modal should not appear
+        const currentPath = window.location.pathname;
+        if (currentPath.includes('central-ajuda.html') || currentPath.includes('planos.html')) {
+            console.log('[UPDATES] Skipping updates modal on excluded page:', currentPath);
+            return;
+        }
+        
+        if (!updateData) {
+            console.log('[UPDATES] No update data provided');
+            return;
+        }
+        
+        // Store update ID in modal for later reference
+        this.updatesModalTitle.dataset.updateId = updateData.id;
+        
+        // Set modal content
+        this.updatesModalTitle.textContent = updateData.title || 'Novidades';
+        this.updatesModalVersion.textContent = updateData.version || '';
+        
+        // Sanitize and set content
+        const sanitizedText = this.sanitizeHtml(updateData.text || '');
+        this.updatesModalContent.innerHTML = this.formatUpdateText(sanitizedText);
+        
+        // Set image if available
+        if (updateData.image) {
+            this.updatesModalImage.src = updateData.image;
+            this.updatesModalVisual.style.display = 'block';
+        } else {
+            this.updatesModalVisual.style.display = 'none';
+        }
+        
+        // Show modal
+        this.updatesModal.classList.add('active');
+    }
+    
+    closeUpdatesModal() {
+        this.updatesModal.classList.remove('active');
+        
+        // Mark the current update as seen
+        const currentUpdateId = this.updatesModalTitle.dataset.updateId;
+        if (currentUpdateId) {
+            this.markUpdateAsSeen(currentUpdateId);
+        }
+    }
+    
+    sanitizeHtml(text) {
+        // Basic HTML sanitization to prevent XSS
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    formatUpdateText(text) {
+        // Convert line breaks to paragraphs and create bullet points
+        const lines = text.split('\n').filter(line => line.trim());
+        return lines.map(line => {
+            // Check if line starts with dash or asterisk for bullet list
+            if (line.trim().startsWith('-') || line.trim().startsWith('*')) {
+                return `<li>${line.trim().substring(1).trim()}</li>`;
+            }
+            return `<p>${line}</p>`;
+        }).join('');
+    }
+    
+    async checkForUpdates() {
+        if (!window.firebaseDB) {
+            console.log('[UPDATES] Firebase not available');
+            return;
+        }
+        
+        try {
+            const { db, collection, query, orderBy, getDocs, limit } = window.firebaseDB;
+            const updatesQuery = query(
+                collection(db, 'updates'),
+                orderBy('createdAt', 'desc'),
+                limit(1)
+            );
+
+            const querySnapshot = await getDocs(updatesQuery);
+            
+            if (querySnapshot.empty) {
+                console.log('[UPDATES] No updates found');
+                return;
+            }
+            
+            const latestUpdate = querySnapshot.docs[0];
+            const updateData = {
+                id: latestUpdate.id,
+                ...latestUpdate.data()
+            };
+            
+            // Get last seen update ID from localStorage
+            const lastSeenUpdateId = localStorage.getItem('lastSeenUpdateId');
+            
+            // If this is a new update, show the modal
+            if (updateData.id !== lastSeenUpdateId) {
+                console.log('[UPDATES] New update found:', updateData.id);
+                this.openUpdatesModal(updateData);
+            } else {
+                console.log('[UPDATES] Update already seen:', updateData.id);
+            }
+            
+        } catch (error) {
+            console.error('[UPDATES] Error checking for updates:', error);
+            // Don't show error to user, just log it
+        }
+    }
+    
+    markUpdateAsSeen(updateId) {
+        localStorage.setItem('lastSeenUpdateId', updateId);
+        
+        // Also try to save to user document in Firestore
+        if (window.firebaseAuth && window.firebaseAuth.auth.currentUser) {
+            try {
+                const { db, doc, updateDoc } = window.firebaseDB;
+                const userRef = doc(db, 'users', window.firebaseAuth.auth.currentUser.uid);
+                updateDoc(userRef, {
+                    lastSeenUpdateId: updateId
+                });
+            } catch (error) {
+                console.error('[UPDATES] Error saving last seen update to Firestore:', error);
+            }
+        }
+    }
+    
     initPasswordStrength() {
         const registerPassword = document.getElementById('registerPassword');
         
@@ -12248,6 +12397,9 @@ class MultracksApp {
                             console.log('[AUTH] Storage reloaded, refreshing UI');
                             this.showLibraryLoading();
                             await this.renderLibrary();
+                            
+                            // Check for updates after user is logged in and storage is loaded
+                            this.checkForUpdates();
                         }
                     } else {
                         console.log('[AUTH] User is logged out');

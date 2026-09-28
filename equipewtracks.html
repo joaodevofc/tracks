@@ -199,6 +199,8 @@
       // Setup news image upload handlers
       setupNewsImageUpload();
       setupPollImageUpload();
+      setupUpdateImageUpload();
+      setupEditUpdateImageUpload();
 
       // Setup contas real-time listener and load initial data immediately
       setupContasRealtimeListener();
@@ -1047,6 +1049,14 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;}
       </svg>
       Notícias
     </div>
+    <div class="nav-item" data-tab="atualizacoes" onclick="switchTab('atualizacoes')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Atualizações
+    </div>
   </nav>
   
   <div class="sidebar-footer">
@@ -1658,6 +1668,40 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;}
       </div>
     </div>
 
+    <!-- Atualizações Tab -->
+    <div class="tab-content" id="tab-atualizacoes">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="label">Total de Atualizações</div>
+          <div class="value" id="updatesTotal">0</div>
+          <div class="change">Atualizações publicadas</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Atualização Atual</div>
+          <div class="value" id="currentUpdateVersion">-</div>
+          <div class="change">Versão mais recente</div>
+        </div>
+      </div>
+
+      <div class="actions-bar">
+        <button class="btn btn-primary" onclick="showCreateUpdateModal()">+ Nova Atualização</button>
+        <button class="btn btn-secondary" onclick="loadUpdates()">Atualizar</button>
+      </div>
+
+      <div class="data-table">
+        <div class="table-header" style="grid-template-columns: 60px 1fr 100px 140px 100px;">
+          <span>#</span>
+          <span>Título</span>
+          <span>Versão</span>
+          <span>Data</span>
+          <span>Ações</span>
+        </div>
+        <div id="allUpdates">
+          <div class="loading">Carregando atualizações...</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Create News Modal -->
     <div class="modal-overlay" id="createNewsModal">
       <div class="modal-content" style="max-width:600px;">
@@ -1805,6 +1849,132 @@ button{font:inherit;color:inherit;background:none;border:none;cursor:pointer;}
         </form>
       </div>
     </div>
+
+    <!-- Create Update Modal -->
+    <div class="modal-overlay" id="createUpdateModal">
+      <div class="modal-content" style="max-width:600px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+          <h2 style="font-family:var(--font-display);font-size:1.3rem;color:var(--white);">Nova Atualização</h2>
+          <button onclick="closeCreateUpdateModal()" style="padding:8px;color:var(--muted);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        <form id="createUpdateForm" onsubmit="submitUpdate(event)">
+          <div style="margin-bottom:16px;">
+            <label style="display:block;margin-bottom:8px;font-size:0.85rem;color:var(--muted);">Título da Atualização</label>
+            <input type="text" id="updateTitle" required style="width:100%;padding:12px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--white);font-size:0.95rem;" placeholder="Digite o título...">
+          </div>
+
+          <div style="margin-bottom:16px;">
+            <label style="display:block;margin-bottom:8px;font-size:0.85rem;color:var(--muted);">Versão (opcional)</label>
+            <input type="text" id="updateVersion" style="width:100%;padding:12px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--white);font-size:0.95rem;" placeholder="Ex: v1.4">
+          </div>
+
+          <div style="margin-bottom:16px;">
+            <label style="display:block;margin-bottom:8px;font-size:0.85rem;color:var(--muted);">Texto das Novidades</label>
+            <textarea id="updateText" required style="width:100%;padding:12px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--white);font-size:0.95rem;min-height:150px;resize:vertical;" placeholder="Digite as novidades... (use quebra de linha para cada item)"></textarea>
+          </div>
+
+          <div style="margin-bottom:16px;">
+            <label style="display:block;margin-bottom:8px;font-size:0.85rem;color:var(--muted);">Imagem da Atualização</label>
+            <div id="updateImageUploadArea" class="cover-upload-area" onclick="document.getElementById('updateImageInput').click()">
+              <div id="updateImageUploadPlaceholder" class="cover-upload-placeholder">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                  <polyline points="21 15 16 10 5 21"/>
+                </svg>
+                <span style="margin-top:12px;font-size:0.9rem;color:var(--muted);">Clique ou arraste uma imagem aqui</span>
+              </div>
+              <div id="updateImageUploadPreview" class="cover-preview" style="display:none;">
+                <img id="updateImagePreviewImg" src="" alt="Preview">
+                <button type="button" class="cover-remove-btn" onclick="event.stopPropagation(); resetUpdateImageUpload()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <input type="file" id="updateImageInput" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="handleUpdateImageSelect(event)">
+            <div id="updateImageFileInfo" style="margin-top:8px;font-size:0.85rem;color:var(--muted);"></div>
+          </div>
+
+          <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:12px;">
+            <button type="button" class="btn btn-secondary" onclick="closeCreateUpdateModal()">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Publicar Atualização</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Edit Update Modal -->
+    <div class="modal-overlay" id="editUpdateModal">
+      <div class="modal-content" style="max-width:600px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+          <h2 style="font-family:var(--font-display);font-size:1.3rem;color:var(--white);">Editar Atualização</h2>
+          <button onclick="closeEditUpdateModal()" style="padding:8px;color:var(--muted);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        <form id="editUpdateForm" onsubmit="submitUpdateEdit(event)">
+          <input type="hidden" id="editUpdateId">
+          
+          <div style="margin-bottom:16px;">
+            <label style="display:block;margin-bottom:8px;font-size:0.85rem;color:var(--muted);">Título da Atualização</label>
+            <input type="text" id="editUpdateTitle" required style="width:100%;padding:12px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--white);font-size:0.95rem;">
+          </div>
+
+          <div style="margin-bottom:16px;">
+            <label style="display:block;margin-bottom:8px;font-size:0.85rem;color:var(--muted);">Versão (opcional)</label>
+            <input type="text" id="editUpdateVersion" style="width:100%;padding:12px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--white);font-size:0.95rem;">
+          </div>
+
+          <div style="margin-bottom:16px;">
+            <label style="display:block;margin-bottom:8px;font-size:0.85rem;color:var(--muted);">Texto das Novidades</label>
+            <textarea id="editUpdateText" required style="width:100%;padding:12px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;color:var(--white);font-size:0.95rem;min-height:150px;resize:vertical;"></textarea>
+          </div>
+
+          <div style="margin-bottom:16px;">
+            <label style="display:block;margin-bottom:8px;font-size:0.85rem;color:var(--muted);">Imagem da Atualização</label>
+            <div id="editUpdateImageUploadArea" class="cover-upload-area" onclick="document.getElementById('editUpdateImageInput').click()">
+              <div id="editUpdateImageUploadPlaceholder" class="cover-upload-placeholder">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                  <polyline points="21 15 16 10 5 21"/>
+                </svg>
+                <span style="margin-top:12px;font-size:0.9rem;color:var(--muted);">Clique ou arraste uma imagem aqui</span>
+              </div>
+              <div id="editUpdateImageUploadPreview" class="cover-preview" style="display:none;">
+                <img id="editUpdateImagePreviewImg" src="" alt="Preview">
+                <button type="button" class="cover-remove-btn" onclick="event.stopPropagation(); resetEditUpdateImageUpload()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <input type="file" id="editUpdateImageInput" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="handleEditUpdateImageSelect(event)">
+            <div id="editUpdateImageFileInfo" style="margin-top:8px;font-size:0.85rem;color:var(--muted);"></div>
+          </div>
+
+          <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:12px;">
+            <button type="button" class="btn btn-secondary" onclick="closeEditUpdateModal()">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
   </div>
 </main>
@@ -1842,7 +2012,8 @@ function switchTab(tabName){
     'analytics': 'Analytics',
     'checkout': 'Configuração do Checkout',
     'formularios': 'Formulários',
-    'noticias': 'Gestão de Notícias'
+    'noticias': 'Gestão de Notícias',
+    'atualizacoes': 'Gestão de Atualizações'
   };
   document.getElementById('pageTitle').textContent = titles[tabName];
 
@@ -1873,6 +2044,8 @@ function switchTab(tabName){
     loadFormularios();
   } else if(tabName === 'noticias'){
     loadNoticias();
+  } else if(tabName === 'atualizacoes'){
+    loadUpdates();
   }
   
   // Close mobile sidebar
@@ -5257,6 +5430,72 @@ function resetPollImageUpload(){
   if (fileInput) fileInput.value = '';
 }
 
+// Setup update image upload area
+function setupUpdateImageUpload(){
+  const uploadArea = document.getElementById('updateImageUploadArea');
+  const fileInput = document.getElementById('updateImageInput');
+  
+  if (!uploadArea || !fileInput) return;
+
+  // Click to upload
+  uploadArea.addEventListener('click', () => fileInput.click());
+
+  // Drag and drop
+  uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.style.borderColor = 'var(--border-strong)';
+    uploadArea.style.background = 'var(--bg-hover)';
+  });
+
+  uploadArea.addEventListener('dragleave', () => {
+    uploadArea.style.borderColor = 'var(--border)';
+    uploadArea.style.background = 'var(--bg-card)';
+  });
+
+  uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadArea.style.borderColor = 'var(--border)';
+    uploadArea.style.background = 'var(--bg-card)';
+    const files = e.dataTransfer.files;
+    if(files.length > 0){
+      handleUpdateImageSelect({ target: { files } });
+    }
+  });
+}
+
+// Setup edit update image upload area
+function setupEditUpdateImageUpload(){
+  const uploadArea = document.getElementById('editUpdateImageUploadArea');
+  const fileInput = document.getElementById('editUpdateImageInput');
+  
+  if (!uploadArea || !fileInput) return;
+
+  // Click to upload
+  uploadArea.addEventListener('click', () => fileInput.click());
+
+  // Drag and drop
+  uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.style.borderColor = 'var(--border-strong)';
+    uploadArea.style.background = 'var(--bg-hover)';
+  });
+
+  uploadArea.addEventListener('dragleave', () => {
+    uploadArea.style.borderColor = 'var(--border)';
+    uploadArea.style.background = 'var(--bg-card)';
+  });
+
+  uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadArea.style.borderColor = 'var(--border)';
+    uploadArea.style.background = 'var(--bg-card)';
+    const files = e.dataTransfer.files;
+    if(files.length > 0){
+      handleEditUpdateImageSelect({ target: { files } });
+    }
+  });
+}
+
 // Handle poll option image selection
 function handlePollOptionImageSelect(event, uploadDiv){
   const file = event.target.files[0];
@@ -5282,6 +5521,414 @@ function handlePollOptionImageSelect(event, uploadDiv){
     previewImg.style.display = 'block';
   };
   reader.readAsDataURL(file);
+}
+
+// ========================================
+// UPDATES MANAGEMENT
+// ========================================
+let selectedUpdateImageFile = null;
+let selectedEditUpdateImageFile = null;
+
+// Load updates from Firebase
+async function loadUpdates(){
+  if (!window.firebaseDB) {
+    console.warn('[UPDATES] Firebase not available');
+    return;
+  }
+
+  try {
+    const { db, collection, query, orderBy, getDocs } = window.firebaseDB;
+    const updatesQuery = query(
+      collection(db, 'updates'),
+      orderBy('createdAt', 'desc')
+    );
+
+    const querySnapshot = await getDocs(updatesQuery);
+    const updates = [];
+    
+    querySnapshot.forEach((doc) => {
+      updates.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+
+    renderUpdates(updates);
+    updateUpdatesStats(updates);
+  } catch (error) {
+    console.error('[UPDATES] Error loading updates:', error);
+  }
+}
+
+// Render updates table
+function renderUpdates(updates){
+  const container = document.getElementById('allUpdates');
+  if (!container) return;
+
+  if (updates.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        <h3>Nenhuma atualização</h3>
+        <p>Crie a primeira atualização do sistema.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = updates.map((update, index) => {
+    const date = update.createdAt 
+      ? new Date(update.createdAt.seconds * 1000).toLocaleDateString('pt-BR')
+      : '-';
+
+    return `
+      <div class="table-row">
+        <div class="table-cell id">${index + 1}</div>
+        <div class="table-cell email">${update.title}</div>
+        <div class="table-cell date">${update.version || '-'}</div>
+        <div class="table-cell date">${date}</div>
+        <div class="table-cell actions">
+          <button class="action-btn" onclick="editUpdate('${update.id}')">Editar</button>
+          <button class="action-btn delete" onclick="deleteUpdate('${update.id}')">Excluir</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// Update updates stats
+function updateUpdatesStats(updates){
+  const totalElement = document.getElementById('updatesTotal');
+  const currentVersionElement = document.getElementById('currentUpdateVersion');
+
+  if (totalElement) {
+    totalElement.textContent = updates.length;
+  }
+
+  if (currentVersionElement && updates.length > 0) {
+    currentVersionElement.textContent = updates[0].version || '-';
+  }
+}
+
+// Show create update modal
+function showCreateUpdateModal(){
+  const modal = document.getElementById('createUpdateModal');
+  if (modal) {
+    modal.classList.add('active');
+  }
+}
+
+// Close create update modal
+function closeCreateUpdateModal(){
+  const modal = document.getElementById('createUpdateModal');
+  if (modal) {
+    modal.classList.remove('active');
+    const form = document.getElementById('createUpdateForm');
+    if (form) form.reset();
+    resetUpdateImageUpload();
+    selectedUpdateImageFile = null;
+  }
+}
+
+// Show edit update modal
+function editUpdate(updateId){
+  if (!window.firebaseDB) {
+    alert('Firebase não disponível');
+    return;
+  }
+
+  const { db, doc, getDoc } = window.firebaseDB;
+
+  getDoc(doc(db, 'updates', updateId)).then((docSnap) => {
+    if (docSnap.exists()) {
+      const update = docSnap.data();
+      
+      document.getElementById('editUpdateId').value = updateId;
+      document.getElementById('editUpdateTitle').value = update.title;
+      document.getElementById('editUpdateVersion').value = update.version || '';
+      document.getElementById('editUpdateText').value = update.text;
+
+      // Set image preview if exists
+      if (update.image) {
+        const previewImg = document.getElementById('editUpdateImagePreviewImg');
+        const placeholder = document.getElementById('editUpdateImageUploadPlaceholder');
+        const preview = document.getElementById('editUpdateImageUploadPreview');
+        
+        previewImg.src = update.image;
+        placeholder.style.display = 'none';
+        preview.style.display = 'block';
+      }
+
+      const modal = document.getElementById('editUpdateModal');
+      if (modal) {
+        modal.classList.add('active');
+      }
+    }
+  }).catch((error) => {
+    console.error('[UPDATES] Error loading update:', error);
+    alert('Erro ao carregar atualização');
+  });
+}
+
+// Close edit update modal
+function closeEditUpdateModal(){
+  const modal = document.getElementById('editUpdateModal');
+  if (modal) {
+    modal.classList.remove('active');
+    const form = document.getElementById('editUpdateForm');
+    if (form) form.reset();
+    resetEditUpdateImageUpload();
+    selectedEditUpdateImageFile = null;
+  }
+}
+
+// Submit update
+async function submitUpdate(event){
+  event.preventDefault();
+
+  if (!window.firebaseDB) {
+    alert('Firebase não disponível');
+    return;
+  }
+
+  const title = document.getElementById('updateTitle').value;
+  const version = document.getElementById('updateVersion').value;
+  const text = document.getElementById('updateText').value;
+
+  try {
+    let imageUrl = '';
+
+    // Upload image if selected
+    if (selectedUpdateImageFile) {
+      imageUrl = await uploadUpdateImageToCloudinary(selectedUpdateImageFile);
+    }
+
+    const { db, collection, addDoc, serverTimestamp } = window.firebaseDB;
+    
+    await addDoc(collection(db, 'updates'), {
+      title,
+      version: version || null,
+      text,
+      image: imageUrl,
+      createdAt: serverTimestamp()
+    });
+
+    console.log('[UPDATES] Update created successfully');
+    closeCreateUpdateModal();
+    loadUpdates();
+    alert('Atualização publicada com sucesso!');
+  } catch (error) {
+    console.error('[UPDATES] Error creating update:', error);
+    alert('Erro ao publicar atualização: ' + error.message);
+  }
+}
+
+// Submit update edit
+async function submitUpdateEdit(event){
+  event.preventDefault();
+
+  if (!window.firebaseDB) {
+    alert('Firebase não disponível');
+    return;
+  }
+
+  const updateId = document.getElementById('editUpdateId').value;
+  const title = document.getElementById('editUpdateTitle').value;
+  const version = document.getElementById('editUpdateVersion').value;
+  const text = document.getElementById('editUpdateText').value;
+
+  try {
+    let imageUrl = null;
+
+    // Upload new image if selected
+    if (selectedEditUpdateImageFile) {
+      imageUrl = await uploadUpdateImageToCloudinary(selectedEditUpdateImageFile);
+    }
+
+    const { db, doc, updateDoc, serverTimestamp } = window.firebaseDB;
+    
+    const updateData = {
+      title,
+      version: version || null,
+      text,
+      updatedAt: serverTimestamp()
+    };
+
+    // Only update image if a new one was uploaded
+    if (imageUrl !== null) {
+      updateData.image = imageUrl;
+    }
+
+    await updateDoc(doc(db, 'updates', updateId), updateData);
+
+    console.log('[UPDATES] Update edited successfully');
+    closeEditUpdateModal();
+    loadUpdates();
+    alert('Atualização editada com sucesso!');
+  } catch (error) {
+    console.error('[UPDATES] Error editing update:', error);
+    alert('Erro ao editar atualização: ' + error.message);
+  }
+}
+
+// Delete update
+async function deleteUpdate(updateId){
+  if (!confirm('Tem certeza que deseja excluir esta atualização? Esta ação não pode ser desfeita.')) {
+    return;
+  }
+
+  if (!window.firebaseDB) {
+    alert('Firebase não disponível');
+    return;
+  }
+
+  try {
+    const { db, doc, deleteDoc } = window.firebaseDB;
+    
+    await deleteDoc(doc(db, 'updates', updateId));
+    console.log('[UPDATES] Update deleted:', updateId);
+    loadUpdates();
+    alert('Atualização excluída com sucesso!');
+  } catch (error) {
+    console.error('[UPDATES] Error deleting update:', error);
+    alert('Erro ao excluir atualização: ' + error.message);
+  }
+}
+
+// Upload update image to Cloudinary
+async function uploadUpdateImageToCloudinary(file){
+  const CLOUDINARY_URL = 'https://api.cloudinary.com/v1_1/dkfe21jnc/image/upload';
+  const UPLOAD_PRESET = 'vizu_upload';
+  const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+
+  if (file.size > MAX_SIZE) {
+    throw new Error('A imagem deve ter no máximo 5MB');
+  }
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', UPLOAD_PRESET);
+
+  const response = await fetch(CLOUDINARY_URL, {
+    method: 'POST',
+    body: formData
+  });
+
+  if (!response.ok) {
+    throw new Error('Erro no upload da imagem');
+  }
+
+  const data = await response.json();
+  return data.secure_url;
+}
+
+// Handle update image selection
+function handleUpdateImageSelect(event){
+  const file = event.target.files[0];
+  if(!file) return;
+
+  if(!file.type.match(/image\/(jpeg|png|webp)/)){
+    alert('Por favor, selecione apenas arquivos JPG, PNG ou WEBP.');
+    return;
+  }
+
+  if(file.size > 5 * 1024 * 1024){
+    alert('A imagem deve ter no máximo 5MB.');
+    return;
+  }
+
+  selectedUpdateImageFile = file;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const previewImg = document.getElementById('updateImagePreviewImg');
+    const placeholder = document.getElementById('updateImageUploadPlaceholder');
+    const preview = document.getElementById('updateImageUploadPreview');
+    const fileInfo = document.getElementById('updateImageFileInfo');
+
+    previewImg.src = e.target.result;
+    fileInfo.textContent = `${file.name} (${formatFileSize(file.size)})`;
+    placeholder.style.display = 'none';
+    preview.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+// Reset update image upload
+function resetUpdateImageUpload(){
+  selectedUpdateImageFile = null;
+  const previewImg = document.getElementById('updateImagePreviewImg');
+  const placeholder = document.getElementById('updateImageUploadPlaceholder');
+  const preview = document.getElementById('updateImageUploadPreview');
+  const fileInfo = document.getElementById('updateImageFileInfo');
+  const fileInput = document.getElementById('updateImageInput');
+
+  if (previewImg) previewImg.src = '';
+  if (fileInfo) fileInfo.textContent = '';
+  if (placeholder) placeholder.style.display = 'block';
+  if (preview) preview.style.display = 'none';
+  if (fileInput) fileInput.value = '';
+}
+
+// Handle edit update image selection
+function handleEditUpdateImageSelect(event){
+  const file = event.target.files[0];
+  if(!file) return;
+
+  if(!file.type.match(/image\/(jpeg|png|webp)/)){
+    alert('Por favor, selecione apenas arquivos JPG, PNG ou WEBP.');
+    return;
+  }
+
+  if(file.size > 5 * 1024 * 1024){
+    alert('A imagem deve ter no máximo 5MB.');
+    return;
+  }
+
+  selectedEditUpdateImageFile = file;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const previewImg = document.getElementById('editUpdateImagePreviewImg');
+    const placeholder = document.getElementById('editUpdateImageUploadPlaceholder');
+    const preview = document.getElementById('editUpdateImageUploadPreview');
+    const fileInfo = document.getElementById('editUpdateImageFileInfo');
+
+    previewImg.src = e.target.result;
+    fileInfo.textContent = `${file.name} (${formatFileSize(file.size)})`;
+    placeholder.style.display = 'none';
+    preview.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+// Reset edit update image upload
+function resetEditUpdateImageUpload(){
+  selectedEditUpdateImageFile = null;
+  const previewImg = document.getElementById('editUpdateImagePreviewImg');
+  const placeholder = document.getElementById('editUpdateImageUploadPlaceholder');
+  const preview = document.getElementById('editUpdateImageUploadPreview');
+  const fileInfo = document.getElementById('editUpdateImageFileInfo');
+  const fileInput = document.getElementById('editUpdateImageInput');
+
+  if (previewImg) previewImg.src = '';
+  if (fileInfo) fileInfo.textContent = '';
+  if (placeholder) placeholder.style.display = 'block';
+  if (preview) preview.style.display = 'none';
+  if (fileInput) fileInput.value = '';
+}
+
+// Format file size
+function formatFileSize(bytes){
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
 // Initialize login handlers
