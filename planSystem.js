@@ -13,7 +13,7 @@ const PLANS = {
         displayName: 'Track',
         // Limites
         limits: {
-            maxFaders: 5,
+            maxFaders: Infinity,
             maxSetlists: 1,
             maxSongsPerSetlist: 5,
             maxDurationSeconds: 300 // 5 minutos
@@ -23,6 +23,9 @@ const PLANS = {
             loops: false,
             pads: false,
             canvasEffects: false,
+            waveformParts: false,
+            servicePlan: false,
+            wcifras: false,
             cloudSync: false,
             cloudStorage: false
         }
@@ -42,6 +45,9 @@ const PLANS = {
             loops: true, // Loop habilitado para Track Pro
             pads: true,  // Pads habilitado para Track Pro
             canvasEffects: true, // Canvas effects habilitado para Track Pro
+            waveformParts: true, // Waveform parts habilitado para Track Pro
+            servicePlan: true, // Service Plan habilitado para Track Pro
+            wcifras: true, // W.Cifras habilitado para Track Pro
             cloudSync: true, // Sincronização em nuvem habilitada
             cloudStorage: true // Armazenamento em nuvem habilitado
         }

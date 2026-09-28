@@ -30,6 +30,10 @@ let editingPlaylistId = null; // ID of playlist being edited
 let longPressTimer = null; // Timer for long-press detection
 let longPressStarted = false; // Whether long-press has started
 let longPressTriggered = false; // Whether long-press was triggered (to prevent normal click)
+let recentChords = []; // Store recently played chords from localStorage
+let selectedArtist = null; // Selected artist from suggestions
+let artistSearchAbortController = null; // AbortController for artist search
+let artistSearchRequestId = 0; // Request ID to handle race conditions
 
 // Cloudinary configuration
 const CLOUDINARY_URL = 'https://api.cloudinary.com/v1_1/dkfe21jnc/image/upload';
@@ -38,6 +42,142 @@ const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
 // Musical notes array for transposition
 const NOTES = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+
+// ========================================
+// RECENT CHORDS (LOCAL STORAGE)
+// ========================================
+
+// Load recent chords from localStorage
+function loadRecentChords() {
+    try {
+        const stored = localStorage.getItem('wcifras_recent_chords');
+        if (stored) {
+            recentChords = JSON.parse(stored);
+            console.log('[W.CIFRAS] Loaded recent chords:', recentChords.length);
+        } else {
+            recentChords = [];
+        }
+        
+        // Render the recent section after loading
+        renderRecentChords();
+    } catch (error) {
+        console.error('[W.CIFRAS] Error loading recent chords:', error);
+        recentChords = [];
+    }
+}
+
+// Save a chord to recent history
+function saveRecentChord(chordId, chordData) {
+    try {
+        // Remove if already exists (to move to top)
+        recentChords = recentChords.filter(chord => chord.id !== chordId);
+        
+        // Add to beginning
+        recentChords.unshift({
+            id: chordId,
+            title: chordData.title,
+            artist: chordData.artist,
+            cover: chordData.cover,
+            accessedAt: new Date().toISOString()
+        });
+        
+        // Keep only last 4
+        if (recentChords.length > 4) {
+            recentChords = recentChords.slice(0, 4);
+        }
+        
+        // Save to localStorage
+        localStorage.setItem('wcifras_recent_chords', JSON.stringify(recentChords));
+        
+        // Render recent section
+        renderRecentChords();
+        
+        console.log('[W.CIFRAS] Saved to recent:', chordId);
+    } catch (error) {
+        console.error('[W.CIFRAS] Error saving recent chord:', error);
+    }
+}
+
+// Render recent chords section
+function renderRecentChords() {
+    const recentSection = document.getElementById('wcifrasRecentSection');
+    const recentList = document.getElementById('wcifrasRecentList');
+    
+    if (!recentSection || !recentList) return;
+    
+    // Hide if no recent chords
+    if (recentChords.length === 0) {
+        recentSection.style.display = 'none';
+        return;
+    }
+    
+    // Show section
+    recentSection.style.display = 'block';
+    
+    // Clear list
+    recentList.innerHTML = '';
+    
+    // Render each recent chord
+    recentChords.forEach(chord => {
+        const item = createRecentItem(chord);
+        recentList.appendChild(item);
+    });
+}
+
+// Create a recent chord item
+function createRecentItem(chord) {
+    const item = document.createElement('div');
+    item.className = 'wcifras-recent-item';
+    item.dataset.id = chord.id;
+    
+    // Create cover
+    const cover = document.createElement('div');
+    cover.className = 'wcifras-recent-cover';
+    
+    if (chord.cover) {
+        const img = document.createElement('img');
+        img.src = chord.cover;
+        img.alt = chord.title;
+        cover.appendChild(img);
+    } else {
+        const placeholder = document.createElement('div');
+        placeholder.className = 'wcifras-recent-cover-placeholder';
+        placeholder.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M9 18V5l12-2v13"></path>
+                <circle cx="6" cy="18" r="3"></circle>
+                <circle cx="18" cy="16" r="3"></circle>
+            </svg>
+        `;
+        cover.appendChild(placeholder);
+    }
+    
+    // Create info
+    const info = document.createElement('div');
+    info.className = 'wcifras-recent-info';
+    
+    const title = document.createElement('div');
+    title.className = 'wcifras-recent-title';
+    title.textContent = chord.title;
+    
+    const artist = document.createElement('div');
+    artist.className = 'wcifras-recent-artist';
+    artist.textContent = chord.artist;
+    
+    info.appendChild(title);
+    info.appendChild(artist);
+    
+    // Assemble
+    item.appendChild(cover);
+    item.appendChild(info);
+    
+    // Add click handler
+    item.addEventListener('click', () => {
+        openChordView(chord.id);
+    });
+    
+    return item;
+}
 
 // ========================================
 // AUTHENTICATION
@@ -49,26 +189,31 @@ function initializeAuth() {
     const checkFirebase = setInterval(() => {
         if (typeof window.firebaseAuth !== 'undefined' && typeof window.firebaseDB !== 'undefined') {
             clearInterval(checkFirebase);
-            
+
             const { auth, onAuthStateChanged } = window.firebaseAuth;
-            
+
             onAuthStateChanged(auth, (user) => {
                 currentUser = user;
                 isAuthInitialized = true;
-                
+
                 if (user) {
                     console.log('[W.CIFRAS] User authenticated:', user.email);
                     // Load user playlists
                     loadUserPlaylists();
+                    // Load user's private chords
+                    loadChordsFromFirestore();
                 } else {
                     console.log('[W.CIFRAS] User not authenticated');
+                    // Clear chords when user logs out
+                    allChords = [];
+                    renderChordsList([]);
                 }
             });
-            
+
             console.log('[W.CIFRAS] Firebase initialized');
         }
     }, 100);
-    
+
     // Timeout after 5 seconds
     setTimeout(() => {
         clearInterval(checkFirebase);
@@ -138,6 +283,16 @@ function clearForm() {
     document.getElementById('chordContent').value = '';
     clearCover();
     clearErrors();
+
+    // Clear artist selection
+    selectedArtist = null;
+    hideArtistSuggestions();
+
+    // Clear artist suggestions
+    const listElement = document.getElementById('wcifrasArtistSuggestionsList');
+    if (listElement) {
+        listElement.innerHTML = '';
+    }
 }
 
 // ========================================
@@ -253,6 +408,228 @@ function clearErrors() {
 }
 
 // ========================================
+// ARTIST SEARCH
+// ========================================
+
+// Search artists using iTunes API (same as Service Plan)
+async function searchArtists(query) {
+    if (!query || !query.trim() || query.trim().length < 2) {
+        return [];
+    }
+
+    try {
+        // Reuse the existing MusicAPI from music-api.js
+        if (typeof window.MusicAPI === 'undefined') {
+            console.error('[W.CIFRAS] MusicAPI not available');
+            return [];
+        }
+
+        const results = await window.MusicAPI.searchMusic(query);
+
+        // Extract unique artists from results
+        const uniqueArtists = [];
+        const artistIds = new Set();
+
+        for (const result of results) {
+            const artistId = result.artistId;
+
+            if (!artistIds.has(artistId)) {
+                artistIds.add(artistId);
+
+                uniqueArtists.push({
+                    artistId,
+                    artistName: result.artistName,
+                    artistImage: result.artwork || result.artworkUrl100,
+                    artistImageLarge: result.artworkLarge || result.artworkUrl100?.replace('100x100', '600x600')
+                });
+            }
+        }
+
+        return uniqueArtists;
+    } catch (error) {
+        console.error('[W.CIFRAS] Error searching artists:', error);
+        throw error;
+    }
+}
+
+// Handle artist search input
+async function handleArtistSearch(query) {
+    const suggestionsContainer = document.getElementById('wcifrasArtistSuggestions');
+    const loadingElement = document.getElementById('wcifrasArtistSuggestionsLoading');
+    const listElement = document.getElementById('wcifrasArtistSuggestionsList');
+    const emptyElement = document.getElementById('wcifrasArtistSuggestionsEmpty');
+    const errorElement = document.getElementById('wcifrasArtistSuggestionsError');
+
+    // Hide previous results
+    listElement.innerHTML = '';
+    emptyElement.style.display = 'none';
+    errorElement.style.display = 'none';
+
+    // Don't search if query is too short
+    if (!query || query.trim().length < 2) {
+        suggestionsContainer.style.display = 'none';
+        return;
+    }
+
+    // Show loading
+    suggestionsContainer.style.display = 'block';
+    loadingElement.style.display = 'flex';
+
+    // Increment request ID to handle race conditions
+    const currentRequestId = ++artistSearchRequestId;
+
+    // Cancel previous request if exists
+    if (artistSearchAbortController) {
+        artistSearchAbortController.abort();
+    }
+
+    // Create new AbortController
+    artistSearchAbortController = new AbortController();
+
+    try {
+        const artists = await searchArtists(query);
+
+        // Ignore if this is an old request
+        if (currentRequestId !== artistSearchRequestId) {
+            return;
+        }
+
+        // Hide loading
+        loadingElement.style.display = 'none';
+
+        // Check if we have results
+        if (artists.length === 0) {
+            emptyElement.style.display = 'block';
+            return;
+        }
+
+        // Render artist suggestions
+        artists.forEach(artist => {
+            const item = createArtistSuggestionItem(artist);
+            listElement.appendChild(item);
+        });
+
+    } catch (error) {
+        // Ignore if this is an old request or was aborted
+        if (currentRequestId !== artistSearchRequestId || error.name === 'AbortError') {
+            return;
+        }
+
+        console.error('[W.CIFRAS] Error in artist search:', error);
+        loadingElement.style.display = 'none';
+        errorElement.style.display = 'block';
+    }
+}
+
+// Create artist suggestion item
+function createArtistSuggestionItem(artist) {
+    const item = document.createElement('div');
+    item.className = 'wcifras-artist-suggestion-item';
+
+    // Create artwork
+    const artwork = document.createElement('div');
+    artwork.className = 'wcifras-artist-suggestion-artwork';
+
+    if (artist.artistImage) {
+        const img = document.createElement('img');
+        img.src = artist.artistImage;
+        img.alt = artist.artistName;
+        artwork.appendChild(img);
+    } else {
+        const placeholder = document.createElement('div');
+        placeholder.className = 'wcifras-artist-suggestion-artwork-placeholder';
+        placeholder.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M9 18V5l12-2v13"></path>
+                <circle cx="6" cy="18" r="3"></circle>
+                <circle cx="18" cy="16" r="3"></circle>
+            </svg>
+        `;
+        artwork.appendChild(placeholder);
+    }
+
+    // Create info
+    const info = document.createElement('div');
+    info.className = 'wcifras-artist-suggestion-info';
+
+    const name = document.createElement('div');
+    name.className = 'wcifras-artist-suggestion-name';
+    name.textContent = artist.artistName;
+
+    const label = document.createElement('div');
+    label.className = 'wcifras-artist-suggestion-label';
+    label.textContent = 'Artista';
+
+    info.appendChild(name);
+    info.appendChild(label);
+
+    // Assemble
+    item.appendChild(artwork);
+    item.appendChild(info);
+
+    // Add click handler
+    item.addEventListener('click', () => {
+        selectArtist(artist);
+    });
+
+    return item;
+}
+
+// Select artist from suggestions
+function selectArtist(artist) {
+    selectedArtist = artist;
+
+    // Fill the input field
+    const artistInput = document.getElementById('chordArtist');
+    artistInput.value = artist.artistName;
+
+    // Hide suggestions
+    hideArtistSuggestions();
+
+    // Update cover preview if no cover is selected
+    if (!uploadedCoverUrl && artist.artistImageLarge) {
+        const coverPreview = document.getElementById('chordCoverPreview');
+        const coverImage = document.getElementById('chordCoverImage');
+        const coverBtn = document.getElementById('chordCoverBtn');
+
+        coverImage.src = artist.artistImageLarge;
+        coverPreview.style.display = 'block';
+        coverBtn.style.display = 'none';
+
+        // Store the artist image as the cover
+        uploadedCoverUrl = artist.artistImageLarge;
+    }
+
+    console.log('[W.CIFRAS] Artist selected:', artist.artistName);
+}
+
+// Hide artist suggestions
+function hideArtistSuggestions() {
+    const suggestionsContainer = document.getElementById('wcifrasArtistSuggestions');
+    if (suggestionsContainer) {
+        suggestionsContainer.style.display = 'none';
+    }
+}
+
+// Debounced artist search
+const debouncedArtistSearch = window.MusicAPI?.debounce 
+    ? window.MusicAPI.debounce(handleArtistSearch, 400)
+    : debounce(handleArtistSearch, 400);
+
+// Custom debounce function (fallback if MusicAPI not available)
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// ========================================
 // FORM VALIDATION
 // ========================================
 
@@ -299,14 +676,14 @@ function prepareChordData() {
     const artist = document.getElementById('chordArtist').value.trim();
     const key = document.getElementById('chordKey').value;
     const content = document.getElementById('chordContent').value.trim();
-    
+
     // Structure prepared for future Firestore integration
     const chordData = {
         title,
         artist,
         key,
         content,
-        cover: uploadedCoverUrl, // Cloudinary URL
+        cover: uploadedCoverUrl, // Cloudinary URL or artist image
         author: {
             uid: currentUser ? currentUser.uid : null,
             name: currentUser ? (currentUser.displayName || currentUser.email) : null
@@ -314,7 +691,13 @@ function prepareChordData() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
     };
-    
+
+    // Add artist metadata if an artist was selected
+    if (selectedArtist) {
+        chordData.artistId = selectedArtist.artistId;
+        chordData.artistImage = selectedArtist.artistImageLarge || selectedArtist.artistImage;
+    }
+
     return chordData;
 }
 
@@ -324,28 +707,35 @@ async function publishChordSheet() {
         console.log('[W.CIFRAS] Form validation failed');
         return;
     }
-    
+
     if (typeof window.firebaseDB === 'undefined') {
         console.error('[W.CIFRAS] Firebase DB not available');
         return;
     }
-    
+
+    if (!currentUser) {
+        console.error('[W.CIFRAS] User not authenticated');
+        alert('Faça login para adicionar cifras.');
+        return;
+    }
+
     const chordData = prepareChordData();
-    
+
     try {
         const { db, collection, addDoc } = window.firebaseDB;
-        
-        // Save to Firestore
-        const docRef = await addDoc(collection(db, 'chords'), chordData);
-        
+
+        // Save to user's private chords collection (using 'cifras' to match firestore rules)
+        const chordsRef = collection(db, 'users', currentUser.uid, 'cifras');
+        const docRef = await addDoc(chordsRef, chordData);
+
         console.log('[W.CIFRAS] Chord published successfully with ID:', docRef.id);
-        
+
         // Close modal and clear form
         closeAddChordModal();
-        
+
         // Show success (could add a toast notification here)
-        console.log('[W.CIFRAS] Chord published to public catalog');
-        
+        console.log('[W.CIFRAS] Chord published to private library');
+
     } catch (error) {
         console.error('[W.CIFRAS] Error publishing chord:', error);
         console.error('[W.CIFRAS] Error details:', error.code, error.message);
@@ -416,6 +806,27 @@ function setupEventListeners() {
             insertSection(section);
         });
     });
+
+    // Artist search input
+    const artistInput = document.getElementById('chordArtist');
+    if (artistInput) {
+        artistInput.addEventListener('input', (e) => {
+            // Clear selected artist if user modifies the text
+            if (selectedArtist && e.target.value !== selectedArtist.artistName) {
+                selectedArtist = null;
+            }
+
+            // Trigger debounced search
+            debouncedArtistSearch(e.target.value);
+        });
+
+        // Close suggestions when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.wcifras-form-group-with-suggestions')) {
+                hideArtistSuggestions();
+            }
+        });
+    }
     
     // Cover upload
     const coverBtn = document.getElementById('chordCoverBtn');
@@ -795,12 +1206,10 @@ function setupEventListeners() {
             alert('Edição de playlist será implementada em breve.');
         });
     }
-    
-    const playlistDeleteBtn = document.getElementById('wcifrasPlaylistDeleteBtn');
-    if (playlistDeleteBtn) {
-        playlistDeleteBtn.addEventListener('click', deletePlaylist);
-    }
-    
+
+    // Note: wcifrasPlaylistDeleteBtn is in Playlist View which is not currently used
+    // The delete functionality is accessed through the playlist actions menu (long-press)
+
     // Scroll handler for FAB buttons
     window.addEventListener('scroll', handleScroll);
     
@@ -896,19 +1305,52 @@ async function loadChordFromFirestore(chordId) {
         showChordNotFound();
         return;
     }
-    
+
     try {
         const { db, doc, getDoc } = window.firebaseDB;
-        
-        const chordDoc = await getDoc(doc(db, 'chords', chordId));
-        
+
+        // First, check if chord data is embedded in current playlist (for shared playlists)
+        if (currentPlaylist && currentPlaylist.songs) {
+            const songInPlaylist = currentPlaylist.songs.find(s => s.chordId === chordId);
+            if (songInPlaylist && songInPlaylist.embeddedData) {
+                console.log('[W.CIFRAS] Loading chord from playlist embedded data:', chordId);
+                renderChordView(songInPlaylist.embeddedData);
+                return;
+            }
+        }
+
+        // If not in playlist or no embedded data, load from user's private collection
+        if (!currentUser) {
+            console.error('[W.CIFRAS] User not authenticated, cannot load private chord');
+            showChordNotFound();
+            return;
+        }
+
+        const chordDoc = await getDoc(doc(db, 'users', currentUser.uid, 'cifras', chordId));
+
         if (chordDoc.exists()) {
             const chordData = chordDoc.data();
             renderChordView(chordData);
-            console.log('[W.CIFRAS] Chord loaded:', chordId);
+            console.log('[W.CIFRAS] Chord loaded from private library:', chordId);
         } else {
-            console.log('[W.CIFRAS] Chord not found:', chordId);
-            showChordNotFound();
+            // Fallback: try loading from old global collection (for backward compatibility)
+            console.log('[W.CIFRAS] Chord not found in private library, trying legacy collection:', chordId);
+            const legacyChordDoc = await getDoc(doc(db, 'chords', chordId));
+
+            if (legacyChordDoc.exists()) {
+                const chordData = legacyChordDoc.data();
+                // Check if user is the author
+                if (chordData.author && chordData.author.uid === currentUser.uid) {
+                    renderChordView(chordData);
+                    console.log('[W.CIFRAS] Chord loaded from legacy collection (owned by user):', chordId);
+                } else {
+                    console.log('[W.CIFRAS] Chord in legacy collection but not owned by user:', chordId);
+                    showChordNotFound();
+                }
+            } else {
+                console.log('[W.CIFRAS] Chord not found in legacy collection:', chordId);
+                showChordNotFound();
+            }
         }
     } catch (error) {
         console.error('[W.CIFRAS] Error loading chord:', error);
@@ -926,6 +1368,9 @@ function showChordNotFound() {
 function renderChordView(chord) {
     // Store chord data for editing
     currentChordData = chord;
+    
+    // Save to recent history
+    saveRecentChord(currentChordId, chord);
     
     // Save original content and key
     originalChordContent = chord.content;
@@ -1408,9 +1853,58 @@ function initializeInstrumentCategories() {
 function checkUrlForChordId() {
     const urlParams = new URLSearchParams(window.location.search);
     const chordId = urlParams.get('id');
-    
-    if (chordId) {
+    const playlistId = urlParams.get('playlist');
+
+    if (playlistId) {
+        // Load shared playlist
+        loadSharedPlaylist(playlistId);
+    } else if (chordId) {
         openChordView(chordId);
+    }
+}
+
+// Load shared playlist by ID
+async function loadSharedPlaylist(playlistId) {
+    console.log('[W.CIFRAS] Loading shared playlist:', playlistId);
+
+    try {
+        const { db, doc, getDoc } = window.firebaseDB;
+        const playlistDoc = await getDoc(doc(db, 'playlists', playlistId));
+
+        if (playlistDoc.exists()) {
+            const playlist = {
+                id: playlistDoc.id,
+                ...playlistDoc.data()
+            };
+
+            console.log('[W.CIFRAS] Shared playlist loaded:', playlist.name);
+
+            if (!playlist.songs || playlist.songs.length === 0) {
+                alert('Esta playlist não tem músicas.');
+                return;
+            }
+
+            currentPlaylist = playlist;
+            currentPlaylistId = playlistId;
+
+            const sortedSongs = [...playlist.songs].sort((a, b) => a.order - b.order);
+            playlistSongs = sortedSongs;
+
+            const firstSong = sortedSongs[0];
+
+            if (!firstSong || !firstSong.chordId) {
+                alert('Primeira música da playlist inválida.');
+                return;
+            }
+
+            // Open directly the first chord
+            openChordView(firstSong.chordId);
+        } else {
+            alert('Playlist não encontrada.');
+        }
+    } catch (error) {
+        console.error('[W.CIFRAS] Error loading shared playlist:', error);
+        alert('Erro ao carregar playlist. Tente novamente.');
     }
 }
 
@@ -1612,11 +2106,33 @@ async function savePlaylist() {
     try {
         const { db, collection, addDoc, updateDoc, doc, serverTimestamp } = window.firebaseDB;
 
+        // Embed chord data in songs for sharing
+        const songsWithEmbeddedData = playlistSongs.map(song => {
+            const chord = allChords.find(c => c.id === song.chordId);
+            if (chord) {
+                return {
+                    ...song,
+                    embeddedData: {
+                        id: chord.id,
+                        title: chord.title,
+                        artist: chord.artist,
+                        key: chord.key,
+                        content: chord.content,
+                        cover: chord.cover,
+                        author: chord.author,
+                        createdAt: chord.createdAt,
+                        updatedAt: chord.updatedAt
+                    }
+                };
+            }
+            return song;
+        });
+
         const playlistData = {
             name,
             description,
             ownerUid: currentUser.uid,
-            songs: playlistSongs,
+            songs: songsWithEmbeddedData,
             updatedAt: serverTimestamp()
         };
 
@@ -1816,7 +2332,13 @@ function renderPlaylistSidebar() {
     const sortedSongs = [...currentPlaylist.songs].sort((a, b) => a.order - b.order);
 
     sortedSongs.forEach((song, index) => {
-        const chord = allChords.find(c => c.id === song.chordId);
+        // Use embedded data if available (for shared playlists), otherwise use allChords
+        let chord;
+        if (song.embeddedData) {
+            chord = song.embeddedData;
+        } else {
+            chord = allChords.find(c => c.id === song.chordId);
+        }
 
         if (!chord) return;
 
@@ -1871,21 +2393,27 @@ function openPlaylistView(playlistId) {
 // Render playlist view songs
 function renderPlaylistViewSongs() {
     const container = document.getElementById('wcifrasPlaylistSongsList');
-    
+
     if (!currentPlaylist || !currentPlaylist.songs || currentPlaylist.songs.length === 0) {
         container.innerHTML = '<p class="wcifras-playlist-empty">Esta playlist não tem músicas.</p>';
         return;
     }
-    
+
     container.innerHTML = '';
-    
+
     // Sort by order
     const sortedSongs = [...currentPlaylist.songs].sort((a, b) => a.order - b.order);
-    
+
     sortedSongs.forEach((song, index) => {
-        const chord = allChords.find(c => c.id === song.chordId);
+        // Use embedded data if available (for shared playlists), otherwise use allChords
+        let chord;
+        if (song.embeddedData) {
+            chord = song.embeddedData;
+        } else {
+            chord = allChords.find(c => c.id === song.chordId);
+        }
         if (!chord) return;
-        
+
         const card = document.createElement('div');
         card.className = 'wcifras-playlist-song-card';
         card.dataset.chordId = chord.id;
@@ -1897,11 +2425,11 @@ function renderPlaylistViewSongs() {
                 <div class="wcifras-playlist-song-key">Tom: ${chord.key}</div>
             </div>
         `;
-        
+
         card.addEventListener('click', () => {
             openChordView(chord.id);
         });
-        
+
         container.appendChild(card);
     });
 }
@@ -1916,29 +2444,19 @@ function closePlaylistView() {
 
 // Delete playlist
 async function deletePlaylist() {
-    if (!currentPlaylistId) return;
+    console.log('[W.CIFRAS] deletePlaylist called, currentPlaylistId:', currentPlaylistId);
 
-    if (!confirm('Excluir playlist?\n\nEsta ação removerá apenas a playlist.\nAs cifras não serão apagadas.')) {
+    if (!currentPlaylistId) {
+        console.error('[W.CIFRAS] No currentPlaylistId, cannot delete');
+        alert('Erro: Não foi possível identificar a playlist para excluir.');
         return;
     }
 
-    try {
-        const { db, doc, deleteDoc } = window.firebaseDB;
+    // Set the editing playlist ID to current playlist
+    editingPlaylistId = currentPlaylistId;
 
-        await deleteDoc(doc(db, 'playlists', currentPlaylistId));
-
-        console.log('[W.CIFRAS] Playlist deleted:', currentPlaylistId);
-
-        // Close view
-        closePlaylistView();
-
-        // Hide current playlist button
-        document.getElementById('wcifrasCurrentPlaylistBtn').style.display = 'none';
-
-    } catch (error) {
-        console.error('[W.CIFRAS] Error deleting playlist:', error);
-        alert('Erro ao excluir playlist. Tente novamente.');
-    }
+    // Open confirmation modal instead of using confirm()
+    openDeletePlaylistConfirmation();
 }
 
 // ========================================
@@ -1979,7 +2497,7 @@ function closePlaylistActionsMenu() {
         overlay.classList.remove('active');
     }
 
-    editingPlaylistId = null;
+    // Don't reset editingPlaylistId here - it might be needed for actions
     longPressTriggered = false; // Reset flag so next click works normally
 
     console.log('[W.CIFRAS] Playlist actions menu closed');
@@ -1999,12 +2517,15 @@ function editPlaylistFromActions() {
         return;
     }
 
+    // Store the ID before closing menu
+    const playlistIdToEdit = editingPlaylistId;
+
     // Close actions menu
     closePlaylistActionsMenu();
 
     // Set modal to edit mode
     isEditingPlaylist = true;
-    editingPlaylistId = playlist.id;
+    editingPlaylistId = playlistIdToEdit;
 
     // Populate modal with current data
     document.getElementById('wcifrasPlaylistName').value = playlist.name || '';
@@ -2029,28 +2550,36 @@ function editPlaylistFromActions() {
 
 // Open delete playlist confirmation
 function openDeletePlaylistConfirmation() {
+    console.log('[W.CIFRAS] openDeletePlaylistConfirmation called, editingPlaylistId:', editingPlaylistId);
+    
     if (!editingPlaylistId) {
         console.error('[W.CIFRAS] No playlist ID for delete');
         return;
     }
 
+    // Store the ID before closing menu
+    const playlistIdToDelete = editingPlaylistId;
+
     // Close actions menu
     closePlaylistActionsMenu();
+
+    // Restore the ID after closing menu
+    editingPlaylistId = playlistIdToDelete;
 
     // Show confirmation modal
     const modal = document.getElementById('wcifrasDeletePlaylistModal');
     if (modal) {
-        modal.style.display = 'flex';
+        modal.classList.add('active');
     }
 
-    console.log('[W.CIFRAS] Delete playlist confirmation opened');
+    console.log('[W.CIFRAS] Delete playlist confirmation opened, ID:', editingPlaylistId);
 }
 
 // Close delete playlist confirmation
 function closeDeletePlaylistConfirmation() {
     const modal = document.getElementById('wcifrasDeletePlaylistModal');
     if (modal) {
-        modal.style.display = 'none';
+        modal.classList.remove('active');
     }
 
     console.log('[W.CIFRAS] Delete playlist confirmation closed');
@@ -2063,18 +2592,20 @@ async function confirmDeletePlaylist() {
         return;
     }
 
+    const playlistIdToDelete = editingPlaylistId;
+
     try {
         const { db, doc, deleteDoc } = window.firebaseDB;
 
-        await deleteDoc(doc(db, 'playlists', editingPlaylistId));
+        await deleteDoc(doc(db, 'playlists', playlistIdToDelete));
 
-        console.log('[W.CIFRAS] Playlist deleted:', editingPlaylistId);
+        console.log('[W.CIFRAS] Playlist deleted:', playlistIdToDelete);
 
         // Remove from local userPlaylists
-        userPlaylists = userPlaylists.filter(p => p.id !== editingPlaylistId);
+        userPlaylists = userPlaylists.filter(p => p.id !== playlistIdToDelete);
 
         // If it was the current playlist, clear context
-        if (currentPlaylistId === editingPlaylistId) {
+        if (currentPlaylistId === playlistIdToDelete) {
             currentPlaylist = null;
             currentPlaylistId = null;
             playlistSongs = [];
@@ -2085,6 +2616,9 @@ async function confirmDeletePlaylist() {
 
         // Close confirmation modal
         closeDeletePlaylistConfirmation();
+
+        // Reset editing playlist ID
+        editingPlaylistId = null;
 
         // If it was the most recent playlist, show the next one
         if (userPlaylists.length > 0) {
@@ -2114,12 +2648,15 @@ async function sharePlaylist() {
         return;
     }
 
+    // Store the ID before closing menu
+    const playlistIdToShare = editingPlaylistId;
+
     // Close actions menu
     closePlaylistActionsMenu();
 
     // Generate share URL - use window.location.href to preserve subdirectory path
     const shareUrl = new URL('wcifras.html', window.location.href);
-    shareUrl.searchParams.set('playlist', editingPlaylistId);
+    shareUrl.searchParams.set('playlist', playlistIdToShare);
 
     // Create share message
     const shareMessage = `Confira esta playlist no W.Cifras!\n\n${playlist.name}\n\nAcesse a playlist:\n${shareUrl.toString()}`;
@@ -2148,6 +2685,9 @@ async function sharePlaylist() {
     await navigator.clipboard.writeText(shareMessage);
     showShareConfirmation();
     console.log('[W.CIFRAS] Playlist link copied to clipboard');
+    
+    // Reset editing playlist ID
+    editingPlaylistId = null;
 }
 
 // ========================================
@@ -2160,32 +2700,37 @@ async function shareChord() {
         console.log('[W.CIFRAS] No chord to share');
         return;
     }
-    
+
     if (typeof window.firebaseDB === 'undefined') {
         console.error('[W.CIFRAS] Firebase DB not available');
         return;
     }
-    
+
+    if (!currentUser) {
+        alert('Faça login para compartilhar cifras.');
+        return;
+    }
+
     try {
         const { db, doc, getDoc } = window.firebaseDB;
-        
-        // Get chord data from Firestore
-        const chordDoc = await getDoc(doc(db, 'chords', currentChordId));
-        
+
+        // Get chord data from user's private collection
+        const chordDoc = await getDoc(doc(db, 'users', currentUser.uid, 'chords', currentChordId));
+
         if (!chordDoc.exists()) {
-            console.log('[W.CIFRAS] Chord not found');
+            console.log('[W.CIFRAS] Chord not found in private library');
             return;
         }
-        
+
         const chord = chordDoc.data();
-        
+
         // Generate share URL - use window.location.href to preserve subdirectory path
         const shareUrl = new URL('wcifras.html', window.location.href);
         shareUrl.searchParams.set('id', currentChordId);
-        
+
         // Create share message
         const shareMessage = `Olha essa cifra que compartilharam com você pelo W.Cifras!\n\n${chord.title} — ${chord.artist}\n\nAcesse a cifra:\n${shareUrl.toString()}`;
-        
+
         // Try native share first
         if (navigator.share) {
             try {
@@ -2205,12 +2750,12 @@ async function shareChord() {
                 }
             }
         }
-        
+
         // Fallback: copy to clipboard
         await navigator.clipboard.writeText(shareMessage);
         showShareConfirmation();
         console.log('[W.CIFRAS] Chord link copied to clipboard');
-        
+
     } catch (error) {
         console.error('[W.CIFRAS] Share error:', error);
     }
@@ -2317,47 +2862,47 @@ async function saveEditedChord() {
         console.log('[W.CIFRAS] No chord to save');
         return;
     }
-    
+
     if (!currentUser) {
         showLoginModal();
         return;
     }
-    
+
     const chordEditor = document.getElementById('wcifrasChordEditor');
     const content = chordEditor.value.trim();
-    
+
     if (!content) {
         alert('Por favor, preencha o conteúdo da cifra.');
         return;
     }
-    
+
     try {
         const { db, doc, updateDoc, serverTimestamp } = window.firebaseDB;
-        
-        await updateDoc(doc(db, 'chords', currentChordId), {
+
+        await updateDoc(doc(db, 'users', currentUser.uid, 'cifras', currentChordId), {
             content,
             updatedAt: serverTimestamp()
         });
-        
+
         // Update local data
         currentChordData = {
             ...currentChordData,
             content,
             updatedAt: new Date().toISOString()
         };
-        
+
         // Update original content
         originalChordContent = content;
-        
+
         // Re-render
         renderChordContent(content);
-        
+
         // Update edited date display
         updateEditedDateDisplay();
-        
+
         // Close edit mode
         closeEditModal();
-        
+
         console.log('[W.CIFRAS] Chord updated successfully');
     } catch (error) {
         console.error('[W.CIFRAS] Error updating chord:', error);
@@ -2479,9 +3024,20 @@ function loadChordsFromFirestore() {
 
     const { db, collection, query, orderBy, onSnapshot } = window.firebaseDB;
 
-    // Query chords ordered by creation date (newest first)
+    // Only load chords if user is authenticated
+    if (!currentUser) {
+        console.log('[W.CIFRAS] No user authenticated, showing empty catalog');
+        allChords = [];
+        if (loadingContainer) loadingContainer.style.display = 'none';
+        if (listContainer) listContainer.style.display = 'none';
+        if (emptyState) emptyState.style.display = 'flex';
+        return;
+    }
+
+    // Query user's private chords ordered by creation date (newest first)
+    // Using 'cifras' to match firestore rules
     const chordsQuery = query(
-        collection(db, 'chords'),
+        collection(db, 'users', currentUser.uid, 'cifras'),
         orderBy('createdAt', 'desc')
     );
 
@@ -2507,7 +3063,7 @@ function loadChordsFromFirestore() {
         if (listContainer) listContainer.style.display = 'flex';
 
         renderChordsList(chords);
-        console.log('[W.CIFRAS] Loaded', chords.length, 'chords from Firestore');
+        console.log('[W.CIFRAS] Loaded', chords.length, 'chords from private library');
     }, (error) => {
         console.error('[W.CIFRAS] Error loading chords:', error);
         // Hide loading on error
@@ -2529,6 +3085,7 @@ function loadUserFavorites() {
 
     if (!auth.currentUser) {
         console.log('[W.CIFRAS] No user logged in for favorites');
+        userFavorites = [];
         return;
     }
 
@@ -2736,27 +3293,12 @@ function createChordCard(chord) {
     const meta = document.createElement('div');
     meta.className = 'wcifras-card-meta';
     
-    const authorItem = document.createElement('div');
-    authorItem.className = 'wcifras-card-meta-item';
-    authorItem.innerHTML = `
-        <svg class="wcifras-card-meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-            <circle cx="12" cy="7" r="4"></circle>
-        </svg>
-        <span>${chord.author?.name || 'Anônimo'}</span>
-    `;
-    
-    const separator = document.createElement('span');
-    separator.textContent = '•';
-    
     const keyItem = document.createElement('div');
     keyItem.className = 'wcifras-card-meta-item';
     keyItem.innerHTML = `
         <span>Tom: <span class="wcifras-card-key">${chord.key}</span></span>
     `;
     
-    meta.appendChild(authorItem);
-    meta.appendChild(separator);
     meta.appendChild(keyItem);
     
     content.appendChild(title);
@@ -2803,22 +3345,25 @@ function createChordCard(chord) {
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
+    // Load recent chords from localStorage
+    loadRecentChords();
+
     initializeAuth();
     setupEventListeners();
-    
+
     // Load chords from Firestore after Firebase is initialized
     const checkFirebase = setInterval(() => {
         if (typeof window.firebaseDB !== 'undefined') {
             clearInterval(checkFirebase);
-            loadChordsFromFirestore();
+            // Chords are now loaded in onAuthStateChanged
             checkUrlForChordId();
-            
+
             // Initialize instrument system
             initializeInstrumentCategories();
             loadInstrumentPreference();
         }
     }, 100);
-    
+
     // Timeout after 5 seconds
     setTimeout(() => {
         clearInterval(checkFirebase);

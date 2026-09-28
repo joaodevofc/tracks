@@ -13,7 +13,7 @@ class MultracksApp {
         this.importMethod = null;
         this.currentFilter = 'all';
         this.isCreatingProject = false; // Flag to prevent duplicate project creation
-        
+
         // Player state
         this.currentView = 'library'; // 'library' or 'player'
         this.currentProject = null;
@@ -21,7 +21,7 @@ class MultracksApp {
         this.isPlaying = false;
         this.currentTime = 0;
         this.totalDuration = 0;
-        
+
         // Player session (songs loaded in player, separate from library)
         this.playerSession = [];
 
@@ -29,19 +29,51 @@ class MultracksApp {
         this.waveformLoading = false; // Track waveform loading state
         this.waveformLoadingAnimationId = null; // Animation frame ID for loading waveform
         this.fakeWaveformData = null; // Cached fake waveform data for loading animation
-        
+
         // Fader calibration animation for waveform loading
         this.faderCalibrationAnimationId = null;
         this.faderOriginalPositions = null;
-        
+
         // Community favorites
         this.communityFavorites = [];
-        
+
         // Cached user ID to avoid repeated Firebase Auth queries
         this.cachedUserId = undefined;
 
         // User plan (track, track_pro)
         this.userPlan = null; // Default to null - wait for Firebase to load actual plan
+
+        // Pro feature modal configurations
+        this.proFeatureConfigs = {
+            waveformParts: {
+                title: 'Partes da música',
+                description: 'Organize sua música em partes como Intro, Verso, Refrão e Ponte diretamente no waveform.'
+            },
+            loops: {
+                title: 'Loop',
+                description: 'Repita trechos da música automaticamente para facilitar seus estudos e ensaios.'
+            },
+            canvasEffects: {
+                title: 'Efeitos do Canvas',
+                description: 'Adicione efeitos ao áudio diretamente no Canvas para personalizar sua reprodução.'
+            },
+            servicePlan: {
+                title: 'Service Plan',
+                description: 'Organize seus repertórios e planejamentos de música com o Service Plan.'
+            },
+            wcifras: {
+                title: 'W.Cifras',
+                description: 'Encontre e organize suas cifras para ter seu repertório sempre à mão.'
+            },
+            longDuration: {
+                title: 'Músicas com mais de 5 minutos',
+                description: 'No Track Pro você pode trabalhar com músicas que ultrapassam o limite de 5 minutos.'
+            },
+            pads: {
+                title: 'Pads',
+                description: 'Adicione pads de fundo (backing tracks) para complementar sua música durante apresentações.'
+            }
+        };
 
         // Centralized feature access check
         this.hasFeatureAccess = (feature) => {
@@ -49,49 +81,22 @@ class MultracksApp {
                 console.log('[PLAN] Plan system or userPlan not available for feature check:', feature);
                 return false;
             }
-            
-            // CORREÇÃO: Se Plan Engine disponível, usar getEffectivePlan para considerar expiração
-            let effectivePlan = this.userPlan;
-            
-            if (window.planEngine && window.planEngine.initialized && window.firebaseDB) {
-                try {
-                    const currentUser = window.firebaseAuth?.auth?.currentUser;
-                    if (currentUser) {
-                        // Tenta obter dados do usuário para verificação de expiração
-                        // Se não tiver dados cacheados, usa plano atual mas continua async em background
-                        const userData = window.planEngine.getUserData(currentUser.uid);
-                        if (userData) {
-                            effectivePlan = window.planEngine.getEffectivePlan(userData);
-                            if (effectivePlan !== this.userPlan) {
-                                this.userPlan = effectivePlan;
-                                console.log('[PLAN] Effective plan updated immediately:', this.userPlan);
-                            }
-                        } else {
-                            // Dados não cacheados - verifica async
-                            window.planEngine.getUserById(currentUser.uid).then(userData => {
-                                if (userData) {
-                                    const newEffectivePlan = window.planEngine.getEffectivePlan(userData);
-                                    if (newEffectivePlan !== this.userPlan) {
-                                        this.userPlan = newEffectivePlan;
-                                        console.log('[PLAN] Effective plan updated from async check:', this.userPlan);
-                                    }
-                                }
-                            }).catch(err => {
-                                console.log('[PLAN] Error getting user data for effective plan check:', err);
-                            });
-                        }
-                    }
-                } catch (error) {
-                    console.log('[PLAN] Error in effective plan check:', error);
-                }
-            }
-            
-            const plan = window.PlanSystem.getPlanRules(effectivePlan);
-            const hasAccess = plan.features[feature] || false;
-            console.log('[PLAN] Feature access check:', feature, 'for effective plan:', effectivePlan, 'result:', hasAccess);
-            return hasAccess;
+            const plan = window.PlanSystem.getPlanRules(this.userPlan);
+            return plan.features[feature] || false;
         };
-        
+
+        // Check if feature is Pro and show modal if needed
+        this.checkProFeature = (feature) => {
+            if (!this.hasFeatureAccess(feature)) {
+                const config = this.proFeatureConfigs[feature];
+                if (config) {
+                    this.showProFeatureModal(config);
+                }
+                return false;
+            }
+            return true;
+        };
+
         // Storage state management
         this.storageReady = false; // Track when storage is fully loaded
         this.storageLoadPromise = null; // Track the ongoing storage load
@@ -302,6 +307,7 @@ class MultracksApp {
         this.initGuestWarningModal();
         this.initPublicProfileModal();
         this.initPlayer();
+        this.initWaveformPartsModal();
         this.initEventListeners();
         this.initPadSystem();
         this.initMyTracks();
@@ -317,6 +323,18 @@ class MultracksApp {
         const speedBtn = document.getElementById('speedBtn');
         if (speedBtn) {
             speedBtn.addEventListener('click', () => this.handleSpeedButtonClick());
+        }
+
+        // Initialize compass button
+        const compassBtn = document.getElementById('compassBtn');
+        if (compassBtn) {
+            compassBtn.addEventListener('click', () => this.handleCompassButtonClick());
+        }
+
+        // Initialize master menu button
+        const masterMenuBtn = document.getElementById('masterMenuBtn');
+        if (masterMenuBtn) {
+            masterMenuBtn.addEventListener('click', () => this.handleMasterMenuButtonClick());
         }
 
         // Initialize speed modal controls
@@ -358,6 +376,15 @@ class MultracksApp {
         // Load player settings at startup
         const playerSettings = JSON.parse(localStorage.getItem('playerSettings') || '{}');
         this.applyPlayerSettings(playerSettings);
+
+        // Load compass setting
+        this.preCountMeasures = playerSettings.preCountMeasures || 0;
+        this.updateCompassButtonState();
+
+        // Update player with loaded pre-count setting (if player exists)
+        if (this.audioPlayer) {
+            this.audioPlayer.setPreCountMeasures(this.preCountMeasures);
+        }
 
         // Check storage status
         setTimeout(async () => {
@@ -1659,6 +1686,8 @@ class MultracksApp {
             this.audioPlayer.stop();
             this.audioPlayer.stopVisualization();
             this.audioPlayer.stopPlaybackTimer();
+            // Hide pre-count display when stopping
+            this.updatePreCountDisplay(null, null);
         }
         
         // Stop pad when loading new project
@@ -1679,6 +1708,9 @@ class MultracksApp {
         if (!this.audioPlayer) {
             this.audioPlayer = new MultitrackPlayer();
             this.setupPlayerCallbacks();
+        } else {
+            // Player already exists, just update pre-count setting
+            this.audioPlayer.setPreCountMeasures(this.preCountMeasures);
         }
         
         // Verify this is still the current generation
@@ -1751,7 +1783,12 @@ class MultracksApp {
         this.audioPlayer.onTrackStateChange = (trackId, state) => {
             this.updateTrackState(trackId, state);
         };
-        
+
+        // Set up pre-count beat callback for visual feedback
+        this.audioPlayer.onPreCountBeat = (measure, beat) => {
+            this.updatePreCountDisplay(measure, beat);
+        };
+
         this.callbacksSetup = true;
         console.log('[APP] Player callbacks setup complete');
     }
@@ -2295,6 +2332,8 @@ class MultracksApp {
         // Stop playback if playing
         if (this.audioPlayer) {
             this.audioPlayer.stop();
+            // Hide pre-count display when stopping
+            this.updatePreCountDisplay(null, null);
         }
         
         // Hide effect popover if open
@@ -2329,6 +2368,8 @@ class MultracksApp {
         // Stop playback if playing
         if (this.audioPlayer) {
             this.audioPlayer.stop();
+            // Hide pre-count display when stopping
+            this.updatePreCountDisplay(null, null);
         }
         
         // Stop PAD if playing
@@ -2363,7 +2404,16 @@ class MultracksApp {
         this.effectFileInput = document.getElementById('effectFileInput');
         this.cancelEffectBtn = document.getElementById('cancelEffectBtn');
         this.popoverTime = document.getElementById('popoverTime');
-        
+
+        // Compass configuration
+        this.compassBtn = document.getElementById('compassBtn');
+        this.compassPopover = document.getElementById('compassPopover');
+        this.preCountMeasures = 0; // Default: 0 measures (disabled)
+
+        // Master menu configuration
+        this.masterMenuBtn = document.getElementById('masterMenuBtn');
+        this.masterMenuPopover = document.getElementById('masterMenuPopover');
+
         // Effects data storage
         this.currentClickTime = null; // Store current click position in seconds
         
@@ -2401,7 +2451,7 @@ class MultracksApp {
         // Initialize audio player
         try {
             this.audioPlayer = new MultitrackPlayer();
-            
+
             // Set up player callbacks
             this.audioPlayer.onTimeUpdate = (time) => this.updateTimeDisplay(time);
             this.audioPlayer.onPlayStateChange = (state) => this.updatePlayButton(state);
@@ -2419,6 +2469,14 @@ class MultracksApp {
                     console.log('[APP] Not in playlist mode, using default song ended handler');
                     this.handleSongEnded();
                 }
+            };
+
+            // Set pre-count measures from loaded settings
+            this.audioPlayer.setPreCountMeasures(this.preCountMeasures);
+
+            // Set up pre-count beat callback for visual feedback
+            this.audioPlayer.onPreCountBeat = (measure, beat) => {
+                this.updatePreCountDisplay(measure, beat);
             };
         } catch (error) {
             console.error('Error creating MultitrackPlayer:', error);
@@ -3886,15 +3944,18 @@ class MultracksApp {
             // Reset playback speed to 1.0x when loading new project audio
             this.playbackSpeed = 1.0;
             this.updateSpeedButton();
-            
+
             this.hidePlayerLoading();
             this.renderWaveform();
-            
+
             // Load loop state after project is loaded
             this.loadLoopState();
-            
+
+            // Load waveform parts after project is loaded (async, but we don't block on it)
+            this.loadWaveformParts();
+
             console.log('[APP] [PROJECT LOAD] generation:', currentGeneration, 'completed');
-            
+
             // Remove cleanup function for completed load
             this.pendingLoadCleanup.delete(currentGeneration);
         } catch (error) {
@@ -3905,12 +3966,18 @@ class MultracksApp {
             if (currentGeneration === this.currentLoadGeneration) {
                 this.hidePlayerLoading();
                 this.renderWaveform();
-                
+
+                // Load loop state even on error
+                this.loadLoopState();
+
+                // Load waveform parts even on error (async, but we don't block on it)
+                this.loadWaveformParts();
+
                 // Check if it's a quota exceeded error
                 if (error.message && error.message.includes('quota')) {
                     this.showQuotaExceededWarning();
                 }
-                
+
                 // Remove cleanup function for failed load
                 this.pendingLoadCleanup.delete(currentGeneration);
             } else {
@@ -4628,6 +4695,9 @@ class MultracksApp {
             // Draw symmetric waveform (above and below center)
             ctx.fillRect(i, centerY - barHeight, 1, barHeight * 2);
         }
+
+        // Render waveform parts after drawing waveform
+        this.renderWaveformParts();
     }
     
     drawPlaceholderWaveform(ctx, width, height) {
@@ -4655,15 +4725,8 @@ class MultracksApp {
     // ========================================
     showEffectPopover(clientX, clientY, timeInSeconds, clickX, canvasWidth) {
         // Check if user has access to canvas effects using centralized function
-        if (!this.hasFeatureAccess('canvasEffects')) {
-            if (!this.userPlan) {
-                console.log('[PLAN] User plan not loaded yet, blocking canvas effects temporarily');
-                alert('⚠️ Carregando informações do plano...\n\nPor favor, aguarde enquanto carregamos suas permissões.');
-            } else {
-                const planName = window.PlanSystem ? window.PlanSystem.PLANS[this.userPlan]?.displayName || 'Track' : 'Track';
-                alert(`⚠️ Recurso indisponível no plano ${planName}\n\nA funcionalidade de Efeitos no Canvas está disponível apenas no plano Track Pro.\n\nFaça upgrade para o Track Pro para usar efeitos.`);
-                console.log('[PLAN] Canvas effects popover blocked for', this.userPlan);
-            }
+        if (!this.checkProFeature('canvasEffects')) {
+            console.log('[PLAN] Canvas effects popover blocked for', this.userPlan);
             return;
         }
 
@@ -4701,6 +4764,192 @@ class MultracksApp {
         this.currentClickTime = null;
         this.effectFileInput.value = ''; // Reset file input
     }
+
+    handleCompassButtonClick() {
+        if (!this.compassPopover) return;
+
+        const button = this.compassBtn;
+        const popover = this.compassPopover;
+
+        if (popover.classList.contains('active')) {
+            this.hideCompassPopover();
+        } else {
+            this.showCompassPopover();
+        }
+    }
+
+    showCompassPopover() {
+        if (!this.compassPopover || !this.compassBtn) return;
+
+        const button = this.compassBtn;
+        const popover = this.compassPopover;
+        const buttonRect = button.getBoundingClientRect();
+
+        // Get popover dimensions (estimate based on content)
+        const popoverWidth = 200;
+        const popoverHeight = 350;
+
+        // Position popover below the button
+        let leftPos = buttonRect.left;
+        let topPos = buttonRect.bottom + 5;
+
+        // Adjust if too close to right edge
+        if (leftPos + popoverWidth > window.innerWidth) {
+            leftPos = window.innerWidth - popoverWidth - 10;
+        }
+
+        // Adjust if too close to left edge
+        if (leftPos < 10) {
+            leftPos = 10;
+        }
+
+        // Adjust if too close to bottom edge
+        if (topPos + popoverHeight > window.innerHeight) {
+            topPos = buttonRect.top - popoverHeight - 5;
+        }
+
+        // Adjust if too close to top edge
+        if (topPos < 10) {
+            topPos = 10;
+        }
+
+        popover.style.left = `${leftPos}px`;
+        popover.style.top = `${topPos}px`;
+        popover.classList.add('active');
+
+        // Update selected state
+        this.updateCompassOptions();
+
+        // Close when clicking outside
+        const closeOnClickOutside = (e) => {
+            if (!popover.contains(e.target) && e.target !== button) {
+                this.hideCompassPopover();
+                document.removeEventListener('click', closeOnClickOutside);
+            }
+        };
+
+        // Delay adding listener to avoid immediate closing
+        setTimeout(() => {
+            document.addEventListener('click', closeOnClickOutside);
+        }, 100);
+    }
+
+    hideCompassPopover() {
+        if (this.compassPopover) {
+            this.compassPopover.classList.remove('active');
+        }
+    }
+
+    updateCompassOptions() {
+        const options = this.compassPopover.querySelectorAll('.compass-option');
+        options.forEach(option => {
+            const measures = parseInt(option.dataset.measures);
+            if (measures === this.preCountMeasures) {
+                option.classList.add('selected');
+            } else {
+                option.classList.remove('selected');
+            }
+        });
+
+        // Add click handlers to options
+        options.forEach(option => {
+            option.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const measures = parseInt(option.dataset.measures);
+                this.setPreCountMeasures(measures);
+                this.hideCompassPopover();
+            });
+        });
+    }
+
+    setPreCountMeasures(measures) {
+        this.preCountMeasures = measures;
+        this.updateCompassButtonState();
+
+        // Only save player settings if all required elements exist
+        if (this.playerRepeatMode && this.playerAutoAdvanceMode && 
+            this.playerTransitionMode && this.playerFaderAnimations) {
+            this.savePlayerSettings();
+        }
+
+        // Update player with new pre-count setting
+        if (this.audioPlayer) {
+            this.audioPlayer.setPreCountMeasures(measures);
+        }
+
+        console.log('[COMPASS] Pre-count measures set to:', measures);
+    }
+
+    handleMasterMenuButtonClick() {
+        if (!this.masterMenuPopover || !this.masterMenuBtn) return;
+
+        const button = this.masterMenuBtn;
+        const popover = this.masterMenuPopover;
+
+        if (popover.classList.contains('active')) {
+            this.hideMasterMenuPopover();
+        } else {
+            this.showMasterMenuPopover();
+        }
+    }
+
+    showMasterMenuPopover() {
+        if (!this.masterMenuPopover || !this.masterMenuBtn) return;
+
+        const button = this.masterMenuBtn;
+        const popover = this.masterMenuPopover;
+        const buttonRect = button.getBoundingClientRect();
+
+        // Position popover below the button
+        let leftPos = buttonRect.left;
+        let topPos = buttonRect.bottom + 5;
+
+        // Adjust if too close to right edge
+        if (leftPos + 180 > window.innerWidth) {
+            leftPos = window.innerWidth - 190;
+        }
+
+        // Adjust if too close to left edge
+        if (leftPos < 10) {
+            leftPos = 10;
+        }
+
+        popover.style.left = `${leftPos}px`;
+        popover.style.top = `${topPos}px`;
+        popover.classList.add('active');
+
+        // Close when clicking outside
+        const closeOnClickOutside = (e) => {
+            if (!popover.contains(e.target) && e.target !== button) {
+                this.hideMasterMenuPopover();
+                document.removeEventListener('click', closeOnClickOutside);
+            }
+        };
+
+        // Delay adding listener to avoid immediate closing
+        setTimeout(() => {
+            document.addEventListener('click', closeOnClickOutside);
+        }, 100);
+    }
+
+    hideMasterMenuPopover() {
+        if (this.masterMenuPopover) {
+            this.masterMenuPopover.classList.remove('active');
+        }
+    }
+
+    updateCompassButtonState() {
+        if (!this.compassBtn) return;
+
+        // Add visual feedback when compass is active (measures > 0)
+        if (this.preCountMeasures > 0) {
+            this.compassBtn.classList.add('active');
+        } else {
+            this.compassBtn.classList.remove('active');
+        }
+
+        console.log('[COMPASS] Current pre-count measures:', this.preCountMeasures);
+    }
     
     showClickIndicator(x) {
         const indicator = this.clickIndicator;
@@ -4716,15 +4965,8 @@ class MultracksApp {
         if (!file) return;
 
         // Check if user has access to canvas effects using centralized function
-        if (!this.hasFeatureAccess('canvasEffects')) {
-            if (!this.userPlan) {
-                console.log('[PLAN] User plan not loaded yet, blocking canvas effects temporarily');
-                alert('⚠️ Carregando informações do plano...\n\nPor favor, aguarde enquanto carregamos suas permissões.');
-            } else {
-                const planName = window.PlanSystem ? window.PlanSystem.PLANS[this.userPlan]?.displayName || 'Track' : 'Track';
-                alert(`⚠️ Recurso indisponível no plano ${planName}\n\nA funcionalidade de Efeitos no Canvas está disponível apenas no plano Track Pro.\n\nFaça upgrade para o Track Pro para usar efeitos.`);
-                console.log('[PLAN] Canvas effects feature blocked for', this.userPlan);
-            }
+        if (!this.checkProFeature('canvasEffects')) {
+            console.log('[PLAN] Canvas effects feature blocked for', this.userPlan);
             this.hideEffectPopover();
             return;
         }
@@ -5035,15 +5277,8 @@ class MultracksApp {
     // ========================================
     handleLoopMarking(x, canvasWidth) {
         // Check if user has access to loops using centralized function
-        if (!this.hasFeatureAccess('loops')) {
-            if (!this.userPlan) {
-                console.log('[PLAN] User plan not loaded yet, blocking loops temporarily');
-                alert('⚠️ Carregando informações do plano...\n\nPor favor, aguarde enquanto carregamos suas permissões.');
-            } else {
-                const planName = window.PlanSystem ? window.PlanSystem.PLANS[this.userPlan]?.displayName || 'Track' : 'Track';
-                alert(`⚠️ Recurso indisponível no plano ${planName}\n\nA funcionalidade de Loop está disponível apenas no plano Track Pro.\n\nFaça upgrade para o Track Pro para usar loops.`);
-                console.log('[PLAN] Loop feature blocked for', this.userPlan);
-            }
+        if (!this.checkProFeature('loops')) {
+            console.log('[PLAN] Loop feature blocked for', this.userPlan);
             return;
         }
 
@@ -5526,6 +5761,16 @@ class MultracksApp {
             mixerTracks.style.display = 'flex';
             speedView.style.display = 'none';
         }
+        
+        // Remove drag listeners to prevent memory leaks
+        if (this.speedCarouselListenersSetup && this.speedCarouselHandlers) {
+            document.removeEventListener('mousemove', this.speedCarouselHandlers.handleMove);
+            document.removeEventListener('mouseup', this.speedCarouselHandlers.handleEnd);
+            document.removeEventListener('touchmove', this.speedCarouselHandlers.handleMove);
+            document.removeEventListener('touchend', this.speedCarouselHandlers.handleEnd);
+            this.speedCarouselListenersSetup = false;
+            this.speedCarouselHandlers = null;
+        }
     }
 
     renderSpeedCarousel() {
@@ -5581,17 +5826,38 @@ class MultracksApp {
         
         if (!container || !carousel) return;
         
+        // Prevent duplicate listeners
+        if (this.speedCarouselListenersSetup) return;
+        this.speedCarouselListenersSetup = true;
+        
         let isDragging = false;
         let startX = 0;
         let currentX = 0;
         let dragThreshold = 50; // Minimum drag distance to change speed
         let lastSpeedChange = 0;
+        let initialOffset = 0;
+        
+        // Store handler references for cleanup
+        this.speedCarouselHandlers = {
+            handleStart: null,
+            handleMove: null,
+            handleEnd: null
+        };
         
         const handleStart = (x) => {
             isDragging = true;
             startX = x;
             currentX = x;
             carousel.style.transition = 'none';
+            
+            // Get current transform value to preserve offset
+            const currentTransform = carousel.style.transform;
+            if (currentTransform && currentTransform.includes('translateX')) {
+                const match = currentTransform.match(/translateX\(([-\d.]+)px\)/);
+                if (match) {
+                    initialOffset = parseFloat(match[1]);
+                }
+            }
         };
         
         const handleMove = (x) => {
@@ -5599,7 +5865,7 @@ class MultracksApp {
             currentX = x;
             
             const diff = startX - currentX;
-            carousel.style.transform = `translateX(${diff}px)`;
+            carousel.style.transform = `translateX(${initialOffset + diff}px)`;
         };
         
         const handleEnd = () => {
@@ -5627,6 +5893,11 @@ class MultracksApp {
             // Re-center the active item
             this.centerActiveSpeedItem();
         };
+        
+        // Store handlers
+        this.speedCarouselHandlers.handleStart = handleStart;
+        this.speedCarouselHandlers.handleMove = handleMove;
+        this.speedCarouselHandlers.handleEnd = handleEnd;
         
         // Mouse events
         container.addEventListener('mousedown', (e) => handleStart(e.clientX));
@@ -5736,6 +6007,38 @@ class MultracksApp {
         if (speedModal) {
             speedModal.classList.remove('active');
         }
+    }
+
+    // ========================================
+    // PRO FEATURE MODAL
+    // ========================================
+    showProFeatureModal(featureData) {
+        const modal = document.getElementById('proFeatureModal');
+        if (!modal) return;
+
+        const title = document.getElementById('proFeatureTitle');
+        const description = document.getElementById('proFeatureDescription');
+
+        if (title && featureData.title) {
+            title.textContent = featureData.title;
+        }
+        if (description && featureData.description) {
+            description.textContent = featureData.description;
+        }
+
+        modal.classList.add('active');
+    }
+
+    hideProFeatureModal() {
+        const modal = document.getElementById('proFeatureModal');
+        if (modal) {
+            modal.classList.remove('active');
+        }
+    }
+
+    navigateToPlans() {
+        // Check if planos.html exists, if not alert user
+        window.location.href = 'planos.html';
     }
 
     setPlaybackSpeed(speed) {
@@ -5931,6 +6234,8 @@ class MultracksApp {
         // Use the player's actual state instead of app state for decision
         if (this.audioPlayer.isPlaying) {
             this.audioPlayer.pause();
+            // Hide pre-count display when pausing
+            this.updatePreCountDisplay(null, null);
             // Remove idle timer when pausing
             this.resetIdleTimer();
         } else {
@@ -5970,14 +6275,45 @@ class MultracksApp {
     updateTimeDisplay(time) {
         this.currentTime = time;
         this.currentTimeDisplay.textContent = this.formatTime(time);
-        
+
         // Update playhead position
         if (this.totalDuration > 0) {
             const percentage = (time / this.totalDuration) * 100;
             this.playhead.style.left = `${percentage}%`;
         }
     }
-    
+
+    updatePreCountDisplay(measure, beat) {
+        const preCountDisplay = document.getElementById('preCountDisplay');
+        const compassNumber = document.getElementById('preCountCompassNumber');
+        const beatNumber = document.getElementById('preCountBeatNumber');
+
+        if (!preCountDisplay) return;
+
+        // If measure or beat is null, hide the display (countdown finished or canceled)
+        if (measure === null || beat === null) {
+            preCountDisplay.style.display = 'none';
+            return;
+        }
+
+        // Show the display and update the numbers
+        preCountDisplay.style.display = 'flex';
+        if (compassNumber) {
+            compassNumber.textContent = measure;
+        }
+        if (beatNumber) {
+            beatNumber.textContent = beat;
+        }
+
+        // Re-trigger animation by removing and re-adding the element
+        const beatElement = document.getElementById('preCountBeatNumber');
+        if (beatElement) {
+            beatElement.style.animation = 'none';
+            beatElement.offsetHeight; // Trigger reflow
+            beatElement.style.animation = 'beat-pulse 0.5s ease-out';
+        }
+    }
+
     setTotalDuration(duration) {
         this.totalDuration = duration;
     }
@@ -8012,6 +8348,8 @@ class MultracksApp {
             this.audioPlayer.stop();
             this.audioPlayer.stopVisualization();
             this.audioPlayer.stopPlaybackTimer();
+            // Hide pre-count display when stopping
+            this.updatePreCountDisplay(null, null);
         }
 
         // Stop pad
@@ -8168,12 +8506,937 @@ class MultracksApp {
             }
         });
 
+        // Pro feature modal event listeners
+        const proFeatureModalClose = document.getElementById('proFeatureModalClose');
+        const proFeatureModalCancel = document.getElementById('proFeatureModalCancel');
+        const proFeatureModalCta = document.getElementById('proFeatureModalCta');
+
+        proFeatureModalClose?.addEventListener('click', () => this.hideProFeatureModal());
+        proFeatureModalCancel?.addEventListener('click', () => this.hideProFeatureModal());
+        proFeatureModalCta?.addEventListener('click', () => this.navigateToPlans());
+
+        // Close pro feature modal when clicking outside
+        const proFeatureModal = document.getElementById('proFeatureModal');
+        proFeatureModal?.addEventListener('click', (e) => {
+            if (e.target === proFeatureModal) {
+                this.hideProFeatureModal();
+            }
+        });
+
         // Save profile button
         this.saveProfileBtn?.addEventListener('click', () => this.saveUserProfile());
 
         // Our projects button
         this.ourProjectsBtn = document.getElementById('ourProjectsBtn');
         this.ourProjectsBtn?.addEventListener('click', () => this.navigateToOurProjects());
+    }
+
+    initWaveformPartsModal() {
+        this.waveformPartsModal = document.getElementById('waveformPartsModal');
+        this.waveformPartsModalClose = document.getElementById('waveformPartsModalClose');
+        this.waveformPartsBtn = document.getElementById('waveformPartsBtn');
+        this.waveformPreviewCanvas = document.getElementById('waveformPreviewCanvas');
+        this.waveformTimeScale = document.getElementById('waveformTimeScale');
+        this.waveformSelectionRegion = document.getElementById('waveformSelectionRegion');
+        this.waveformMarkerStart = document.getElementById('waveformMarkerStart');
+        this.waveformMarkerEnd = document.getElementById('waveformMarkerEnd');
+        this.waveformStartTime = document.getElementById('waveformStartTime');
+        this.waveformEndTime = document.getElementById('waveformEndTime');
+        this.waveformClearSelection = document.getElementById('waveformClearSelection');
+        this.waveformPartNumberSelection = document.getElementById('waveformPartNumberSelection');
+        this.waveformPartNumberLabel = document.getElementById('waveformPartNumberLabel');
+        this.waveformPartNumberChips = document.getElementById('waveformPartNumberChips');
+        this.waveformCustomNameContainer = document.getElementById('waveformCustomNameContainer');
+        this.waveformCustomName = document.getElementById('waveformCustomName');
+        this.waveformAddPart = document.getElementById('waveformAddPart');
+        this.waveformPartsList = document.getElementById('waveformPartsList');
+        this.waveformSaveParts = document.getElementById('waveformSaveParts');
+
+        console.log('[WAVEFORM PARTS] Modal initialized:', !!this.waveformPartsModal);
+
+        // Selection state
+        this.selectionStart = null; // in seconds
+        this.selectionEnd = null; // in seconds
+        this.isSelecting = false;
+        this.isDraggingStart = false;
+        this.isDraggingEnd = false;
+        this.dragStartTime = null; // for calculating drag offset
+
+        // Part type state
+        this.selectedPartType = null; // selected chip value
+        this.selectedPartNumber = null; // selected number for numbered types
+        this.customPartName = null; // custom name for "OUTRO"
+
+        // Parts list state
+        this.waveformParts = []; // Array of {id, name, start, end}
+
+        // Setup event listeners for selection
+        this.setupWaveformSelection();
+        this.setupPartTypeSelection();
+        this.setupPartsList();
+    }
+
+    openWaveformPartsModal() {
+        if (!this.waveformPartsModal) {
+            console.warn('[WAVEFORM PARTS] Modal element not found');
+            return;
+        }
+
+        // Check if user has access to waveform parts (Pro feature)
+        if (!this.checkProFeature('waveformParts')) {
+            console.log('[PLAN] Waveform parts feature blocked for', this.userPlan);
+            return;
+        }
+
+        if (!this.currentProject || !this.currentProject.waveformData) {
+            console.warn('[WAVEFORM PARTS] No project or waveform data available');
+            return;
+        }
+
+        // Reset selection state
+        this.selectionStart = null;
+        this.selectionEnd = null;
+        this.isSelecting = false;
+        this.isDraggingStart = false;
+        this.isDraggingEnd = false;
+
+        // Reset part type state
+        this.selectedPartType = null;
+        this.customPartName = null;
+        this.resetPartTypeSelection();
+
+        // Load existing parts from project for editing
+        this.loadWaveformPartsForModal();
+
+        this.waveformPartsModal.classList.add('active');
+        this.renderWaveformPreview();
+        this.renderTimeScale();
+        this.updateSelectionUI();
+    }
+
+    closeWaveformPartsModal() {
+        if (!this.waveformPartsModal) return;
+        this.waveformPartsModal.classList.remove('active');
+
+        // Reset temporary state but don't modify the project
+        // The project's waveformParts remains as it was saved
+        this.waveformParts = [];
+        this.selectedPartType = null;
+        this.customPartName = null;
+        this.selectionStart = null;
+        this.selectionEnd = null;
+    }
+
+    renderWaveformParts() {
+        const timelineWaveform = document.getElementById('timelineWaveform');
+        if (!timelineWaveform) return;
+
+        // Clear existing parts overlays
+        this.clearWaveformParts();
+
+        // Check if project has waveform parts
+        if (!this.currentProject || !this.currentProject.waveformParts || this.currentProject.waveformParts.length === 0) {
+            return;
+        }
+
+        // Check if totalDuration is available
+        if (!this.totalDuration || this.totalDuration === 0) {
+            console.log('[WAVEFORM PARTS] Cannot render: totalDuration not available yet');
+            return;
+        }
+
+        // Get waveform dimensions
+        const waveformWidth = timelineWaveform.clientWidth;
+        if (waveformWidth === 0) return;
+
+        // Create overlay container for parts
+        const partsOverlay = document.createElement('div');
+        partsOverlay.className = 'waveform-part-overlay';
+        partsOverlay.id = 'waveformPartsOverlay';
+
+        // Render each part
+        this.currentProject.waveformParts.forEach(part => {
+            // Calculate position based on time
+            const startX = (part.start / this.totalDuration) * waveformWidth;
+            const endX = (part.end / this.totalDuration) * waveformWidth;
+            const width = endX - startX;
+
+            // Create part region
+            const partRegion = document.createElement('div');
+            partRegion.className = 'waveform-part-region';
+            partRegion.style.left = `${startX}px`;
+            partRegion.style.width = `${width}px`;
+
+            // Create part label with smart positioning
+            const partLabel = document.createElement('div');
+            partLabel.className = 'waveform-part-label';
+            partLabel.textContent = part.name;
+
+            // Smart label positioning for small regions
+            const minLabelWidth = 60; // Minimum width for readable label
+            if (width < minLabelWidth) {
+                // For very small regions, position label above and center it
+                partLabel.classList.add('above');
+                partLabel.style.left = `${startX + (width / 2) - (minLabelWidth / 2)}px`;
+                partLabel.style.width = `${minLabelWidth}px`;
+                partLabel.style.textAlign = 'center';
+            } else {
+                // For normal regions, position inside
+                partLabel.style.left = `${startX + 4}px`;
+                partLabel.style.maxWidth = `${width - 8}px`;
+            }
+
+            partsOverlay.appendChild(partRegion);
+            partsOverlay.appendChild(partLabel);
+        });
+
+        timelineWaveform.appendChild(partsOverlay);
+    }
+
+    clearWaveformParts() {
+        const timelineWaveform = document.getElementById('timelineWaveform');
+        if (!timelineWaveform) return;
+
+        // Remove existing parts overlay
+        const existingOverlay = document.getElementById('waveformPartsOverlay');
+        if (existingOverlay) {
+            existingOverlay.remove();
+        }
+    }
+
+    setupWaveformSelection() {
+        if (!this.waveformPreviewCanvas) return;
+
+        const container = this.waveformPreviewCanvas.parentElement;
+
+        // Pointer events for selection on canvas
+        this.waveformPreviewCanvas.addEventListener('pointerdown', (e) => this.handleWaveformPointerDown(e));
+        document.addEventListener('pointermove', (e) => this.handleWaveformPointerMove(e));
+        document.addEventListener('pointerup', (e) => this.handleWaveformPointerUp(e));
+
+        // Marker dragging
+        this.waveformMarkerStart?.addEventListener('pointerdown', (e) => this.handleMarkerStartDown(e));
+        this.waveformMarkerEnd?.addEventListener('pointerdown', (e) => this.handleMarkerEndDown(e));
+
+        // Time input changes
+        this.waveformStartTime?.addEventListener('input', (e) => this.handleStartTimeChange(e));
+        this.waveformEndTime?.addEventListener('input', (e) => this.handleEndTimeChange(e));
+
+        // Handle window resize to update selection
+        window.addEventListener('resize', () => {
+            if (this.waveformPartsModal?.classList.contains('active')) {
+                this.updateSelectionUI();
+            }
+            // Re-render waveform parts on main waveform
+            this.renderWaveformParts();
+        });
+    }
+
+    setupPartTypeSelection() {
+        // Find all chips across all categories within the modal
+        const modalBody = this.waveformPartsModal?.querySelector('.modal-body');
+        if (!modalBody) return;
+
+        // Add click listeners to all chips across all categories
+        const chips = modalBody.querySelectorAll('.part-type-chip');
+        chips.forEach(chip => {
+            chip.addEventListener('click', () => this.handlePartTypeSelection(chip));
+        });
+
+        // Add input listener for custom name
+        this.waveformCustomName?.addEventListener('input', (e) => {
+            this.customPartName = e.target.value.trim();
+        });
+
+        // Add clear selection button listener
+        this.waveformClearSelection?.addEventListener('click', () => this.clearSelection());
+    }
+
+    setupPartsList() {
+        // Add part button listener
+        this.waveformAddPart?.addEventListener('click', () => this.addWaveformPart());
+
+        // Add save parts button listener
+        this.waveformSaveParts?.addEventListener('click', () => this.saveWaveformParts());
+    }
+
+    addWaveformPart() {
+        // Validate selection
+        if (!this.validatePartSelection()) {
+            console.warn('[WAVEFORM PARTS] Cannot add part: invalid selection');
+            return;
+        }
+
+        // Get part name
+        const partName = this.getSelectedPartName();
+        if (!partName) {
+            console.warn('[WAVEFORM PARTS] Cannot add part: no name');
+            return;
+        }
+
+        // Ensure start < end
+        const start = Math.min(this.selectionStart, this.selectionEnd);
+        const end = Math.max(this.selectionStart, this.selectionEnd);
+
+        // Create part object
+        const part = {
+            id: Date.now().toString(), // Simple ID generation
+            name: partName,
+            start: start,
+            end: end
+        };
+
+        // Add to parts list
+        this.waveformParts.push(part);
+
+        console.log('[WAVEFORM PARTS] Added part:', part);
+
+        // Clear selection for next part
+        this.clearSelection();
+
+        // Render updated list
+        this.renderWaveformPartsList();
+    }
+
+    removeWaveformPart(partId) {
+        // Remove part from array
+        this.waveformParts = this.waveformParts.filter(part => part.id !== partId);
+
+        console.log('[WAVEFORM PARTS] Removed part:', partId);
+
+        // Render updated list
+        this.renderWaveformPartsList();
+    }
+
+    renderWaveformPartsList() {
+        if (!this.waveformPartsList) return;
+
+        // Sort parts chronologically by start time
+        const sortedParts = [...this.waveformParts].sort((a, b) => a.start - b.start);
+
+        // Clear list
+        this.waveformPartsList.innerHTML = '';
+
+        // Show empty state if no parts
+        if (sortedParts.length === 0) {
+            this.waveformPartsList.innerHTML = '<div class="waveform-parts-empty">Nenhuma parte adicionada ainda</div>';
+            return;
+        }
+
+        // Render each part
+        sortedParts.forEach(part => {
+            const partElement = document.createElement('div');
+            partElement.className = 'waveform-part-item';
+            partElement.innerHTML = `
+                <div class="waveform-part-info">
+                    <div class="waveform-part-name">${this.escapeHtml(part.name)}</div>
+                    <div class="waveform-part-time">${this.formatTime(part.start)} → ${this.formatTime(part.end)}</div>
+                </div>
+                <button class="waveform-part-remove" data-part-id="${part.id}" aria-label="Remover parte">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            `;
+
+            // Add remove button listener
+            const removeButton = partElement.querySelector('.waveform-part-remove');
+            removeButton.addEventListener('click', () => this.removeWaveformPart(part.id));
+
+            this.waveformPartsList.appendChild(partElement);
+        });
+    }
+
+    loadWaveformParts() {
+        if (!this.currentProject) return;
+
+        const projectId = this.currentProject.id;
+
+        // First, load from local storage immediately
+        this.currentProject.waveformParts = this.currentProject.waveformParts || [];
+        console.log('[WAVEFORM PARTS] Using local parts initially:', this.currentProject.waveformParts.length);
+
+        // Render parts immediately from local data
+        this.renderWaveformParts();
+
+        // Then, try to load from Firestore in the background
+        this.loadWaveformPartsFromFirestore(projectId).then(cloudParts => {
+            if (cloudParts && Array.isArray(cloudParts)) {
+                // Use cloud data
+                this.currentProject.waveformParts = cloudParts;
+                console.log('[WAVEFORM PARTS] Loaded cloud parts:', cloudParts.length);
+
+                // Save cloud data locally
+                storage.updateProject(projectId, {
+                    waveformParts: cloudParts
+                }).then(() => {
+                    console.log('[WAVEFORM PARTS] Cloud parts saved locally');
+                }).catch(error => {
+                    console.warn('[WAVEFORM PARTS] Error saving cloud parts locally:', error);
+                });
+
+                // Re-render with cloud data
+                this.renderWaveformParts();
+            } else {
+                console.log('[WAVEFORM PARTS] No cloud parts available, keeping local data');
+            }
+        }).catch(error => {
+            console.warn('[WAVEFORM PARTS] Error loading from Firestore:', error);
+        });
+    }
+
+    loadWaveformPartsForModal() {
+        // Load existing parts from current project for modal editing
+        if (this.currentProject && this.currentProject.waveformParts) {
+            // Clone the array to avoid modifying the project directly
+            this.waveformParts = [...this.currentProject.waveformParts];
+            console.log('[WAVEFORM PARTS] Loaded parts for modal editing:', this.waveformParts.length);
+        } else {
+            // Initialize with empty array for new projects or old projects without parts
+            this.waveformParts = [];
+            console.log('[WAVEFORM PARTS] No existing parts, starting with empty array');
+        }
+
+        this.renderWaveformPartsList();
+    }
+
+    async saveWaveformParts() {
+        if (!this.currentProject) {
+            console.warn('[WAVEFORM PARTS] Cannot save: no current project');
+            return;
+        }
+
+        // Validate all parts before saving
+        const validatedParts = this.waveformParts.filter(part => {
+            return (
+                part &&
+                typeof part.id === 'string' &&
+                part.id &&
+                typeof part.name === 'string' &&
+                part.name &&
+                part.name.trim() &&
+                typeof part.start === 'number' &&
+                !isNaN(part.start) &&
+                part.start >= 0 &&
+                typeof part.end === 'number' &&
+                !isNaN(part.end) &&
+                part.end > 0 &&
+                part.start < part.end
+            );
+        });
+
+        if (validatedParts.length !== this.waveformParts.length) {
+            console.warn('[WAVEFORM PARTS] Some parts were invalid and not saved');
+        }
+
+        // Update project with validated parts
+        this.currentProject.waveformParts = validatedParts;
+
+        console.log('[WAVEFORM PARTS] Saving parts to project:', validatedParts.length);
+
+        try {
+            // Save using the existing storage system
+            await storage.updateProject(this.currentProject.id, {
+                waveformParts: validatedParts
+            });
+
+            console.log('[WAVEFORM PARTS] Parts saved successfully to local storage');
+
+            // Sync to Firestore if authenticated
+            await this.saveWaveformPartsToFirestore(this.currentProject.id, validatedParts);
+
+            // Render parts on main waveform after successful save
+            this.renderWaveformParts();
+
+            // Close modal after successful save
+            this.closeWaveformPartsModal();
+        } catch (error) {
+            console.error('[WAVEFORM PARTS] Error saving parts:', error);
+            // Optionally show error to user
+        }
+    }
+
+    async saveWaveformPartsToFirestore(projectId, waveformParts) {
+        // Check if Firebase is available
+        if (typeof window.firebaseDB === 'undefined' || typeof window.firebaseAuth === 'undefined') {
+            console.log('[WAVEFORM PARTS SYNC] Firebase not available, skipping Firestore sync');
+            return;
+        }
+
+        // Check if user is authenticated
+        const auth = window.firebaseAuth.auth;
+        const user = auth.currentUser;
+        if (!user) {
+            console.log('[WAVEFORM PARTS SYNC] No authenticated user, using local storage only');
+            return;
+        }
+
+        const userId = user.uid;
+        console.log('[WAVEFORM PARTS SYNC] Saving parts to Firestore for project:', projectId);
+
+        try {
+            const { doc, setDoc, serverTimestamp } = window.firebaseDB;
+            const db = window.firebaseDB.db;
+            const projectRef = doc(db, 'users', userId, 'projects', projectId);
+
+            // Update only waveformParts field
+            const firestoreData = {
+                waveformParts: waveformParts,
+                syncedAt: serverTimestamp()
+            };
+
+            await setDoc(projectRef, firestoreData, { merge: true });
+            console.log('[WAVEFORM PARTS SYNC] Parts synced to Firestore successfully');
+        } catch (error) {
+            console.warn('[WAVEFORM PARTS SYNC] Firestore unavailable:', error);
+            // Don't throw - allow local save to succeed
+        }
+    }
+
+    async loadWaveformPartsFromFirestore(projectId) {
+        // Check if Firebase is available
+        if (typeof window.firebaseDB === 'undefined' || typeof window.firebaseAuth === 'undefined') {
+            console.log('[WAVEFORM PARTS SYNC] Firebase not available, skipping Firestore load');
+            return null;
+        }
+
+        // Check if user is authenticated
+        const auth = window.firebaseAuth.auth;
+        const user = auth.currentUser;
+        if (!user) {
+            console.log('[WAVEFORM PARTS SYNC] No authenticated user, using local storage only');
+            return null;
+        }
+
+        const userId = user.uid;
+        console.log('[WAVEFORM PARTS SYNC] Loading parts from Firestore for project:', projectId);
+
+        try {
+            const { doc, getDoc } = window.firebaseDB;
+            const db = window.firebaseDB.db;
+            const projectRef = doc(db, 'users', userId, 'projects', projectId);
+
+            const docSnapshot = await getDoc(projectRef);
+
+            if (!docSnapshot.exists()) {
+                console.log('[WAVEFORM PARTS SYNC] Project not found in Firestore');
+                return null;
+            }
+
+            const data = docSnapshot.data();
+
+            if (!data.waveformParts || !Array.isArray(data.waveformParts)) {
+                console.log('[WAVEFORM PARTS SYNC] No waveformParts in Firestore document');
+                return null;
+            }
+
+            console.log('[WAVEFORM PARTS SYNC] Loaded', data.waveformParts.length, 'parts from Firestore');
+            return data.waveformParts;
+        } catch (error) {
+            console.warn('[WAVEFORM PARTS SYNC] Firestore unavailable:', error);
+            return null;
+        }
+    }
+
+    handlePartTypeSelection(chip) {
+        // Remove active class from all chips
+        const modalBody = this.waveformPartsModal?.querySelector('.modal-body');
+        const chips = modalBody?.querySelectorAll('.part-type-chip');
+        chips?.forEach(c => c.classList.remove('active'));
+
+        // Add active class to selected chip
+        chip.classList.add('active');
+
+        // Store selected type
+        this.selectedPartType = chip.dataset.type;
+
+        // Check if this is a numbered type
+        const isNumbered = chip.dataset.numbered === 'true';
+
+        // Show/hide number selection based on type
+        if (isNumbered) {
+            this.showNumberSelection(this.selectedPartType);
+        } else {
+            this.hideNumberSelection();
+        }
+
+        // Show/hide custom name input based on selection
+        if (this.selectedPartType === 'CUSTOM') {
+            this.waveformCustomNameContainer.style.display = 'block';
+            this.waveformCustomName.focus();
+        } else {
+            this.waveformCustomNameContainer.style.display = 'none';
+            this.customPartName = null;
+            this.waveformCustomName.value = '';
+        }
+
+        console.log('[WAVEFORM PARTS] Selected part type:', this.selectedPartType, 'Numbered:', isNumbered);
+    }
+
+    showNumberSelection(type) {
+        if (!this.waveformPartNumberSelection || !this.waveformPartNumberChips) return;
+
+        console.log('[WAVEFORM PARTS] Showing number selection for type:', type);
+
+        // Determine number range based on type
+        let maxNumber = 6;
+        let label = 'Número';
+
+        if (type === 'VERSO') {
+            maxNumber = 6;
+            label = 'VERSO';
+        } else if (type === 'PRÉ-REFRÃO') {
+            maxNumber = 6;
+            label = 'PRÉ-REFRÃO';
+        } else if (type === 'REFRÃO') {
+            maxNumber = 4;
+            label = 'REFRÃO';
+        }
+
+        // Update label
+        this.waveformPartNumberLabel.textContent = label;
+
+        // Clear existing number chips
+        this.waveformPartNumberChips.innerHTML = '';
+
+        // Create number chips
+        for (let i = 1; i <= maxNumber; i++) {
+            const numberChip = document.createElement('button');
+            numberChip.className = 'part-number-chip';
+            numberChip.textContent = i;
+            numberChip.dataset.number = i;
+            numberChip.type = 'button'; // Ensure it's treated as a button
+            numberChip.addEventListener('click', () => this.handlePartNumberSelection(numberChip));
+            this.waveformPartNumberChips.appendChild(numberChip);
+        }
+
+        // Show number selection
+        this.waveformPartNumberSelection.style.display = 'block';
+
+        // Reset selected number
+        this.selectedPartNumber = null;
+    }
+
+    hideNumberSelection() {
+        if (this.waveformPartNumberSelection) {
+            this.waveformPartNumberSelection.style.display = 'none';
+        }
+        this.selectedPartNumber = null;
+    }
+
+    handlePartNumberSelection(numberChip) {
+        // Remove active class from all number chips
+        const numberChips = this.waveformPartNumberChips.querySelectorAll('.part-number-chip');
+        numberChips.forEach(c => c.classList.remove('active'));
+
+        // Add active class to selected number chip
+        numberChip.classList.add('active');
+
+        // Store selected number
+        this.selectedPartNumber = parseInt(numberChip.dataset.number);
+
+        console.log('[WAVEFORM PARTS] Selected part number:', this.selectedPartNumber);
+    }
+
+    resetPartTypeSelection() {
+        // Remove active class from all chips
+        const modalBody = this.waveformPartsModal?.querySelector('.modal-body');
+        const chips = modalBody?.querySelectorAll('.part-type-chip');
+        chips?.forEach(c => c.classList.remove('active'));
+
+        // Hide number selection
+        this.hideNumberSelection();
+
+        // Hide custom name input
+        if (this.waveformCustomNameContainer) {
+            this.waveformCustomNameContainer.style.display = 'none';
+        }
+
+        // Clear custom name input
+        if (this.waveformCustomName) {
+            this.waveformCustomName.value = '';
+        }
+
+        // Reset state
+        this.selectedPartType = null;
+        this.selectedPartNumber = null;
+        this.customPartName = null;
+    }
+
+    getSelectedPartName() {
+        if (!this.selectedPartType) return null;
+
+        // Handle CUSTOM type (formerly OUTRO)
+        if (this.selectedPartType === 'CUSTOM') {
+            // Use custom name if provided, otherwise default to 'OUTRO'
+            return this.customPartName && this.customPartName.trim() ? this.customPartName.trim() : 'OUTRO';
+        }
+
+        // Handle numbered types
+        if (this.selectedPartNumber !== null) {
+            return `${this.selectedPartType} ${this.selectedPartNumber}`;
+        }
+
+        // Handle regular types
+        return this.selectedPartType;
+    }
+
+    validatePartSelection() {
+        // Check if selection exists
+        if (this.selectionStart === null || this.selectionEnd === null) {
+            return false;
+        }
+
+        // Check if start < end
+        if (this.selectionStart >= this.selectionEnd) {
+            return false;
+        }
+
+        // Check if part type is selected
+        if (!this.selectedPartType) {
+            return false;
+        }
+
+        // Check if number is selected for numbered types
+        const isNumbered = this.selectedPartType === 'VERSO' ||
+                          this.selectedPartType === 'PRÉ-REFRÃO' ||
+                          this.selectedPartType === 'REFRÃO';
+
+        if (isNumbered && this.selectedPartNumber === null) {
+            return false;
+        }
+
+        // For CUSTOM, use the custom name if provided, otherwise use 'OUTRO'
+        // No validation error if custom name is empty - it will default to 'OUTRO'
+
+        return true;
+    }
+
+    handleWaveformPointerDown(e) {
+        if (!this.waveformPreviewCanvas) return;
+
+        const rect = this.waveformPreviewCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const time = this.pixelToTime(x, rect.width);
+
+        // Start new selection
+        this.selectionStart = time;
+        this.selectionEnd = time;
+        this.isSelecting = true;
+        this.waveformPreviewCanvas.setPointerCapture(e.pointerId);
+
+        this.updateSelectionUI();
+    }
+
+    handleWaveformPointerMove(e) {
+        if (!this.isSelecting && !this.isDraggingStart && !this.isDraggingEnd) return;
+
+        const rect = this.waveformPreviewCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const time = this.pixelToTime(x, rect.width);
+
+        if (this.isSelecting) {
+            this.selectionEnd = time;
+        } else if (this.isDraggingStart) {
+            this.selectionStart = Math.max(0, Math.min(time, this.selectionEnd - 0.1));
+        } else if (this.isDraggingEnd) {
+            this.selectionEnd = Math.max(this.selectionStart + 0.1, Math.min(time, this.totalDuration));
+        }
+
+        this.updateSelectionUI();
+    }
+
+    handleWaveformPointerUp(e) {
+        if (this.isSelecting) {
+            this.isSelecting = false;
+            if (this.waveformPreviewCanvas && this.waveformPreviewCanvas.hasPointerCapture(e.pointerId)) {
+                this.waveformPreviewCanvas.releasePointerCapture(e.pointerId);
+            }
+
+            // Ensure start < end
+            if (this.selectionStart > this.selectionEnd) {
+                [this.selectionStart, this.selectionEnd] = [this.selectionEnd, this.selectionStart];
+            }
+
+            // Validate selection
+            if (this.selectionEnd - this.selectionStart < 0.1) {
+                this.clearSelection();
+            }
+        } else if (this.isDraggingStart) {
+            this.isDraggingStart = false;
+            if (this.waveformMarkerStart && this.waveformMarkerStart.hasPointerCapture(e.pointerId)) {
+                this.waveformMarkerStart.releasePointerCapture(e.pointerId);
+            }
+        } else if (this.isDraggingEnd) {
+            this.isDraggingEnd = false;
+            if (this.waveformMarkerEnd && this.waveformMarkerEnd.hasPointerCapture(e.pointerId)) {
+                this.waveformMarkerEnd.releasePointerCapture(e.pointerId);
+            }
+        }
+
+        this.updateSelectionUI();
+    }
+
+    handleMarkerStartDown(e) {
+        e.stopPropagation();
+        this.isDraggingStart = true;
+        this.dragStartTime = this.selectionStart;
+        this.waveformMarkerStart.setPointerCapture(e.pointerId);
+    }
+
+    handleMarkerEndDown(e) {
+        e.stopPropagation();
+        this.isDraggingEnd = true;
+        this.dragStartTime = this.selectionEnd;
+        this.waveformMarkerEnd.setPointerCapture(e.pointerId);
+    }
+
+    pixelToTime(pixel, width) {
+        const percent = Math.max(0, Math.min(1, pixel / width));
+        return percent * this.totalDuration;
+    }
+
+    timeToPixel(time, width) {
+        const percent = time / this.totalDuration;
+        return percent * width;
+    }
+
+    updateSelectionUI() {
+        if (!this.waveformPreviewCanvas) return;
+
+        const container = this.waveformPreviewCanvas.parentElement;
+        const width = container.clientWidth;
+
+        if (this.selectionStart === null || this.selectionEnd === null) {
+            // Hide all selection elements
+            this.waveformSelectionRegion?.classList.remove('active');
+            this.waveformMarkerStart?.classList.remove('active');
+            this.waveformMarkerEnd?.classList.remove('active');
+
+            // Reset time inputs
+            if (this.waveformStartTime) this.waveformStartTime.value = '0:00';
+            if (this.waveformEndTime) this.waveformEndTime.value = '0:00';
+            return;
+        }
+
+        // Ensure start < end
+        const start = Math.min(this.selectionStart, this.selectionEnd);
+        const end = Math.max(this.selectionStart, this.selectionEnd);
+
+        const startPixel = this.timeToPixel(start, width);
+        const endPixel = this.timeToPixel(end, width);
+        const selectionWidth = endPixel - startPixel;
+
+        // Update selection region
+        if (this.waveformSelectionRegion) {
+            this.waveformSelectionRegion.style.left = `${startPixel}px`;
+            this.waveformSelectionRegion.style.width = `${selectionWidth}px`;
+            this.waveformSelectionRegion.classList.add('active');
+        }
+
+        // Update markers
+        if (this.waveformMarkerStart) {
+            this.waveformMarkerStart.style.left = `${startPixel - 6}px`; // Center the marker
+            this.waveformMarkerStart.classList.add('active');
+        }
+
+        if (this.waveformMarkerEnd) {
+            this.waveformMarkerEnd.style.left = `${endPixel - 6}px`; // Center the marker
+            this.waveformMarkerEnd.classList.add('active');
+        }
+
+        // Update time inputs
+        if (this.waveformStartTime) {
+            this.waveformStartTime.value = this.formatTime(start);
+        }
+        if (this.waveformEndTime) {
+            this.waveformEndTime.value = this.formatTime(end);
+        }
+    }
+
+    handleStartTimeChange(e) {
+        const time = this.parseTimeInput(e.target.value);
+        if (time !== null && this.selectionEnd !== null) {
+            this.selectionStart = Math.max(0, Math.min(time, this.selectionEnd - 0.1));
+            this.updateSelectionUI();
+        }
+    }
+
+    handleEndTimeChange(e) {
+        const time = this.parseTimeInput(e.target.value);
+        if (time !== null && this.selectionStart !== null) {
+            this.selectionEnd = Math.max(this.selectionStart + 0.1, Math.min(time, this.totalDuration));
+            this.updateSelectionUI();
+        }
+    }
+
+    parseTimeInput(value) {
+        const match = value.match(/^(\d+):(\d+)$/);
+        if (!match) return null;
+
+        const mins = parseInt(match[1], 10);
+        const secs = parseInt(match[2], 10);
+
+        if (isNaN(mins) || isNaN(secs) || secs < 0 || secs >= 60) return null;
+
+        return mins * 60 + secs;
+    }
+
+    clearSelection() {
+        this.selectionStart = null;
+        this.selectionEnd = null;
+        this.selectedPartType = null;
+        this.selectedPartNumber = null;
+        this.customPartName = null;
+        this.resetPartTypeSelection();
+        this.updateSelectionUI();
+        // Note: We DON'T clear the parts list here, only the current selection
+    }
+
+    renderWaveformPreview() {
+        if (!this.waveformPreviewCanvas || !this.currentProject?.waveformData) return;
+
+        const canvas = this.waveformPreviewCanvas;
+        const ctx = canvas.getContext('2d');
+        const container = canvas.parentElement;
+
+        // Set canvas size to match container
+        canvas.width = container.clientWidth;
+        canvas.height = container.clientHeight;
+
+        // Clear canvas
+        ctx.fillStyle = '#0a0a0a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw waveform using cached data
+        this.drawWaveformFromCache(ctx, canvas.width, canvas.height);
+
+        // Update selection UI after render
+        this.updateSelectionUI();
+    }
+
+    renderTimeScale() {
+        if (!this.waveformTimeScale || !this.totalDuration) return;
+
+        const duration = this.totalDuration;
+        const markers = 5; // Number of time markers
+        const interval = duration / (markers - 1);
+
+        let timeScaleHTML = '';
+        for (let i = 0; i < markers; i++) {
+            const time = i * interval;
+            const timeStr = this.formatTime(time);
+            timeScaleHTML += `<span>${timeStr}</span>`;
+        }
+
+        this.waveformTimeScale.innerHTML = timeScaleHTML;
+    }
+
+    formatTime(seconds) {
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
     }
 
     initProfilePhotoUpload() {
@@ -8844,27 +10107,37 @@ class MultracksApp {
     loadPlayerSettings() {
         // Load player settings from localStorage
         const playerSettings = JSON.parse(localStorage.getItem('playerSettings') || '{}');
-        
+
         this.playerRepeatMode.checked = playerSettings.repeatMode || false;
         this.playerAutoAdvanceMode.checked = playerSettings.autoAdvanceMode || false;
         this.playerTransitionMode.checked = playerSettings.transitionMode || false;
         this.playerFaderAnimations.checked = playerSettings.faderAnimations !== false; // Default to true
+
+        // Load compass setting
+        this.preCountMeasures = playerSettings.preCountMeasures || 0;
+        this.updateCompassButtonState();
+
+        // Update player with loaded pre-count setting (if player exists)
+        if (this.audioPlayer) {
+            this.audioPlayer.setPreCountMeasures(this.preCountMeasures);
+        }
     }
     
     savePlayerSettings() {
         // Save player settings to localStorage
         const playerSettings = {
-            repeatMode: this.playerRepeatMode.checked,
-            autoAdvanceMode: this.playerAutoAdvanceMode.checked,
-            transitionMode: this.playerTransitionMode.checked,
-            faderAnimations: this.playerFaderAnimations.checked
+            repeatMode: this.playerRepeatMode ? this.playerRepeatMode.checked : false,
+            autoAdvanceMode: this.playerAutoAdvanceMode ? this.playerAutoAdvanceMode.checked : false,
+            transitionMode: this.playerTransitionMode ? this.playerTransitionMode.checked : false,
+            faderAnimations: this.playerFaderAnimations ? this.playerFaderAnimations.checked : true,
+            preCountMeasures: this.preCountMeasures
         };
-        
+
         localStorage.setItem('playerSettings', JSON.stringify(playerSettings));
-        
+
         // Apply settings to player
         this.applyPlayerSettings(playerSettings);
-        
+
         console.log('[PLAYER SETTINGS] Settings saved:', playerSettings);
     }
     
@@ -9075,9 +10348,10 @@ class MultracksApp {
 
                         if (exceedsLimit) {
                             const durationMinutes = (duration / 60).toFixed(2);
-                            const planName = plan.displayName || 'Track';
-                            alert(`⚠️ Limite de duração do plano ${planName}\n\nO arquivo "${file.name}" tem ${durationMinutes} minutos, mas o plano ${planName} permite apenas áudios de até 5 minutos.\n\nEste arquivo não será adicionado ao projeto.`);
                             console.log('[PLAN] File exceeds duration limit:', file.name, duration, 'seconds');
+                            
+                            // Show Pro modal for long duration files
+                            this.showProFeatureModal(this.proFeatureConfigs.longDuration);
                             continue; // Skip this file
                         }
                     } catch (error) {
@@ -9754,7 +11028,30 @@ class MultracksApp {
         this.settingsModalClose?.addEventListener('click', () => {
             this.closeSettingsModal();
         });
-        
+
+        // Waveform parts modal
+        this.waveformPartsBtn?.addEventListener('click', () => {
+            this.openWaveformPartsModal();
+        });
+
+        this.waveformPartsModalClose?.addEventListener('click', () => {
+            this.closeWaveformPartsModal();
+        });
+
+        // Close waveform parts modal on overlay click
+        this.waveformPartsModal?.addEventListener('click', (e) => {
+            if (e.target === this.waveformPartsModal) {
+                this.closeWaveformPartsModal();
+            }
+        });
+
+        // Close waveform parts modal on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && this.waveformPartsModal?.classList.contains('active')) {
+                this.closeWaveformPartsModal();
+            }
+        });
+
         // Player settings modal close
         this.playerSettingsModalClose?.addEventListener('click', () => {
             this.closePlayerSettingsModal();
@@ -9887,6 +11184,22 @@ class MultracksApp {
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.profile-container')) {
                 profileDropdown?.classList.remove('active');
+            }
+        });
+
+        // Service Plan link - check Pro access
+        const servicePlanLink = document.getElementById('servicePlanLink');
+        servicePlanLink?.addEventListener('click', (e) => {
+            if (!this.checkProFeature('servicePlan')) {
+                e.preventDefault();
+            }
+        });
+
+        // W.Cifras link - check Pro access
+        const wcifrasLink = document.getElementById('wcifrasLink');
+        wcifrasLink?.addEventListener('click', (e) => {
+            if (!this.checkProFeature('wcifras')) {
+                e.preventDefault();
             }
         });
 
@@ -11908,8 +13221,7 @@ class MultracksApp {
                         console.log('[PLAN] User plan not loaded yet, blocking pads temporarily');
                         alert('⚠️ Carregando informações do plano...\n\nPor favor, aguarde enquanto carregamos suas permissões.');
                     } else {
-                        const planName = window.PlanSystem ? window.PlanSystem.PLANS[this.userPlan]?.displayName || 'Track' : 'Track';
-                        alert(`⚠️ Recurso indisponível no plano ${planName}\n\nA funcionalidade de Pads está disponível apenas no plano Track Pro.\n\nFaça upgrade para o Track Pro para usar pads.`);
+                        this.checkProFeature('pads');
                         console.log('[PLAN] Pad feature blocked for', this.userPlan);
                     }
                     return;

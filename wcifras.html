@@ -8,7 +8,7 @@
     <meta name="theme-color" content="#000000">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="wcifras.css">
     <link rel="icon" type="image/png" href="icon-black-transparent.png">
 
@@ -78,26 +78,47 @@
     <main class="wcifras-main">
         <!-- CATALOG VIEW -->
         <div class="wcifras-container" id="wcifrasCatalogView">
-            <!-- Page Title -->
-            <h1 class="wcifras-title">Cifras</h1>
+            <!-- Hero Section -->
+            <section class="wcifras-hero">
+                <div class="wcifras-hero-content">
+                    <h1 class="wcifras-hero-title">W.CIFRAS</h1>
+                    <p class="wcifras-hero-subtitle">Encontre, organize e toque suas músicas</p>
+                </div>
+            </section>
             
             <!-- Search Bar -->
-            <div class="wcifras-search-container">
-                <div class="wcifras-search-wrapper">
-                    <svg class="wcifras-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="11" cy="11" r="8"></circle>
-                        <path d="m21 21-4.35-4.35"></path>
-                    </svg>
-                    <input type="text" class="wcifras-search-input" id="wcifrasSearchInput" placeholder="Pesquisar cifras...">
+            <div class="wcifras-search-section">
+                <div class="wcifras-search-container">
+                    <div class="wcifras-search-wrapper">
+                        <svg class="wcifras-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <path d="m21 21-4.35-4.35"></path>
+                        </svg>
+                        <input type="text" class="wcifras-search-input" id="wcifrasSearchInput" placeholder="Pesquisar cifra, música ou artista...">
+                    </div>
+                    <button class="wcifras-add-btn" id="wcifrasAddBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        Adicionar cifra
+                    </button>
                 </div>
-                <button class="wcifras-add-btn" id="wcifrasAddBtn">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="12" y1="5" x2="12" y2="19"></line>
-                        <line x1="5" y1="12" x2="19" y2="12"></line>
-                    </svg>
-                    Adicionar cifra
-                </button>
             </div>
+            
+            <!-- Recently Played Section -->
+            <section class="wcifras-recent-section" id="wcifrasRecentSection" style="display: none;">
+                <div class="wcifras-section-header">
+                    <h2 class="wcifras-section-title">Entradas recentemente</h2>
+                </div>
+                <div class="wcifras-recent-list" id="wcifrasRecentList">
+                    <!-- Recent songs will be rendered here -->
+                </div>
+            </section>
+            
+            <!-- Available Chords Section -->
+            <section class="wcifras-chords-section">
+                <h2 class="wcifras-section-title">Cifras disponíveis</h2>
             
             <!-- Chords List Area -->
             <div class="wcifras-list-container">
@@ -120,6 +141,7 @@
                     <p class="wcifras-empty-text">Nenhuma cifra disponível</p>
                 </div>
             </div>
+            </section>
         </div>
 
         <!-- CHORD VIEW -->
@@ -606,10 +628,25 @@
                         <span class="wcifras-form-error" id="chordTitleError"></span>
                     </div>
                     
-                    <div class="wcifras-form-group">
+                    <div class="wcifras-form-group wcifras-form-group-with-suggestions">
                         <label class="wcifras-form-label" for="chordArtist">Artista *</label>
-                        <input type="text" class="wcifras-form-input" id="chordArtist" placeholder="Ex: Anderson Freire">
+                        <input type="text" class="wcifras-form-input" id="chordArtist" placeholder="Ex: Anderson Freire" autocomplete="off">
                         <span class="wcifras-form-error" id="chordArtistError"></span>
+                        <div class="wcifras-artist-suggestions" id="wcifrasArtistSuggestions" style="display: none;">
+                            <div class="wcifras-artist-suggestions-loading" id="wcifrasArtistSuggestionsLoading" style="display: none;">
+                                <div class="wcifras-artist-suggestions-spinner"></div>
+                                <span>Procurando artistas...</span>
+                            </div>
+                            <div class="wcifras-artist-suggestions-list" id="wcifrasArtistSuggestionsList">
+                                <!-- Artist suggestions will be rendered here -->
+                            </div>
+                            <div class="wcifras-artist-suggestions-empty" id="wcifrasArtistSuggestionsEmpty" style="display: none;">
+                                Nenhum artista encontrado
+                            </div>
+                            <div class="wcifras-artist-suggestions-error" id="wcifrasArtistSuggestionsError" style="display: none;">
+                                Não foi possível buscar artistas.
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="wcifras-form-row">
@@ -831,7 +868,7 @@
     </div>
 
     <!-- Delete Playlist Confirmation Modal -->
-    <div class="wcifras-modal-overlay" id="wcifrasDeletePlaylistModal" style="display: none;">
+    <div class="wcifras-modal-overlay" id="wcifrasDeletePlaylistModal">
         <div class="wcifras-modal wcifras-modal-small">
             <div class="wcifras-modal-header">
                 <h2 class="wcifras-modal-title">Excluir playlist?</h2>
@@ -852,6 +889,7 @@
         </div>
     </div>
 
+    <script src="music-api.js"></script>
     <script src="wcifras.js"></script>
 </body>
 </html>

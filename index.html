@@ -444,7 +444,7 @@
                             </a>
                             <div class="profile-menu-section-label">Serviços</div>
                             <div class="profile-menu-divider"></div>
-                            <a href="service-plan.html" class="profile-menu-item">
+                            <a href="service-plan.html" class="profile-menu-item" id="servicePlanLink">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
                                     <line x1="16" y1="2" x2="16" y2="6"></line>
@@ -453,7 +453,7 @@
                                 </svg>
                                 Service Plan
                             </a>
-                            <a href="wcifras.html" class="profile-menu-item">
+                            <a href="wcifras.html" class="profile-menu-item" id="wcifrasLink">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M9 18V5l12-2v13"></path>
                                     <circle cx="6" cy="18" r="3"></circle>
@@ -549,57 +549,6 @@
                                     <path d="M9.8 9a2.4 2.4 0 1 1 3.9 1.9c-.9.7-1.7 1.1-1.7 2.4"></path>
                                     <path d="M12 16.8h.01"></path>
                                 </svg>
-                            </a>
-                        </div>
-                        <div class="welcome-download-icons">
-                            <a href="#" class="welcome-download-device" aria-label="Baixe no seu dispositivo">
-                                <svg class="download-device-icon" viewBox="0 0 48 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                                    <!-- Android -->
-                                    <g>
-                                        <path d="M4 10h11v8.5c0 .8-.7 1.5-1.5 1.5h-8c-.8 0-1.5-.7-1.5-1.5V10z" fill="currentColor" stroke="none"/>
-                                        <path d="M5.5 8.5L4.2 6.3M13.5 8.5l1.3-2.2" />
-                                        <path d="M7 5.8c.8-.9 2-1.5 3-1.5s2.2.6 3 1.5" />
-                                        <circle cx="7.5" cy="10.8" r=".6" fill="currentColor" stroke="none"/>
-                                        <circle cx="11.5" cy="10.8" r=".6" fill="currentColor" stroke="none"/>
-                                        <path d="M7 20v2M12 20v2M2.5 11v5M16.5 11v5" />
-                                    </g>
-
-                                    <!-- Apple / iOS -->
-                                    <g transform="translate(24, 1)">
-                                        <path d="M13.2 12.8c-.1 2.7 2.4 3.6 2.4 3.7 0 .1-.4 1.5-1.3 2.9-.8 1.2-1.6 2.4-2.9 2.4-1.2 0-1.6-.8-3.1-.8s-2 .8-3.1.8c-1.3 0-2.2-1.1-3-2.3-1.6-2.3-2.8-6.5-1.2-9.3.8-1.4 2.2-2.3 3.8-2.3 1.2 0 2.4.8 3.1.8.7 0 2-.9 3.4-.8.6 0 2.4.2 3.6 1.9-3.2 1.8-2.7 6.1.3 6.9z" fill="currentColor" stroke="none"/>
-                                        <path d="M10.8 6.2c.6-.8 1-1.8.9-2.8-.9.1-2 .6-2.6 1.3-.6.7-1 1.7-.9 2.7 1 .1 2-.5 2.6-1.2z" fill="currentColor" stroke="none"/>
-                                    </g>
-                                </svg>
-
-                                <span>Baixe no seu dispositivo</span>
-                            </a>
-                            <a href="#" class="welcome-download-desktop" aria-label="Baixe no seu PC">
-                                <svg class="download-desktop-icon" viewBox="0 0 72 24" fill="currentColor">
-                                    <!-- Windows -->
-                                    <g>
-                                        <path d="M1 4.2L10.5 2.8V11H1V4.2Z"></path>
-                                        <path d="M11.5 2.65L21 1.25V11H11.5V2.65Z"></path>
-                                        <path d="M1 12H10.5V20.2L1 18.8V12Z"></path>
-                                        <path d="M11.5 12H21V21.5L11.5 20.1V12Z"></path>
-                                    </g>
-
-                                    <!-- macOS / Apple -->
-                                    <g transform="translate(25, 0)">
-                                        <path d="M15.1 12.8c-.1 2.7 2.4 3.6 2.4 3.7 0 .1-.4 1.5-1.3 2.9-.8 1.2-1.6 2.4-2.9 2.4-1.2 0-1.6-.8-3.1-.8s-2 .8-3.1.8c-1.3 0-2.2-1.1-3-2.3-1.6-2.3-2.8-6.5-1.2-9.3.8-1.4 2.2-2.3 3.8-2.3 1.2 0 2.4.8 3.1.8.7 0 2-.9 3.4-.8.6 0 2.4.2 3.6 1.9-3.2 1.8-2.7 6.1.3 6.9z"></path>
-                                        <path d="M12.7 6.2c.6-.8 1-1.8.9-2.8-.9.1-2 .6-2.6 1.3-.6.7-1 1.7-.9 2.7 1 .1 2-.5 2.6-1.2z"></path>
-                                    </g>
-
-                                    <!-- Linux / Tux -->
-                                    <g transform="translate(49, 1)">
-                                        <ellipse cx="11" cy="13.5" rx="7" ry="8"></ellipse>
-                                        <ellipse cx="8.5" cy="12" rx="1.8" ry="2.2" fill="var(--bg, #000)"></ellipse>
-                                        <ellipse cx="13.5" cy="12" rx="1.8" ry="2.2" fill="var(--bg, #000)"></ellipse>
-                                        <path d="M9 16.5L11 18L13 16.5L11 15.5Z" fill="var(--bg, #000)"></path>
-                                        <path d="M5 19.5L2.5 21M17 19.5L19.5 21"></path>
-                                    </g>
-                                </svg>
-
-                                <span>Baixe no seu PC</span>
                             </a>
                         </div>
                     </div>
@@ -1043,7 +992,13 @@
             <div class="loading-progress" id="loadingProgress">0 de 0 tracks</div>
             <div class="loading-subtext">Preparando suas tracks</div>
         </div>
-        
+
+        <!-- Pre-count Display -->
+        <div class="pre-count-display" id="preCountDisplay" style="display: none;">
+            <div class="pre-count-compass">COMPASSO <span id="preCountCompassNumber">1</span></div>
+            <div class="pre-count-beat" id="preCountBeatNumber">1</div>
+        </div>
+
         <!-- Music Selector -->
         <div class="music-selector">
             <div class="music-selector-scroll" id="musicSelectorScroll">
@@ -1153,11 +1108,17 @@
                 </div>
                 <!-- Click Indicator -->
                 <div class="click-indicator" id="clickIndicator"></div>
+                <!-- Waveform Parts Button -->
+                <button class="waveform-parts-btn" id="waveformPartsBtn" aria-label="Marcar partes da música" title="Marcar partes da música">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"></path>
+                    </svg>
+                </button>
             </div>
             <div class="timeline-markers" id="timelineMarkers">
                 <!-- Markers will be rendered here -->
             </div>
-            
+
             <!-- Effect Upload Popover -->
             <div class="effect-popover" id="effectPopover">
                 <div class="popover-content">
@@ -1181,6 +1142,26 @@
                             Cancelar
                         </button>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Compass Configuration Popover -->
+        <div class="compass-popover" id="compassPopover">
+            <div class="popover-content">
+                <h4 class="popover-title">Compasso</h4>
+                <div class="compass-options">
+                    <button class="compass-option" data-measures="0">Desativado</button>
+                    <button class="compass-option" data-measures="1">1 compasso</button>
+                    <button class="compass-option" data-measures="2">2 compassos</button>
+                    <button class="compass-option" data-measures="3">3 compassos</button>
+                    <button class="compass-option" data-measures="4">4 compassos</button>
+                    <button class="compass-option" data-measures="5">5 compassos</button>
+                    <button class="compass-option" data-measures="6">6 compassos</button>
+                    <button class="compass-option" data-measures="7">7 compassos</button>
+                    <button class="compass-option" data-measures="8">8 compassos</button>
+                    <button class="compass-option" data-measures="9">9 compassos</button>
+                    <button class="compass-option" data-measures="10">10 compassos</button>
                 </div>
             </div>
         </div>
@@ -1230,6 +1211,17 @@
                 <button class="control-btn pad-btn" id="padBtn" aria-label="PAD">
                     <span>PAD</span>
                 </button>
+                <button class="control-btn menu-btn" id="masterMenuBtn" aria-label="Opções" title="Opções">
+                    <span>⋮</span>
+                </button>
+                <button class="reset-square-btn reset-normal-btn" id="resetNormalVolumes" title="Resetar volumes ao normal">
+                    <span class="btn-label">R</span>
+                    <span class="btn-indicator"></span>
+                </button>
+            </div>
+
+            <!-- Master Menu Popover -->
+            <div class="master-menu-popover" id="masterMenuPopover">
                 <button class="control-btn speed-btn" id="speedBtn" aria-label="Velocidade" title="Velocidade">
                     <span id="speedBtnText">1.0x</span>
                 </button>
@@ -1241,9 +1233,11 @@
                         <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
                     </svg>
                 </button>
-                <button class="reset-square-btn reset-normal-btn" id="resetNormalVolumes" title="Resetar volumes ao normal">
-                    <span class="btn-label">R</span>
-                    <span class="btn-indicator"></span>
+                <button class="control-btn compass-btn" id="compassBtn" aria-label="Compasso" title="Compasso">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M12 6v6l4 2"></path>
+                    </svg>
                 </button>
             </div>
             
@@ -1485,28 +1479,63 @@
 
                     <input type="file" id="profilePhotoInput" accept="image/*" style="display: none;">
 
-                    <!-- Profile Edit Form -->
-                    <div class="profile-edit-form">
-                        <div class="form-group">
-                            <label class="form-label">Nome de Perfil</label>
-                            <input type="text" class="form-input" id="settingsDisplayName" placeholder="Seu nome de exibição">
-                        </div>
-
-                        <button class="btn btn-primary" id="saveProfileBtn">Salvar Perfil</button>
-                    </div>
+                </div>
 
                 <div class="settings-divider"></div>
 
-                <!-- Future Projects Section -->
+                <!-- PWA Download Section -->
                 <div class="settings-section">
-                    <h4 class="settings-section-title">Planos Futuros</h4>
-                    <p class="settings-description" style="color: #888; font-size: 14px; line-height: 1.5; margin-bottom: 15px;">
-                        Descubra mais sobre os projetos futuros do site e os planos que estamos desenvolvendo para melhorar sua experiência.
-                    </p>
-                    <button class="btn btn-secondary" id="ourProjectsBtn" style="font-size: 14px; padding: 8px 16px;">
-                        Nossos Projetos
-                    </button>
-                </div>
+                    <div class="welcome-download-icons" style="justify-content: center;">
+                        <a href="#" class="welcome-download-device" aria-label="Baixe no seu dispositivo">
+                            <svg class="download-device-icon" viewBox="0 0 48 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <!-- Android -->
+                                <g>
+                                    <path d="M4 10h11v8.5c0 .8-.7 1.5-1.5 1.5h-8c-.8 0-1.5-.7-1.5-1.5V10z" fill="currentColor" stroke="none"/>
+                                    <path d="M5.5 8.5L4.2 6.3M13.5 8.5l1.3-2.2" />
+                                    <path d="M7 5.8c.8-.9 2-1.5 3-1.5s2.2.6 3 1.5" />
+                                    <circle cx="7.5" cy="10.8" r=".6" fill="currentColor" stroke="none"/>
+                                    <circle cx="11.5" cy="10.8" r=".6" fill="currentColor" stroke="none"/>
+                                    <path d="M7 20v2M12 20v2M2.5 11v5M16.5 11v5" />
+                                </g>
+
+                                <!-- Apple / iOS -->
+                                <g transform="translate(24, 1)">
+                                    <path d="M13.2 12.8c-.1 2.7 2.4 3.6 2.4 3.7 0 .1-.4 1.5-1.3 2.9-.8 1.2-1.6 2.4-2.9 2.4-1.2 0-1.6-.8-3.1-.8s-2 .8-3.1.8c-1.3 0-2.2-1.1-3-2.3-1.6-2.3-2.8-6.5-1.2-9.3.8-1.4 2.2-2.3 3.8-2.3 1.2 0 2.4.8 3.1.8.7 0 2-.9 3.4-.8.6 0 2.4.2 3.6 1.9-3.2 1.8-2.7 6.1.3 6.9z" fill="currentColor" stroke="none"/>
+                                    <path d="M10.8 6.2c.6-.8 1-1.8.9-2.8-.9.1-2 .6-2.6 1.3-.6.7-1 1.7-.9 2.7 1 .1 2-.5 2.6-1.2z" fill="currentColor" stroke="none"/>
+                                </g>
+                            </svg>
+
+                            <span>Baixe no seu dispositivo</span>
+                        </a>
+                        <a href="#" class="welcome-download-desktop" aria-label="Baixe no seu PC">
+                            <svg class="download-desktop-icon" viewBox="0 0 72 24" fill="currentColor">
+                                <!-- Windows -->
+                                <g>
+                                    <path d="M1 4.2L10.5 2.8V11H1V4.2Z"></path>
+                                    <path d="M11.5 2.65L21 1.25V11H11.5V2.65Z"></path>
+                                    <path d="M1 12H10.5V20.2L1 18.8V12Z"></path>
+                                    <path d="M11.5 12H21V21.5L11.5 20.1V12Z"></path>
+                                </g>
+
+                                <!-- macOS / Apple -->
+                                <g transform="translate(25, 0)">
+                                    <path d="M15.1 12.8c-.1 2.7 2.4 3.6 2.4 3.7 0 .1-.4 1.5-1.3 2.9-.8 1.2-1.6 2.4-2.9 2.4-1.2 0-1.6-.8-3.1-.8s-2 .8-3.1.8c-1.3 0-2.2-1.1-3-2.3-1.6-2.3-2.8-6.5-1.2-9.3.8-1.4 2.2-2.3 3.8-2.3 1.2 0 2.4.8 3.1.8.7 0 2-.9 3.4-.8.6 0 2.4.2 3.6 1.9-3.2 1.8-2.7 6.1.3 6.9z"></path>
+                                    <path d="M12.7 6.2c.6-.8 1-1.8.9-2.8-.9.1-2 .6-2.6 1.3-.6.7-1 1.7-.9 2.7 1 .1 2-.5 2.6-1.2z"></path>
+                                </g>
+
+                                <!-- Linux / Tux -->
+                                <g transform="translate(49, 1)">
+                                    <ellipse cx="11" cy="13.5" rx="7" ry="8"></ellipse>
+                                    <ellipse cx="8.5" cy="12" rx="1.8" ry="2.2" fill="var(--bg, #000)"></ellipse>
+                                    <ellipse cx="13.5" cy="12" rx="1.8" ry="2.2" fill="var(--bg, #000)"></ellipse>
+                                    <path d="M9 16.5L11 18L13 16.5L11 15.5Z" fill="var(--bg, #000)"></path>
+                                    <path d="M5 19.5L2.5 21M17 19.5L19.5 21"></path>
+                                </g>
+                            </svg>
+
+                            <span>Baixe no seu PC</span>
+                        </a>
+                    </div>
                 </div>
 
                 <div class="settings-divider"></div>
@@ -1536,12 +1565,53 @@
 
                 <div class="settings-divider"></div>
 
+                <!-- Social Media Section -->
+                <div class="settings-section">
+                    <div class="form-group" style="text-align: center;">
+                        <label class="form-label" style="margin-bottom: 0;">Nossas Redes Sociais</label>
+                    </div>
+
+                    <!-- Social Icons -->
+                    <div class="welcome-social-icons" style="margin-top: 20px; justify-content: center;">
+                        <a href="https://www.instagram.com/wtracksstudio?utm_source=ig_web_button_share_sheet&igsi=ZDNlZDc0MzIxNw==" target="_blank" class="welcome-social-icon" aria-label="Instagram">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="3" width="18" height="18" rx="5"></rect>
+                                <circle cx="12" cy="12" r="4.2"></circle>
+                                <circle cx="17.3" cy="6.8" r="1"></circle>
+                            </svg>
+                        </a>
+                        <a href="mailto:wtracksstudio@gmail.com" class="welcome-social-icon" aria-label="Email">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="5" width="18" height="14" rx="2.5"></rect>
+                                <path d="M4 7l8 6 8-6"></path>
+                            </svg>
+                        </a>
+                        <button class="welcome-social-icon" onclick="openTelegramSupport()" aria-label="Telegram">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M21.8 3.4L2.9 10.7c-1.3.5-1.3 1.2-.2 1.5l4.8 1.5 1.8 5.7c.2.6.4.8.8.8.3 0 .5-.1.7-.3l2.3-2.2 4.8 3.5c.9.5 1.5.3 1.7-.8l3.1-14.8c.3-1.4-.5-2-1.9-1.5zm-13.6 9.9l10.8-6.8c.5-.3 1-.1.6.2l-8.8 8-.3 3.3-1.3-4.1-3.1-1c-.7-.2-.7-.6.1-.9z"></path>
+                            </svg>
+                        </button>
+                        <a href="central-ajuda.html" class="welcome-social-icon" aria-label="Central de Ajuda">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="9"></circle>
+                                <path d="M9.8 9a2.4 2.4 0 1 1 3.9 1.9c-.9.7-1.7 1.1-1.7 2.4"></path>
+                                <line x1="12" y1="17" x2="12" y2="17.01"></line>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="settings-divider"></div>
+
                 <!-- Version Info -->
                 <div class="settings-section">
                     <h4 class="settings-section-title">Sobre</h4>
-                    <div class="settings-description" style="color: #888; font-size: 14px;">
+                    <div class="settings-description" style="color: #888; font-size: 14px; margin-bottom: 15px;">
                         Versão: <span style="color: #fff; font-weight: 500;">1.0.0</span>
                     </div>
+                    <button class="btn btn-secondary" id="ourProjectsBtn" style="font-size: 14px; padding: 8px 16px;">
+                        Sobre W.Tracks
+                    </button>
                 </div>
             </div>
     </div>
@@ -1738,6 +1808,35 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" id="trackModalCancel">Cancelar</button>
                 <button class="btn btn-primary" id="trackModalSave">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PRO FEATURE MODAL -->
+    <div class="modal-overlay" id="proFeatureModal">
+        <div class="modal pro-feature-modal">
+            <div class="modal-header">
+                <h3 class="modal-title" id="proFeatureTitle">Recurso Pro</h3>
+                <button class="modal-close" id="proFeatureModalClose" aria-label="Fechar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="pro-feature-content">
+                    <div class="pro-feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                        </svg>
+                    </div>
+                    <p class="pro-feature-description" id="proFeatureDescription">Este recurso está disponível apenas no plano Track Pro.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="proFeatureModalCancel">Agora não</button>
+                <button class="btn btn-primary" id="proFeatureModalCta">Conhecer Track Pro</button>
             </div>
         </div>
     </div>
@@ -2213,6 +2312,129 @@
                         <button class="speed-preset-btn" data-speed="1.25">1.25x</button>
                         <button class="speed-preset-btn" data-speed="1.5">1.5x</button>
                         <button class="speed-preset-btn" data-speed="2.0">2.0x</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- WAVEFORM PARTS MODAL -->
+    <div class="modal-overlay" id="waveformPartsModal">
+        <div class="modal waveform-parts-modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Partes da música</h3>
+                <button class="modal-close" id="waveformPartsModalClose" aria-label="Fechar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="waveform-preview-container">
+                    <canvas id="waveformPreviewCanvas" class="waveform-preview-canvas"></canvas>
+                    <div class="waveform-selection-region" id="waveformSelectionRegion"></div>
+                    <div class="waveform-marker-start" id="waveformMarkerStart" title="Início"></div>
+                    <div class="waveform-marker-end" id="waveformMarkerEnd" title="Fim"></div>
+                </div>
+                <div class="waveform-time-scale" id="waveformTimeScale">
+                    <!-- Time markers will be rendered here -->
+                </div>
+                <div class="waveform-time-inputs">
+                    <div class="waveform-time-input-group">
+                        <label for="waveformStartTime">Início</label>
+                        <input type="text" id="waveformStartTime" class="waveform-time-input" value="0:00" placeholder="0:00">
+                    </div>
+                    <div class="waveform-time-input-group">
+                        <label for="waveformEndTime">Fim</label>
+                        <input type="text" id="waveformEndTime" class="waveform-time-input" value="0:00" placeholder="0:00">
+                    </div>
+                </div>
+                <div class="waveform-part-type-section">
+                    <label class="waveform-part-type-label">Tipo da parte</label>
+
+                    <!-- ESTRUTURA Category -->
+                    <div class="waveform-part-category">
+                        <label class="waveform-part-category-label">ESTRUTURA</label>
+                        <div class="waveform-part-type-chips">
+                            <button class="part-type-chip" data-type="INTRO" type="button">INTRO</button>
+                            <button class="part-type-chip" data-type="VERSO" data-numbered="true" type="button">VERSO</button>
+                            <button class="part-type-chip" data-type="PRÉ-REFRÃO" data-numbered="true" type="button">PRÉ-REFRÃO</button>
+                            <button class="part-type-chip" data-type="REFRÃO" data-numbered="true" type="button">REFRÃO</button>
+                            <button class="part-type-chip" data-type="PONTE" type="button">PONTE</button>
+                            <button class="part-type-chip" data-type="PONTE 2" type="button">PONTE 2</button>
+                        </div>
+                    </div>
+
+                    <!-- Number selection for numbered types -->
+                    <div class="waveform-part-number-selection" id="waveformPartNumberSelection" style="display: none;">
+                        <label class="waveform-part-number-label" id="waveformPartNumberLabel">Número</label>
+                        <div class="waveform-part-number-chips" id="waveformPartNumberChips">
+                            <!-- Numbers will be populated by JavaScript -->
+                        </div>
+                    </div>
+
+                    <!-- MUSICAL Category -->
+                    <div class="waveform-part-category">
+                        <label class="waveform-part-category-label">MUSICAL</label>
+                        <div class="waveform-part-type-chips">
+                            <button class="part-type-chip" data-type="INTERLÚDIO" type="button">INTERLÚDIO</button>
+                            <button class="part-type-chip" data-type="INSTRUMENTAL" type="button">INSTRUMENTAL</button>
+                            <button class="part-type-chip" data-type="SOLO" type="button">SOLO</button>
+                            <button class="part-type-chip" data-type="TURNAROUND" type="button">TURNAROUND</button>
+                            <button class="part-type-chip" data-type="TAG" type="button">TAG</button>
+                            <button class="part-type-chip" data-type="VAMP" type="button">VAMP</button>
+                            <button class="part-type-chip" data-type="BREAK" type="button">BREAK</button>
+                            <button class="part-type-chip" data-type="BUILD" type="button">BUILD</button>
+                            <button class="part-type-chip" data-type="DROP" type="button">DROP</button>
+                            <button class="part-type-chip" data-type="MODULAÇÃO" type="button">MODULAÇÃO</button>
+                        </div>
+                    </div>
+
+                    <!-- CULTO / WORSHIP Category -->
+                    <div class="waveform-part-category">
+                        <label class="waveform-part-category-label">CULTO / WORSHIP</label>
+                        <div class="waveform-part-type-chips">
+                            <button class="part-type-chip" data-type="MINISTRAÇÃO" type="button">MINISTRAÇÃO</button>
+                            <button class="part-type-chip" data-type="ESPONTÂNEO" type="button">ESPONTÂNEO</button>
+                            <button class="part-type-chip" data-type="ORAÇÃO" type="button">ORAÇÃO</button>
+                            <button class="part-type-chip" data-type="MOMENTO DE ADORAÇÃO" type="button">ADORAÇÃO</button>
+                            <button class="part-type-chip" data-type="TRANSIÇÃO" type="button">TRANSIÇÃO</button>
+                            <button class="part-type-chip" data-type="LEITURA / PALAVRA" type="button">LEITURA</button>
+                            <button class="part-type-chip" data-type="FINALIZAÇÃO" type="button">FINALIZAÇÃO</button>
+                        </div>
+                    </div>
+
+                    <!-- PERSONALIZADO Category -->
+                    <div class="waveform-part-category">
+                        <label class="waveform-part-category-label">PERSONALIZADO</label>
+                        <div class="waveform-part-type-chips">
+                            <button class="part-type-chip" data-type="CUSTOM" type="button">OUTRO</button>
+                        </div>
+                    </div>
+
+                    <div class="waveform-custom-name-container" id="waveformCustomNameContainer" style="display: none;">
+                        <label for="waveformCustomName">Nome da parte</label>
+                        <input type="text" id="waveformCustomName" class="waveform-time-input" placeholder="Digite o nome personalizado">
+                    </div>
+                </div>
+                <div class="waveform-parts-actions">
+                    <button class="btn btn-primary" id="waveformAddPart">+ Adicionar parte</button>
+                    <button class="btn btn-secondary" id="waveformClearSelection">Limpar seleção</button>
+                </div>
+                <div class="waveform-parts-list-section">
+                    <label class="waveform-part-type-label">Partes adicionadas</label>
+                    <div class="waveform-parts-list" id="waveformPartsList">
+                        <!-- Parts will be rendered here -->
+                    </div>
+                </div>
+                <div class="waveform-parts-save-section">
+                    <button class="btn btn-primary waveform-save-btn" id="waveformSaveParts">Salvar partes</button>
+                </div>
+                <div class="waveform-parts-list-section">
+                    <label class="waveform-part-type-label">Partes adicionadas</label>
+                    <div class="waveform-parts-list" id="waveformPartsList">
+                        <!-- Parts will be rendered here -->
                     </div>
                 </div>
             </div>

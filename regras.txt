@@ -458,6 +458,33 @@ service cloud.firestore {
 
 
     // ============================================================
+    // SERVICE PLAN SHARES (Compartilhamento público de Service Plan)
+    // ============================================================
+
+    match /servicePlanShares/{shareId} {
+
+      // Público para leitura (qualquer pessoa com o link pode visualizar)
+      allow read: if true;
+
+      // Usuário autenticado pode criar, mas apenas com seu próprio userId
+      // O shareId tem formato: userId_ano_mes, então extraímos o userId
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid
+                    && shareId.startsWith(request.auth.uid + '_');
+
+      // Dono pode atualizar (ao compartilhar novamente o mesmo mês)
+      allow update: if request.auth != null
+                    && resource.data.userId == request.auth.uid
+                    && shareId.startsWith(request.auth.uid + '_');
+
+      // Dono pode excluir
+      allow delete: if request.auth != null
+                    && resource.data.userId == request.auth.uid
+                    && shareId.startsWith(request.auth.uid + '_');
+    }
+
+
+    // ============================================================
     // REPERTÓRIOS (NOVO SISTEMA DE SETLIST)
     // ============================================================
 
@@ -561,8 +588,14 @@ service cloud.firestore {
 
     match /chords/{chordId} {
 
-      // Público para leitura (qualquer pessoa pode visualizar cifras)
-      allow read: if true;
+      // LEGADO: Manter para compatibilidade com dados antigos
+      // Autor pode ler a própria cifra
+      // Admin pode ler todas as cifras
+      allow read: if request.auth != null
+                  && (
+                    isAuthorizedAdmin()
+                    || resource.data.author.uid == request.auth.uid
+                  );
 
       // Usuário autenticado pode criar cifras
       allow create: if request.auth != null;
@@ -578,18 +611,54 @@ service cloud.firestore {
 
 
     // ============================================================
+    // USER CHORDS (W.CIFRAS - Cifras Privadas por Usuário)
+    // ============================================================
+
+    match /users/{userId}/cifras/{cifraId} {
+
+      // Usuário pode ler suas próprias cifras privadas
+      // Admin pode ler todas as cifras privadas
+      allow read: if request.auth != null
+                  && (
+                    isAuthorizedAdmin()
+                    || request.auth.uid == userId
+                  );
+
+      // Usuário pode criar suas próprias cifras privadas
+      // Admin pode criar cifras para qualquer usuário
+      allow create: if request.auth != null
+                    && (
+                      isAuthorizedAdmin()
+                      || request.auth.uid == userId
+                    );
+
+      // Usuário pode alterar suas próprias cifras privadas
+      // Admin pode alterar qualquer cifra privada
+      allow update: if request.auth != null
+                     && (
+                       isAuthorizedAdmin()
+                       || request.auth.uid == userId
+                     );
+
+      // Usuário pode excluir suas próprias cifras privadas
+      // Admin pode excluir qualquer cifra privada
+      allow delete: if request.auth != null
+                     && (
+                       isAuthorizedAdmin()
+                       || request.auth.uid == userId
+                     );
+    }
+
+
+    // ============================================================
     // PLAYLISTS (W.CIFRAS - Sistema de Playlists)
     // ============================================================
 
     match /playlists/{playlistId} {
 
-      // Dono pode ler suas próprias playlists
-      // Admin pode ler todas as playlists
-      allow read: if request.auth != null
-                  && (
-                    isAuthorizedAdmin()
-                    || resource.data.ownerUid == request.auth.uid
-                  );
+      // Qualquer usuário autenticado pode ler playlists (para compartilhamento)
+      // As playlists têm dados das cifras embutidos, então é seguro permitir leitura pública
+      allow read: if request.auth != null;
 
       // Usuário autenticado pode criar playlists
       allow create: if request.auth != null;

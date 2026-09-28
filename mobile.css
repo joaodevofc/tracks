@@ -423,6 +423,16 @@ html, body {
     height: 100%;
 }
 
+/* Waveform parts mobile adjustments */
+.waveform-part-label {
+    font-size: 8px;
+    top: 2px;
+}
+
+.waveform-part-label.above {
+    top: -12px;
+}
+
 .control-btn {
     width: 36px;
     height: 36px;
@@ -455,6 +465,42 @@ html, body {
 
 .speed-presets {
     gap: var(--spacing-xs);
+}
+
+/* Speed View Mobile */
+.speed-view {
+    flex: 1 1 0;
+    align-self: stretch;
+    min-width: 0;
+    min-height: 0;
+    max-width: 100%;
+    max-height: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.speed-view-header {
+    flex: 0 0 auto;
+}
+
+.speed-carousel-container {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 0;
+    width: 100%;
+    justify-content: flex-start;
+    overflow: hidden;
+    touch-action: none;
+}
+
+.speed-carousel {
+    flex: 0 0 auto;
+    width: max-content;
+    padding: var(--spacing-md) 0;
+}
+
+.speed-carousel-item {
+    height: clamp(56px, 12vh, 80px);
 }
 
 .speed-preset-btn {
@@ -1106,6 +1152,31 @@ html, body {
     padding: var(--spacing-md);
 }
 
+/* Pro Feature Modal Mobile */
+.pro-feature-modal {
+    max-width: 95%;
+    margin: var(--spacing-md);
+}
+
+.pro-feature-content {
+    padding: 20px var(--spacing-md);
+}
+
+.pro-feature-icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 12px;
+}
+
+.pro-feature-icon svg {
+    width: 24px;
+    height: 24px;
+}
+
+.pro-feature-description {
+    font-size: 0.9rem;
+}
+
 /* ========================================
    PLAN EXPIRATION WARNING - MOBILE
    ======================================== */
@@ -1142,4 +1213,71 @@ html, body {
     width: 22px;
     height: 22px;
     font-size: 16px;
+}
+
+/* ========================================
+   MASTER MENU POPOVER - MOBILE
+   ======================================== */
+
+.master-menu-popover {
+    padding: 8px;
+    gap: 6px;
+}
+
+.master-menu-popover .control-btn {
+    width: 40px;
+    height: 40px;
+}
+
+.master-menu-popover .speed-btn {
+    font-size: 10px;
+}
+
+.master-menu-popover .loop-indicator-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+.master-menu-popover .compass-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+.master-side-panel .menu-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+}
+
+/* ========================================
+   WAVEFORM PART CATEGORIES - MOBILE
+   ======================================== */
+
+.waveform-part-category {
+    margin-bottom: 12px;
+}
+
+.waveform-part-category-label {
+    font-size: 10px;
+    margin-bottom: 6px;
+}
+
+.waveform-part-number-selection {
+    padding: 8px;
+    margin-bottom: 12px;
+}
+
+.waveform-part-number-label {
+    font-size: 10px;
+    margin-bottom: 6px;
+}
+
+.waveform-part-number-chips {
+    gap: 4px;
+}
+
+.part-number-chip {
+    padding: 4px 10px;
+    font-size: 10px;
+    min-width: 28px;
 }

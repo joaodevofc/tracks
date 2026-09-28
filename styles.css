@@ -3735,6 +3735,55 @@ body.fader-animations-disabled .led-pointer {
     color: var(--color-white-dim);
 }
 
+/* Pre-count Display */
+.pre-count-display {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.85);
+    border: 2px solid var(--color-accent);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-xl);
+    z-index: 200;
+    min-width: 200px;
+    min-height: 200px;
+    backdrop-filter: blur(10px);
+}
+
+.pre-count-compass {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-white-dim);
+    margin-bottom: var(--spacing-md);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.pre-count-beat {
+    font-size: 120px;
+    font-weight: var(--font-weight-bold);
+    color: var(--color-accent);
+    line-height: 1;
+    text-shadow: 0 0 30px rgba(138, 43, 226, 0.5);
+    animation: beat-pulse 0.5s ease-out;
+}
+
+@keyframes beat-pulse {
+    0% {
+        transform: scale(1.2);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
 /* Music Selector */
 .music-selector {
     display: flex;
@@ -4207,6 +4256,45 @@ body.fader-animations-disabled .led-pointer {
     opacity: 0.7;
 }
 
+/* ========================================
+   WAVEFORM PARTS OVERLAYS
+   ======================================== */
+.waveform-part-overlay {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    pointer-events: none;
+    z-index: 4;
+}
+
+.waveform-part-region {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    background: rgba(147, 112, 219, 0.2);
+    border-left: 2px solid rgba(147, 112, 219, 0.6);
+    border-right: 2px solid rgba(147, 112, 219, 0.6);
+    pointer-events: none;
+}
+
+.waveform-part-label {
+    position: absolute;
+    top: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    color: rgba(147, 112, 219, 0.9);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    pointer-events: none;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    z-index: 5;
+}
+
+.waveform-part-label.above {
+    top: -14px;
+}
+
 #waveformCanvas {
     width: 100%;
     height: 100%;
@@ -4394,6 +4482,126 @@ body.fader-animations-disabled .led-pointer {
 
 .cancel-btn {
     color: var(--color-text-secondary);
+}
+
+/* Compass Popover */
+.compass-popover {
+    position: fixed;
+    z-index: 1000;
+    display: none;
+    animation: fadeIn 0.2s ease;
+}
+
+.compass-popover.active {
+    display: block;
+}
+
+.compass-options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    max-height: 300px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-medium) var(--color-black-elevated);
+}
+
+.compass-options::-webkit-scrollbar {
+    width: 6px;
+}
+
+.compass-options::-webkit-scrollbar-track {
+    background: var(--color-black-elevated);
+}
+
+.compass-options::-webkit-scrollbar-thumb {
+    background: var(--border-medium);
+    border-radius: 3px;
+}
+
+/* Master Menu Popover */
+.master-menu-popover {
+    position: fixed;
+    z-index: 1000;
+    display: none;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm);
+    background: var(--color-black-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    animation: fadeIn 0.2s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.master-menu-popover.active {
+    display: flex;
+}
+
+.master-menu-popover .control-btn {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.master-menu-popover .speed-btn {
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.master-menu-popover .loop-indicator-btn svg {
+    width: 20px;
+    height: 20px;
+}
+
+.master-menu-popover .compass-btn svg {
+    width: 20px;
+    height: 20px;
+}
+
+.master-menu-popover .compass-btn.active {
+    border-color: var(--color-accent);
+    background: rgba(138, 43, 226, 0.1);
+    color: var(--color-accent);
+}
+
+/* Master Menu Button */
+.master-side-panel .menu-btn {
+    width: 48px;
+    height: 48px;
+    font-size: 18px;
+    font-weight: 400;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.compass-option {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    background: var(--color-black-elevated);
+    color: var(--color-text-primary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+}
+
+.compass-option:hover {
+    background: var(--color-black-hover);
+    border-color: var(--color-accent);
+}
+
+.compass-option.selected {
+    background: rgba(138, 43, 226, 0.1);
+    border-color: var(--color-accent);
+    color: var(--color-accent);
 }
 
 .timeline-marker-item {
@@ -5097,19 +5305,6 @@ body.fader-animations-disabled .led-pointer {
     height: 48px;
     font-size: 12px;
     font-weight: 600;
-}
-
-.master-side-panel .loop-indicator-btn {
-    width: 48px;
-    height: 48px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.master-side-panel .loop-indicator-btn svg {
-    width: 20px;
-    height: 20px;
 }
 
 .master-side-panel .reset-square-btn {
@@ -6105,7 +6300,14 @@ body.fader-animations-disabled .led-pointer {
 
 /* Speed View - replaces faders when speed control is active */
 .speed-view {
-    flex: 1;
+    flex: 1 1 0;
+    align-self: stretch;
+    min-width: 0;
+    min-height: 0;
+    max-width: 100%;
+    max-height: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     background: rgba(0, 0, 0, 0.3);
@@ -6115,6 +6317,7 @@ body.fader-animations-disabled .led-pointer {
 }
 
 .speed-view-header {
+    flex: 0 0 auto;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -6150,21 +6353,26 @@ body.fader-animations-disabled .led-pointer {
 }
 
 .speed-carousel-container {
-    flex: 1;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 0;
+    width: 100%;
+    justify-content: flex-start;
+    overflow: hidden;
+    touch-action: none;
     display: flex;
     align-items: center;
-    justify-content: center;
-    overflow: hidden;
     position: relative;
     user-select: none;
-    touch-action: pan-y;
 }
 
 .speed-carousel {
+    flex: 0 0 auto;
+    width: max-content;
+    padding: var(--spacing-md) 0;
     display: flex;
     align-items: center;
     gap: var(--spacing-lg);
-    padding: var(--spacing-lg) 0;
     transition: transform 0.3s ease-out;
     cursor: grab;
 }
@@ -6178,7 +6386,7 @@ body.fader-animations-disabled .led-pointer {
     align-items: center;
     justify-content: center;
     min-width: 80px;
-    height: 80px;
+    height: clamp(56px, 12vh, 80px);
     font-size: var(--font-size-lg);
     font-weight: 600;
     color: var(--color-white-muted);
@@ -7912,9 +8120,55 @@ body.fader-animations-disabled .led-pointer {
     color: #000;
     border: none;
     display: flex;
+}
+
+/* ========================================
+   PRO FEATURE MODAL
+   ======================================== */
+
+.pro-feature-modal {
+    max-width: 420px;
+    background: linear-gradient(135deg, var(--color-black-card) 0%, var(--color-black-elevated) 100%);
+    border: 1px solid rgba(255, 107, 0, 0.3);
+}
+
+.pro-feature-modal .modal-header {
+    background: rgba(255, 107, 0, 0.1);
+    border-bottom: 1px solid rgba(255, 107, 0, 0.2);
+}
+
+.pro-feature-modal .modal-title {
+    color: #FF6B00;
+    font-size: 1.15rem;
+}
+
+.pro-feature-content {
+    text-align: center;
+    padding: 28px 24px;
+}
+
+.pro-feature-icon {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 16px;
+    background: rgba(255, 107, 0, 0.15);
+    border-radius: 50%;
+    display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    color: #FF6B00;
+}
+
+.pro-feature-icon svg {
+    width: 28px;
+    height: 28px;
+}
+
+.pro-feature-description {
+    font-size: 0.95rem;
+    color: var(--color-white-muted);
+    line-height: 1.6;
+    margin: 0;
 }
 
 .upgrade-actions .btn-primary:hover {
@@ -8283,6 +8537,645 @@ body.fader-animations-disabled .led-pointer {
 .plan-warning-close:hover {
     color: #ffffff;
     background: rgba(255, 255, 255, 0.1);
+}
+
+/* ========================================
+   WAVEFORM PARTS BUTTON
+   ======================================== */
+.waveform-parts-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 36px;
+    height: 36px;
+    background: rgba(26, 26, 26, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 5;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+.waveform-parts-btn:hover {
+    background: rgba(42, 42, 42, 0.95);
+    border-color: rgba(224, 255, 255, 0.5);
+    transform: scale(1.05);
+}
+
+.waveform-parts-btn:active {
+    transform: scale(0.95);
+}
+
+.waveform-parts-btn svg {
+    width: 18px;
+    height: 18px;
+    color: rgba(255, 255, 255, 0.7);
+    transition: color 0.2s ease;
+}
+
+.waveform-parts-btn:hover svg {
+    color: rgba(224, 255, 255, 0.9);
+}
+
+/* ========================================
+   WAVEFORM PARTS MODAL
+   ======================================== */
+.waveform-parts-modal {
+    max-width: 700px;
+}
+
+.waveform-preview-container {
+    width: 100%;
+    height: 200px;
+    background: #0a0a0a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+    margin-bottom: 16px;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.waveform-preview-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.waveform-time-scale {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    font-size: 12px;
+    color: #888;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    border-top: 1px solid #333;
+    margin-top: 8px;
+}
+
+.waveform-time-scale span {
+    flex: 1;
+    text-align: center;
+}
+
+.waveform-time-scale span:first-child {
+    text-align: left;
+}
+
+.waveform-time-scale span:last-child {
+    text-align: right;
+}
+
+/* ========================================
+   WAVEFORM SELECTION REGION
+   ======================================== */
+.waveform-selection-region {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    background: rgba(224, 255, 255, 0.15);
+    border-left: 2px solid rgba(224, 255, 255, 0.5);
+    border-right: 2px solid rgba(224, 255, 255, 0.5);
+    pointer-events: none;
+    display: none;
+    z-index: 2;
+}
+
+.waveform-selection-region.active {
+    display: block;
+}
+
+/* ========================================
+   WAVEFORM MARKERS
+   ======================================== */
+.waveform-marker-start,
+.waveform-marker-end {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    width: 12px;
+    background: rgba(224, 255, 255, 0.8);
+    cursor: ew-resize;
+    z-index: 3;
+    display: none;
+    border-radius: 2px;
+    box-shadow: 0 0 8px rgba(224, 255, 255, 0.4);
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.waveform-marker-start:hover,
+.waveform-marker-end:hover {
+    background: rgba(224, 255, 255, 1);
+    box-shadow: 0 0 12px rgba(224, 255, 255, 0.6);
+}
+
+.waveform-marker-start.active,
+.waveform-marker-end.active {
+    display: block;
+}
+
+.waveform-marker-start::after,
+.waveform-marker-end::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 4px;
+    height: 20px;
+    background: #0a0a0a;
+    border-radius: 2px;
+}
+
+/* ========================================
+   WAVEFORM TIME INPUTS
+   ======================================== */
+.waveform-time-inputs {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+    padding: 16px;
+    background: rgba(26, 26, 26, 0.5);
+    border: 1px solid #333;
+    border-radius: 8px;
+}
+
+.waveform-time-input-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.waveform-time-input-group label {
+    font-size: 12px;
+    font-weight: 500;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.waveform-time-input {
+    width: 100%;
+    padding: 10px 12px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 14px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+    font-variant-numeric: tabular-nums;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.waveform-time-input:focus {
+    outline: none;
+    border-color: rgba(224, 255, 255, 0.5);
+    background: #222;
+}
+
+.waveform-time-input::placeholder {
+    color: #555;
+}
+
+/* ========================================
+   WAVEFORM PARTS ACTIONS
+   ======================================== */
+.waveform-parts-actions {
+    display: flex;
+    justify-content: center;
+    padding-top: 8px;
+}
+
+.waveform-parts-actions .btn {
+    min-width: 150px;
+}
+
+/* ========================================
+   WAVEFORM PART TYPE SELECTION
+   ======================================== */
+.waveform-part-type-section {
+    margin-bottom: 20px;
+    padding: 16px;
+    background: rgba(26, 26, 26, 0.5);
+    border: 1px solid #333;
+    border-radius: 8px;
+}
+
+.waveform-part-type-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+}
+
+.waveform-part-type-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.part-type-chip {
+    padding: 8px 16px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 20px;
+    color: #888;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.part-type-chip:hover {
+    background: #222;
+    border-color: #444;
+    color: #fff;
+}
+
+.part-type-chip.active {
+    background: rgba(224, 255, 255, 0.15);
+    border-color: rgba(224, 255, 255, 0.5);
+    color: rgba(224, 255, 255, 0.9);
+    box-shadow: 0 0 8px rgba(224, 255, 255, 0.2);
+}
+
+/* ========================================
+   WAVEFORM PART CATEGORIES
+   ======================================== */
+.waveform-part-category {
+    margin-bottom: 16px;
+}
+
+.waveform-part-category:last-child {
+    margin-bottom: 0;
+}
+
+.waveform-part-category-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+/* ========================================
+   WAVEFORM PART NUMBER SELECTION
+   ======================================== */
+.waveform-part-number-selection {
+    margin-bottom: 16px;
+    padding: 12px;
+    background: rgba(30, 30, 30, 0.5);
+    border: 1px solid #333;
+    border-radius: 6px;
+}
+
+.waveform-part-number-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+.waveform-part-number-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.part-number-chip {
+    padding: 6px 12px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 16px;
+    color: #888;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 32px;
+    text-align: center;
+}
+
+.part-number-chip:hover {
+    background: #252525;
+    border-color: #444;
+    color: #aaa;
+}
+
+.part-number-chip.active {
+    background: rgba(224, 255, 255, 0.15);
+    border-color: rgba(224, 255, 255, 0.4);
+    color: #E0FFFF;
+}
+
+.waveform-custom-name-container {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #333;
+}
+
+.waveform-custom-name-container label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+.waveform-custom-name-container .waveform-time-input {
+    width: 100%;
+}
+
+/* ========================================
+   WAVEFORM PARTS LIST
+   ======================================== */
+.waveform-parts-list-section {
+    margin-top: 20px;
+    padding: 16px;
+    background: rgba(26, 26, 26, 0.5);
+    border: 1px solid #333;
+    border-radius: 8px;
+}
+
+.waveform-parts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.waveform-part-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.waveform-part-item:hover {
+    background: #222;
+    border-color: #444;
+}
+
+.waveform-part-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.waveform-part-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.waveform-part-time {
+    font-size: 12px;
+    color: #888;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+    font-variant-numeric: tabular-nums;
+}
+
+.waveform-part-remove {
+    margin-left: 12px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid #333;
+    border-radius: 6px;
+    color: #888;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.waveform-part-remove:hover {
+    background: rgba(255, 100, 100, 0.1);
+    border-color: rgba(255, 100, 100, 0.3);
+    color: rgba(255, 100, 100, 0.8);
+}
+
+.waveform-part-remove svg {
+    width: 16px;
+    height: 16px;
+}
+
+.waveform-parts-empty {
+    text-align: center;
+    padding: 24px;
+    color: #666;
+    font-size: 14px;
+    font-style: italic;
+}
+
+/* ========================================
+   WAVEFORM PARTS SAVE SECTION
+   ======================================== */
+.waveform-parts-save-section {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #333;
+    text-align: center;
+}
+
+.waveform-save-btn {
+    min-width: 200px;
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* Mobile responsive for waveform parts button */
+@media (max-width: 768px) {
+    .waveform-parts-btn {
+        width: 32px;
+        height: 32px;
+        top: 6px;
+        right: 6px;
+    }
+
+    .waveform-parts-btn svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    .waveform-parts-modal {
+        max-width: 90vw;
+    }
+
+    .waveform-preview-container {
+        height: 150px;
+    }
+
+    .waveform-marker-start,
+    .waveform-marker-end {
+        width: 16px;
+    }
+
+    .waveform-time-inputs {
+        gap: 12px;
+        padding: 12px;
+    }
+
+    .waveform-time-input {
+        font-size: 13px;
+        padding: 8px 10px;
+    }
+
+    .waveform-part-type-chips {
+        gap: 6px;
+    }
+
+    .part-type-chip {
+        padding: 6px 12px;
+        font-size: 11px;
+    }
+
+    .waveform-parts-list-section {
+        padding: 12px;
+    }
+
+    .waveform-part-item {
+        padding: 10px;
+    }
+
+    .waveform-part-name {
+        font-size: 13px;
+    }
+
+    .waveform-part-time {
+        font-size: 11px;
+    }
+
+    .waveform-parts-save-section {
+        margin-top: 16px;
+        padding-top: 16px;
+    }
+
+    .waveform-save-btn {
+        min-width: 150px;
+        padding: 10px 20px;
+        font-size: 13px;
+    }
+}
+
+@media (max-width: 480px) {
+    .waveform-parts-btn {
+        width: 28px;
+        height: 28px;
+        top: 4px;
+        right: 4px;
+    }
+
+    .waveform-parts-btn svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    .waveform-preview-container {
+        height: 120px;
+    }
+
+    .waveform-time-scale {
+        font-size: 10px;
+    }
+
+    .waveform-time-inputs {
+        flex-direction: column;
+        gap: 8px;
+        padding: 10px;
+    }
+
+    .waveform-time-input {
+        font-size: 12px;
+        padding: 8px;
+    }
+
+    .waveform-marker-start,
+    .waveform-marker-end {
+        width: 14px;
+    }
+
+    .waveform-parts-actions .btn {
+        min-width: 120px;
+        font-size: 13px;
+        padding: 8px 16px;
+    }
+
+    .waveform-part-type-chips {
+        gap: 4px;
+    }
+
+    .part-type-chip {
+        padding: 5px 10px;
+        font-size: 10px;
+    }
+
+    .waveform-part-type-section {
+        padding: 10px;
+    }
+
+    .waveform-parts-list-section {
+        padding: 10px;
+    }
+
+    .waveform-part-item {
+        padding: 8px;
+    }
+
+    .waveform-part-name {
+        font-size: 12px;
+    }
+
+    .waveform-part-time {
+        font-size: 10px;
+    }
+
+    .waveform-part-remove {
+        width: 28px;
+        height: 28px;
+    }
+
+    .waveform-parts-save-section {
+        margin-top: 12px;
+        padding-top: 12px;
+    }
+
+    .waveform-save-btn {
+        min-width: 120px;
+        padding: 8px 16px;
+        font-size: 12px;
+    }
 }
 
 /* ========================================

@@ -37,13 +37,18 @@ class MultitrackPlayer {
         // Peak hold configuration
         this.peakHoldDuration = 800; // ms to hold peak
         this.peakReleaseFactor = 0.05; // slow decay for peak hold
-        
+
         // Metronome
         this.metronome = null;
         this.metronomeEnabled = false;
         this.metronomeBpm = 120;
         this.metronomeTimeSignature = '4/4';
-        
+
+        // Pre-countdown (pré-contagem)
+        this.preCountInProgress = false;
+        this.preCountGeneration = 0; // Token for canceling stale countdowns
+        this.preCountMeasures = 0; // Will be set from app.js
+
         // Event callbacks
         this.onTimeUpdate = null;
         this.onPlayStateChange = null;
@@ -54,7 +59,8 @@ class MultitrackPlayer {
         this.onMasterLevelUpdate = null; // Callback for master level meter updates
         this.onDurationChange = null; // Callback for duration changes
         this.onSongEnded = null; // Callback for when song ends
-        
+        this.onPreCountBeat = null; // Callback for pre-count beat updates
+
         this.init();
     }
     
@@ -598,29 +604,29 @@ class MultitrackPlayer {
     async play() {
         console.log('[PLAYER] play() called');
         console.log('[PLAYER] Current state - isLoading:', this.isLoading, 'isReady:', this.isReady, 'isPlaying:', this.isPlaying);
-        
+
         // Check if player is ready
         if (this.isLoading || !this.isReady) {
             console.warn('[PLAYER] Play blocked: player is still loading. isLoading:', this.isLoading, 'isReady:', this.isReady);
             return;
         }
-        
+
         // If already playing, do nothing (pause should be called separately)
         if (this.isPlaying) {
             console.log('[PLAYER] Already playing, ignoring play() call');
             return;
         }
-        
+
         if (!this.audioContext) {
             console.log('[PLAYER] No AudioContext, initializing...');
             this.initAudioContext();
         }
-        
+
         if (!this.audioContext || !this.currentProject) {
             console.log('[PLAYER] Cannot play: missing AudioContext or currentProject');
             return;
         }
-        
+
         // Resume audio context if suspended (using await to ensure it's ready)
         // This is called via user interaction (play button), so it's safe to resume
         if (this.audioContext.state === 'suspended') {
@@ -632,37 +638,61 @@ class MultitrackPlayer {
                 return;
             }
         }
-        
+
         // Log audio context state after resume
         console.log('[PLAYER] AudioContext state after resume:', this.audioContext.state);
         console.log('[PLAYER] Master gain value:', this.masterGain.gain.value);
-        
+
         // Don't set isPlaying yet - set it only after audio actually starts
         // This prevents race conditions where flag is true but audio isn't playing
         this.songEndedNotified = false; // Reset song ended notification flag
-        
+
         console.log('[PLAYER] Starting playback at position:', this.currentTime);
         console.log('[PLAYER] Total tracks in project:', this.currentProject.tracks.length);
         console.log('[PLAYER] Total trackNodes loaded:', this.trackNodes.size);
-        
+
+        // Check if we should do pre-count (only at beginning, not when resuming from pause)
+        const shouldPreCount = this.preCountMeasures > 0 && this.currentTime === 0;
+
+        if (shouldPreCount) {
+            console.log('[PLAYER] Pre-count enabled, starting countdown:', this.preCountMeasures, 'measures');
+
+            // Execute pre-count before starting playback
+            await this.executePreCount(() => {
+                // Pre-count completed, now start normal playback
+                this.startNormalPlayback();
+            });
+        } else {
+            console.log('[PLAYER] No pre-count (either disabled or not at beginning), starting normal playback');
+            this.startNormalPlayback();
+        }
+    }
+
+    /**
+     * Start normal playback (without pre-count)
+     * This is the original play() logic extracted for reuse
+     */
+    async startNormalPlayback() {
+        console.log('[PLAYER] Starting normal playback at position:', this.currentTime);
+
         // Pre-synchronization: Set all audio elements based on track offset
         console.log('[PLAYER] Pre-synchronizing all tracks to position:', this.currentTime);
         this.trackNodes.forEach((nodes, trackId) => {
             const track = this.currentProject.tracks.find(t => t.id === trackId);
-            
+
             // Check if audio element is ready to play
             if (nodes.audioElement.readyState < 3) {
                 console.warn('[PLAYER] Track not ready to play yet:', track.name, 'readyState:', nodes.audioElement.readyState);
                 return;
             }
-            
+
             // Get track offset from editor (delay entrance)
             const trackOffset = track && track.offset ? track.offset : 0;
-            
+
             // Calculate track's actual start time (when this track should start playing)
             const trackStartTime = trackOffset;
             const trackEndTime = trackOffset + nodes.duration;
-            
+
             // Determine if track should be playing now
             if (this.currentTime >= trackStartTime && this.currentTime < trackEndTime) {
                 // Track is within its active window - set position relative to its offset
@@ -679,14 +709,14 @@ class MultitrackPlayer {
                 nodes.audioElement.currentTime = nodes.duration;
                 console.log('[PLAYER] Track has ended:', track.name, 'offset:', trackOffset, 'ended at:', trackEndTime);
             }
-            
+
             // Apply mute/solo via gain
             this.applyMuteSoloToTrack(trackId);
         });
-        
+
         // Use requestAnimationFrame for precise synchronized playback start
         console.log('[PLAYER] Scheduling synchronized playback start');
-        
+
         await new Promise(resolve => {
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
@@ -696,21 +726,21 @@ class MultitrackPlayer {
                         console.log('[PLAYER] Starting metronome at musical position:', this.currentTime);
                         this.metronome.start(this.currentTime);
                     }
-                    
+
                     // Record playback start time for hardware clock synchronization
                     this.playbackStartContextTime = this.audioContext.currentTime;
                     this.playbackStartOffset = this.currentTime;
                     console.log('[PLAYER] Recorded playback start - contextTime:', this.playbackStartContextTime.toFixed(3), 'offset:', this.playbackStartOffset.toFixed(3));
-                    
+
                     this.startSynchronizedPlayback();
                     resolve();
                 });
             });
         });
-        
+
         this.startPlaybackTimer();
         this.startVisualization();
-        
+
         if (this.onPlayStateChange) {
             this.onPlayStateChange('playing');
         }
@@ -855,7 +885,10 @@ class MultitrackPlayer {
      */
     pause() {
         console.log('[PLAYER] pause() called, isPlaying:', this.isPlaying);
-        
+
+        // Cancel any in-progress pre-count
+        this.cancelPreCount();
+
         // Safety net: Even if isPlaying is false, try to pause audio elements
         // This prevents race conditions where flag is out of sync with actual audio state
         let forcedPauseCount = 0;
@@ -929,7 +962,10 @@ class MultitrackPlayer {
     stop() {
         console.log('[PLAYER] stop() called');
         console.log('[PLAYER] Current state before stop - isPlaying:', this.isPlaying, 'currentTime:', this.currentTime);
-        
+
+        // Cancel any in-progress pre-count
+        this.cancelPreCount();
+
         // UNCONDITIONALLY pause all audio elements regardless of isPlaying flag
         // This ensures playback stops even if the flag is out of sync
         let pausedCount = 0;
@@ -983,17 +1019,169 @@ class MultitrackPlayer {
             this.onTimeUpdate(0);
         }
     }
-    
+
+    /**
+     * Set pre-count measures (compassos de pré-contagem)
+     * @param {number} measures - Number of measures to count (0-10)
+     */
+    setPreCountMeasures(measures) {
+        this.preCountMeasures = Math.max(0, Math.min(10, measures));
+        console.log('[PLAYER] Pre-count measures set to:', this.preCountMeasures);
+    }
+
+    /**
+     * Cancel any in-progress pre-countdown
+     */
+    cancelPreCount() {
+        if (this.preCountInProgress) {
+            console.log('[PLAYER] Canceling pre-countdown, generation:', this.preCountGeneration);
+            this.preCountInProgress = false;
+            this.preCountGeneration++; // Increment to invalidate any pending callbacks
+        }
+    }
+
+    /**
+     * Execute pre-countdown using existing metronome
+     * @param {Function} onComplete - Callback when countdown completes
+     */
+    async executePreCount(onComplete) {
+        if (this.preCountMeasures <= 0) {
+            console.log('[PLAYER] Pre-count disabled (0 measures), skipping');
+            onComplete();
+            return;
+        }
+
+        console.log('[PLAYER] Starting pre-countdown:', this.preCountMeasures, 'measures');
+        this.preCountInProgress = true;
+        const currentGeneration = ++this.preCountGeneration;
+
+        // Ensure AudioContext is active
+        if (!this.audioContext) {
+            this.initAudioContext();
+        }
+        if (this.audioContext.state === 'suspended') {
+            await this.audioContext.resume();
+        }
+
+        // Parse time signature to get beats per measure
+        const timeSignatureParts = this.metronomeTimeSignature.split('/');
+        const beatsPerMeasure = parseInt(timeSignatureParts[0]) || 4;
+        const totalBeats = this.preCountMeasures * beatsPerMeasure;
+
+        console.log('[PLAYER] Pre-count details:', {
+            measures: this.preCountMeasures,
+            beatsPerMeasure: beatsPerMeasure,
+            totalBeats: totalBeats,
+            bpm: this.metronomeBpm
+        });
+
+        // Calculate duration of pre-count in seconds
+        const secondsPerBeat = 60 / this.metronomeBpm;
+        const preCountDuration = totalBeats * secondsPerBeat;
+
+        console.log('[PLAYER] Pre-count duration:', preCountDuration.toFixed(2), 'seconds');
+
+        // Temporarily enable metronome for pre-count (regardless of user setting)
+        // This ensures the click is always heard during pre-count
+        const wasMetronomeEnabled = this.metronomeEnabled;
+        this.metronomeEnabled = true;
+        if (this.metronome) {
+            this.metronome.enable(true);
+        }
+
+        // Start metronome for pre-count at current time
+        // The metronome will play for the entire pre-count duration
+        if (this.metronome) {
+            console.log('[PLAYER] Starting metronome for pre-count at current time');
+            // Start metronome at current audioContext time (0 in musical time)
+            this.metronome.start(0);
+        }
+
+        // Track current beat for visual feedback
+        let currentBeat = 0;
+        let lastBeatTime = 0;
+
+        // Wait for pre-count to complete using audio clock for precision
+        const startTime = this.audioContext.currentTime;
+        const targetTime = startTime + preCountDuration;
+
+        // Polling loop using audio clock for precision
+        const checkCompletion = () => {
+            if (!this.preCountInProgress || this.preCountGeneration !== currentGeneration) {
+                console.log('[PLAYER] Pre-count canceled or stale, generation mismatch');
+                if (this.metronome) {
+                    this.metronome.stop();
+                }
+                // Restore original metronome setting
+                this.metronomeEnabled = wasMetronomeEnabled;
+                if (this.metronome) {
+                    this.metronome.enable(wasMetronomeEnabled);
+                }
+                // Hide pre-count display
+                if (this.onPreCountBeat) {
+                    this.onPreCountBeat(null, null);
+                }
+                return;
+            }
+
+            const elapsedTime = this.audioContext.currentTime - startTime;
+            const expectedBeatTime = currentBeat * secondsPerBeat;
+
+            // Check if we've moved to the next beat
+            if (elapsedTime >= expectedBeatTime && currentBeat < totalBeats) {
+                currentBeat++;
+                const currentMeasure = Math.ceil(currentBeat / beatsPerMeasure);
+                const beatInMeasure = ((currentBeat - 1) % beatsPerMeasure) + 1;
+
+                console.log('[PLAYER] Pre-count beat:', currentBeat, 'measure:', currentMeasure, 'beat in measure:', beatInMeasure);
+
+                // Emit callback for visual feedback
+                if (this.onPreCountBeat) {
+                    this.onPreCountBeat(currentMeasure, beatInMeasure);
+                }
+            }
+
+            if (this.audioContext.currentTime >= targetTime) {
+                console.log('[PLAYER] Pre-count completed');
+                this.preCountInProgress = false;
+
+                // Stop metronome after pre-count
+                if (this.metronome) {
+                    this.metronome.stop();
+                }
+
+                // Restore original metronome setting
+                this.metronomeEnabled = wasMetronomeEnabled;
+                if (this.metronome) {
+                    this.metronome.enable(wasMetronomeEnabled);
+                }
+
+                // Hide pre-count display
+                if (this.onPreCountBeat) {
+                    this.onPreCountBeat(null, null);
+                }
+
+                onComplete();
+            } else {
+                // Continue checking
+                requestAnimationFrame(checkCompletion);
+            }
+        };
+
+        // Start the completion check
+        requestAnimationFrame(checkCompletion);
+    }
+
     /**
      * Restart playback from beginning (for repeat mode)
      * This is a specialized restart that ensures synchronized playback from 0
      */
     async restartFromBeginning() {
         console.log('[PLAYER] Restart from beginning started');
-        
+
         // Stop current playback first
         this.stopPlaybackTimer();
-        
+
         // Reset all audio elements to position 0
         this.trackNodes.forEach((nodes, trackId) => {
             if (nodes.audioElement) {
@@ -1005,35 +1193,56 @@ class MultitrackPlayer {
                 }
             }
         });
-        
+
         this.currentTime = 0;
         this.songEndedNotified = false; // Reset for new playback cycle
-        
+
         console.log('[PLAYER] All tracks reset to 0');
-        
+
         // Ensure AudioContext is active
         if (this.audioContext.state === 'suspended') {
             await this.audioContext.resume();
         }
-        
+
+        // Check if we should do pre-count (only when pre-count is enabled)
+        const shouldPreCount = this.preCountMeasures > 0;
+
+        if (shouldPreCount) {
+            console.log('[PLAYER] Restart with pre-count:', this.preCountMeasures, 'measures');
+
+            // Execute pre-count before starting playback
+            await this.executePreCount(() => {
+                // Pre-count completed, now start normal playback
+                this.startRestartPlayback();
+            });
+        } else {
+            console.log('[PLAYER] Restart without pre-count');
+            this.startRestartPlayback();
+        }
+    }
+
+    /**
+     * Start playback after restart (with or without pre-count)
+     */
+    async startRestartPlayback() {
         // Reset synchronization timing
         this.playbackStartContextTime = 0;
         this.playbackStartOffset = 0;
-        
+
         // Start metronome if enabled
         if (this.metronome && this.metronomeEnabled) {
             console.log('[PLAYER] Starting metronome at position 0');
             this.metronome.start(0);
         }
-        
+
         // Record playback start time for hardware clock synchronization
         this.playbackStartContextTime = this.audioContext.currentTime;
         this.playbackStartOffset = 0;
         console.log('[PLAYER] Recorded playback start - contextTime:', this.playbackStartContextTime.toFixed(3), 'offset:', this.playbackStartOffset.toFixed(3));
-        
+
         // Start synchronized playback (this will also start timer, visualization and notify UI)
         await this.startSynchronizedPlayback();
-        
+
         console.log('[PLAYER] Restart from beginning completed');
         console.log('[PLAYER] isPlaying:', this.isPlaying);
     }
