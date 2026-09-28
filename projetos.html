@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>W.Tracks — Projetos Futuros</title>
-    <meta name="description" content="Roadmap e projetos futuros do W.Tracks.">
+    <title>W.Tracks — Sobre e Atualizações</title>
+    <meta name="description" content="A história do W.Tracks e as últimas atualizações da plataforma.">
     <meta name="theme-color" content="#080808">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="icon" type="image/png" href="icon-black-transparent.png">
 
     <style>
@@ -22,6 +22,7 @@
             --soft: #cfcfcf;
             --accent: #ffffff;
             --max: 1180px;
+            --max-reading: 680px;
         }
 
         * { box-sizing: border-box; }
@@ -33,7 +34,7 @@
                 radial-gradient(circle at 15% 35%, rgba(255,255,255,.035), transparent 25%),
                 var(--bg);
             color: var(--text);
-            font-family: "Poppins", sans-serif;
+            font-family: "Inter", sans-serif;
             min-height: 100vh;
         }
 
@@ -107,11 +108,12 @@
 
         h1 {
             max-width: 850px;
+            font-family: "Fraunces", serif;
             font-size: clamp(42px, 7vw, 82px);
             line-height: .98;
-            letter-spacing: -4px;
+            letter-spacing: -0.02em;
             margin: 18px 0 25px;
-            font-weight: 600;
+            font-weight: 500;
         }
 
         .hero p {
@@ -143,17 +145,230 @@
             margin: auto;
         }
 
+        /* Story Section */
+        .story-section {
+            max-width: var(--max-reading);
+            margin: 0 auto 120px;
+        }
+
+        .chapter {
+            margin-bottom: 80px;
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+
+        .chapter.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .chapter-number {
+            font-family: "Fraunces", serif;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            color: var(--muted);
+            margin-bottom: 16px;
+        }
+
+        .chapter-content {
+            font-size: 18px;
+            line-height: 1.8;
+            color: var(--text);
+        }
+
+        .chapter-content p {
+            margin: 0 0 20px 0;
+        }
+
+        .chapter-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        .chapter-divider {
+            width: 60px;
+            height: 1px;
+            background: var(--border);
+            margin: 40px 0;
+        }
+
+        /* Moments Cards */
+        .moments-section {
+            margin: 60px 0;
+        }
+
+        .moments-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .moment-card {
+            padding: 24px;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background:
+                linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.012) 55%),
+                var(--surface);
+            text-align: center;
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+
+        .moment-card.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .moment-icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text);
+        }
+
+        .moment-icon svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .moment-title {
+            font-family: "Fraunces", serif;
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: var(--text);
+        }
+
+        .moment-description {
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--muted);
+        }
+
+        .wcifras-card {
+            grid-column: span 3;
+            padding: 20px;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background:
+                linear-gradient(145deg, rgba(255,255,255,.04), rgba(255,255,255,.008) 55%),
+                var(--surface);
+            text-align: center;
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+
+        .wcifras-card.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .wcifras-card .moment-title {
+            font-size: 14px;
+        }
+
+        /* Pull Quote */
+        .pull-quote {
+            margin: 80px 0;
+            padding: 60px 0;
+            text-align: center;
+            position: relative;
+        }
+
+        .pull-quote::before,
+        .pull-quote::after {
+            content: "";
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .pull-quote::before {
+            top: 0;
+        }
+
+        .pull-quote::after {
+            bottom: 0;
+        }
+
+        .pull-quote-text {
+            font-family: "Fraunces", serif;
+            font-size: clamp(24px, 5vw, 36px);
+            line-height: 1.3;
+            letter-spacing: -0.01em;
+            color: var(--text);
+            max-width: var(--max-reading);
+            margin: 0 auto;
+        }
+
+        /* CTA Section */
+        .cta-section {
+            margin: 100px 0;
+            padding: 60px;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            background:
+                linear-gradient(145deg, rgba(255,255,255,.04), rgba(255,255,255,.008) 55%),
+                var(--surface);
+            text-align: center;
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+
+        .cta-section.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .cta-text {
+            font-family: "Fraunces", serif;
+            font-size: clamp(20px, 4vw, 28px);
+            font-weight: 500;
+            margin-bottom: 24px;
+            color: var(--text);
+        }
+
+        .cta-button {
+            display: inline-block;
+            padding: 14px 32px;
+            background: var(--text);
+            color: var(--bg);
+            border-radius: 999px;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .cta-button:hover {
+            background: #fff;
+            transform: translateY(-2px);
+        }
+
+        /* Updates Section */
         .section-head {
             display: flex;
             align-items: end;
             justify-content: space-between;
             gap: 30px;
-            margin: 20px 0 24px;
+            margin: 60px 0 24px;
         }
         .section-head h2 {
             margin: 0;
-            font-size: 25px;
-            letter-spacing: -.8px;
+            font-family: "Fraunces", serif;
+            font-size: 28px;
+            letter-spacing: -0.5px;
         }
         .section-head span {
             color: #777;
@@ -162,137 +377,112 @@
             letter-spacing: 1.2px;
         }
 
-        .roadmap {
-            display: grid;
-            grid-template-columns: repeat(12, 1fr);
-            gap: 14px;
+        .updates-section {
+            margin-bottom: 100px;
         }
 
-        .card {
-            grid-column: span 4;
-            position: relative;
-            overflow: hidden;
-            min-height: 270px;
-            padding: 27px;
+        .updates-feed {
+            max-width: 520px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .update-card {
             border: 1px solid var(--border);
             border-radius: 18px;
             background:
                 linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.012) 55%),
                 var(--surface);
-            transition: transform .25s ease, border-color .25s ease, background .25s ease;
-        }
-        .card:hover {
-            transform: translateY(-4px);
-            border-color: rgba(255,255,255,.18);
-            background:
-                linear-gradient(145deg, rgba(255,255,255,.075), rgba(255,255,255,.015) 55%),
-                var(--surface);
+            overflow: hidden;
         }
 
-        .card.featured { grid-column: span 8; min-height: 300px; }
-
-        .number {
-            color: #555;
-            font-size: 11px;
-            font-weight: 600;
-            letter-spacing: 1.5px;
-        }
-
-        .status {
-            position: absolute;
-            top: 24px;
-            right: 24px;
-            display: inline-flex;
+        .update-header {
+            display: flex;
             align-items: center;
-            gap: 7px;
-            color: #aaa;
-            font-size: 10px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        .status::before {
-            content: "";
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: #777;
-        }
-        .status.priority::before { background: #fff; }
-
-        .icon {
-            width: 48px;
-            height: 48px;
-            margin: 34px 0 24px;
-            border: 1px solid var(--border);
-            border-radius: 13px;
-            display: grid;
-            place-items: center;
-            color: #eee;
-            background: rgba(255,255,255,.025);
-        }
-        .icon svg { width: 22px; height: 22px; }
-
-        .card h3 {
-            margin: 0 0 10px;
-            font-size: 20px;
-            letter-spacing: -.5px;
-        }
-        .card p {
-            margin: 0;
-            color: var(--muted);
-            font-size: 13px;
-            line-height: 1.75;
-        }
-
-        .card .tagline {
-            color: #ddd;
-            font-size: 12px;
-            margin-top: 18px;
-        }
-
-        .timeline {
-            margin: 70px 0 90px;
-            padding: 32px;
-            border: 1px solid var(--border);
-            border-radius: 18px;
-            background: rgba(255,255,255,.018);
-        }
-
-        .timeline-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 0;
-        }
-
-        .phase {
-            padding: 8px 28px 8px 0;
-            position: relative;
-        }
-        .phase + .phase {
-            border-left: 1px solid var(--border);
-            padding-left: 28px;
-        }
-        .phase-label {
-            color: #666;
-            font-size: 10px;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-        }
-        .phase h3 { margin: 10px 0 8px; font-size: 16px; }
-        .phase p { margin: 0; color: #888; font-size: 12px; line-height: 1.7; }
-
-        .principles {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
             gap: 12px;
-            margin-bottom: 100px;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
         }
-        .principle {
-            padding: 22px;
-            border-top: 1px solid var(--border);
+
+        .update-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: contain;
         }
-        .principle strong { display: block; font-size: 13px; margin-bottom: 8px; }
-        .principle span { color: #7e7e7e; font-size: 11px; line-height: 1.7; }
+
+        .update-info {
+            flex: 1;
+        }
+
+        .update-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .update-date {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .update-image-container {
+            width: 100%;
+            aspect-ratio: 4/5;
+            background: var(--surface-2);
+            overflow: hidden;
+        }
+
+        .update-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .update-image.hidden {
+            display: none;
+        }
+
+        .update-content {
+            padding: 20px;
+        }
+
+        .update-version-pill {
+            display: inline-block;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,.025);
+            border-radius: 999px;
+            padding: 6px 12px;
+            color: #bdbdbd;
+            font-size: 11px;
+            margin-bottom: 12px;
+        }
+
+        .update-title {
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            margin: 0 0 12px;
+            color: var(--text);
+        }
+
+        .update-description {
+            font-size: 14px;
+            line-height: 1.6;
+            color: var(--muted);
+            margin: 0;
+            white-space: pre-line;
+        }
+
+        .no-updates {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--muted);
+            font-size: 16px;
+        }
 
         footer {
             border-top: 1px solid var(--border);
@@ -310,10 +500,8 @@
 
         @media (max-width: 850px) {
             .nav { display: none; }
-            .card, .card.featured { grid-column: span 6; }
-            .timeline-grid { grid-template-columns: 1fr; }
-            .phase + .phase { border-left: 0; border-top: 1px solid var(--border); padding: 22px 0 0; margin-top: 22px; }
-            .principles { grid-template-columns: repeat(2, 1fr); }
+            .moments-grid { grid-template-columns: repeat(2, 1fr); }
+            .wcifras-card { grid-column: span 2; }
         }
 
         @media (max-width: 560px) {
@@ -321,13 +509,37 @@
             .header-container { height: 66px; }
             .header-link { padding: 8px 11px; }
             .hero { padding: 72px 0 55px; }
-            h1 { font-size: 48px; letter-spacing: -2.5px; }
+            h1 { font-size: 48px; letter-spacing: -0.03em; }
             .hero p { font-size: 14px; }
-            .card, .card.featured { grid-column: span 12; min-height: 240px; }
-            .timeline { padding: 22px; margin-top: 55px; }
-            .principles { grid-template-columns: 1fr; margin-bottom: 65px; }
+            .chapter { margin-bottom: 60px; }
+            .chapter-content { font-size: 16px; }
+            .moments-grid { grid-template-columns: 1fr; }
+            .wcifras-card { grid-column: span 1; }
+            .pull-quote-text { font-size: 20px; }
+            .cta-section { padding: 40px 20px; }
             .section-head { align-items: start; flex-direction: column; gap: 8px; }
             .footer-inner { flex-direction: column; }
+            
+            .updates-feed {
+                max-width: 100%;
+                margin: 0;
+            }
+            
+            .update-header {
+                padding: 14px 16px;
+            }
+            
+            .update-content {
+                padding: 16px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .chapter, .moment-card, .wcifras-card, .cta-section {
+                opacity: 1;
+                transform: none;
+                transition: none;
+            }
         }
     </style>
 </head>
@@ -343,7 +555,7 @@
         <nav class="nav" aria-label="Navegação principal">
             <a href="index.html">Biblioteca</a>
             <a href="index.html">Comunidade</a>
-            <a href="projetos.html" class="active">Projetos</a>
+            <a href="projetos.html" class="active">Sobre</a>
         </nav>
 
         <a class="header-link" href="index.html">Voltar ao W.Tracks</a>
@@ -351,226 +563,230 @@
 </header>
 
 <section class="hero">
-    <span class="eyebrow">Visão de produto</span>
-    <h1>O que vem<br>depois.</h1>
+    <span class="eyebrow">Sobre</span>
+    <h1>A história do W.Tracks</h1>
     <p>
-        Uma visão dos próximos projetos do W.Tracks — construídos para transformar
-        a plataforma em um ambiente cada vez mais completo para músicos, bandas e
-        equipes que trabalham com áudio multitrack.
+        Menos tempo procurando e preparando ferramentas, mais tempo fazendo música.
     </p>
-    <div class="hero-meta">
-        <span class="pill">Roadmap em evolução</span>
-        <span class="pill">Experiência Web + App</span>
-        <span class="pill">Cloud & Sync</span>
-        <span class="pill">Áudio profissional</span>
-    </div>
 </section>
 
 <main>
-    <div class="section-head">
-        <h2>Projetos em visão</h2>
-        <span>Roadmap · 2026+</span>
-    </div>
-
-    <section class="roadmap">
-        <article class="card featured">
-            <span class="number">01 / CLOUD</span>
-            <span class="status priority">Prioridade</span>
-            <div class="icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                    <path d="M7 18h10a4 4 0 0 0 .5-7.97A6 6 0 0 0 6.2 8.5 4.75 4.75 0 0 0 7 18Z"/>
-                    <path d="M12 10v7m0 0-2.5-2.5M12 17l2.5-2.5"/>
-                </svg>
+    <section class="story-section">
+        <article class="chapter">
+            <div class="chapter-number">01</div>
+            <div class="chapter-content">
+                <p>O Wtracks nasceu de uma necessidade simples: tornar a preparação e a execução de músicas mais organizada, prática e acessível para músicos e equipes de louvor.</p>
+                <p>No começo, a ideia era criar apenas uma ferramenta para reproduzir tracks durante as apresentações. Mas, conforme o projeto foi evoluindo, ficou claro que um player sozinho não resolvia todos os problemas de quem está no palco.</p>
             </div>
-            <h3>W.Tracks Cloud</h3>
-            <p>
-                Uma camada de nuvem para sincronizar projetos, configurações e
-                biblioteca entre dispositivos. A ideia é manter a experiência rápida
-                e local-first, enquanto a nuvem cuida da continuidade e do backup.
-            </p>
-            <div class="tagline">Seus projetos onde você estiver.</div>
         </article>
 
-        <article class="card">
-            <span class="number">02 / APP</span>
-            <span class="status">Planejado</span>
-            <div class="icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                    <rect x="7" y="3" width="10" height="18" rx="2"/>
-                    <path d="M10 6h4M11 18h2"/>
-                </svg>
+        <div class="chapter-divider"></div>
+
+        <article class="chapter">
+            <div class="chapter-number">02</div>
+            <div class="chapter-content">
+                <p>Era preciso organizar músicas, preparar repertórios, acompanhar cifras, controlar diferentes elementos da música e ter tudo isso reunido em um único lugar.</p>
+                <p>Foi assim que o Wtracks começou a crescer.</p>
             </div>
-            <h3>W.Tracks App</h3>
-            <p>
-                Levar o player, biblioteca, setlists e projetos para uma experiência
-                dedicada no celular, usando a mesma conta e a mesma infraestrutura.
-            </p>
         </article>
 
-        <article class="card">
-            <span class="number">03 / SYNC</span>
-            <span class="status">Em conceito</span>
-            <div class="icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                    <path d="M20 7v5h-5"/>
-                    <path d="M4 17v-5h5"/>
-                    <path d="M6.2 9A7 7 0 0 1 20 12"/>
-                    <path d="M17.8 15A7 7 0 0 1 4 12"/>
-                </svg>
+        <div class="chapter-divider"></div>
+
+        <article class="chapter">
+            <div class="chapter-number">03</div>
+            <div class="chapter-content">
+                <p>O projeto passou a reunir ferramentas para diferentes momentos: preparação, ensaio e apresentação. O player ganhou recursos para facilitar a execução das músicas, enquanto o W.Cifras surgiu para organizar cifras e permitir que repertórios fossem compartilhados entre usuários.</p>
             </div>
-            <h3>Sync inteligente</h3>
-            <p>
-                Sincronização em segundo plano, com resolução de alterações e
-                prioridade para a experiência local.
-            </p>
         </article>
 
-        <article class="card">
-            <span class="number">04 / SETLISTS</span>
-            <span class="status">Evolução</span>
-            <div class="icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                    <path d="M5 6h14M5 12h14M5 18h9"/>
-                    <circle cx="18" cy="18" r="2"/>
-                </svg>
+        <section class="moments-section">
+            <div class="moments-grid">
+                <div class="moment-card">
+                    <div class="moment-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M12 2v6m0 14v6m-6-6h6M2 12h20"/>
+                        </svg>
+                    </div>
+                    <div class="moment-title">Preparação</div>
+                    <div class="moment-description">Organize seu repertório com antecedência</div>
+                </div>
+                <div class="moment-card">
+                    <div class="moment-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M9 18V5l12-2V9M9 18l6-6M9 18H6"/>
+                        </svg>
+                    </div>
+                    <div class="moment-title">Ensaio</div>
+                    <div class="moment-description">Treine com precisão e controle</div>
+                </div>
+                <div class="moment-card">
+                    <div class="moment-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M12 2v20M17 7H7m10 10l4 4m-4-4l-4 4"/>
+                        </svg>
+                    </div>
+                    <div class="moment-title">Apresentação</div>
+                    <div class="moment-description">Execute com confiança no palco</div>
+                </div>
             </div>
-            <h3>Setlists conectadas</h3>
-            <p>
-                Setlists mais inteligentes, com acesso rápido aos projetos e uma
-                transição natural entre músicas durante apresentações.
-            </p>
+            <div class="wcifras-card">
+                <div class="moment-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M9 18V5l12-2V9M9 18l6-6M9 18H6"/>
+                    </svg>
+                </div>
+                <div class="moment-title">W.Cifras</div>
+                <div class="moment-description">Organização e compartilhamento de cifras e repertórios</div>
+            </div>
+        </section>
+
+        <blockquote class="pull-quote">
+            <p class="pull-quote-text">A ideia por trás de tudo continua sendo a mesma: menos tempo procurando e preparando ferramentas, mais tempo fazendo música.</p>
+        </blockquote>
+
+        <div class="chapter-divider"></div>
+
+        <article class="chapter">
+            <div class="chapter-number">04</div>
+            <div class="chapter-content">
+                <p>Hoje, o Wtracks continua evoluindo com novos recursos e sendo construído pensando principalmente na experiência de quem precisa chegar ao ensaio ou ao palco e ter tudo preparado.</p>
+            </div>
         </article>
 
-        <article class="card">
-            <span class="number">05 / PLAYER</span>
-            <span class="status priority">Em desenvolvimento</span>
-            <div class="icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                    <path d="M7 5v14l11-7L7 5Z"/>
-                </svg>
+        <div class="chapter-divider"></div>
+
+        <article class="chapter">
+            <div class="chapter-number">05</div>
+            <div class="chapter-content">
+                <p>E essa ainda é só a primeira parte da história.</p>
+                <p>O Wtracks não nasceu pronto. Ele está sendo construído versão após versão, recurso após recurso, junto com as necessidades de quem usa a plataforma.</p>
             </div>
-            <h3>Player mais rápido</h3>
-            <p>
-                Preparação antecipada das próximas músicas, carregamento em segundo
-                plano e troca rápida entre projetos sem interromper a reprodução.
-            </p>
         </article>
 
-        <article class="card">
-            <span class="number">06 / COLLAB</span>
-            <span class="status">Futuro</span>
-            <div class="icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                    <circle cx="9" cy="8" r="3"/>
-                    <circle cx="17" cy="10" r="2.5"/>
-                    <path d="M3.5 19a5.5 5.5 0 0 1 11 0M15 16a4.5 4.5 0 0 1 5 3"/>
-                </svg>
-            </div>
-            <h3>Colaboração</h3>
-            <p>
-                Compartilhar projetos e trabalhar em conjunto, com permissões e
-                sincronização pensadas para bandas e equipes.
-            </p>
-        </article>
-
-        <article class="card">
-            <span class="number">07 / OFFLINE</span>
-            <span class="status">Pesquisa</span>
-            <div class="icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                    <path d="M3 8.5A13 13 0 0 1 21 8.5M6 12a9 9 0 0 1 12 0M9.5 15.5a4 4 0 0 1 5 0"/>
-                    <path d="M12 19h.01"/>
-                    <path d="M4 4l16 16"/>
-                </svg>
-            </div>
-            <h3>Modo offline</h3>
-            <p>
-                Acesso confiável aos projetos importantes mesmo sem conexão,
-                mantendo a nuvem como sincronização e não como dependência constante.
-            </p>
-        </article>
-
-        <article class="card">
-            <span class="number">08 / COMMUNITY</span>
-            <span class="status">Futuro</span>
-            <div class="icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                    <path d="M4 5h16v11H8l-4 4V5Z"/>
-                    <path d="M8 9h8M8 12h5"/>
-                </svg>
-            </div>
-            <h3>Comunidade</h3>
-            <p>
-                Um espaço para descobrir, compartilhar e organizar recursos musicais
-                dentro do ecossistema W.Tracks.
-            </p>
-        </article>
-    </section>
-
-    <section class="timeline">
-        <div class="section-head" style="margin-top:0">
-            <h2>Direção do produto</h2>
-            <span>Como as peças se conectam</span>
-        </div>
-
-        <div class="timeline-grid">
-            <div class="phase">
-                <span class="phase-label">Agora</span>
-                <h3>Experiência local</h3>
-                <p>
-                    Player, biblioteca, projetos multitrack e preparação rápida
-                    precisam ser sólidos antes de ampliar o ecossistema.
-                </p>
-            </div>
-            <div class="phase">
-                <span class="phase-label">Próximo</span>
-                <h3>Cloud + sincronização</h3>
-                <p>
-                    A mesma conta passa a conectar Web e App, com backup e
-                    continuidade sem transformar a nuvem em uma etapa manual.
-                </p>
-            </div>
-            <div class="phase">
-                <span class="phase-label">Depois</span>
-                <h3>Ecossistema</h3>
-                <p>
-                    Colaboração, comunidade, offline avançado e novas ferramentas
-                    passam a compartilhar a mesma base.
-                </p>
-            </div>
-        </div>
+        <section class="cta-section">
+            <p class="cta-text">Wtracks — tudo o que você precisa para levar sua música para o próximo nível.</p>
+            <a href="index.html" class="cta-button">Ir para o W.Tracks</a>
+        </section>
     </section>
 
     <div class="section-head">
-        <h2>Princípios</h2>
-        <span>O que guia as decisões</span>
+        <h2>Atualizações</h2>
+        <span>Novidades da plataforma</span>
     </div>
 
-    <section class="principles">
-        <div class="principle">
-            <strong>Local-first</strong>
-            <span>O produto deve continuar rápido e útil mesmo quando a conexão não é perfeita.</span>
-        </div>
-        <div class="principle">
-            <strong>Uma conta, tudo conectado</strong>
-            <span>Web, app e nuvem devem compartilhar a mesma experiência e os mesmos projetos.</span>
-        </div>
-        <div class="principle">
-            <strong>Áudio em primeiro lugar</strong>
-            <span>Performance, sincronização e estabilidade do player vêm antes de complexidade.</span>
-        </div>
-        <div class="principle">
-            <strong>Sem atrito</strong>
-            <span>A tecnologia deve trabalhar em segundo plano para que o músico não precise pensar nela.</span>
+    <section class="updates-section">
+        <div class="updates-feed" id="updatesFeed">
+            <!-- Updates will be rendered here -->
         </div>
     </section>
 </main>
 
 <footer>
     <div class="footer-inner">
-        <span>W.Tracks · Projetos futuros</span>
-        <span>Construindo o próximo passo.</span>
+        <span>W.Tracks · Sobre e atualizações</span>
+        <span>Construindo o futuro do áudio multitrack.</span>
     </div>
 </footer>
+
+<script>
+    // ========================================
+    // ATUALIZAÇÕES
+    // ========================================
+    // Para adicionar uma nova atualização, copie o bloco abaixo e cole NO INÍCIO do array
+    // (a mais nova fica no topo). "versao" e "imagem" são opcionais.
+    
+    const ATUALIZACOES = [
+        {
+            data: "28/09/2026",
+            versao: "v1.0",
+            titulo: "Lançamento da página Sobre",
+            descricao: "Apresentamos a página oficial sobre a história do W.Tracks, com informações detalhadas sobre a origem do projeto, seus princípios e direção futura.",
+            imagem: null
+        },
+        {
+            data: "15/09/2026",
+            versao: "v0.9",
+            titulo: "W.Cifras",
+            descricao: "Lançamos o W.Cifras, uma ferramenta completa para organizar cifras e repertórios, permitindo compartilhamento entre usuários e integração com o player principal.",
+            imagem: null
+        }
+    ];
+
+    // Render updates
+    function renderUpdates() {
+        const feed = document.getElementById('updatesFeed');
+        
+        if (!ATUALIZACOES || ATUALIZACOES.length === 0) {
+            feed.innerHTML = '<div class="no-updates">Nenhuma atualização publicada ainda.</div>';
+            return;
+        }
+
+        feed.innerHTML = ATUALIZACOES.map(update => {
+            const versionPill = update.versao 
+                ? `<span class="update-version-pill">${update.versao}</span>` 
+                : '';
+            
+            const imageHtml = update.imagem 
+                ? `<div class="update-image-container">
+                    <img src="${update.imagem}" alt="${update.titulo}" class="update-image" loading="lazy" onerror="this.classList.add('hidden')">
+                   </div>` 
+                : '';
+
+            return `
+                <article class="update-card">
+                    <div class="update-header">
+                        <img src="icon-white-transparent.png" alt="W.Tracks" class="update-avatar">
+                        <div class="update-info">
+                            <div class="update-name">W.Tracks</div>
+                            <div class="update-date">${update.data}</div>
+                        </div>
+                    </div>
+                    ${imageHtml}
+                    <div class="update-content">
+                        ${versionPill}
+                        <h3 class="update-title"></h3>
+                        <p class="update-description"></p>
+                    </div>
+                </article>
+            `;
+        }).join('');
+
+        // Set content using textContent for security
+        const cards = feed.querySelectorAll('.update-card');
+        cards.forEach((card, index) => {
+            const update = ATUALIZACOES[index];
+            card.querySelector('.update-title').textContent = update.titulo;
+            card.querySelector('.update-description').textContent = update.descricao;
+        });
+    }
+
+    // Intersection Observer for animations
+    function initAnimations() {
+        const observerOptions = {
+            root: null,
+            rootMargin: '0px',
+            threshold: 0.1
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, observerOptions);
+
+        // Observe all animated elements
+        document.querySelectorAll('.chapter, .moment-card, .wcifras-card, .cta-section').forEach(el => {
+            observer.observe(el);
+        });
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+        renderUpdates();
+        initAnimations();
+    });
+</script>
 </body>
 </html>
