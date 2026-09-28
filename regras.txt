@@ -338,6 +338,24 @@ service cloud.firestore {
 
 
     // ============================================================
+    // SERVICE PLAN SHARES
+    // ============================================================
+
+    match /servicePlanShares/{shareId} {
+
+      // Qualquer pessoa pode ler compartilhamentos (público)
+      allow read: if true;
+
+      // Apenas usuários autenticados podem criar compartilhamentos
+      allow create: if request.auth != null;
+
+      // Apenas o dono do compartilhamento pode atualizar/excluir
+      allow update, delete: if request.auth != null
+                            && resource.data.userId == request.auth.uid;
+    }
+
+
+    // ============================================================
     // COMPLAINTS
     // ============================================================
 

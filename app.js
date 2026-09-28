@@ -151,75 +151,51 @@ class MultracksApp {
         // Pad system
         this.availablePads = [
             {
-                file: "Pad_Reverse_A_F_sharp_m_30_minutos.mp3",
-                key: "A",
-                relativeKey: "F#m",
+                file: "arisen_worship-ab-pad-311490.mp3",
+                key: "G#",
+                relativeKey: "Fm",
                 bpm: 120
             },
             {
-                file: "Pad_Reverse_A_sharp_Bb_Gm_30_minutos.mp3",
-                key: "A#",
-                relativeKey: "Gm",
-                bpm: 120
-            },
-            {
-                file: "Pad_Reverse_B_G_sharp_m_Abm_30_minutos.mp3",
+                file: "arisen_worship-b-pad-311492.mp3",
                 key: "B",
                 relativeKey: "G#m",
                 bpm: 120
             },
             {
-                file: "Pad_Reverse_C_Am_30_minutos.mp3",
-                key: "C",
-                relativeKey: "Am",
+                file: "arisen_worship-bb-pad-311485.mp3",
+                key: "A#",
+                relativeKey: "Gm",
                 bpm: 120
             },
             {
-                file: "Pad_Reverse_C_sharp_Db_A_sharp_m_Bbm_30_minutos.mp3",
-                key: "C#",
-                relativeKey: "A#m",
-                bpm: 120
-            },
-            {
-                file: "Pad_Reverse_D_Bm_30_minutos.mp3",
+                file: "arisen_worship-d-pad-311488.mp3",
                 key: "D",
                 relativeKey: "Bm",
                 bpm: 120
             },
             {
-                file: "Pad_Reverse_D_sharp_Eb_Cm_30_minutos.mp3",
-                key: "D#",
-                relativeKey: "Cm",
-                bpm: 120
-            },
-            {
-                file: "Pad_Reverse_E_C_sharp_m_Dbm_30_minutos.mp3",
+                file: "arisen_worship-e-pad-311484.mp3",
                 key: "E",
                 relativeKey: "C#m",
                 bpm: 120
             },
             {
-                file: "Pad_Reverse_F_Dm_30_minutos.mp3",
+                file: "arisen_worship-f-pad-311500.mp3",
                 key: "F",
                 relativeKey: "Dm",
                 bpm: 120
             },
             {
-                file: "Pad_Reverse_F_sharp_Gb_D_sharp_m_Ebm_30_minutos.mp3",
-                key: "F#",
-                relativeKey: "D#m",
-                bpm: 120
-            },
-            {
-                file: "Pad_Reverse_G_Em_30_minutos.mp3",
+                file: "arisen_worship-g-pad-311491.mp3",
                 key: "G",
                 relativeKey: "Em",
                 bpm: 120
             },
             {
-                file: "Pad_Reverse_G_sharp_Ab_Fm_30_minutos.mp3",
-                key: "G#",
-                relativeKey: "Fm",
+                file: "arisen_worship-gb-pad-311486.mp3",
+                key: "F#",
+                relativeKey: "D#m",
                 bpm: 120
             }
         ];

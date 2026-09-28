@@ -36,9 +36,9 @@ const ITEM_TYPES = {
 };
 
 // Shared mode state
+let shareId = null;
 let sharedMonth = null;
 let sharedYear = null;
-let sharedUserId = null;
 let currentMonth = new Date().getMonth();
 let currentYear = 2026;
 let selectedDay = null;
@@ -46,24 +46,70 @@ let selectedDate = null;
 let servicePlans = {};
 let currentServicePlan = null;
 
+// Firebase retry configuration
+const FIREBASE_RETRY_MAX_ATTEMPTS = 20;
+const FIREBASE_RETRY_INTERVAL = 200; // 200ms
+
+// Ensure Firebase is ready with retry/polling
+function ensureFirebaseReady(maxAttempts = FIREBASE_RETRY_MAX_ATTEMPTS, interval = FIREBASE_RETRY_INTERVAL) {
+    return new Promise((resolve, reject) => {
+        let attempts = 0;
+        
+        const checkFirebase = () => {
+            attempts++;
+            
+            if (window.firebaseDB && window.firebaseDB.db && window.firebaseDB.doc && window.firebaseDB.getDoc) {
+                console.log('[SHARED] Firebase is ready after', attempts, 'attempts');
+                resolve(true);
+            } else if (attempts >= maxAttempts) {
+                console.error('[SHARED] Firebase initialization timeout after', maxAttempts, 'attempts');
+                reject(new Error('Firebase initialization timeout'));
+            } else {
+                console.log('[SHARED] Firebase not ready yet, attempt', attempts, 'of', maxAttempts);
+                setTimeout(checkFirebase, interval);
+            }
+        };
+        
+        checkFirebase();
+    });
+}
+
 // Initialize the page
 document.addEventListener('DOMContentLoaded', () => {
-    // Parse URL parameters for shared month
+    // Parse URL parameters for shareId
     parseSharedParameters();
     
-    if (sharedMonth !== null && sharedYear !== null && sharedUserId) {
-        // Set current month/year to shared values
-        currentMonth = sharedMonth;
-        currentYear = sharedYear;
+    if (shareId) {
+        // Show loading state
+        const loadingText = document.getElementById('loadingText');
+        const calendarGrid = document.getElementById('calendarGrid');
         
-        // Render calendar for shared month only
-        renderCalendar(currentMonth, currentYear);
+        if (loadingText) {
+            loadingText.style.display = 'block';
+        }
         
-        // Load service plans for the shared user
-        loadSharedServicePlans(sharedUserId);
+        if (calendarGrid) {
+            calendarGrid.style.display = 'none';
+        }
         
-        // Initialize side panel
-        initSidePanel();
+        // Wait for Firebase to be ready, then load service plans
+        ensureFirebaseReady()
+            .then(() => {
+                loadSharedServicePlans(shareId);
+            })
+            .catch((error) => {
+                console.error('[SHARED] Firebase initialization failed:', error);
+                showError('Erro ao inicializar Firebase. Por favor, recarregue a página.');
+                
+                // Hide loading state
+                if (loadingText) {
+                    loadingText.style.display = 'none';
+                }
+                
+                if (calendarGrid) {
+                    calendarGrid.style.display = 'grid';
+                }
+            });
     } else {
         showError('Link de compartilhamento inválido.');
     }
@@ -72,66 +118,88 @@ document.addEventListener('DOMContentLoaded', () => {
 function parseSharedParameters() {
     const urlParams = new URLSearchParams(window.location.search);
     
-    const month = urlParams.get('month');
-    const year = urlParams.get('year');
-    const userId = urlParams.get('userId');
+    shareId = urlParams.get('shareId');
     
-    if (month !== null) {
-        sharedMonth = parseInt(month, 10);
-    }
-    
-    if (year !== null) {
-        sharedYear = parseInt(year, 10);
-    }
-    
-    if (userId) {
-        sharedUserId = userId;
-    }
-    
-    console.log('[SHARED] Parameters:', { sharedMonth, sharedYear, sharedUserId });
+    console.log('[SHARED] Share ID:', shareId);
 }
 
-function loadSharedServicePlans(userId) {
+function loadSharedServicePlans(shareId) {
     if (!window.firebaseDB) {
         console.error('[SHARED] Firebase DB not available');
+        showError('Erro: Firebase DB não disponível.');
         return;
     }
 
-    console.log('[SHARED] Loading service plans for user:', userId);
+    console.log('[SHARED] Loading shared service plans:', shareId);
 
-    const { db, collection, query, onSnapshot } = window.firebaseDB;
-    const servicePlansRef = collection(db, 'users', userId, 'servicePlans');
-
-    // Real-time listener
-    onSnapshot(
-        query(servicePlansRef),
-        (snapshot) => {
-            const plans = {};
-            snapshot.forEach((doc) => {
-                const data = doc.data();
-                const dateKey = data.date;
-                plans[dateKey] = {
-                    id: doc.id,
-                    name: data.name,
-                    date: data.date,
-                    items: data.items || [],
-                    highlightColor: data.highlightColor || null,
-                    createdAt: data.createdAt,
-                    updatedAt: data.updatedAt
-                };
-                console.log('[SHARED] Loaded plan:', dateKey, data.name, 'color:', data.highlightColor);
-            });
-
-            servicePlans = plans;
-            renderCalendar(currentMonth, currentYear);
-
-            console.log('[SHARED] Service Plans loaded:', Object.keys(plans).length, plans);
-        },
-        (error) => {
-            console.error('[SHARED] Error loading service plans:', error);
-            showError('Unable to load Service Plans. Please try again.');
-        }
-    );
+    const { db, doc, getDoc } = window.firebaseDB;
+    const loadingText = document.getElementById('loadingText');
+    const calendarGrid = document.getElementById('calendarGrid');
+    
+    // Read the shared document directly
+    getDoc(doc(db, 'servicePlanShares', shareId))
+        .then((docSnap) => {
+            // Hide loading state
+            if (loadingText) {
+                loadingText.style.display = 'none';
+            }
+            
+            if (calendarGrid) {
+                calendarGrid.style.display = 'grid';
+            }
+            
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                console.log('[SHARED] Share document found:', data);
+                
+                // Extract month and year from the document
+                sharedMonth = data.month;
+                sharedYear = data.year;
+                
+                // Set current month/year to shared values
+                currentMonth = sharedMonth;
+                currentYear = sharedYear;
+                
+                // Load plans from the document
+                const plans = data.plans || {};
+                servicePlans = plans;
+                
+                // Render calendar for shared month
+                renderCalendar(currentMonth, currentYear);
+                
+                // Initialize side panel
+                initSidePanel();
+                
+                console.log('[SHARED] Service Plans loaded:', Object.keys(plans).length, plans);
+            } else {
+                console.error('[SHARED] Share document not found');
+                showError('Link de compartilhamento não encontrado ou expirado.');
+            }
+        })
+        .catch((error) => {
+            console.error('[SHARED] Error loading shared service plans:', error);
+            
+            // Hide loading state
+            if (loadingText) {
+                loadingText.style.display = 'none';
+            }
+            
+            if (calendarGrid) {
+                calendarGrid.style.display = 'grid';
+            }
+            
+            // Show user-friendly error message
+            let errorMessage = 'Erro ao carregar Service Plans. Tente novamente.';
+            if (error.code === 'permission-denied') {
+                errorMessage = 'Erro de permissão ao acessar o plano compartilhado.';
+            } else if (error.code === 'not-found') {
+                errorMessage = 'Plano compartilhado não encontrado.';
+            } else if (error.code === 'unavailable') {
+                errorMessage = 'Serviço temporariamente indisponível. Tente novamente mais tarde.';
+            }
+            
+            showError(errorMessage);
+        });
 }
 
 // ========================================
@@ -389,7 +457,6 @@ function handleSidePanelBack() {
 
 function renderSharedMusicItems() {
     const itemsList = document.getElementById('sidePanelItemsContainer');
-    const emptyState = document.getElementById('emptyState');
     
     if (!itemsList) {
         console.error('[SHARED] sidePanelItemsContainer not found');
@@ -399,22 +466,32 @@ function renderSharedMusicItems() {
     // Clear current items
     itemsList.innerHTML = '';
     
-    // Filter for music items only
-    const musicItems = currentServicePlan.items.filter(item => item.type === 'MUSIC');
+    // Validate currentServicePlan and items
+    if (!currentServicePlan || !currentServicePlan.items || !Array.isArray(currentServicePlan.items)) {
+        console.error('[SHARED] Invalid currentServicePlan or items:', currentServicePlan);
+        itemsList.innerHTML = `
+            <div class="side-panel-empty-state">
+                <div class="side-panel-empty-state-title">ERRO</div>
+                <div class="side-panel-empty-state-text">Dados do plano de serviço inválidos.</div>
+            </div>
+        `;
+        return;
+    }
     
-    if (musicItems.length === 0) {
-        // Show empty state
-        if (emptyState) {
-            itemsList.innerHTML = `
-                <div class="side-panel-empty-state">
-                    <div class="side-panel-empty-state-title">NENHUMA MÚSICA</div>
-                    <div class="side-panel-empty-state-text">Este plano de serviço não possui músicas.</div>
-                </div>
-            `;
-        }
+    // Render all items (not just music)
+    const allItems = currentServicePlan.items;
+    
+    if (allItems.length === 0) {
+        // Show empty state - insert HTML directly since #emptyState doesn't exist
+        itemsList.innerHTML = `
+            <div class="side-panel-empty-state">
+                <div class="side-panel-empty-state-title">NENHUM ITEM</div>
+                <div class="side-panel-empty-state-text">Este plano de serviço não possui itens.</div>
+            </div>
+        `;
     } else {
-        // Render each music item
-        musicItems.forEach((item, index) => {
+        // Render each item
+        allItems.forEach((item, index) => {
             const itemElement = createSharedMusicItemElement(item, index);
             itemsList.appendChild(itemElement);
         });
@@ -425,10 +502,13 @@ function createSharedMusicItemElement(item, index) {
     const itemElement = document.createElement('div');
     itemElement.className = 'service-plan-item';
     
+    // Validate item properties
     const timeDisplay = item.time ? item.time : '';
-    const typeDisplay = ITEM_TYPES[item.type] || item.type;
+    const typeDisplay = ITEM_TYPES[item.type] || item.type || 'ITEM';
     const itemNumber = String(index + 1).padStart(2, '0');
     const typeIcon = getTypeIcon(item.type);
+    const itemName = item.name || 'Sem nome';
+    const itemNote = item.note || '';
     
     itemElement.innerHTML = `
         <div class="item-number">${itemNumber}</div>
@@ -438,8 +518,8 @@ function createSharedMusicItemElement(item, index) {
                 <span class="item-type">${typeDisplay}</span>
                 ${timeDisplay ? `<span class="item-time">${timeDisplay}</span>` : ''}
             </div>
-            <div class="item-name">${item.name}</div>
-            ${item.note ? `<div class="item-note">${item.note}</div>` : ''}
+            <div class="item-name">${itemName}</div>
+            ${itemNote ? `<div class="item-note">${itemNote}</div>` : ''}
         </div>
     `;
     
@@ -466,17 +546,43 @@ function getTypeIcon(type) {
 
 function showError(message) {
     const calendarSection = document.getElementById('calendarSection');
-    calendarSection.innerHTML = `
-        <div class="error-state">
-            <div class="error-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="12" y1="8" x2="12" y2="12"></line>
-                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                </svg>
+    const loadingText = document.getElementById('loadingText');
+    
+    // Hide loading state if visible
+    if (loadingText) {
+        loadingText.style.display = 'none';
+    }
+    
+    if (calendarSection) {
+        calendarSection.innerHTML = `
+            <div class="error-state">
+                <div class="error-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                </div>
+                <h2 class="error-title">Erro</h2>
+                <p class="error-description">${message}</p>
+                <button onclick="location.reload()" class="error-retry-btn">Tentar Novamente</button>
             </div>
-            <h2 class="error-title">Erro</h2>
-            <p class="error-description">${message}</p>
-        </div>
-    `;
+        `;
+    } else {
+        // Fallback if calendar section doesn't exist
+        document.body.innerHTML = `
+            <div class="error-state" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; text-align: center;">
+                <div class="error-icon" style="margin-bottom: 20px;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 64px; height: 64px;">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                </div>
+                <h2 class="error-title" style="font-size: 24px; margin-bottom: 10px;">Erro</h2>
+                <p class="error-description" style="color: #888; margin-bottom: 20px;">${message}</p>
+                <button onclick="location.reload()" style="padding: 12px 24px; background: #333; color: white; border: none; border-radius: 4px; cursor: pointer;">Tentar Novamente</button>
+            </div>
+        `;
+    }
 }

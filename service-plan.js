@@ -1168,27 +1168,82 @@ function handleSidePanelShareMonth() {
         alert('Você precisa estar logado para compartilhar.');
         return;
     }
+
+    if (!window.firebaseDB) {
+        alert('Erro: Firebase DB não disponível.');
+        return;
+    }
+
+    // Generate share ID based on user, year, and month
+    // Format: ${userId}_${year}_${month} (following Firestore rules requirement)
+    const shareId = `${currentUser.uid}_${currentYear}_${currentMonth}`;
     
-    // Generate share link for current month
-    const shareUrl = generateShareLink(currentMonth, currentYear, currentUser.uid);
+    console.log('[SHARE] Generated shareId:', shareId);
+    console.log('[SHARE] Current year/month:', currentYear, currentMonth);
     
-    // Copy to clipboard
-    navigator.clipboard.writeText(shareUrl).then(() => {
-        alert('Link de compartilhamento copiado para a área de transferência!');
-    }).catch(err => {
-        console.error('Failed to copy:', err);
-        // Fallback: show the link
-        prompt('Copie este link de compartilhamento:', shareUrl);
+    // Filter service plans for current month
+    const monthlyPlans = {};
+    Object.keys(servicePlans).forEach(dateKey => {
+        const date = new Date(dateKey);
+        if (date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
+            monthlyPlans[dateKey] = servicePlans[dateKey];
+        }
+    });
+
+    if (Object.keys(monthlyPlans).length === 0) {
+        alert('Não há planos de serviço para compartilhar neste mês.');
+        return;
+    }
+    
+    console.log('[SHARE] Monthly plans to share:', Object.keys(monthlyPlans).length);
+
+    // Show loading state
+    const shareBtn = document.getElementById('sidePanelShareMonthBtn');
+    const originalText = shareBtn.textContent;
+    shareBtn.textContent = 'Gerando link...';
+    shareBtn.disabled = true;
+
+    // Save to servicePlanShares collection
+    const { db, doc, setDoc, serverTimestamp } = window.firebaseDB;
+    
+    setDoc(doc(db, 'servicePlanShares', shareId), {
+        userId: currentUser.uid,
+        year: currentYear,
+        month: currentMonth,
+        plans: monthlyPlans,
+        updatedAt: serverTimestamp()
+    })
+    .then(() => {
+        console.log('[SHARE] Document saved successfully:', shareId);
+        
+        // Generate share link
+        const shareUrl = generateShareLink(shareId);
+        
+        // Copy to clipboard
+        navigator.clipboard.writeText(shareUrl).then(() => {
+            alert('Link de compartilhamento copiado para a área de transferência!');
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+            // Fallback: show the link
+            prompt('Copie este link de compartilhamento:', shareUrl);
+        });
+    })
+    .catch(error => {
+        console.error('[SHARE] Error saving share document:', error);
+        alert('Erro ao gerar link de compartilhamento. Tente novamente.');
+    })
+    .finally(() => {
+        // Restore button state
+        shareBtn.textContent = originalText;
+        shareBtn.disabled = false;
     });
 }
 
-function generateShareLink(month, year, userId) {
+function generateShareLink(shareId) {
     const baseUrl = window.location.origin;
     const sharedPage = 'service-plan-shared.html';
     const params = new URLSearchParams({
-        month: month,
-        year: year,
-        userId: userId
+        shareId: shareId
     });
     
     // Detect base path from current location (for GitHub Pages support)
