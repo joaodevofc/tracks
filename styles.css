@@ -2814,7 +2814,7 @@ a {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 200;
+    z-index: 2000;
     opacity: 0;
     visibility: hidden;
     transition: opacity var(--transition-normal), visibility var(--transition-normal);
