@@ -417,6 +417,7 @@ html, body {
 /* Waveform responsive adjustment - LIMITED TO 50px */
 .timeline-waveform {
     height: 50px;
+    overflow: visible !important;
 }
 
 #waveformCanvas {
@@ -428,10 +429,30 @@ html, body {
     font-size: 9px;
     top: 2px;
     padding: 1px 4px;
+    max-width: none !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
 }
 
 .waveform-part-label.above {
     top: -16px;
+    white-space: nowrap !important;
+}
+
+/* Effect markers mobile adjustments */
+.effect-marker {
+    min-width: 30px !important;
+}
+
+.effect-marker-label {
+    font-size: 8px !important;
+    padding: 1px 3px !important;
+    white-space: nowrap !important;
+    max-width: none !important;
+    overflow: visible !important;
+    top: 1px !important;
+    left: 1px !important;
 }
 
 .control-btn {
@@ -976,6 +997,7 @@ html, body {
     .timeline-waveform {
         height: 30px;
         padding: var(--spacing-xs) var(--spacing-sm);
+        overflow: visible !important;
     }
     
     #waveformCanvas {

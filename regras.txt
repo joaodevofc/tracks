@@ -134,7 +134,7 @@ service cloud.firestore {
 
       // Usuário pode alterar o próprio perfil (exceto plan e campos admin).
       // Admin pode alterar qualquer usuário (incluindo plan).
-      // EXCEÇÃO: Usuário pode ativar trial grátis (verificação já feita no client-side)
+      // EXCEÇÃO: Usuário pode ativar trial grátis ou planos pagos (verificação já feita no client-side)
       allow update: if request.auth != null
                    && (
                      isAuthorizedAdmin()
@@ -147,6 +147,16 @@ service cloud.firestore {
                        request.auth.uid == userId
                        && request.resource.data.planType == 'trial'
                        && request.resource.data.paymentOrigin == 'trial'
+                     )
+                     || (
+                       // Permitir ativação de planos pagos (mensal, anual, etc)
+                       request.auth.uid == userId
+                       && request.resource.data.paymentOrigin == 'site'
+                       && (
+                         request.resource.data.planType == 'mensal'
+                         || request.resource.data.planType == 'anual'
+                         || request.resource.data.planType == 'pro'
+                       )
                      )
                    );
 

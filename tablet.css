@@ -153,10 +153,38 @@
         .timeline-waveform {
             height: 35px;
             padding: var(--spacing-xs) var(--spacing-sm);
+            overflow: visible !important;
         }
         
         #waveformCanvas {
             height: 100%;
+        }
+        
+        /* Waveform parts tablet adjustments */
+        .waveform-part-label {
+            font-size: 10px;
+            padding: 1px 5px;
+            white-space: normal !important;
+            overflow: visible !important;
+            max-width: none !important;
+        }
+        
+        .waveform-part-label.above {
+            top: -15px;
+            white-space: nowrap !important;
+        }
+        
+        /* Effect markers tablet adjustments */
+        .effect-marker {
+            min-width: 40px !important;
+        }
+        
+        .effect-marker-label {
+            font-size: 9px !important;
+            padding: 1px 4px !important;
+            white-space: nowrap !important;
+            max-width: none !important;
+            overflow: visible !important;
         }
         
         /* Compact fader heights for landscape - 80px-100px to fit in landscape */

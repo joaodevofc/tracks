@@ -342,12 +342,24 @@
     min-height: 100%;
 }
 
+.loading-progress-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+}
+
 .loading-progress-text {
     font-size: 0.75rem;
     color: var(--color-ice);
-    margin-top: 4px;
     animation: pulse 1.5s ease-in-out infinite;
     font-weight: 500;
+}
+
+.loading-time-estimate {
+    font-size: 0.7rem;
+    color: var(--color-gray);
+    font-weight: 400;
 }
 
 .library-loading {
@@ -4240,7 +4252,7 @@ body.fader-animations-disabled .led-pointer {
     background: var(--color-black-elevated);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
-    overflow: hidden;
+    overflow: visible;
     cursor: crosshair;
     touch-action: none;
     user-select: none;
@@ -4288,15 +4300,28 @@ body.fader-animations-disabled .led-pointer {
     white-space: nowrap;
     pointer-events: none;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 8px rgba(147, 112, 219, 0.6);
-    z-index: 5;
+    z-index: 20;
     background: rgba(147, 112, 219, 0.3);
     padding: 2px 6px;
     border-radius: 3px;
     backdrop-filter: blur(2px);
+    overflow: visible;
 }
 
 .waveform-part-label.above {
     top: -14px;
+}
+
+/* Waveform parts overlay container */
+#waveformPartsOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: visible;
+    z-index: 15;
 }
 
 #waveformCanvas {
@@ -4772,6 +4797,7 @@ body.fader-animations-disabled .led-pointer {
     pointer-events: auto;
     cursor: pointer;
     transition: all 0.2s ease;
+    overflow: visible;
 }
 
 .effect-marker:hover {
@@ -4791,6 +4817,8 @@ body.fader-animations-disabled .led-pointer {
     font-weight: bold;
     white-space: nowrap;
     pointer-events: none;
+    overflow: visible;
+    z-index: 15;
 }
 
 .track-controls {

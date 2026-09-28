@@ -4265,19 +4265,25 @@ class MultracksApp {
                 const label = document.createElement('div');
                 label.className = 'effect-marker-label';
                 label.textContent = track.name;
-                label.style.cssText = `
+                
+                // Check if mobile for responsive label positioning
+                const isMobile = window.innerWidth <= 768;
+                const labelStyle = `
                     position: absolute;
-                    top: 2px;
+                    top: ${isMobile ? '-14px' : '2px'};
                     left: 2px;
                     background: rgba(138, 43, 226, 0.8);
                     color: white;
-                    padding: 2px 6px;
+                    padding: ${isMobile ? '1px 4px' : '2px 6px'};
                     border-radius: 3px;
-                    font-size: 10px;
+                    font-size: ${isMobile ? '8px' : '10px'};
                     font-weight: bold;
                     white-space: nowrap;
                     pointer-events: none;
+                    z-index: 15;
+                    overflow: visible;
                 `;
+                label.style.cssText = labelStyle;
                 
                 marker.appendChild(label);
                 
@@ -8681,12 +8687,15 @@ class MultracksApp {
 
             // Smart label positioning for small regions
             const minLabelWidth = 60; // Minimum width for readable label
-            if (width < minLabelWidth) {
-                // For very small regions, position label above and center it
+            const isMobile = window.innerWidth <= 768;
+            
+            if (width < minLabelWidth || isMobile) {
+                // For very small regions or mobile, position label above and center it
                 partLabel.classList.add('above');
                 partLabel.style.left = `${startX + (width / 2) - (minLabelWidth / 2)}px`;
                 partLabel.style.width = `${minLabelWidth}px`;
                 partLabel.style.textAlign = 'center';
+                partLabel.style.maxWidth = 'none';
             } else {
                 // For normal regions, position inside
                 partLabel.style.left = `${startX + 4}px`;
@@ -10665,14 +10674,18 @@ class MultracksApp {
                 this.updateLoadingCardProgress(tempId, saved, total);
             };
             
+            // Calculate total file size for time estimation
+            const totalFileSize = tracks.reduce((sum, track) => sum + (track.file ? track.file.size : 0), 0);
+            
             // Add to active uploads state instead of direct DOM manipulation
             this.activeUploads.set(tempId, {
                 projectName,
                 trackCount: tracks.length,
                 saved: 0,
-                total: tracks.length
+                total: tracks.length,
+                totalFileSize: totalFileSize
             });
-            console.log('[UPLOAD] Added to active uploads:', tempId);
+            console.log('[UPLOAD] Added to active uploads:', tempId, 'Total size:', totalFileSize);
             
             // Render library to show loading card
             await this.renderLibrary();
@@ -10900,8 +10913,13 @@ class MultracksApp {
                         <span class="music-card-tracks">${trackCount} track${trackCount !== 1 ? 's' : ''}</span>
                         <span class="music-card-date">Carregando...</span>
                     </div>
-                    <div class="loading-progress-text" id="progress-${tempId}">
-                        Processando
+                    <div class="loading-progress-row">
+                        <div class="loading-progress-text" id="progress-${tempId}">
+                            Processando
+                        </div>
+                        <div class="loading-time-estimate" id="time-estimate-${tempId}">
+                            --
+                        </div>
                     </div>
                 </div>
             </div>
@@ -10917,6 +10935,9 @@ class MultracksApp {
             uploadData.saved = saved;
             uploadData.total = total;
             console.log('[UPLOAD] Updated progress for:', tempId, saved, total);
+
+            // Calculate and update time estimate
+            this.updateTimeEstimate(tempId, uploadData);
 
             // Start status rotation if not already started
             if (!uploadData.statusInterval) {
@@ -10938,6 +10959,31 @@ class MultracksApp {
                 uploadData.statusInterval = setInterval(updateStatus, 7000);
             }
         }
+    }
+
+    updateTimeEstimate(tempId, uploadData) {
+        const timeEstimateElement = document.getElementById(`time-estimate-${tempId}`);
+        if (!timeEstimateElement) return;
+
+        // Calculate estimated time based on file size
+        // Assuming average upload speed of 1 MB/s for estimation
+        const totalSizeInMB = uploadData.totalFileSize / (1024 * 1024);
+        const avgUploadSpeedMBPerSec = 1; // 1 MB/s average
+        const estimatedSeconds = totalSizeInMB / avgUploadSpeedMBPerSec;
+        
+        // Convert to minutes
+        const estimatedMinutes = Math.ceil(estimatedSeconds / 60);
+        
+        // Format the estimate with "Estimativa: X min"
+        let estimateText = '';
+        if (estimatedMinutes < 1) {
+            estimateText = 'Estimativa: 1 min';
+        } else {
+            estimateText = `Estimativa: ${estimatedMinutes} min`;
+        }
+        
+        timeEstimateElement.textContent = estimateText;
+        console.log('[UPLOAD] Time estimate for', tempId, ':', estimateText);
     }
 
     async removeLoadingCard(tempId) {
