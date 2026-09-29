@@ -43,6 +43,9 @@ class MultracksApp {
         // User plan (track, track_pro)
         this.userPlan = null; // Default to null - wait for Firebase to load actual plan
 
+        // Pending waveform parts sync (for when auth is not ready)
+        this.pendingWaveformPartsSync = null; // { projectId, waveformParts }
+
         // Pro feature modal configurations
         this.proFeatureConfigs = {
             waveformParts: {
@@ -1751,6 +1754,14 @@ class MultracksApp {
         // Set up other callbacks
         this.audioPlayer.onTimeUpdate = (currentTime) => {
             this.updateTimeDisplay(currentTime);
+            
+            // Update precision marker if modal is open and not being dragged manually
+            if (this.waveformPartsModal?.classList.contains('active') && 
+                !this.isDraggingPrecisionMarker && 
+                this.audioPlayer?.isPlaying) {
+                this.precisionMarkerTime = currentTime;
+                this.updatePrecisionMarkerPosition();
+            }
         };
         
         this.audioPlayer.onPlayStateChange = (state) => {
@@ -2108,7 +2119,7 @@ class MultracksApp {
                 </button>
             </div>
             <div class="music-card-content">
-                <h3 class="music-card-title">${this.escapeHtml(project.name)}</h3>
+                <h3 class="music-card-title" data-project-id="${project.id}">${this.escapeHtml(project.name)}</h3>
                 <div class="music-card-meta">
                     <div class="music-card-meta-row">
                         ${project.key && !isExploreMusic ? `<span class="music-card-key">🎹 ${project.key}</span>` : ''}
@@ -2122,6 +2133,12 @@ class MultracksApp {
         `;
         
         card.addEventListener('click', async (e) => {
+            // Don't open project if clicking on inline editing input
+            if (e.target.classList.contains('music-card-title-input')) {
+                e.stopPropagation();
+                return;
+            }
+            
             if (!e.target.closest('.music-card-menu')) {
                 await this.openProject(project.id);
             }
@@ -2430,7 +2447,17 @@ class MultracksApp {
             this.audioPlayer = new MultitrackPlayer();
 
             // Set up player callbacks
-            this.audioPlayer.onTimeUpdate = (time) => this.updateTimeDisplay(time);
+            this.audioPlayer.onTimeUpdate = (time) => {
+                this.updateTimeDisplay(time);
+                
+                // Update precision marker if modal is open and not being dragged manually
+                if (this.waveformPartsModal?.classList.contains('active') && 
+                    !this.isDraggingPrecisionMarker && 
+                    this.audioPlayer?.isPlaying) {
+                    this.precisionMarkerTime = time;
+                    this.updatePrecisionMarkerPosition();
+                }
+            };
             this.audioPlayer.onPlayStateChange = (state) => this.updatePlayButton(state);
             this.audioPlayer.onTrackStateChange = (trackId, state) => this.updateTrackState(trackId, state);
             this.audioPlayer.onTrackLevelUpdate = (trackId, level) => this.updateTrackLevelMeter(trackId, level);
@@ -7937,99 +7964,103 @@ class MultracksApp {
     showRenameModal(project) {
         console.log('[APP] showRenameModal called for:', project.name);
         
-        const modal = document.createElement('div');
-        modal.className = 'modal-overlay';
-        modal.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2000;
-        `;
+        // Find the card and title element
+        const card = document.querySelector(`.music-card[data-project-id="${project.id}"]`);
+        const titleElement = card?.querySelector('.music-card-title');
         
-        modal.innerHTML = `
-            <div class="modal-content" style="
-                background: var(--color-black-card);
-                border: 1px solid var(--border-medium);
-                border-radius: var(--radius-lg);
-                padding: var(--spacing-xl);
-                max-width: 400px;
-                width: 90%;
-            ">
-                <h2 style="color: var(--color-white); margin-bottom: var(--spacing-md);">Renomear música</h2>
-                <input type="text" id="renameInput" value="${this.escapeHtml(project.name)}" style="
-                    width: 100%;
-                    padding: var(--spacing-md);
-                    background: var(--color-black);
-                    border: 1px solid var(--border-medium);
-                    border-radius: var(--radius-md);
-                    color: var(--color-white);
-                    font-size: var(--font-size-md);
-                    margin-bottom: var(--spacing-lg);
-                ">
-                <div style="display: flex; gap: var(--spacing-md); justify-content: flex-end;">
-                    <button id="cancelRename" style="
-                        padding: var(--spacing-md) var(--spacing-xl);
-                        background: transparent;
-                        color: var(--color-white-muted);
-                        border: 1px solid var(--border-medium);
-                        border-radius: var(--radius-md);
-                        cursor: pointer;
-                    ">Cancelar</button>
-                    <button id="confirmRename" style="
-                        padding: var(--spacing-md) var(--spacing-xl);
-                        background: var(--color-white);
-                        color: var(--color-black);
-                        border: none;
-                        border-radius: var(--radius-md);
-                        cursor: pointer;
-                        font-weight: 600;
-                    ">Salvar</button>
-                </div>
-            </div>
-        `;
+        if (!card || !titleElement) {
+            console.error('[APP] Card or title element not found for project:', project.id);
+            return;
+        }
         
-        document.body.appendChild(modal);
+        const originalName = project.name;
         
-        const input = modal.querySelector('#renameInput');
-        const cancelBtn = modal.querySelector('#cancelRename');
-        const confirmBtn = modal.querySelector('#confirmRename');
+        // Create input element
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = originalName;
+        input.className = 'music-card-title-input';
+        input.dataset.projectId = project.id;
         
+        // Store original name for cancel
+        input.dataset.originalName = originalName;
+        
+        // Replace title with input
+        titleElement.replaceWith(input);
+        
+        // Focus and select text
         input.focus();
         input.select();
         
-        cancelBtn?.addEventListener('click', () => {
-            document.body.removeChild(modal);
-        });
+        // Prevent card click while editing
+        const preventCardClick = (e) => {
+            if (e.target === input) {
+                e.stopPropagation();
+            }
+        };
         
-        confirmBtn?.addEventListener('click', async () => {
+        input.addEventListener('click', preventCardClick);
+        input.addEventListener('mousedown', preventCardClick);
+        
+        // Save function
+        const saveName = async () => {
             const newName = input.value.trim();
-            if (newName && newName !== project.name) {
+            
+            // Validate: don't allow empty name
+            if (!newName) {
+                // Restore original name if empty
+                input.value = originalName;
+                input.focus();
+                return;
+            }
+            
+            // Only update if name changed
+            if (newName !== originalName) {
                 project.name = newName;
                 await storage.updateProject(project.id, project);
                 // Increment version after successful update
                 this.libraryStateVersion++;
                 console.log('[LIBRARY] Library state version incremented to:', this.libraryStateVersion);
-                await this.renderLibrary(this.currentFilter);
+                
+                // Update the title element with new name
+                const newTitle = document.createElement('h3');
+                newTitle.className = 'music-card-title';
+                newTitle.dataset.projectId = project.id;
+                newTitle.textContent = this.escapeHtml(newName);
+                input.replaceWith(newTitle);
+            } else {
+                // Restore original title if no change
+                const originalTitle = document.createElement('h3');
+                originalTitle.className = 'music-card-title';
+                originalTitle.dataset.projectId = project.id;
+                originalTitle.textContent = this.escapeHtml(originalName);
+                input.replaceWith(originalTitle);
             }
-            document.body.removeChild(modal);
-        });
+        };
         
-        input?.addEventListener('keypress', (e) => {
+        // Cancel function
+        const cancelRename = () => {
+            const originalTitle = document.createElement('h3');
+            originalTitle.className = 'music-card-title';
+            originalTitle.dataset.projectId = project.id;
+            originalTitle.textContent = this.escapeHtml(originalName);
+            input.replaceWith(originalTitle);
+        };
+        
+        // Event listeners
+        input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
-                confirmBtn?.click();
+                e.preventDefault();
+                saveName();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                cancelRename();
             }
         });
         
-        modal?.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                document.body.removeChild(modal);
-            }
+        input.addEventListener('blur', () => {
+            // Save on blur (click outside)
+            saveName();
         });
     }
 
@@ -8535,6 +8566,12 @@ class MultracksApp {
         this.waveformPartsList = document.getElementById('waveformPartsList');
         this.waveformSaveParts = document.getElementById('waveformSaveParts');
 
+        // Playback controls
+        this.waveformPlayBtn = document.getElementById('waveformPlayBtn');
+        this.waveformPauseBtn = document.getElementById('waveformPauseBtn');
+        this.waveformTimeDisplay = document.getElementById('waveformTimeDisplay');
+        this.waveformPlayhead = document.getElementById('waveformPlayhead');
+
         console.log('[WAVEFORM PARTS] Modal initialized:', !!this.waveformPartsModal);
 
         // Selection state
@@ -8553,10 +8590,23 @@ class MultracksApp {
         // Parts list state
         this.waveformParts = []; // Array of {id, name, start, end}
 
+        // Playback state for modal
+        this.waveformPlaybackUpdateInterval = null;
+
+        // Precision marker state
+        this.waveformPrecisionMarker = null;
+        this.waveformPrecisionMarkerLabel = null;
+        this.precisionMarkerTime = 0; // Time position of precision marker
+        this.isDraggingPrecisionMarker = false;
+        this.snapThreshold = 0.05; // 50ms snap threshold in seconds
+        this.isSnapping = false;
+
         // Setup event listeners for selection
         this.setupWaveformSelection();
         this.setupPartTypeSelection();
         this.setupPartsList();
+        this.setupWaveformPlaybackControls();
+        this.setupPrecisionMarker();
     }
 
     openWaveformPartsModal() {
@@ -8595,11 +8645,29 @@ class MultracksApp {
         this.renderWaveformPreview();
         this.renderTimeScale();
         this.updateSelectionUI();
+
+        // Initialize precision marker at current playback position
+        if (this.audioPlayer) {
+            this.precisionMarkerTime = this.audioPlayer.currentTime;
+        } else {
+            this.precisionMarkerTime = 0;
+        }
+        this.updatePrecisionMarkerPosition();
+
+        // Initialize playback controls
+        this.updateWaveformPlaybackUI();
+        this.startWaveformPlaybackUpdate();
     }
 
     closeWaveformPartsModal() {
         if (!this.waveformPartsModal) return;
         this.waveformPartsModal.classList.remove('active');
+
+        // Stop playback update
+        this.stopWaveformPlaybackUpdate();
+
+        // Clear parts on preview waveform
+        this.clearWaveformPartsOnPreview();
 
         // Reset temporary state but don't modify the project
         // The project's waveformParts remains as it was saved
@@ -8719,6 +8787,8 @@ class MultracksApp {
         window.addEventListener('resize', () => {
             if (this.waveformPartsModal?.classList.contains('active')) {
                 this.updateSelectionUI();
+                // Re-render waveform parts on preview waveform
+                this.renderWaveformPartsOnPreview();
             }
             // Re-render waveform parts on main waveform
             this.renderWaveformParts();
@@ -8751,6 +8821,170 @@ class MultracksApp {
 
         // Add save parts button listener
         this.waveformSaveParts?.addEventListener('click', () => this.saveWaveformParts());
+    }
+
+    setupWaveformPlaybackControls() {
+        // Play button
+        this.waveformPlayBtn?.addEventListener('click', () => {
+            if (this.audioPlayer) {
+                this.audioPlayer.play();
+            }
+        });
+
+        // Pause button
+        this.waveformPauseBtn?.addEventListener('click', () => {
+            if (this.audioPlayer) {
+                this.audioPlayer.pause();
+            }
+        });
+
+        // Click on waveform to seek (only if not selecting)
+        this.waveformPreviewCanvas?.addEventListener('click', (e) => {
+            if (!this.audioPlayer || !this.totalDuration) return;
+            
+            // Don't seek if we're in the middle of a selection operation
+            if (this.isSelecting || this.isDraggingStart || this.isDraggingEnd) return;
+
+            const rect = this.waveformPreviewCanvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const time = (x / rect.width) * this.totalDuration;
+
+            // Seek without pausing (preserve play state)
+            this.audioPlayer.seek(time, false);
+
+            // Update precision marker to match seek position
+            this.precisionMarkerTime = time;
+            this.updatePrecisionMarkerPosition();
+        });
+    }
+
+    setupPrecisionMarker() {
+        this.waveformPrecisionMarker = document.getElementById('waveformPrecisionMarker');
+        this.waveformPrecisionMarkerLabel = document.getElementById('waveformPrecisionMarkerLabel');
+
+        if (!this.waveformPrecisionMarker) return;
+
+        // Initialize marker position
+        this.precisionMarkerTime = 0;
+        this.updatePrecisionMarkerPosition();
+
+        // Marker drag events
+        this.waveformPrecisionMarker.addEventListener('pointerdown', (e) => {
+            e.stopPropagation();
+            this.isDraggingPrecisionMarker = true;
+            this.waveformPrecisionMarker.setPointerCapture(e.pointerId);
+        });
+
+        document.addEventListener('pointermove', (e) => {
+            if (!this.isDraggingPrecisionMarker) return;
+
+            const rect = this.waveformPreviewCanvas?.getBoundingClientRect();
+            if (!rect) return;
+
+            const x = e.clientX - rect.left;
+            const time = this.pixelToTime(x, rect.width);
+            
+            // Update marker time
+            this.precisionMarkerTime = Math.max(0, Math.min(time, this.totalDuration));
+            this.updatePrecisionMarkerPosition();
+        });
+
+        document.addEventListener('pointerup', (e) => {
+            if (this.isDraggingPrecisionMarker) {
+                this.isDraggingPrecisionMarker = false;
+                if (this.waveformPrecisionMarker && this.waveformPrecisionMarker.hasPointerCapture(e.pointerId)) {
+                    this.waveformPrecisionMarker.releasePointerCapture(e.pointerId);
+                }
+            }
+        });
+    }
+
+    updatePrecisionMarkerPosition() {
+        if (!this.waveformPrecisionMarker || !this.totalDuration) return;
+
+        const position = (this.precisionMarkerTime / this.totalDuration) * 100;
+        this.waveformPrecisionMarker.style.left = `${position}%`;
+
+        // Update label with milliseconds
+        if (this.waveformPrecisionMarkerLabel) {
+            this.waveformPrecisionMarkerLabel.textContent = this.formatTimeWithMs(this.precisionMarkerTime);
+        }
+    }
+
+    formatTimeWithMs(seconds) {
+        if (!seconds || isNaN(seconds)) return '00:00.000';
+
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        const ms = Math.floor((seconds % 1) * 1000);
+
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
+    }
+
+    checkSnapToPrecisionMarker(time) {
+        if (!this.waveformPrecisionMarker) return time;
+
+        const distance = Math.abs(time - this.precisionMarkerTime);
+        
+        if (distance <= this.snapThreshold) {
+            // Snap to marker
+            this.isSnapping = true;
+            this.waveformPrecisionMarker.classList.add('snapping');
+            return this.precisionMarkerTime;
+        } else {
+            // No snap
+            this.isSnapping = false;
+            this.waveformPrecisionMarker.classList.remove('snapping');
+            return time;
+        }
+    }
+
+    startWaveformPlaybackUpdate() {
+        // Clear any existing interval
+        this.stopWaveformPlaybackUpdate();
+
+        // Update playhead and time display every 50ms
+        this.waveformPlaybackUpdateInterval = setInterval(() => {
+            this.updateWaveformPlaybackUI();
+        }, 50);
+    }
+
+    stopWaveformPlaybackUpdate() {
+        if (this.waveformPlaybackUpdateInterval) {
+            clearInterval(this.waveformPlaybackUpdateInterval);
+            this.waveformPlaybackUpdateInterval = null;
+        }
+    }
+
+    updateWaveformPlaybackUI() {
+        if (!this.audioPlayer || !this.waveformPlayhead || !this.waveformTimeDisplay) return;
+
+        const currentTime = this.audioPlayer.currentTime;
+        const totalDuration = this.audioPlayer.totalDuration;
+        const isPlaying = this.audioPlayer.isPlaying;
+
+        // Update play/pause buttons
+        if (this.waveformPlayBtn && this.waveformPauseBtn) {
+            this.waveformPlayBtn.style.display = isPlaying ? 'none' : 'flex';
+            this.waveformPauseBtn.style.display = isPlaying ? 'flex' : 'none';
+        }
+
+        // Update time display
+        const currentTimeStr = this.formatTime(currentTime);
+        const totalDurationStr = this.formatTime(totalDuration);
+        this.waveformTimeDisplay.textContent = `${currentTimeStr} / ${totalDurationStr}`;
+
+        // Update playhead position
+        if (totalDuration > 0) {
+            const position = (currentTime / totalDuration) * 100;
+            this.waveformPlayhead.style.left = `${position}%`;
+        }
+
+        // Update precision marker to follow playback when not being dragged manually
+        if (!this.isDraggingPrecisionMarker && isPlaying) {
+            this.precisionMarkerTime = currentTime;
+            this.updatePrecisionMarkerPosition();
+        }
     }
 
     addWaveformPart() {
@@ -8789,6 +9023,9 @@ class MultracksApp {
 
         // Render updated list
         this.renderWaveformPartsList();
+
+        // Render parts on preview waveform immediately
+        this.renderWaveformPartsOnPreview();
     }
 
     removeWaveformPart(partId) {
@@ -8799,6 +9036,9 @@ class MultracksApp {
 
         // Render updated list
         this.renderWaveformPartsList();
+
+        // Render parts on preview waveform immediately
+        this.renderWaveformPartsOnPreview();
     }
 
     renderWaveformPartsList() {
@@ -8873,6 +9113,32 @@ class MultracksApp {
                 this.renderWaveformParts();
             } else {
                 console.log('[WAVEFORM PARTS] No cloud parts available, keeping local data');
+
+                // If no user was available, retry after a delay to wait for auth
+                if (typeof window.firebaseAuth !== 'undefined' && window.firebaseAuth.auth && !window.firebaseAuth.auth.currentUser) {
+                    console.log('[WAVEFORM PARTS] No user available yet, will retry loading from Firestore after delay');
+                    setTimeout(() => {
+                        console.log('[WAVEFORM PARTS] Retrying Firestore load after auth delay');
+                        this.loadWaveformPartsFromFirestore(projectId).then(retryCloudParts => {
+                            if (retryCloudParts && Array.isArray(retryCloudParts)) {
+                                this.currentProject.waveformParts = retryCloudParts;
+                                console.log('[WAVEFORM PARTS] Loaded cloud parts on retry:', retryCloudParts.length);
+
+                                storage.updateProject(projectId, {
+                                    waveformParts: retryCloudParts
+                                }).then(() => {
+                                    console.log('[WAVEFORM PARTS] Cloud parts saved locally on retry');
+                                }).catch(error => {
+                                    console.warn('[WAVEFORM PARTS] Error saving cloud parts locally on retry:', error);
+                                });
+
+                                this.renderWaveformParts();
+                            }
+                        }).catch(error => {
+                            console.warn('[WAVEFORM PARTS] Error on retry loading from Firestore:', error);
+                        });
+                    }, 2000); // Wait 2 seconds for auth to be ready
+                }
             }
         }).catch(error => {
             console.warn('[WAVEFORM PARTS] Error loading from Firestore:', error);
@@ -8892,6 +9158,9 @@ class MultracksApp {
         }
 
         this.renderWaveformPartsList();
+
+        // Render parts on preview waveform after loading
+        this.renderWaveformPartsOnPreview();
     }
 
     async saveWaveformParts() {
@@ -8937,12 +9206,18 @@ class MultracksApp {
             console.log('[WAVEFORM PARTS] Parts saved successfully to local storage');
 
             // Sync to Firestore if authenticated
-            await this.saveWaveformPartsToFirestore(this.currentProject.id, validatedParts);
+            const firestoreSyncSuccess = await this.saveWaveformPartsToFirestore(this.currentProject.id, validatedParts);
+
+            if (firestoreSyncSuccess) {
+                console.log('[WAVEFORM PARTS] Parts synced to Firestore successfully');
+            } else {
+                console.log('[WAVEFORM PARTS] Firestore sync pending or failed, parts saved locally');
+            }
 
             // Render parts on main waveform after successful save
             this.renderWaveformParts();
 
-            // Close modal after successful save
+            // Close modal after successful save (even if Firestore sync is pending)
             this.closeWaveformPartsModal();
         } catch (error) {
             console.error('[WAVEFORM PARTS] Error saving parts:', error);
@@ -8953,20 +9228,22 @@ class MultracksApp {
     async saveWaveformPartsToFirestore(projectId, waveformParts) {
         // Check if Firebase is available
         if (typeof window.firebaseDB === 'undefined' || typeof window.firebaseAuth === 'undefined') {
-            console.log('[WAVEFORM PARTS SYNC] Firebase not available, skipping Firestore sync');
-            return;
+            console.log('[WAVEFORM PARTS SYNC] Firebase not available, marking as pending sync');
+            this.pendingWaveformPartsSync = { projectId, waveformParts };
+            return false;
         }
 
         // Check if user is authenticated
         const auth = window.firebaseAuth.auth;
         const user = auth.currentUser;
         if (!user) {
-            console.log('[WAVEFORM PARTS SYNC] No authenticated user, using local storage only');
-            return;
+            console.log('[WAVEFORM PARTS SYNC] No authenticated user, marking as pending sync');
+            this.pendingWaveformPartsSync = { projectId, waveformParts };
+            return false;
         }
 
         const userId = user.uid;
-        console.log('[WAVEFORM PARTS SYNC] Saving parts to Firestore for project:', projectId);
+        console.log('[WAVEFORM PARTS SYNC] Saving parts to Firestore for project:', projectId, 'user:', userId);
 
         try {
             const { doc, setDoc, serverTimestamp } = window.firebaseDB;
@@ -8981,9 +9258,12 @@ class MultracksApp {
 
             await setDoc(projectRef, firestoreData, { merge: true });
             console.log('[WAVEFORM PARTS SYNC] Parts synced to Firestore successfully');
+            return true;
         } catch (error) {
-            console.warn('[WAVEFORM PARTS SYNC] Firestore unavailable:', error);
-            // Don't throw - allow local save to succeed
+            console.error('[WAVEFORM PARTS SYNC] Firestore sync failed:', error);
+            // Mark as pending to retry later
+            this.pendingWaveformPartsSync = { projectId, waveformParts };
+            return false;
         }
     }
 
@@ -9027,7 +9307,7 @@ class MultracksApp {
             console.log('[WAVEFORM PARTS SYNC] Loaded', data.waveformParts.length, 'parts from Firestore');
             return data.waveformParts;
         } catch (error) {
-            console.warn('[WAVEFORM PARTS SYNC] Firestore unavailable:', error);
+            console.error('[WAVEFORM PARTS SYNC] Firestore load failed:', error);
             return null;
         }
     }
@@ -9230,11 +9510,16 @@ class MultracksApp {
         const time = this.pixelToTime(x, rect.width);
 
         if (this.isSelecting) {
-            this.selectionEnd = time;
+            // Apply snap to precision marker for selection end
+            this.selectionEnd = this.checkSnapToPrecisionMarker(time);
         } else if (this.isDraggingStart) {
-            this.selectionStart = Math.max(0, Math.min(time, this.selectionEnd - 0.1));
+            // Apply snap to precision marker for selection start
+            const snappedTime = this.checkSnapToPrecisionMarker(time);
+            this.selectionStart = Math.max(0, Math.min(snappedTime, this.selectionEnd - 0.1));
         } else if (this.isDraggingEnd) {
-            this.selectionEnd = Math.max(this.selectionStart + 0.1, Math.min(time, this.totalDuration));
+            // Apply snap to precision marker for selection end
+            const snappedTime = this.checkSnapToPrecisionMarker(time);
+            this.selectionEnd = Math.max(this.selectionStart + 0.1, Math.min(snappedTime, this.totalDuration));
         }
 
         this.updateSelectionUI();
@@ -9351,7 +9636,9 @@ class MultracksApp {
     handleStartTimeChange(e) {
         const time = this.parseTimeInput(e.target.value);
         if (time !== null && this.selectionEnd !== null) {
-            this.selectionStart = Math.max(0, Math.min(time, this.selectionEnd - 0.1));
+            // Apply snap to precision marker
+            const snappedTime = this.checkSnapToPrecisionMarker(time);
+            this.selectionStart = Math.max(0, Math.min(snappedTime, this.selectionEnd - 0.1));
             this.updateSelectionUI();
         }
     }
@@ -9359,7 +9646,9 @@ class MultracksApp {
     handleEndTimeChange(e) {
         const time = this.parseTimeInput(e.target.value);
         if (time !== null && this.selectionStart !== null) {
-            this.selectionEnd = Math.max(this.selectionStart + 0.1, Math.min(time, this.totalDuration));
+            // Apply snap to precision marker
+            const snappedTime = this.checkSnapToPrecisionMarker(time);
+            this.selectionEnd = Math.max(this.selectionStart + 0.1, Math.min(snappedTime, this.totalDuration));
             this.updateSelectionUI();
         }
     }
@@ -9407,6 +9696,100 @@ class MultracksApp {
 
         // Update selection UI after render
         this.updateSelectionUI();
+
+        // Render parts on preview waveform
+        this.renderWaveformPartsOnPreview();
+    }
+
+    renderWaveformPartsOnPreview() {
+        if (!this.waveformPreviewCanvas) return;
+
+        const container = this.waveformPreviewCanvas.parentElement;
+        if (!container) return;
+
+        // Clear existing parts overlay on preview
+        this.clearWaveformPartsOnPreview();
+
+        // Check if there are parts to render
+        if (!this.waveformParts || this.waveformParts.length === 0) {
+            return;
+        }
+
+        // Check if totalDuration is available
+        if (!this.totalDuration || this.totalDuration === 0) {
+            console.log('[WAVEFORM PARTS PREVIEW] Cannot render: totalDuration not available yet');
+            return;
+        }
+
+        // Get waveform dimensions
+        const waveformWidth = container.clientWidth;
+        if (waveformWidth === 0) return;
+
+        // Create overlay container for parts on preview
+        const partsOverlay = document.createElement('div');
+        partsOverlay.className = 'waveform-part-overlay waveform-part-overlay-preview';
+        partsOverlay.id = 'waveformPartsOverlayPreview';
+
+        // Render each part
+        this.waveformParts.forEach(part => {
+            // Calculate position based on time
+            const startX = (part.start / this.totalDuration) * waveformWidth;
+            const endX = (part.end / this.totalDuration) * waveformWidth;
+            const width = endX - startX;
+
+            // Skip if width is too small (less than 10px)
+            if (width < 10) {
+                console.log('[WAVEFORM PARTS PREVIEW] Skipping part with too small width:', width, part.name);
+                return;
+            }
+
+            // Create part region
+            const partRegion = document.createElement('div');
+            partRegion.className = 'waveform-part-region waveform-part-region-preview';
+            partRegion.style.left = `${startX}px`;
+            partRegion.style.width = `${width}px`;
+
+            // Create part label with smart positioning
+            const partLabel = document.createElement('div');
+            partLabel.className = 'waveform-part-label waveform-part-label-preview';
+            partLabel.textContent = part.name;
+
+            // Smart label positioning for small regions
+            const minLabelWidth = 60; // Minimum width for readable label
+            const isMobile = window.innerWidth <= 768;
+            
+            if (width < minLabelWidth || isMobile) {
+                // For very small regions or mobile, position label above and center it
+                partLabel.classList.add('above');
+                partLabel.style.left = `${startX + (width / 2) - (minLabelWidth / 2)}px`;
+                partLabel.style.width = `${minLabelWidth}px`;
+                partLabel.style.textAlign = 'center';
+                partLabel.style.maxWidth = 'none';
+            } else {
+                // For normal regions, position inside
+                partLabel.style.left = `${startX + 4}px`;
+                partLabel.style.minWidth = `${minLabelWidth}px`;
+                partLabel.style.maxWidth = `${width - 8}px`;
+            }
+
+            partsOverlay.appendChild(partRegion);
+            partsOverlay.appendChild(partLabel);
+        });
+
+        container.appendChild(partsOverlay);
+    }
+
+    clearWaveformPartsOnPreview() {
+        if (!this.waveformPreviewCanvas) return;
+
+        const container = this.waveformPreviewCanvas.parentElement;
+        if (!container) return;
+
+        // Remove existing parts overlay on preview
+        const existingOverlay = document.getElementById('waveformPartsOverlayPreview');
+        if (existingOverlay) {
+            existingOverlay.remove();
+        }
     }
 
     renderTimeScale() {
@@ -12336,6 +12719,46 @@ class MultracksApp {
                         console.log('[AUTH] User is logged in:', user.email);
                         this.updateUserProfile(user);
                         this.updateProfileButtonForLoggedIn(user);
+
+                        // Sync pending waveform parts if any
+                        if (this.pendingWaveformPartsSync) {
+                            console.log('[WAVEFORM PARTS SYNC] Syncing pending waveform parts after auth');
+                            const { projectId, waveformParts } = this.pendingWaveformPartsSync;
+                            const syncSuccess = await this.saveWaveformPartsToFirestore(projectId, waveformParts);
+                            if (syncSuccess) {
+                                console.log('[WAVEFORM PARTS SYNC] Pending waveform parts synced successfully');
+                                this.pendingWaveformPartsSync = null;
+                            } else {
+                                console.warn('[WAVEFORM PARTS SYNC] Pending waveform parts sync failed, keeping as pending');
+                            }
+                        }
+
+                        // Also retry pending sync periodically in case auth was ready but sync failed
+                        if (this.pendingWaveformPartsSync) {
+                            const retryInterval = setInterval(async () => {
+                                if (!this.pendingWaveformPartsSync) {
+                                    clearInterval(retryInterval);
+                                    return;
+                                }
+
+                                console.log('[WAVEFORM PARTS SYNC] Retrying pending waveform parts sync');
+                                const { projectId, waveformParts } = this.pendingWaveformPartsSync;
+                                const syncSuccess = await this.saveWaveformPartsToFirestore(projectId, waveformParts);
+                                if (syncSuccess) {
+                                    console.log('[WAVEFORM PARTS SYNC] Pending waveform parts synced successfully on retry');
+                                    this.pendingWaveformPartsSync = null;
+                                    clearInterval(retryInterval);
+                                }
+                            }, 5000); // Retry every 5 seconds
+
+                            // Clear interval after 1 minute to avoid infinite retries
+                            setTimeout(() => {
+                                clearInterval(retryInterval);
+                                if (this.pendingWaveformPartsSync) {
+                                    console.warn('[WAVEFORM PARTS SYNC] Pending waveform parts sync expired after 1 minute');
+                                }
+                            }, 60000);
+                        }
 
                         // Ensure user document exists with plan
                         if (window.firebaseDB) {

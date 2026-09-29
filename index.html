@@ -2332,8 +2332,25 @@
                 </button>
             </div>
             <div class="modal-body">
+                <div class="waveform-playback-controls">
+                    <button class="waveform-playback-btn" id="waveformPlayBtn" aria-label="Play">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+                            <path d="M8 5v14l11-7z"/>
+                        </svg>
+                    </button>
+                    <button class="waveform-playback-btn" id="waveformPauseBtn" aria-label="Pause" style="display: none;">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+                            <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                        </svg>
+                    </button>
+                    <div class="waveform-time-display" id="waveformTimeDisplay">00:00 / 00:00</div>
+                </div>
                 <div class="waveform-preview-container">
                     <canvas id="waveformPreviewCanvas" class="waveform-preview-canvas"></canvas>
+                    <div class="waveform-playhead" id="waveformPlayhead"></div>
+                    <div class="waveform-precision-marker" id="waveformPrecisionMarker" title="Marcador de precisão">
+                        <div class="waveform-precision-marker-label" id="waveformPrecisionMarkerLabel">00:00.000</div>
+                    </div>
                     <div class="waveform-selection-region" id="waveformSelectionRegion"></div>
                     <div class="waveform-marker-start" id="waveformMarkerStart" title="Início"></div>
                     <div class="waveform-marker-end" id="waveformMarkerEnd" title="Fim"></div>
