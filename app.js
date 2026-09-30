@@ -1403,6 +1403,176 @@ class MultracksApp {
         window.location.href = 'wcifras.html';
     }
 
+    checkPageSearch(searchTerm) {
+        // Map of search terms to page URLs with display names
+        const pageMap = {
+            'planos': { url: 'planos.html', name: 'Planos' },
+            'plano': { url: 'planos.html', name: 'Planos' },
+            'preços': { url: 'planos.html', name: 'Planos' },
+            'preco': { url: 'planos.html', name: 'Planos' },
+            'preço': { url: 'planos.html', name: 'Planos' },
+            'premia': { url: 'planos.html', name: 'Planos' },
+            'premium': { url: 'planos.html', name: 'Planos' },
+            'assinatura': { url: 'planos.html', name: 'Planos' },
+            'cifras': { url: 'wcifras.html', name: 'W.Cifras' },
+            'cifra': { url: 'wcifras.html', name: 'W.Cifras' },
+            'harmonia': { url: 'wcifras.html', name: 'W.Cifras' },
+            'acordes': { url: 'wcifras.html', name: 'W.Cifras' },
+            'notícias': { url: 'noticias.html', name: 'Notícias' },
+            'noticias': { url: 'noticias.html', name: 'Notícias' },
+            'novidades': { url: 'noticias.html', name: 'Notícias' },
+            'news': { url: 'noticias.html', name: 'Notícias' },
+            'ajuda': { url: 'central-ajuda.html', name: 'Central de Ajuda' },
+            'suporte': { url: 'suporte.html', name: 'Suporte' },
+            'suport': { url: 'suporte.html', name: 'Suporte' },
+            'ajuda central': { url: 'central-ajuda.html', name: 'Central de Ajuda' },
+            'setlist': { url: 'setlist.html', name: 'Setlist' },
+            'setlists': { url: 'setlist.html', name: 'Setlist' },
+            'set list': { url: 'setlist.html', name: 'Setlist' },
+            'projetos': { url: 'projetos.html', name: 'Projetos' },
+            'projeto': { url: 'projetos.html', name: 'Projetos' },
+            'tracks editor': { url: 'track-editor.html', name: 'Tracks Editor' },
+            'track editor': { url: 'track-editor.html', name: 'Tracks Editor' },
+            'editor': { url: 'track-editor.html', name: 'Tracks Editor' },
+            'editores': { url: 'track-editor.html', name: 'Tracks Editor' },
+            'service plan': { url: 'service-plan.html', name: 'Service Plan' },
+            'service': { url: 'service-plan.html', name: 'Service Plan' },
+            'termos': { url: 'termos.html', name: 'Termos' },
+            'termo': { url: 'termos.html', name: 'Termos' },
+            'privacidade': { url: 'privacidade.html', name: 'Privacidade' },
+            'privado': { url: 'privacidade.html', name: 'Privacidade' },
+            'w.tracks': { url: 'index.html', name: 'Início' },
+            'wtracks': { url: 'index.html', name: 'Início' },
+            'home': { url: 'index.html', name: 'Início' },
+            'início': { url: 'index.html', name: 'Início' },
+            'inicio': { url: 'index.html', name: 'Início' }
+        };
+
+        // Check if search term matches any page exactly
+        if (pageMap[searchTerm]) {
+            console.log('[SEARCH] Page navigation detected:', searchTerm, '→', pageMap[searchTerm].url);
+            return pageMap[searchTerm].url;
+        }
+
+        // Also check partial matches (e.g., "plan" matches "planos")
+        for (const [key, data] of Object.entries(pageMap)) {
+            if (searchTerm.includes(key) || key.includes(searchTerm)) {
+                // Only match if the term is at least 3 chars and the similarity is high
+                if (searchTerm.length >= 3 && (searchTerm.length <= key.length + 2 || key.length <= searchTerm.length + 2)) {
+                    console.log('[SEARCH] Partial match detected:', searchTerm, '→', data.url);
+                    return data.url;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    showSearchSuggestions(searchTerm) {
+        const suggestionsContainer = document.getElementById('searchSuggestions');
+        if (!suggestionsContainer) return;
+
+        // Clear previous suggestions
+        suggestionsContainer.innerHTML = '';
+
+        // Don't show suggestions if term is too short
+        if (searchTerm.length < 2) {
+            suggestionsContainer.classList.remove('active');
+            return;
+        }
+
+        // Map of search terms to page data
+        const pageMap = {
+            'planos': { url: 'planos.html', name: 'Planos' },
+            'plano': { url: 'planos.html', name: 'Planos' },
+            'preços': { url: 'planos.html', name: 'Planos' },
+            'preco': { url: 'planos.html', name: 'Planos' },
+            'preço': { url: 'planos.html', name: 'Planos' },
+            'premia': { url: 'planos.html', name: 'Planos' },
+            'premium': { url: 'planos.html', name: 'Planos' },
+            'assinatura': { url: 'planos.html', name: 'Planos' },
+            'cifras': { url: 'wcifras.html', name: 'W.Cifras' },
+            'cifra': { url: 'wcifras.html', name: 'W.Cifras' },
+            'harmonia': { url: 'wcifras.html', name: 'W.Cifras' },
+            'acordes': { url: 'wcifras.html', name: 'W.Cifras' },
+            'notícias': { url: 'noticias.html', name: 'Notícias' },
+            'noticias': { url: 'noticias.html', name: 'Notícias' },
+            'novidades': { url: 'noticias.html', name: 'Notícias' },
+            'news': { url: 'noticias.html', name: 'Notícias' },
+            'ajuda': { url: 'central-ajuda.html', name: 'Central de Ajuda' },
+            'suporte': { url: 'suporte.html', name: 'Suporte' },
+            'suport': { url: 'suporte.html', name: 'Suporte' },
+            'ajuda central': { url: 'central-ajuda.html', name: 'Central de Ajuda' },
+            'setlist': { url: 'setlist.html', name: 'Setlist' },
+            'setlists': { url: 'setlist.html', name: 'Setlist' },
+            'set list': { url: 'setlist.html', name: 'Setlist' },
+            'projetos': { url: 'projetos.html', name: 'Projetos' },
+            'projeto': { url: 'projetos.html', name: 'Projetos' },
+            'tracks editor': { url: 'track-editor.html', name: 'Tracks Editor' },
+            'track editor': { url: 'track-editor.html', name: 'Tracks Editor' },
+            'editor': { url: 'track-editor.html', name: 'Tracks Editor' },
+            'editores': { url: 'track-editor.html', name: 'Tracks Editor' },
+            'service plan': { url: 'service-plan.html', name: 'Service Plan' },
+            'service': { url: 'service-plan.html', name: 'Service Plan' },
+            'termos': { url: 'termos.html', name: 'Termos' },
+            'termo': { url: 'termos.html', name: 'Termos' },
+            'privacidade': { url: 'privacidade.html', name: 'Privacidade' },
+            'privado': { url: 'privacidade.html', name: 'Privacidade' },
+            'w.tracks': { url: 'index.html', name: 'Início' },
+            'wtracks': { url: 'index.html', name: 'Início' },
+            'home': { url: 'index.html', name: 'Início' },
+            'início': { url: 'index.html', name: 'Início' },
+            'inicio': { url: 'index.html', name: 'Início' }
+        };
+
+        // Find matching pages
+        const matches = [];
+        const seenUrls = new Set();
+
+        for (const [key, data] of Object.entries(pageMap)) {
+            if (key.includes(searchTerm) || searchTerm.includes(key)) {
+                if (!seenUrls.has(data.url)) {
+                    matches.push(data);
+                    seenUrls.add(data.url);
+                }
+            }
+        }
+
+        // Limit to 5 matches
+        if (matches.length === 0) {
+            suggestionsContainer.classList.remove('active');
+            return;
+        }
+
+        // Render suggestions
+        matches.slice(0, 5).forEach(match => {
+            const item = document.createElement('div');
+            item.className = 'search-suggestion-item';
+            item.innerHTML = `
+                <svg class="search-suggestion-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                </svg>
+                <span class="search-suggestion-text">${match.name}</span>
+                <span class="search-suggestion-type page">Página</span>
+            `;
+            item.addEventListener('click', () => {
+                window.location.href = match.url;
+            });
+            suggestionsContainer.appendChild(item);
+        });
+
+        suggestionsContainer.classList.add('active');
+    }
+
+    hideSearchSuggestions() {
+        const suggestionsContainer = document.getElementById('searchSuggestions');
+        if (suggestionsContainer) {
+            suggestionsContainer.classList.remove('active');
+            suggestionsContainer.innerHTML = '';
+        }
+    }
+
     async searchLibrary(searchTerm) {
         await this.renderLibrary(this.currentFilter, searchTerm);
     }
@@ -11542,6 +11712,7 @@ class MultracksApp {
                 searchInput.focus();
             } else {
                 searchInput.value = '';
+                this.hideSearchSuggestions();
                 await this.renderLibrary(this.currentFilter);
             }
         });
@@ -11549,13 +11720,28 @@ class MultracksApp {
         searchInput?.addEventListener('input', (e) => {
             const searchTerm = e.target.value.toLowerCase().trim();
             this.searchLibrary(searchTerm);
+            this.showSearchSuggestions(searchTerm);
         });
 
         searchInput?.addEventListener('keydown', async (e) => {
             if (e.key === 'Escape') {
                 searchInput.classList.remove('active');
                 searchInput.value = '';
+                this.hideSearchSuggestions();
                 await this.renderLibrary(this.currentFilter);
+            } else if (e.key === 'Enter') {
+                const searchTerm = searchInput.value.toLowerCase().trim();
+                
+                // Check if search term matches a known page
+                const pageUrl = this.checkPageSearch(searchTerm);
+                if (pageUrl) {
+                    // Navigate to page directly
+                    window.location.href = pageUrl;
+                    return;
+                }
+                
+                // Otherwise search library normally
+                this.searchLibrary(searchTerm);
             }
         });
 
@@ -11564,6 +11750,7 @@ class MultracksApp {
             if (!e.target.closest('.search-container') && searchInput?.classList.contains('active')) {
                 searchInput.classList.remove('active');
                 searchInput.value = '';
+                this.hideSearchSuggestions();
                 await this.renderLibrary(this.currentFilter);
             }
         });
