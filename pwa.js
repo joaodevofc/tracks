@@ -260,8 +260,8 @@
 
         try {
             const registration =
-                await navigator.serviceWorker.register('./sw.js', {
-                    scope: './'
+                await navigator.serviceWorker.register('/tracks/sw.js', {
+                    scope: '/tracks/'
                 });
 
             console.info(

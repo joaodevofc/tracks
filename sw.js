@@ -34,33 +34,33 @@ const STATIC_CACHE = `${CACHE_VERSION}-static`;
  * o Service Worker de ser instalado.
  */
 const STATIC_ASSETS = [
-    './',
-    './index.html',
-    './manifest.json',
+    '/tracks/',
+    '/tracks/index.html',
+    '/tracks/manifest.json',
 
-    './styles.css',
-    './styles_3.css',
-    './mobile.css',
-    './tablet.css',
+    '/tracks/styles.css',
+    '/tracks/styles_3.css',
+    '/tracks/mobile.css',
+    '/tracks/tablet.css',
 
-    './app.js',
-    './player.js',
-    './storage.js',
-    './audiostorage.js',
-    './trackhydrator.js',
-    './setlists.js',
-    './setlist-new.html',
-    './setlist-new.css',
-    './setlist-new.js',
-    './setlist-shared.html',
-    './setlist-shared.css',
-    './planSystem.js',
-    './planUtils.js',
-    './communitytracks.js',
-    './pwa.js',
+    '/tracks/app.js',
+    '/tracks/player.js',
+    '/tracks/storage.js',
+    '/tracks/audiostorage.js',
+    '/tracks/trackhydrator.js',
+    '/tracks/setlists.js',
+    '/tracks/setlist-new.html',
+    '/tracks/setlist-new.css',
+    '/tracks/setlist-new.js',
+    '/tracks/setlist-shared.html',
+    '/tracks/setlist-shared.css',
+    '/tracks/planSystem.js',
+    '/tracks/planUtils.js',
+    '/tracks/communitytracks.js',
+    '/tracks/pwa.js',
 
-    './icon-black-transparent.png',
-    './icon-white-transparent.png'
+    '/tracks/icon-black-transparent.png',
+    '/tracks/icon-white-transparent.png'
 ];
 
 /* ============================================================
@@ -359,7 +359,7 @@ self.addEventListener('fetch', event => {
                  */
                 if (request.mode === 'navigate') {
                     const fallback =
-                        await caches.match('./index.html');
+                        await caches.match('/tracks/index.html');
 
                     if (fallback) {
                         return fallback;
