@@ -1481,36 +1481,54 @@ class MultracksApp {
         `).join('');
     }
     
-    handlePlaylistCoverUpload(event) {
+    async handlePlaylistCoverUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
-        
+
         // Validate file type
         if (!file.type.startsWith('image/')) {
             alert('Por favor, selecione um arquivo de imagem válido.');
             return;
         }
-        
+
         // Validate file size (max 5MB)
         if (file.size > 5 * 1024 * 1024) {
             alert('A imagem não pode exceder 5MB.');
             return;
         }
-        
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            this.currentPlaylistCover = e.target.result;
-            
+
+        try {
+            // Show loading state
+            const uploadBtn = document.getElementById('playlistCoverInput');
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = 'Carregando...';
+
+            // Upload to Cloudinary
+            const coverUrl = await this.uploadImageToCloudinary(file);
+            console.log('[PLAYLIST] Cover uploaded to Cloudinary:', coverUrl);
+
+            this.currentPlaylistCover = coverUrl;
+
             // Show preview
             const preview = document.getElementById('coverPreview');
             const previewImage = document.getElementById('coverPreviewImage');
             const placeholder = document.getElementById('coverUploadPlaceholder');
-            
-            previewImage.src = e.target.result;
+
+            previewImage.src = coverUrl;
             preview.style.display = 'block';
             placeholder.style.display = 'none';
-        };
-        reader.readAsDataURL(file);
+
+            // Reset button
+            uploadBtn.disabled = false;
+            uploadBtn.textContent = 'Selecionar capa';
+        } catch (error) {
+            console.error('[PLAYLIST] Error uploading cover:', error);
+            alert('Erro ao fazer upload da capa: ' + error.message);
+
+            const uploadBtn = document.getElementById('playlistCoverInput');
+            uploadBtn.disabled = false;
+            uploadBtn.textContent = 'Selecionar capa';
+        }
     }
     
     removePlaylistCover() {
@@ -8205,20 +8223,45 @@ class MultracksApp {
             });
         }
         
-        coverInput?.addEventListener('change', (e) => {
+        coverInput?.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (file) {
-                const reader = new FileReader();
-                reader.onload = async (event) => {
-                    project.cover = event.target.result;
+                // Validate file type
+                if (!file.type.startsWith('image/')) {
+                    alert('Por favor, selecione um arquivo de imagem válido.');
+                    return;
+                }
+
+                // Validate file size (max 5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('A imagem não pode exceder 5MB.');
+                    return;
+                }
+
+                try {
+                    // Show loading state
+                    changeCoverBtn.textContent = 'Carregando...';
+                    changeCoverBtn.disabled = true;
+
+                    // Upload to Cloudinary
+                    const coverUrl = await this.uploadImageToCloudinary(file);
+                    console.log('[LIBRARY] Cover uploaded to Cloudinary:', coverUrl);
+
+                    // Update project with server URL
+                    project.cover = coverUrl;
                     await storage.updateProject(project.id, project);
+
                     // Increment version after successful update
                     this.libraryStateVersion++;
                     console.log('[LIBRARY] Library state version incremented to:', this.libraryStateVersion);
                     await this.renderLibrary(this.currentFilter);
                     document.body.removeChild(modal);
-                };
-                reader.readAsDataURL(file);
+                } catch (error) {
+                    console.error('[LIBRARY] Error uploading cover:', error);
+                    alert('Erro ao fazer upload da capa: ' + error.message);
+                    changeCoverBtn.textContent = 'Alterar capa';
+                    changeCoverBtn.disabled = false;
+                }
             }
         });
         
@@ -9896,7 +9939,7 @@ class MultracksApp {
         }
     }
 
-    async uploadProfilePhotoToCloudinary(file) {
+    async uploadImageToCloudinary(file) {
         const CLOUDINARY_URL = 'https://api.cloudinary.com/v1_1/dkfe21jnc/image/upload';
         const UPLOAD_PRESET = 'vizu_upload';
 
@@ -9918,9 +9961,13 @@ class MultracksApp {
                 throw new Error('Upload failed');
             }
         } catch (error) {
-            console.error('[PROFILE] Error uploading photo to Cloudinary:', error);
+            console.error('[UPLOAD] Error uploading image to Cloudinary:', error);
             throw error;
         }
+    }
+
+    async uploadProfilePhotoToCloudinary(file) {
+        return this.uploadImageToCloudinary(file);
     }
     
     async saveUserProfile() {
@@ -10820,7 +10867,7 @@ class MultracksApp {
         });
     }
 
-    handleCoverSelect(file) {
+    async handleCoverSelect(file) {
         // Validate file type
         if (!file.type.startsWith('image/')) {
             alert('Por favor, selecione uma imagem.');
@@ -10834,17 +10881,26 @@ class MultracksApp {
             return;
         }
 
-        this.selectedCoverFile = file;
+        try {
+            // Show loading state
+            this.coverUploadPlaceholder.textContent = 'Carregando...';
 
-        // Show preview
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            this.coverPreview.src = e.target.result;
+            // Upload to Cloudinary
+            const coverUrl = await this.uploadImageToCloudinary(file);
+            console.log('[UPLOAD] Cover uploaded to Cloudinary:', coverUrl);
+
+            this.selectedCoverFile = coverUrl; // Store URL instead of file
+
+            // Show preview
+            this.coverPreview.src = coverUrl;
             this.coverPreview.style.display = 'block';
             this.coverUploadPlaceholder.style.display = 'none';
             this.removeCoverBtn.style.display = 'inline-block';
-        };
-        reader.readAsDataURL(file);
+        } catch (error) {
+            console.error('[UPLOAD] Error uploading cover:', error);
+            alert('Erro ao fazer upload da capa: ' + error.message);
+            this.coverUploadPlaceholder.textContent = 'Clique ou arraste uma imagem aqui';
+        }
     }
 
     renderSelectedFiles() {
@@ -14440,31 +14496,7 @@ class MultracksApp {
     }
 
     async uploadCreatorPhotoToCloudinary(file) {
-        const CLOUDINARY_URL = 'https://api.cloudinary.com/v1_1/dkfe21jnc/image/upload';
-        const UPLOAD_PRESET = 'vizu_upload';
-
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('upload_preset', UPLOAD_PRESET);
-        formData.append('quality', 'auto');
-        formData.append('fetch_format', 'auto');
-
-        try {
-            const response = await fetch(CLOUDINARY_URL, {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!response.ok) {
-                throw new Error('Erro no upload da imagem');
-            }
-
-            const data = await response.json();
-            return data.secure_url;
-        } catch (error) {
-            console.error('[CREATOR SIGNUP] Error uploading photo:', error);
-            throw error;
-        }
+        return this.uploadImageToCloudinary(file);
     }
 
     async openCreatorSignupModal() {
@@ -15044,14 +15076,29 @@ class MultracksApp {
         return true;
     }
     
-    handleImageSelect(file) {
-        this.selectedCoverFile = file;
-        
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            this.showUploadPreview(e.target.result);
-        };
-        reader.readAsDataURL(file);
+    async handleImageSelect(file) {
+        try {
+            // Show loading state
+            const placeholder = document.getElementById('uploadPlaceholder');
+            if (placeholder) {
+                placeholder.textContent = 'Carregando...';
+            }
+
+            // Upload to Cloudinary
+            const coverUrl = await this.uploadImageToCloudinary(file);
+            console.log('[UPLOAD] Cover uploaded to Cloudinary:', coverUrl);
+
+            this.selectedCoverFile = coverUrl; // Store URL instead of file
+            this.showUploadPreview(coverUrl);
+        } catch (error) {
+            console.error('[UPLOAD] Error uploading cover:', error);
+            alert('Erro ao fazer upload da capa: ' + error.message);
+
+            const placeholder = document.getElementById('uploadPlaceholder');
+            if (placeholder) {
+                placeholder.textContent = 'Clique ou arraste uma imagem aqui';
+            }
+        }
     }
     
     showUploadPreview(imageSrc) {
