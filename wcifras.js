@@ -44,6 +44,18 @@ const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 const NOTES = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 
 // ========================================
+// SECURITY FUNCTIONS
+// ========================================
+
+// Escape HTML to prevent XSS attacks
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// ========================================
 // RECENT CHORDS (LOCAL STORAGE)
 // ========================================
 
@@ -1979,9 +1991,9 @@ function searchPlaylistChords(searchTerm) {
         
         item.innerHTML = `
             <div class="wcifras-playlist-search-item-info">
-                <div class="wcifras-playlist-search-item-title">${chord.title}</div>
-                <div class="wcifras-playlist-search-item-artist">${chord.artist}</div>
-                <div class="wcifras-playlist-search-item-key">Tom: ${chord.key}</div>
+                <div class="wcifras-playlist-search-item-title">${escapeHtml(chord.title)}</div>
+                <div class="wcifras-playlist-search-item-artist">${escapeHtml(chord.artist)}</div>
+                <div class="wcifras-playlist-search-item-key">Tom: ${escapeHtml(chord.key)}</div>
             </div>
             ${isInPlaylist ? '<span style="color: var(--wcifras-accent); font-size: 12px;">✓ Adicionada</span>' : `
                 <button class="wcifras-playlist-add-btn" data-chord-id="${chord.id}">
@@ -2351,7 +2363,7 @@ function renderPlaylistSidebar() {
 
         item.innerHTML = `
             <span class="wcifras-sidebar-song-number">${index + 1}</span>
-            <span class="wcifras-sidebar-song-title">${chord.title}</span>
+            <span class="wcifras-sidebar-song-title">${escapeHtml(chord.title)}</span>
         `;
 
         item.addEventListener('click', () => {
@@ -2420,9 +2432,9 @@ function renderPlaylistViewSongs() {
         card.innerHTML = `
             <div class="wcifras-playlist-song-number">${index + 1}</div>
             <div class="wcifras-playlist-song-content">
-                <div class="wcifras-playlist-song-title">${chord.title}</div>
-                <div class="wcifras-playlist-song-artist">${chord.artist}</div>
-                <div class="wcifras-playlist-song-key">Tom: ${chord.key}</div>
+                <div class="wcifras-playlist-song-title">${escapeHtml(chord.title)}</div>
+                <div class="wcifras-playlist-song-artist">${escapeHtml(chord.artist)}</div>
+                <div class="wcifras-playlist-song-key">Tom: ${escapeHtml(chord.key)}</div>
             </div>
         `;
 

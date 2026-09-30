@@ -634,7 +634,7 @@ class MultracksApp {
         } else if (track.authorAvatar) {
             authorAvatar = `<img src="${track.authorAvatar}" alt="${this.escapeHtml(authorName)}" class="community-card-author-avatar">`;
         } else {
-            authorAvatar = `<div class="community-card-author-avatar-placeholder">${authorName.charAt(0).toUpperCase()}</div>`;
+            authorAvatar = `<div class="community-card-author-avatar-placeholder">${this.escapeHtml(authorName.charAt(0).toUpperCase())}</div>`;
         }
         
         // Verification badge for official tracks
@@ -684,7 +684,7 @@ class MultracksApp {
                     <div class="community-card-meta-row">
                         <span class="community-card-stems">${track.stems} stems</span>
                     </div>
-                    <div class="community-card-genre">${Array.isArray(track.genre) ? track.genre.join(', ') : track.genre}</div>
+                    <div class="community-card-genre">${Array.isArray(track.genre) ? track.genre.map(g => this.escapeHtml(g)).join(', ') : this.escapeHtml(track.genre)}</div>
                 </div>
                 <button class="community-card-download" data-track-id="${track.id}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1632,18 +1632,18 @@ class MultracksApp {
         container.innerHTML = projects.map(project => `
             <div class="playlist-song-item">
                 <label class="playlist-song-checkbox">
-                    <input type="checkbox" value="${project.id}" data-project-name="${project.name}">
+                    <input type="checkbox" value="${project.id}" data-project-name="${this.escapeHtml(project.name)}">
                     <span class="checkbox-custom"></span>
                     <div class="playlist-song-info">
                         <div class="playlist-song-cover">
-                            ${project.cover 
-                                ? `<img src="${project.cover}" alt="${project.name}">` 
-                                : `<div class="default-cover">${project.name.charAt(0).toUpperCase()}</div>`
+                            ${project.cover
+                                ? `<img src="${project.cover}" alt="${this.escapeHtml(project.name)}">`
+                                : `<div class="default-cover">${this.escapeHtml(project.name.charAt(0).toUpperCase())}</div>`
                             }
                         </div>
                         <div class="playlist-song-details">
-                            <span class="playlist-song-name">${project.name}</span>
-                            <span class="playlist-song-artist">${project.artist || 'Unknown Artist'}</span>
+                            <span class="playlist-song-name">${this.escapeHtml(project.name)}</span>
+                            <span class="playlist-song-artist">${this.escapeHtml(project.artist || 'Unknown Artist')}</span>
                         </div>
                     </div>
                 </label>
@@ -11028,7 +11028,7 @@ class MultracksApp {
                 itemEl.className = 'track-preview-item';
                 itemEl.innerHTML = `
                     <span class="track-number">${index + 1}</span>
-                    <span class="track-name">${item.name}</span>
+                    <span class="track-name">${this.escapeHtml(item.name)}</span>
                 `;
                 list.appendChild(itemEl);
             });
