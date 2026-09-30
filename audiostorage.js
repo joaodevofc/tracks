@@ -133,24 +133,6 @@ class AudioStorage {
         const currentSize = await this.getTotalSize();
         const freeSpace = storageInfo.available;
         
-        // If quota is 0 or falsy, don't block - quota is unknown
-        if (!storageInfo.quota) {
-            console.warn('[AUDIO STORAGE] Storage quota is unknown (quota: 0). Space check ignored.');
-            console.log('[AUDIO STORAGE] Space check (ignored):');
-            console.log('  Required:', requiredSize, 'bytes');
-            console.log('  Current usage:', currentSize, 'bytes');
-            console.log('  Free space: Infinity (quota unknown)');
-            console.log('  Available: true (quota unknown)');
-            
-            return {
-                available: true,
-                requiredSize,
-                currentSize,
-                freeSpace: Infinity,
-                storageInfo
-            };
-        }
-        
         const available = freeSpace >= requiredSize;
         
         console.log('[AUDIO STORAGE] Space check:');
@@ -192,9 +174,9 @@ class AudioStorage {
         
         if (!this.db) await this.init();
         
-        // Check space availability before saving - only block if quota is known
+        // Check space availability before saving
         const spaceCheck = await this.checkSpaceAvailable(file.size);
-        if (!spaceCheck.available && spaceCheck.storageInfo.quota > 0) {
+        if (!spaceCheck.available) {
             const error = new Error(`Insufficient space. Required: ${this.formatBytes(file.size)}, Available: ${this.formatBytes(spaceCheck.freeSpace)}`);
             console.error('[AUDIO STORAGE]', error.message);
             throw error;
@@ -234,33 +216,6 @@ class AudioStorage {
                     reject(quotaError);
                 } else {
                     reject(error);
-                }
-            };
-            
-            // Handle transaction-level quota errors (some browsers only show quota error here)
-            transaction.onerror = () => {
-                const error = transaction.error;
-                console.error('[AUDIO STORAGE] Transaction error:', error);
-                
-                if (error.name === 'QuotaExceededError') {
-                    const quotaError = new Error(`IndexedDB quota exceeded. The audio file (${this.formatBytes(file.size)}) is too large or storage is full. Consider clearing old audio files.`);
-                    console.error('[AUDIO STORAGE]', quotaError.message);
-                    reject(quotaError);
-                } else {
-                    reject(error);
-                }
-            };
-            
-            transaction.onabort = () => {
-                const error = transaction.error;
-                console.error('[AUDIO STORAGE] Transaction aborted:', error);
-                
-                if (error && error.name === 'QuotaExceededError') {
-                    const quotaError = new Error(`IndexedDB quota exceeded. The audio file (${this.formatBytes(file.size)}) is too large or storage is full. Consider clearing old audio files.`);
-                    console.error('[AUDIO STORAGE]', quotaError.message);
-                    reject(quotaError);
-                } else {
-                    reject(error || new Error('Transaction aborted'));
                 }
             };
         });

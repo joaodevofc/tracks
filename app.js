@@ -2204,17 +2204,7 @@ class MultracksApp {
                     console.log('[APP] Files loaded from IndexedDB, continuing to Player');
                 } catch (error) {
                     console.error('[APP] Preparation failed:', error);
-                    
-                    // Show clear message only for actual space errors
-                    const isSpaceError = error.message.includes('Insufficient space') || 
-                                        error.message.includes('quota exceeded') ||
-                                        error.message.includes('QuotaExceededError');
-                    
-                    if (isSpaceError) {
-                        alert('Espaço insuficiente no dispositivo. Limpe alguns arquivos de áudio antigos ou tente novamente.');
-                    } else {
-                        alert('Erro ao preparar música: ' + error.message);
-                    }
+                    alert('Erro ao preparar música: ' + error.message);
                     return;
                 }
             } else {
@@ -11143,16 +11133,6 @@ class MultracksApp {
                     console.log('[UPLOAD] Background preparation progress:', progressPercent + '%', '-', trackName);
                 }).catch(error => {
                     console.error('[UPLOAD] Background preparation failed:', error);
-                    
-                    // Show clear message only for actual space errors
-                    const isSpaceError = error.message.includes('Insufficient space') || 
-                                        error.message.includes('quota exceeded') ||
-                                        error.message.includes('QuotaExceededError');
-                    
-                    if (isSpaceError) {
-                        console.warn('[UPLOAD] Background preparation failed due to insufficient space');
-                        // Don't alert user for background preparation failures
-                    }
                 });
             }
             

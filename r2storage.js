@@ -8,7 +8,7 @@
 class R2Storage {
     constructor() {
         // Worker URL - will be configured
-        this.workerUrl = localStorage.getItem('wtracks_worker_url') || 'https://wtracks-worker.wtracks.online';
+        this.workerUrl = localStorage.getItem('wtracks_worker_url') || 'https://wtracks-worker.wtracks.workers.dev';
         this.authToken = null;
         this.requestQueue = new Map(); // Track active requests
     }
