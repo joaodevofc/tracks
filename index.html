@@ -386,10 +386,7 @@
                 <span class="logo-text">W.Tracks</span>
             </div>
             
-            <nav class="nav">
-                <a href="#" class="nav-link active" data-view="library">Biblioteca</a>
-                <a href="#" class="nav-link" data-view="community">Comunidade</a>
-            </nav>
+
             
             <div class="header-actions">
                 <div class="search-container">
@@ -492,6 +489,53 @@
             </div>
         </div>
     </header>
+
+    <!-- FLOATING SIDEBAR MENU -->
+    <div class="floating-sidebar" id="floatingSidebar">
+        <div class="sidebar-icons">
+            <a href="#" class="sidebar-icon" data-view="library" aria-label="Biblioteca">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                </svg>
+                <span class="sidebar-label">Biblioteca</span>
+            </a>
+            <a href="#" class="sidebar-icon" data-view="community" aria-label="Comunidade">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+                <span class="sidebar-label">Comunidade</span>
+            </a>
+            <a href="central-ajuda.html" class="sidebar-icon" aria-label="Central de Ajuda">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="9"></circle>
+                    <path d="M9.8 9a2.4 2.4 0 1 1 3.9 1.9c-.9.7-1.7 1.1-1.7 2.4"></path>
+                    <path d="M12 16.8h.01"></path>
+                </svg>
+                <span class="sidebar-label">Central de Ajuda</span>
+            </a>
+            <a href="service-plan.html" class="sidebar-icon" aria-label="Service Plan">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+                <span class="sidebar-label">Service Plan</span>
+            </a>
+            <a href="wcifras.html" class="sidebar-icon" aria-label="W.Cifras">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 18V5l12-2v13"></path>
+                    <circle cx="6" cy="18" r="3"></circle>
+                    <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+                <span class="sidebar-label">W.Cifras</span>
+            </a>
+        </div>
+    </div>
 
     <!-- NEWS CAROUSEL -->
     <section class="news-carousel" id="newsCarousel">
@@ -2511,6 +2555,93 @@
             <a href="privacidade.html" class="footer-link">Política de Privacidade</a>
         </div>
     </footer>
+
+    <!-- FLOATING SIDEBAR SCRIPT -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebar = document.getElementById('floatingSidebar');
+            const sidebarIcons = document.querySelector('.sidebar-icons');
+            let isExpanded = false;
+            let lastScrollY = window.scrollY;
+            let initialSidebarTop = sidebar.offsetTop;
+
+            // Toggle sidebar expansion
+            function toggleSidebar() {
+                isExpanded = !isExpanded;
+                sidebar.classList.toggle('expanded', isExpanded);
+            }
+
+            // Close sidebar
+            function closeSidebar() {
+                isExpanded = false;
+                sidebar.classList.remove('expanded');
+            }
+
+            // Click on sidebar (not on icons) to toggle
+            sidebar.addEventListener('click', function(e) {
+                if (e.target === sidebar || e.target === sidebarIcons) {
+                    toggleSidebar();
+                }
+            });
+
+            // Click outside to close
+            document.addEventListener('click', function(e) {
+                if (!sidebar.contains(e.target)) {
+                    closeSidebar();
+                }
+            });
+
+            // Handle icon clicks for navigation
+            const icons = sidebar.querySelectorAll('.sidebar-icon');
+            icons.forEach(icon => {
+                icon.addEventListener('click', function(e) {
+                    e.stopPropagation();
+
+                    const view = this.getAttribute('data-view');
+                    const href = this.getAttribute('href');
+
+                    // Remove active class from all icons
+                    icons.forEach(i => i.classList.remove('active'));
+
+                    // Add active class to clicked icon
+                    this.classList.add('active');
+
+                    // If it's a view switch (library/community)
+                    if (view && window.multracksApp && window.multracksApp.switchView) {
+                        e.preventDefault();
+                        window.multracksApp.switchView(view);
+                        closeSidebar();
+                    }
+                    // Otherwise let normal navigation proceed
+                });
+            });
+
+            // Set initial active state for library
+            const libraryIcon = document.querySelector('.sidebar-icon[data-view="library"]');
+            if (libraryIcon) {
+                libraryIcon.classList.add('active');
+            }
+
+            // Scroll handling - sidebar follows scroll and fades out
+            window.addEventListener('scroll', function() {
+                const currentScrollY = window.scrollY;
+                const scrollDelta = currentScrollY - lastScrollY;
+
+                // Move sidebar with scroll
+                const newTop = initialSidebarTop + currentScrollY;
+                sidebar.style.top = newTop + 'px';
+
+                // Hide sidebar when scrolling down significantly
+                if (currentScrollY > 200) {
+                    sidebar.classList.add('hidden');
+                } else {
+                    sidebar.classList.remove('hidden');
+                }
+
+                lastScrollY = currentScrollY;
+            });
+        });
+    </script>
 
     <!-- W.Tracks PWA -->
     <script src="pwa.js"></script>
