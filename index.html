@@ -2641,37 +2641,35 @@
                 lastScrollY = currentScrollY;
             });
 
-            // Hide sidebar when in player view
-            function checkPlayerView() {
+            // Hide sidebar when player is active
+            function checkPlayerVisibility() {
                 const playerView = document.getElementById('playerView');
                 if (playerView && playerView.classList.contains('active')) {
                     sidebar.classList.add('hidden');
                 } else {
-                    // Check scroll position if not in player
-                    const currentScrollY = window.scrollY;
-                    if (currentScrollY > 200) {
-                        sidebar.classList.add('hidden');
-                    } else {
+                    // Only show if not hidden by scroll
+                    if (window.scrollY <= 200) {
                         sidebar.classList.remove('hidden');
                     }
                 }
             }
 
-            // Observer for player view changes
+            // Check player visibility periodically
+            setInterval(checkPlayerVisibility, 100);
+
+            // Also check on view changes using MutationObserver
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.attributeName === 'class') {
+                        checkPlayerVisibility();
+                    }
+                });
+            });
+
             const playerView = document.getElementById('playerView');
             if (playerView) {
-                const observer = new MutationObserver(function(mutations) {
-                    mutations.forEach(function(mutation) {
-                        if (mutation.attributeName === 'class') {
-                            checkPlayerView();
-                        }
-                    });
-                });
                 observer.observe(playerView, { attributes: true });
             }
-
-            // Initial check
-            checkPlayerView();
         });
     </script>
 

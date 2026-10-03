@@ -4232,6 +4232,9 @@ class MultracksApp {
         if (loadingIndicator) {
             loadingIndicator.style.display = 'flex';
         }
+
+        // Add loading indicators to faders
+        this.addFaderLoadingIndicators();
         
         // Start loading waveform animation
         this.startWaveformLoadingAnimation();
@@ -4306,7 +4309,10 @@ class MultracksApp {
         if (loadingIndicator) {
             loadingIndicator.style.display = 'none';
         }
-        
+
+        // Remove loading indicators from faders
+        this.removeFaderLoadingIndicators();
+
         // Stop loading waveform animation
         this.stopWaveformLoadingAnimation();
         
@@ -4384,6 +4390,130 @@ class MultracksApp {
         if (this.waveformLoadingAnimationId) {
             cancelAnimationFrame(this.waveformLoadingAnimationId);
             this.waveformLoadingAnimationId = null;
+        }
+    }
+
+    addFaderLoadingIndicators() {
+        // Add loading indicator to all track faders
+        const trackFaders = document.querySelectorAll('.track-fader');
+        trackFaders.forEach(fader => {
+            if (!fader.querySelector('.fader-loading-indicator')) {
+                const indicator = document.createElement('div');
+                indicator.className = 'fader-loading-indicator';
+                fader.appendChild(indicator);
+            }
+            fader.classList.add('loading');
+
+            // Disable fader input
+            const faderInput = fader.querySelector('.fader-input');
+            if (faderInput) {
+                faderInput.disabled = true;
+            }
+        });
+
+        // Add loading indicator to master fader
+        const masterFader = document.querySelector('.master-fader');
+        if (masterFader) {
+            if (!masterFader.querySelector('.fader-loading-indicator')) {
+                const indicator = document.createElement('div');
+                indicator.className = 'fader-loading-indicator';
+                masterFader.appendChild(indicator);
+            }
+            masterFader.classList.add('loading');
+
+            // Disable master fader input
+            const masterFaderInput = masterFader.querySelector('.fader-input');
+            if (masterFaderInput) {
+                masterFaderInput.disabled = true;
+            }
+        }
+
+        // Disable all pan inputs
+        const panInputs = document.querySelectorAll('.track-pan-input');
+        panInputs.forEach(panInput => {
+            panInput.disabled = true;
+        });
+
+        // Disable master pan input
+        const masterPanInput = document.getElementById('masterPanInput');
+        if (masterPanInput) {
+            masterPanInput.disabled = true;
+        }
+
+        // Disable all track buttons (Mute, Solo) - store original disabled state
+        const trackButtons = document.querySelectorAll('.track-btn');
+        trackButtons.forEach(btn => {
+            btn.dataset.wasDisabled = btn.disabled;
+            btn.disabled = true;
+        });
+
+        // Disable metronome fader input
+        const metronomeFader = document.querySelector('.metronome-fader');
+        if (metronomeFader) {
+            metronomeFader.disabled = true;
+        }
+    }
+
+    removeFaderLoadingIndicators() {
+        // Remove loading class and indicators from all track faders
+        const trackFaders = document.querySelectorAll('.track-fader');
+        trackFaders.forEach(fader => {
+            fader.classList.remove('loading');
+            const indicator = fader.querySelector('.fader-loading-indicator');
+            if (indicator) {
+                indicator.remove();
+            }
+
+            // Re-enable fader input
+            const faderInput = fader.querySelector('.fader-input');
+            if (faderInput) {
+                faderInput.disabled = false;
+            }
+        });
+
+        // Remove loading class and indicator from master fader
+        const masterFader = document.querySelector('.master-fader');
+        if (masterFader) {
+            masterFader.classList.remove('loading');
+            const indicator = masterFader.querySelector('.fader-loading-indicator');
+            if (indicator) {
+                indicator.remove();
+            }
+
+            // Re-enable master fader input
+            const masterFaderInput = masterFader.querySelector('.fader-input');
+            if (masterFaderInput) {
+                masterFaderInput.disabled = false;
+            }
+        }
+
+        // Re-enable all pan inputs
+        const panInputs = document.querySelectorAll('.track-pan-input');
+        panInputs.forEach(panInput => {
+            panInput.disabled = false;
+        });
+
+        // Re-enable master pan input
+        const masterPanInput = document.getElementById('masterPanInput');
+        if (masterPanInput) {
+            masterPanInput.disabled = false;
+        }
+
+        // Re-enable all track buttons (Mute, Solo) - restore original disabled state
+        const trackButtons = document.querySelectorAll('.track-btn');
+        trackButtons.forEach(btn => {
+            if (btn.dataset.wasDisabled === 'true') {
+                btn.disabled = true;
+            } else {
+                btn.disabled = false;
+            }
+            delete btn.dataset.wasDisabled;
+        });
+
+        // Re-enable metronome fader input
+        const metronomeFader = document.querySelector('.metronome-fader');
+        if (metronomeFader) {
+            metronomeFader.disabled = false;
         }
     }
     
