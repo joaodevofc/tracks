@@ -3,6 +3,42 @@
  * Main application logic for library rendering and add music wizard
  */
 
+// Track name keywords for shortening long filenames
+const TRACK_NAME_KEYWORDS = [
+  'guide', 'guia', 'click', 'metronomo', 'voz', 'vocal', 'vocais', 'backing', 'coro', 'choir',
+  'lead', 'bateria', 'drum', 'perc', 'bass', 'baixo', 'guitar', 'guitarra', 'violao',
+  'keys', 'teclado', 'piano', 'pad', 'synth', 'organ', 'orgao', 'strings', 'cordas',
+  'sax', 'sopros', 'fx', 'efeito'
+];
+
+// Helper functions for track name shortening
+const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                   .replace(/[^a-z0-9]+/g, ' ').trim();
+
+const splitParts = fileName =>
+  fileName.replace(/\.[^/.]+$/, '').split(/\s[-–—|]\s|_/).map(s => s.trim()).filter(Boolean);
+
+const hasKeyword = p => TRACK_NAME_KEYWORDS.some(k => new RegExp(`(^| )${k}`).test(norm(p)));
+const isJunk = p => /(^| )(multitracks?|stems?)( |$)/.test(norm(p)) && !hasKeyword(p);
+
+function shortenNames(items) {
+  const all = items.map(it => splitParts(it.file.name));
+
+  const common = new Set();
+  if (all.length > 1) {
+    all[0].forEach(p => {
+      if (all.every(parts => parts.some(q => norm(q) === norm(p)))) common.add(norm(p));
+    });
+  }
+
+  return all.map(parts => {
+    const rest = parts.filter(p => !common.has(norm(p)) && !isJunk(p));
+    if (rest.length === 0) return null;
+    const best = rest.filter(hasKeyword);
+    return (best.length ? best : rest).at(-1);
+  });
+}
+
 class MultracksApp {
     constructor() {
         this.currentWizardStep = 1;
@@ -13,6 +49,9 @@ class MultracksApp {
         this.importMethod = null;
         this.currentFilter = 'all';
         this.isCreatingProject = false; // Flag to prevent duplicate project creation
+
+        // Track name shortening
+        this.shortenNames = localStorage.getItem('shortenTrackNames') !== 'false'; // Default to true
 
         // Player state
         this.currentView = 'library'; // 'library' or 'player'
@@ -941,16 +980,10 @@ class MultracksApp {
             }
         });
         
-        // Handle hero banner, FAB button, and search button
+        // Handle hero banner and search button
         const heroBanner = document.getElementById('heroBanner');
-        const fabAdd = document.getElementById('fabAdd');
         const searchContainer = document.querySelector('.search-container');
-        
-        // Handle FAB button visibility - only show in library view
-        if (fabAdd) {
-            fabAdd.style.display = viewName === 'library' ? 'flex' : 'none';
-        }
-        
+
         // Handle search button visibility - only show in library view
         if (searchContainer) {
             searchContainer.style.display = viewName === 'library' ? 'block' : 'none';
@@ -2505,8 +2538,7 @@ class MultracksApp {
             newsCarousel.style.display = 'block';
         }
         
-        const fabAdd = document.querySelector('.fab-add');
-        if (fabAdd) fabAdd.style.display = 'flex';
+
         
         // Show main header when returning to library
         document.body.classList.remove('player-active');
@@ -10913,13 +10945,19 @@ class MultracksApp {
         if (this.wizardCreate) {
             this.wizardCreate.textContent = 'Criar música';
         }
-        
+
         // Manually reset wizard steps
         this.wizardSteps.forEach(s => s.classList.remove('active'));
         this.wizardSteps[0].classList.add('active');
-        
+
+        // Hide shorten names checkboxes
+        const checkboxStep2 = document.getElementById('shortenNamesCheckboxStep2');
+        const checkboxStep3 = document.getElementById('shortenNamesCheckboxStep3');
+        if (checkboxStep2) checkboxStep2.style.display = 'none';
+        if (checkboxStep3) checkboxStep3.style.display = 'none';
+
         this.updateWizardUI();
-        
+
         console.log('[DEBUG] selectedFiles AFTER reset:', this.selectedFiles.length);
         console.log('[DEBUG] currentWizardStep AFTER reset:', this.currentWizardStep);
         console.log('[DEBUG] Active wizard steps AFTER reset:', Array.from(this.wizardSteps).map(s => s.classList.contains('active')));
@@ -11072,7 +11110,7 @@ class MultracksApp {
                         if (exceedsLimit) {
                             const durationMinutes = (duration / 60).toFixed(2);
                             console.log('[PLAN] File exceeds duration limit:', file.name, duration, 'seconds');
-                            
+
                             // Show Pro modal for long duration files
                             this.showProFeatureModal(this.proFeatureConfigs.longDuration);
                             continue; // Skip this file
@@ -11083,22 +11121,20 @@ class MultracksApp {
                     }
                 }
 
-                this.selectedFiles.push({
+                const trackItem = {
                     file: file,
-                    name: suggestedName
-                });
+                    fullName: suggestedName,
+                    name: suggestedName,
+                    edited: false
+                };
 
-                // Store in appropriate array based on step
+                this.selectedFiles.push(trackItem);
+
+                // Store in appropriate array based on step (use same object)
                 if (isInitialSelection) {
-                    this.initialSelectedFiles.push({
-                        file: file,
-                        name: suggestedName
-                    });
+                    this.initialSelectedFiles.push(trackItem);
                 } else {
-                    this.additionalSelectedFiles.push({
-                        file: file,
-                        name: suggestedName
-                    });
+                    this.additionalSelectedFiles.push(trackItem);
                 }
 
                 console.log('[IMPORT] Created track item:', {
@@ -11108,6 +11144,9 @@ class MultracksApp {
                 });
             }
         }
+
+        // Apply track name shortening
+        this.applyTrackNames();
 
         // If initial selection, go to step 2 (preview)
         if (isInitialSelection) {
@@ -11133,6 +11172,88 @@ class MultracksApp {
         name = name.charAt(0).toUpperCase() + name.slice(1);
 
         return name || fileName;
+    }
+
+    applyTrackNames() {
+        const shortNames = shortenNames(this.selectedFiles);
+
+        this.selectedFiles.forEach((item, index) => {
+            if (!item.edited) {
+                if (this.shortenNames && shortNames[index]) {
+                    // Capitalize first letter, keep rest as is
+                    item.name = shortNames[index].charAt(0).toUpperCase() + shortNames[index].slice(1);
+                } else {
+                    item.name = item.fullName;
+                }
+            }
+        });
+
+        // Resolve duplicates
+        const nameCount = {};
+        this.selectedFiles.forEach((item, index) => {
+            if (!item.edited) {
+                const normalizedName = norm(item.name);
+                nameCount[normalizedName] = (nameCount[normalizedName] || 0) + 1;
+            }
+        });
+
+        const usedNames = {};
+        this.selectedFiles.forEach((item, index) => {
+            if (!item.edited) {
+                const normalizedName = norm(item.name);
+                if (nameCount[normalizedName] > 1) {
+                    usedNames[normalizedName] = (usedNames[normalizedName] || 0) + 1;
+                    if (usedNames[normalizedName] > 1) {
+                        item.name = item.name + ' ' + usedNames[normalizedName];
+                    }
+                }
+            }
+        });
+
+        // Update checkbox visibility
+        this.updateShortenNamesCheckbox();
+
+        // Re-render preview
+        this.renderSelectedFilesPreview();
+    }
+
+    updateShortenNamesCheckbox() {
+        const checkboxStep2 = document.getElementById('shortenNamesCheckboxStep2');
+        const checkboxStep3 = document.getElementById('shortenNamesCheckboxStep3');
+
+        if (!checkboxStep2 || !checkboxStep3) return;
+
+        // Check if any name would be shortened
+        const shortNames = shortenNames(this.selectedFiles);
+        const anyShortened = shortNames.some((short, i) => {
+            if (!short) return false;
+            const normalizedName = norm(short);
+            const normalFullName = norm(this.selectedFiles[i].fullName);
+            return normalizedName !== normalFullName;
+        });
+
+        if (anyShortened) {
+            checkboxStep2.style.display = 'block';
+            checkboxStep3.style.display = 'block';
+            checkboxStep2.checked = this.shortenNames;
+            checkboxStep3.checked = this.shortenNames;
+        } else {
+            checkboxStep2.style.display = 'none';
+            checkboxStep3.style.display = 'none';
+        }
+    }
+
+    toggleShortenNames() {
+        this.shortenNames = !this.shortenNames;
+        localStorage.setItem('shortenTrackNames', this.shortenNames);
+
+        // Sync both checkboxes
+        const checkboxStep2 = document.getElementById('shortenNamesCheckboxStep2');
+        const checkboxStep3 = document.getElementById('shortenNamesCheckboxStep3');
+        if (checkboxStep2) checkboxStep2.checked = this.shortenNames;
+        if (checkboxStep3) checkboxStep3.checked = this.shortenNames;
+
+        this.applyTrackNames();
     }
 
     renderSelectedFilesPreview() {
@@ -11165,6 +11286,9 @@ class MultracksApp {
 
             container.appendChild(list);
         });
+
+        // Update checkbox visibility
+        this.updateShortenNamesCheckbox();
     }
 
     async handleCoverSelect(file) {
@@ -11272,6 +11396,7 @@ class MultracksApp {
             const input = trackDiv.querySelector('.track-item-input');
             input?.addEventListener('input', (e) => {
                 this.selectedFiles[index].name = e.target.value;
+                this.selectedFiles[index].edited = true;
             });
             
             const removeBtn = trackDiv.querySelector('.track-item-remove');
@@ -12046,8 +12171,7 @@ class MultracksApp {
         //     this.handleLogout();
         // });
         
-        // FAB add button
-        const fabAdd = document.getElementById('fabAdd');
+        // Empty add button
         const emptyAddBtn = document.getElementById('emptyAddBtn');
 
         const checkAuthBeforeOpenModal = async () => {
@@ -12064,7 +12188,6 @@ class MultracksApp {
             this.openModal();
         };
 
-        fabAdd?.addEventListener('click', () => checkAuthBeforeOpenModal());
         emptyAddBtn?.addEventListener('click', () => checkAuthBeforeOpenModal());
         
         // Modal
@@ -12131,15 +12254,25 @@ class MultracksApp {
         this.wizardBack?.addEventListener('click', () => {
             this.goToWizardStep(this.currentWizardStep - 1);
         });
-        
+
         this.wizardNext?.addEventListener('click', () => {
             this.goToWizardStep(this.currentWizardStep + 1);
         });
-        
+
         this.wizardCreate?.addEventListener('click', () => {
             this.createProject();
         });
-        
+
+        // Shorten names checkboxes
+        const shortenNamesInputStep2 = document.getElementById('shortenNamesInputStep2');
+        const shortenNamesInputStep3 = document.getElementById('shortenNamesInputStep3');
+        shortenNamesInputStep2?.addEventListener('change', () => this.toggleShortenNames());
+        shortenNamesInputStep3?.addEventListener('change', () => this.toggleShortenNames());
+
+        // Bottom menu add button
+        const bottomMenuAdd = document.getElementById('bottomMenuAdd');
+        bottomMenuAdd?.addEventListener('click', () => this.openModal());
+
         // Form validation
         this.projectName?.addEventListener('input', () => {
             this.updateWizardUI();

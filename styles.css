@@ -1257,6 +1257,27 @@
     background: rgba(214, 91, 51, 0.1);
 }
 
+.bottom-menu-add {
+    background: rgba(214, 91, 51, 0.2);
+    color: #d65b33;
+    border: 1px solid rgba(214, 91, 51, 0.4);
+    padding: 10px;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+}
+
+.bottom-menu-add:hover {
+    background: rgba(214, 91, 51, 0.3);
+    border-color: rgba(214, 91, 51, 0.6);
+}
+
+.bottom-menu-add svg {
+    width: 20px;
+    height: 20px;
+}
+
 .bottom-menu-icon svg {
     width: 20px;
     height: 20px;
@@ -2964,36 +2985,6 @@ a {
 }
 
 /* ========================================
-   FLOATING ADD BUTTON
-   ======================================== */
-.fab-add {
-    position: fixed;
-    bottom: var(--spacing-2xl);
-    right: var(--spacing-2xl);
-    width: 56px;
-    height: 56px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--color-white);
-    border-radius: var(--radius-full);
-    box-shadow: var(--shadow-lg);
-    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
-    z-index: 50;
-}
-
-.fab-add:hover {
-    transform: scale(1.1);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
-}
-
-.fab-add svg {
-    width: 24px;
-    height: 24px;
-    stroke: var(--color-black);
-}
-
-/* ========================================
    MODAL
    ======================================== */
 .modal-overlay {
@@ -3251,6 +3242,42 @@ a {
     margin-bottom: var(--spacing-lg);
 }
 
+/* Shorten Names Checkbox */
+.shorten-names-checkbox {
+    margin-bottom: var(--spacing-lg);
+    padding: var(--spacing-md);
+    background: var(--color-black-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--color-accent);
+    cursor: pointer;
+}
+
+.checkbox-text {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--color-white);
+}
+
+.checkbox-example {
+    margin-top: var(--spacing-sm);
+    font-size: var(--font-size-xs);
+    color: var(--color-white-muted);
+    font-style: italic;
+}
+
 /* Import Options */
 .import-options {
     display: grid;
@@ -3408,8 +3435,8 @@ a {
     align-items: center;
     gap: var(--spacing-md);
     padding: var(--spacing-sm) var(--spacing-md);
-    background: var(--color-black-elevated);
-    border: 1px solid var(--border-subtle);
+    background: rgba(214, 91, 51, 0.1);
+    border: 1px solid rgba(214, 91, 51, 0.3);
     border-radius: var(--radius-md);
 }
 
@@ -3419,7 +3446,7 @@ a {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--color-accent);
+    background: #d65b33;
     color: var(--color-white);
     border-radius: var(--radius-sm);
     font-size: var(--font-size-sm);

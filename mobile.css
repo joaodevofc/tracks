@@ -320,11 +320,6 @@ html, body {
     min-height: 32px;
 }
 
-.fab-add {
-    bottom: var(--spacing-xl);
-    right: var(--spacing-xl);
-}
-
 /* ========================================
    MOBILE SMALL SCREENS (max-width: 480px)
    ======================================== */

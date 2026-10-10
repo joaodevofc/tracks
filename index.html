@@ -964,14 +964,6 @@
         </div>
     </main>
 
-    <!-- FLOATING ADD BUTTON -->
-    <button class="fab-add" id="fabAdd" aria-label="Adicionar música">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-        </svg>
-    </button>
-
     <!-- MULTITRACK PLAYER VIEW -->
     <section class="player-view" id="playerView">
         <!-- LOGO -->
@@ -1335,6 +1327,13 @@
                 <div class="wizard-step" data-step="2">
                     <h4 class="step-title">Tracks selecionadas</h4>
                     <p class="step-description">Visualize as tracks que foram selecionadas</p>
+                    <div class="shorten-names-checkbox" id="shortenNamesCheckboxStep2" style="display: none;">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="shortenNamesInputStep2">
+                            <span class="checkbox-text">Cortar nomes longos das tracks</span>
+                        </label>
+                        <div class="checkbox-example">Ex: "Música - Ministério - multitrack - Guide" → "Guide"</div>
+                    </div>
                     <div class="selected-files-preview" id="selectedFilesPreviewStep2">
                         <!-- Tracks preview will be rendered here -->
                     </div>
@@ -1355,6 +1354,13 @@
                             <p class="drop-zone-hint">Suporta: WAV, MP3, FLAC, OGG, AIFF</p>
                         </div>
                         <input type="file" id="addMoreFileInput" multiple accept=".wav,.mp3,.flac,.ogg,.aiff" hidden>
+                    </div>
+                    <div class="shorten-names-checkbox" id="shortenNamesCheckboxStep3" style="display: none;">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="shortenNamesInputStep3">
+                            <span class="checkbox-text">Cortar nomes longos das tracks</span>
+                        </label>
+                        <div class="checkbox-example">Ex: "Música - Ministério - multitrack - Guide" → "Guide"</div>
                     </div>
                     <div class="selected-files-preview" id="selectedFilesPreviewStep3">
                         <!-- Tracks preview will be rendered here -->
@@ -2530,14 +2536,12 @@
                 </svg>
                 <span class="bottom-menu-label">Comunidade</span>
             </a>
-            <a href="central-ajuda.html" class="bottom-menu-icon" aria-label="Central de Ajuda">
+            <button class="bottom-menu-icon bottom-menu-add" id="bottomMenuAdd" aria-label="Adicionar música">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="9"></circle>
-                    <path d="M9.8 9a2.4 2.4 0 1 1 3.9 1.9c-.9.7-1.7 1.1-1.7 2.4"></path>
-                    <path d="M12 16.8h.01"></path>
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
                 </svg>
-                <span class="bottom-menu-label">Central de Ajuda</span>
-            </a>
+            </button>
             <a href="service-plan.html" class="bottom-menu-icon" aria-label="Service Plan">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
@@ -2571,6 +2575,21 @@
                     const view = this.getAttribute('data-view');
                     const href = this.getAttribute('href');
 
+                    // Check Pro access for specific features
+                    if (href === 'service-plan.html' && window.multracksApp && window.multracksApp.checkProFeature) {
+                        if (!window.multracksApp.checkProFeature('servicePlan')) {
+                            e.preventDefault();
+                            return;
+                        }
+                    }
+
+                    if (href === 'wcifras.html' && window.multracksApp && window.multracksApp.checkProFeature) {
+                        if (!window.multracksApp.checkProFeature('wcifras')) {
+                            e.preventDefault();
+                            return;
+                        }
+                    }
+
                     // Remove active class from all icons
                     icons.forEach(i => i.classList.remove('active'));
 
@@ -2599,6 +2618,19 @@
                     bottomMenu.classList.add('hidden');
                 } else {
                     bottomMenu.classList.remove('hidden');
+                }
+            }
+
+            // Hide bottom menu add button when player is active
+            function checkPlayerVisibility() {
+                const playerView = document.getElementById('playerView');
+                const bottomMenuAdd = document.getElementById('bottomMenuAdd');
+                if (playerView && playerView.classList.contains('active')) {
+                    bottomMenu.classList.add('hidden');
+                    if (bottomMenuAdd) bottomMenuAdd.style.display = 'none';
+                } else {
+                    bottomMenu.classList.remove('hidden');
+                    if (bottomMenuAdd) bottomMenuAdd.style.display = 'flex';
                 }
             }
 

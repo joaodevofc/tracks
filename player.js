@@ -210,7 +210,7 @@ class MultitrackPlayer {
         const totalTracks = project.tracks.length;
         
         // Identify essential tracks (Click, Guide, or first track)
-        const essentialTrackNames = ['Click', 'Guide', 'Click Track', 'Guide Track'];
+        const essentialTrackNames = ['Click', 'Guide', 'Click Track', 'Guide Track', 'Guia'];
         const essentialTrackIndices = project.tracks
             .map((track, index) => ({ track, index }))
             .filter(({ track }) => essentialTrackNames.some(name => 
