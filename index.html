@@ -460,13 +460,6 @@
                                 </svg>
                                 W.Cifras
                             </a>
-                            <button class="profile-menu-item" disabled style="opacity: 0.5; cursor: not-allowed;">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M12 20h9"></path>
-                                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
-                                </svg>
-                                Tracks editor
-                            </button>
                             <button class="profile-menu-item" id="myTracksBtn" style="display: none;">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M9 18V5l12-2v13"></path>
@@ -1095,6 +1088,7 @@
             </div>
             <div class="timeline-waveform" id="timelineWaveform">
                 <canvas id="waveformCanvas"></canvas>
+                <canvas id="waveformPlayedCanvas"></canvas>
                 <div class="playhead" id="playhead"></div>
                 <div class="waveform-loading" id="waveformLoading">
                     <canvas id="waveformLoadingCanvas"></canvas>

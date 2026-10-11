@@ -1464,10 +1464,6 @@ class MultracksApp {
             'set list': { url: 'setlist.html', name: 'Setlist' },
             'projetos': { url: 'projetos.html', name: 'Projetos' },
             'projeto': { url: 'projetos.html', name: 'Projetos' },
-            'tracks editor': { url: 'track-editor.html', name: 'Tracks Editor' },
-            'track editor': { url: 'track-editor.html', name: 'Tracks Editor' },
-            'editor': { url: 'track-editor.html', name: 'Tracks Editor' },
-            'editores': { url: 'track-editor.html', name: 'Tracks Editor' },
             'service plan': { url: 'service-plan.html', name: 'Service Plan' },
             'service': { url: 'service-plan.html', name: 'Service Plan' },
             'termos': { url: 'termos.html', name: 'Termos' },
@@ -1541,10 +1537,6 @@ class MultracksApp {
             'set list': { url: 'setlist.html', name: 'Setlist' },
             'projetos': { url: 'projetos.html', name: 'Projetos' },
             'projeto': { url: 'projetos.html', name: 'Projetos' },
-            'tracks editor': { url: 'track-editor.html', name: 'Tracks Editor' },
-            'track editor': { url: 'track-editor.html', name: 'Tracks Editor' },
-            'editor': { url: 'track-editor.html', name: 'Tracks Editor' },
-            'editores': { url: 'track-editor.html', name: 'Tracks Editor' },
             'service plan': { url: 'service-plan.html', name: 'Service Plan' },
             'service': { url: 'service-plan.html', name: 'Service Plan' },
             'termos': { url: 'termos.html', name: 'Termos' },
@@ -1890,6 +1882,9 @@ class MultracksApp {
             // Hide pre-count display when stopping
             this.updatePreCountDisplay(null, null);
         }
+
+        // Reset played overlay
+        this.updatePlayedOverlay(0);
         
         // Stop pad when loading new project
         if (this.padIsPlaying) {
@@ -2542,14 +2537,17 @@ class MultracksApp {
         
         // Show main header when returning to library
         document.body.classList.remove('player-active');
-        
+
         // Stop playback if playing
         if (this.audioPlayer) {
             this.audioPlayer.stop();
             // Hide pre-count display when stopping
             this.updatePreCountDisplay(null, null);
         }
-        
+
+        // Reset played overlay
+        this.updatePlayedOverlay(0);
+
         // Hide effect popover if open
         this.hideEffectPopover();
         this.hideClickIndicator();
@@ -2585,7 +2583,10 @@ class MultracksApp {
             // Hide pre-count display when stopping
             this.updatePreCountDisplay(null, null);
         }
-        
+
+        // Reset played overlay
+        this.updatePlayedOverlay(0);
+
         // Stop PAD if playing
         if (this.padIsPlaying) {
             this.stopPad();
@@ -2608,6 +2609,7 @@ class MultracksApp {
         this.timeSignature = document.getElementById('timeSignature');
         this.currentTimeDisplay = document.getElementById('currentTime');
         this.waveformCanvas = document.getElementById('waveformCanvas');
+        this.waveformPlayedCanvas = document.getElementById('waveformPlayedCanvas');
         this.playhead = document.getElementById('playhead');
         this.mixerTracks = document.getElementById('mixerTracks');
         this.masterFader = document.getElementById('masterFader');
@@ -4291,7 +4293,7 @@ class MultracksApp {
         
         // Check if we have cached waveform data
         if (waveformProject.waveformData) {
-            this.drawWaveformFromCache(ctx, canvas.width, canvas.height);
+            this.drawMainWaveform(canvas.width, canvas.height);
             this.hideWaveformLoading();
             return;
         }
@@ -4319,9 +4321,9 @@ class MultracksApp {
             
             // Cache the waveform data
             this.currentProject.waveformData = waveformData;
-            
+
             // Redraw with actual data
-            this.drawWaveformFromCache(ctx, canvas.width, canvas.height);
+            this.drawMainWaveform(canvas.width, canvas.height);
             
             // Save project with cached waveform
             await storage.updateProject(this.currentProject.id, { waveformData: waveformData });
@@ -5017,57 +5019,92 @@ class MultracksApp {
         }
     }
     
-    drawWaveformFromCache(ctx, width, height) {
+    drawWaveformFromCache(ctx, width, height, mode = 'normal') {
         if (!this.currentProject.waveformData) return;
-        
+
         const peaks = this.currentProject.waveformData;
         const centerY = height / 2;
         const maxAmplitude = height / 2 - 5; // Leave some padding
-        
-        // Calculate playhead position in pixels
-        const playheadPercentage = this.currentTime / this.totalDuration;
-        const playheadX = playheadPercentage * width;
-        
+
         // Create gradient for played section (ice color)
         const playedGradient = ctx.createLinearGradient(0, centerY - maxAmplitude, 0, centerY + maxAmplitude);
         playedGradient.addColorStop(0, 'rgba(232, 230, 224, 0.3)');
         playedGradient.addColorStop(0.5, 'rgba(232, 230, 224, 0.8)');
         playedGradient.addColorStop(1, 'rgba(232, 230, 224, 0.3)');
-        
+
         // Create gradient for unplayed section (darker gray)
         const unplayedGradient = ctx.createLinearGradient(0, centerY - maxAmplitude, 0, centerY + maxAmplitude);
         unplayedGradient.addColorStop(0, 'rgba(100, 100, 100, 0.3)');
         unplayedGradient.addColorStop(0.5, 'rgba(100, 100, 100, 0.6)');
         unplayedGradient.addColorStop(1, 'rgba(100, 100, 100, 0.3)');
-        
-        for (let i = 0; i < peaks.length && i < width; i++) {
-            const peak = peaks[i];
+
+        // Resample peaks to match canvas width
+        const ratio = peaks.length / width;
+
+        for (let i = 0; i < width; i++) {
+            const start = Math.floor(i * ratio);
+            const end = Math.max(start + 1, Math.floor((i + 1) * ratio));
+            let peak = 0;
+            for (let k = start; k < end && k < peaks.length; k++) {
+                peak = Math.max(peak, peaks[k]);
+            }
+
             // Apply sensitivity curve and ensure minimum height
             const barHeight = Math.max(2, Math.pow(peak, 0.6) * maxAmplitude);
-            
-            // Use different colors based on playhead position
-            if (i < playheadX) {
+
+            if (mode === 'normal') {
+                // Calculate playhead position in pixels
+                const playheadPercentage = this.currentTime / this.totalDuration;
+                const playheadX = playheadPercentage * width;
+
+                // Use different colors based on playhead position
+                if (i < playheadX) {
+                    ctx.fillStyle = playedGradient;
+                } else {
+                    ctx.fillStyle = unplayedGradient;
+                }
+            } else if (mode === 'played') {
                 ctx.fillStyle = playedGradient;
-            } else {
+            } else if (mode === 'base') {
                 ctx.fillStyle = unplayedGradient;
             }
-            
+
             // Draw symmetric waveform (above and below center)
             ctx.fillRect(i, centerY - barHeight, 1, barHeight * 2);
         }
 
-        // Render waveform parts after drawing waveform
+        // Render waveform parts after drawing waveform (only in normal mode)
+        if (mode === 'normal') {
+            this.renderWaveformParts();
+        }
+    }
+
+    drawMainWaveform(width, height) {
+        const baseCtx = this.waveformCanvas.getContext('2d');
+        baseCtx.fillStyle = '#161616';
+        baseCtx.fillRect(0, 0, width, height);
+        this.drawWaveformFromCache(baseCtx, width, height, 'base');
+
+        const playedCanvas = this.waveformPlayedCanvas;
+        if (playedCanvas) {
+            playedCanvas.width = width;
+            playedCanvas.height = height;
+            const playedCtx = playedCanvas.getContext('2d');
+            playedCtx.clearRect(0, 0, width, height);
+            this.drawWaveformFromCache(playedCtx, width, height, 'played');
+        }
         this.renderWaveformParts();
+        this.updatePlayedOverlay(this.totalDuration > 0 ? (this.currentTime / this.totalDuration) * 100 : 0);
     }
     
     drawPlaceholderWaveform(ctx, width, height) {
         ctx.strokeStyle = 'rgba(232, 230, 224, 0.6)';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        
+
         const centerY = height / 2;
         const amplitude = height / 3;
-        
+
         for (let x = 0; x < width; x++) {
             const y = centerY + Math.sin(x * 0.05) * amplitude * Math.random();
             if (x === 0) {
@@ -5076,8 +5113,14 @@ class MultracksApp {
                 ctx.lineTo(x, y);
             }
         }
-        
+
         ctx.stroke();
+
+        // Clear played canvas and hide overlay
+        if (this.waveformPlayedCanvas) {
+            this.waveformPlayedCanvas.getContext('2d').clearRect(0, 0, width, height);
+        }
+        this.updatePlayedOverlay(0);
     }
     
     // ========================================
@@ -5580,11 +5623,20 @@ class MultracksApp {
     updatePlayheadPosition(x, canvasWidth) {
         // Update playhead visual position using pixels for drag
         this.playhead.style.left = `${x}px`;
-        
+
         // Calculate and update time display
         const percentage = x / canvasWidth;
         const currentTime = percentage * this.totalDuration;
         this.currentTimeDisplay.textContent = this.formatTime(currentTime);
+
+        // Update played overlay
+        this.updatePlayedOverlay(percentage * 100);
+    }
+
+    updatePlayedOverlay(percentage) {
+        if (!this.waveformPlayedCanvas) return;
+        const p = Math.max(0, Math.min(100, percentage || 0));
+        this.waveformPlayedCanvas.style.clipPath = `inset(0 ${100 - p}% 0 0)`;
     }
     
     // Helper method to reset drag state (called when leaving player view)
@@ -6640,6 +6692,7 @@ class MultracksApp {
         if (this.totalDuration > 0) {
             const percentage = (time / this.totalDuration) * 100;
             this.playhead.style.left = `${percentage}%`;
+            this.updatePlayedOverlay(percentage);
         }
     }
 
@@ -7974,7 +8027,10 @@ class MultracksApp {
     
     async handleSongEnded() {
         console.log('[PLAYBACK] Project ended');
-        
+
+        // Reset played overlay
+        this.updatePlayedOverlay(0);
+
         // Get settings from localStorage
         const repeatMode = localStorage.getItem('repeatMode') === 'true';
         const autoAdvanceMode = localStorage.getItem('autoAdvanceMode') === 'true';
@@ -8640,133 +8696,6 @@ class MultracksApp {
             a.click();
             URL.revokeObjectURL(url);
         }
-    }
-    
-    async openTrackEditor(projectId) {
-        console.log('[APP] Opening track editor for project:', projectId);
-        console.log('[APP] Project ID type:', typeof projectId);
-        console.log('[APP] Project ID value:', projectId);
-
-        if (!projectId) {
-            console.error('[APP] No project ID provided to openTrackEditor');
-            this.showToast('Erro: ID do projeto não encontrado');
-            return;
-        }
-
-        // Check if running on mobile - editor is desktop-only for now
-        const isMobile = this.isMobileDevice();
-
-        console.log('[APP] Device detection - isMobile:', isMobile);
-        console.log('[APP] User agent:', navigator.userAgent);
-        console.log('[APP] Screen width:', window.innerWidth);
-        console.log('[APP] Touch points:', navigator.maxTouchPoints);
-
-        if (isMobile) {
-            this.showDesktopOnlyModal();
-            return;
-        }
-
-        // Cleanup memory-heavy resources before navigation
-        console.log('[APP] Cleaning up resources before opening editor');
-        await this.cleanupForEditor();
-
-        // Use the correct file name
-        const editorUrl = `track-editor.html?projectId=${encodeURIComponent(projectId)}`;
-        console.log('[APP] Redirecting to:', editorUrl);
-
-        // Store the project ID in sessionStorage as backup
-        sessionStorage.setItem('editorProjectId', projectId);
-
-        window.location.href = editorUrl;
-    }
-
-    isMobileDevice() {
-        const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-
-        // Check for mobile/tablet user agents
-        const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Tablet|iPad/i;
-        const isMobileUA = mobileRegex.test(userAgent);
-
-        // Check for touch capability (more reliable for tablets)
-        const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-
-        // Check for iPad (including iPad Pro which reports as MacIntel)
-        const isIPad = /iPad/i.test(userAgent) ||
-                      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
-        // Check screen size (tablets have smaller screens than desktops)
-        const isSmallScreen = window.innerWidth <= 1024;
-
-        return isMobileUA || isIPad || (hasTouch && isSmallScreen);
-    }
-
-    showDesktopOnlyModal() {
-        const modal = document.createElement('div');
-        modal.className = 'modal-overlay';
-        modal.innerHTML = `
-            <div class="modal-content" style="max-width: 400px; text-align: center;">
-                <div style="font-size: 48px; margin-bottom: 16px;">💻</div>
-                <h3 style="color: #ffffff; margin-bottom: 12px;">Edição de Tracks (suporte só pra desktop)</h3>
-                <p style="color: #a0a0a0; margin-bottom: 24px; line-height: 1.5;">
-                    Por enquanto, o modo de edição de tracks está disponível apenas no desktop. Use um computador para acessar todas as funcionalidades do Studio.
-                </p>
-                <button class="modal-btn" id="closeDesktopModal" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;">
-                    Entendi
-                </button>
-            </div>
-        `;
-
-        document.body.appendChild(modal);
-
-        document.getElementById('closeDesktopModal').addEventListener('click', () => {
-            modal.remove();
-        });
-
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                modal.remove();
-            }
-        });
-    }
-
-    async cleanupForEditor() {
-        console.log('[APP] Cleanup: Stopping playback and releasing audio resources');
-
-        // Stop playback
-        if (this.audioPlayer) {
-            this.audioPlayer.stop();
-            this.audioPlayer.stopVisualization();
-            this.audioPlayer.stopPlaybackTimer();
-            // Hide pre-count display when stopping
-            this.updatePreCountDisplay(null, null);
-        }
-
-        // Stop pad
-        if (this.padIsPlaying) {
-            this.stopPad();
-        }
-
-        // Cancel any pending waveform generation
-        this.waveformLoading = false;
-
-        // Clear large audio buffers from current project
-        if (this.currentProject && this.currentProject.tracks) {
-            this.currentProject.tracks.forEach(track => {
-                if (track.file) {
-                    // Remove file reference to free memory
-                    // The file will be reloaded from storage when needed
-                    console.log('[APP] Cleanup: Removing file reference for track:', track.name);
-                    track.file = null;
-                }
-            });
-        }
-
-        // Clear waveform data cache
-        if (this.currentProject) {
-            this.currentProject.waveformData = null;
-        }
-
-        console.log('[APP] Cleanup complete');
     }
 
     async deleteProject(projectId) {
@@ -12156,13 +12085,6 @@ class MultracksApp {
         logoutBtn?.addEventListener('click', () => {
             profileDropdown?.classList.remove('active');
             this.handleLogout();
-        });
-
-        // My Tracks button
-        const myTracksBtn = document.getElementById('myTracksBtn');
-        myTracksBtn?.addEventListener('click', async () => {
-            profileDropdown?.classList.remove('active');
-            this.switchToMyTracks();
         });
 
         // Logout button (player) - REMOVED
