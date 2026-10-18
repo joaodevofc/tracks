@@ -1021,6 +1021,32 @@
                             </svg>
                         </button>
                     </div>
+                    <div class="bpm-controls">
+                        <button class="bpm-control-btn" id="bpmDetectBtn" title="Detectar BPM novamente">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M23 4v6h-6"></path>
+                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L9 6 2 9 12a9 9 0 0 1 18 0"></path>
+                            </svg>
+                        </button>
+                        <button class="bpm-control-btn" id="bpmHalfBtn" title="Metade do BPM">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M4 12h16"></path>
+                                <path d="M12 4v16"></path>
+                            </svg>
+                        </button>
+                        <button class="bpm-control-btn" id="bpmDoubleBtn" title="Dobro do BPM">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2v20"></path>
+                                <path d="M2 12h20"></path>
+                            </svg>
+                        </button>
+                        <span class="bpm-auto-indicator" id="bpmAutoIndicator" title="BPM detectado automaticamente">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 11.08V12a10 10 0 1 1-10 10H10"></path>
+                                <polyline points="16 16 12 12 8 8"></polyline>
+                            </svg>
+                        </span>
+                    </div>
                     <div class="bpm-label">BPM</div>
                 </div>
                 
@@ -1844,6 +1870,7 @@
 
     <script src="storage.js"></script>
     <script src="player.js"></script>
+    <script src="bpm-detector.js"></script>
     <script src="planSystem.js"></script>
     <script src="planExpirationWarning.js"></script>
     

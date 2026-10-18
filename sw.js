@@ -23,8 +23,9 @@
  * - arquivos de áudio
  */
 
-const CACHE_VERSION = 'wtracks-pc-v3';
+const CACHE_VERSION = 'wtracks-pc-v4';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
+const EXTERNAL_CACHE = `${CACHE_VERSION}-external`;
 
 /*
  * Arquivos principais conhecidos da aplicação.
@@ -58,9 +59,16 @@ const STATIC_ASSETS = [
     '/tracks/planUtils.js',
     '/tracks/communitytracks.js',
     '/tracks/pwa.js',
+    '/tracks/bpm-detector.js',
 
     '/tracks/icon-black-transparent.png',
     '/tracks/icon-white-transparent.png'
+];
+
+// External assets (Essentia.js) - cached separately with error handling
+const EXTERNAL_ASSETS = [
+    'https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia.js-mini.js',
+    'https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia-wasm-mini.js'
 ];
 
 /* ============================================================
@@ -219,6 +227,33 @@ self.addEventListener('install', event => {
                     }
                 })
             );
+
+            /*
+             * Cache external assets separately with error handling
+             * If external assets fail, service worker still installs
+             */
+            try {
+                const externalCache = await caches.open(EXTERNAL_CACHE);
+                await Promise.all(
+                    EXTERNAL_ASSETS.map(async asset => {
+                        try {
+                            const request = new Request(asset, {
+                                cache: 'no-cache'
+                            });
+                            const response = await fetch(request);
+                            if (response.ok) {
+                                await externalCache.put(request, response.clone());
+                            }
+                        } catch (error) {
+                            console.warn(
+                                `[W.Tracks PWA] Não foi possível preparar external: ${asset}`
+                            );
+                        }
+                    })
+                );
+            } catch (error) {
+                console.warn('[W.Tracks PWA] External cache failed:', error);
+            }
 
             /*
              * Ativa imediatamente a nova versão.

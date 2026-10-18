@@ -204,6 +204,8 @@ class Project {
         this.description = data.description || '';
         this.key = data.key || '';
         this.bpm = data.bpm || null;
+        this.bpmSource = data.bpmSource || null; // 'auto' or 'manual'
+        this.bpmDetectAttempted = data.bpmDetectAttempted || false; // Flag to prevent re-detection
         this.artist = data.artist || '';
         this.album = data.album || '';
         this.genre = data.genre || '';
@@ -318,6 +320,8 @@ class Project {
             name: this.name,
             key: this.key,
             bpm: this.bpm,
+            bpmSource: this.bpmSource,
+            bpmDetectAttempted: this.bpmDetectAttempted,
             artist: this.artist,
             album: this.album,
             genre: this.genre,

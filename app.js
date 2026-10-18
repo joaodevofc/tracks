@@ -1945,6 +1945,13 @@ class MultracksApp {
             console.warn('[APP] Filtered out', originalTrackCount - filteredTrackCount, 'tracks without audio files');
         }
         
+        // Set BPM and time signature from project BEFORE loading (so Metronome is created with correct BPM)
+        const projectBpm = this.currentProject.bpm || 120;
+        const projectTimeSignature = this.currentProject.timeSignature || '4/4';
+        console.log('[APP] Setting metronome BPM to:', projectBpm, 'and time signature to:', projectTimeSignature, 'before load');
+        this.audioPlayer.metronomeBpm = projectBpm;
+        this.audioPlayer.metronomeTimeSignature = projectTimeSignature;
+        
         // Load project into player with generation token
         await this.audioPlayer.loadProject(project, currentGeneration);
 
@@ -1964,6 +1971,14 @@ class MultracksApp {
         // Start guide voice visualization if channel exists
         if (this.guideVoiceEnabled && this.hasGuideVoiceAssigned()) {
             this.startGuideVoiceVisualization();
+        }
+        
+        // Auto-detect BPM if not set by user and not detected before
+        if (!this.currentProject.bpm || !this.currentProject.bpmSource) {
+            console.log('[BPM DETECTOR] BPM not set, starting auto-detection in background');
+            this.autoDetectBpmForProject().catch(error => {
+                console.error('[BPM DETECTOR] Auto-detection failed:', error);
+            });
         }
         
         console.log('[APP] [PROJECT LOAD] generation:', currentGeneration, 'completed (loadProjectToPlayer)');
@@ -3083,6 +3098,103 @@ class MultracksApp {
         this.timeSignatureSelect.value = this.currentProject.timeSignature || '4/4';
         // Duration will be set by player's onDurationChange callback after loading
         this.currentTimeDisplay.textContent = '0:00';
+
+        // Update BPM auto indicator
+        const bpmAutoIndicator = document.getElementById('bpmAutoIndicator');
+        if (bpmAutoIndicator) {
+            if (this.currentProject.bpmSource === 'auto') {
+                bpmAutoIndicator.classList.add('active');
+            } else {
+                bpmAutoIndicator.classList.remove('active');
+            }
+        }
+    }
+
+    async autoDetectBpmForProject(forceRedetect = false) {
+        if (!this.currentProject || !this.currentProject.tracks) {
+            return;
+        }
+
+        // Don't detect if BPM was manually set
+        if (this.currentProject.bpmSource === 'manual') {
+            console.log('[BPM DETECTOR] BPM manually set, skipping auto-detection');
+            return;
+        }
+
+        // Old projects: if BPM is different from default 120 and bpmSource is empty, treat as manual
+        if (this.currentProject.bpm && this.currentProject.bpm !== 120 && !this.currentProject.bpmSource) {
+            console.log('[BPM DETECTOR] Old project with non-default BPM:', this.currentProject.bpm, ', treating as manual');
+            this.currentProject.bpmSource = 'manual';
+            await storage.updateProject(this.currentProject.id, { bpmSource: 'manual' });
+            return;
+        }
+
+        // Don't detect if already attempted (unless forced)
+        if (this.currentProject.bpmDetectAttempted && !forceRedetect) {
+            console.log('[BPM DETECTOR] Detection already attempted, skipping');
+            return;
+        }
+
+        try {
+            const result = await autoDetectBpm(this.currentProject);
+            
+            // Mark as attempted regardless of result
+            this.currentProject.bpmDetectAttempted = true;
+            await storage.updateProject(this.currentProject.id, { bpmDetectAttempted: true });
+
+            if (result && result.bpm) {
+                console.log('[BPM DETECTOR] BPM detected:', result.bpm, 'from track:', result.trackName);
+
+                // Update project BPM
+                this.currentProject.bpm = result.bpm;
+                this.currentProject.bpmSource = 'auto';
+
+                // Update UI
+                this.bpmInput.value = result.bpm;
+                const bpmAutoIndicator = document.getElementById('bpmAutoIndicator');
+                if (bpmAutoIndicator) {
+                    bpmAutoIndicator.classList.add('active');
+                }
+
+                // Update metronome (apply without interrupting playback)
+                if (this.audioPlayer) {
+                    this.audioPlayer.setMetronomeBpm(result.bpm);
+                }
+
+                // Save to local storage
+                await storage.updateProject(this.currentProject.id, {
+                    bpm: result.bpm,
+                    bpmSource: 'auto',
+                    bpmDetectAttempted: true
+                });
+
+                // Sync to Firestore if authenticated
+                if (typeof window.firebaseDB !== 'undefined' && typeof window.firebaseAuth !== 'undefined') {
+                    const auth = window.firebaseAuth.auth;
+                    const user = auth.currentUser;
+                    if (user) {
+                        try {
+                            const { doc, setDoc, serverTimestamp } = window.firebaseDB;
+                            const db = window.firebaseDB.db;
+                            const projectRef = doc(db, 'users', user.uid, 'projects', this.currentProject.id);
+                            await setDoc(projectRef, {
+                                bpm: result.bpm,
+                                bpmSource: 'auto',
+                                bpmDetectAttempted: true,
+                                syncedAt: serverTimestamp()
+                            }, { merge: true });
+                            console.log('[BPM DETECTOR] BPM synced to Firestore');
+                        } catch (error) {
+                            console.warn('[BPM DETECTOR] Failed to sync BPM to Firestore:', error);
+                        }
+                    }
+                }
+            } else {
+                console.log('[BPM DETECTOR] No BPM detected');
+            }
+        } catch (error) {
+            console.error('[BPM DETECTOR] Error during auto-detection:', error);
+        }
     }
     
     async renderMixer() {
@@ -4364,6 +4476,13 @@ class MultracksApp {
                 this.hidePlayerLoading();
             }
         };
+        
+        // Set BPM and time signature from project BEFORE loading (so Metronome is created with correct BPM)
+        const projectBpm = this.currentProject.bpm || 120;
+        const projectTimeSignature = this.currentProject.timeSignature || '4/4';
+        console.log('[APP] Setting metronome BPM to:', projectBpm, 'and time signature to:', projectTimeSignature, 'before load');
+        this.audioPlayer.metronomeBpm = projectBpm;
+        this.audioPlayer.metronomeTimeSignature = projectTimeSignature;
         
         try {
             console.log('[APP] Calling audioPlayer.loadProject() for:', this.currentProject.name);
@@ -8031,6 +8150,7 @@ class MultracksApp {
         // Update project BPM
         if (this.currentProject) {
             this.currentProject.bpm = bpm;
+            this.currentProject.bpmSource = 'manual'; // Mark as manual
         }
         
         // Update audio player
@@ -8041,6 +8161,12 @@ class MultracksApp {
         // Save project
         if (this.currentProject) {
             storage.updateProject(this.currentProject.id, this.currentProject);
+        }
+
+        // Hide auto indicator
+        const bpmAutoIndicator = document.getElementById('bpmAutoIndicator');
+        if (bpmAutoIndicator) {
+            bpmAutoIndicator.classList.remove('active');
         }
         
         console.log('[TAP TEMPO] BPM updated to:', bpm);
@@ -13663,7 +13789,13 @@ class MultracksApp {
                 // Update project BPM when manually edited
                 if (this.currentProject) {
                     this.currentProject.bpm = bpm;
+                    this.currentProject.bpmSource = 'manual'; // Mark as manual
                     storage.updateProject(this.currentProject.id, this.currentProject);
+                    // Hide auto indicator
+                    const bpmAutoIndicator = document.getElementById('bpmAutoIndicator');
+                    if (bpmAutoIndicator) {
+                        bpmAutoIndicator.classList.remove('active');
+                    }
                 }
                 // Update guide voice timing
                 if (this.guideVoiceEnabled) {
@@ -13733,6 +13865,48 @@ class MultracksApp {
             startHold(-1);
         });
         bpmStepDown?.addEventListener('touchend', stopHold);
+
+        // BPM control buttons
+        const bpmDetectBtn = document.getElementById('bpmDetectBtn');
+        const bpmHalfBtn = document.getElementById('bpmHalfBtn');
+        const bpmDoubleBtn = document.getElementById('bpmDoubleBtn');
+
+        bpmDetectBtn?.addEventListener('click', () => {
+            console.log('[BPM DETECTOR] Manual re-detection requested');
+            this.autoDetectBpmForProject(true); // forceRedetect = true
+        });
+
+        bpmHalfBtn?.addEventListener('click', () => {
+            const currentBpm = parseInt(this.bpmInput.value) || 120;
+            const newBpm = Math.round(currentBpm / 2);
+            if (newBpm >= 40) {
+                this.bpmInput.value = newBpm;
+                if (this.audioPlayer) {
+                    this.audioPlayer.setMetronomeBpm(newBpm);
+                }
+                if (this.currentProject) {
+                    this.currentProject.bpm = newBpm;
+                    this.currentProject.bpmSource = 'manual';
+                    storage.updateProject(this.currentProject.id, this.currentProject);
+                }
+            }
+        });
+
+        bpmDoubleBtn?.addEventListener('click', () => {
+            const currentBpm = parseInt(this.bpmInput.value) || 120;
+            const newBpm = currentBpm * 2;
+            if (newBpm <= 240) {
+                this.bpmInput.value = newBpm;
+                if (this.audioPlayer) {
+                    this.audioPlayer.setMetronomeBpm(newBpm);
+                }
+                if (this.currentProject) {
+                    this.currentProject.bpm = newBpm;
+                    this.currentProject.bpmSource = 'manual';
+                    storage.updateProject(this.currentProject.id, this.currentProject);
+                }
+            }
+        });
         
         this.timeSignatureSelect?.addEventListener('change', (e) => {
             const timeSignature = e.target.value;

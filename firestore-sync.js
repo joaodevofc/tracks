@@ -307,7 +307,7 @@ class FirestoreSync {
 
                 if (firestoreTime > localTime) {
                     console.log('[SYNC] Using Firestore version:', firestoreProject.name, '(Firestore newer)');
-                    // Use Firestore version, but preserve local guideVoice if Firestore doesn't have it
+                    // Use Firestore version, but preserve local guideVoice, bpmSource and bpmDetectAttempted if Firestore doesn't have them
                     const project = await Project.fromJSON(firestoreProject);
                     if (!project.guideVoice && localProject.guideVoice) {
                         project.guideVoice = localProject.guideVoice;
@@ -316,6 +316,14 @@ class FirestoreSync {
                     if (!project.waveformParts && localProject.waveformParts) {
                         project.waveformParts = localProject.waveformParts;
                         console.log('[SYNC] Preserved local waveformParts from:', localProject.name);
+                    }
+                    if (!project.bpmSource && localProject.bpmSource) {
+                        project.bpmSource = localProject.bpmSource;
+                        console.log('[SYNC] Preserved local bpmSource from:', localProject.name);
+                    }
+                    if (!project.bpmDetectAttempted && localProject.bpmDetectAttempted) {
+                        project.bpmDetectAttempted = localProject.bpmDetectAttempted;
+                        console.log('[SYNC] Preserved local bpmDetectAttempted from:', localProject.name);
                     }
                     mergedProjects.push(project);
                 } else if (localTime > firestoreTime) {
@@ -328,7 +336,7 @@ class FirestoreSync {
                     });
                 } else {
                     console.log('[SYNC] Versions equal, using Firestore version:', firestoreProject.name);
-                    // Versions equal, use Firestore version, but preserve local guideVoice if Firestore doesn't have it
+                    // Versions equal, use Firestore version, but preserve local guideVoice, bpmSource and bpmDetectAttempted if Firestore doesn't have them
                     const project = await Project.fromJSON(firestoreProject);
                     if (!project.guideVoice && localProject.guideVoice) {
                         project.guideVoice = localProject.guideVoice;
@@ -337,6 +345,14 @@ class FirestoreSync {
                     if (!project.waveformParts && localProject.waveformParts) {
                         project.waveformParts = localProject.waveformParts;
                         console.log('[SYNC] Preserved local waveformParts from:', localProject.name);
+                    }
+                    if (!project.bpmSource && localProject.bpmSource) {
+                        project.bpmSource = localProject.bpmSource;
+                        console.log('[SYNC] Preserved local bpmSource from:', localProject.name);
+                    }
+                    if (!project.bpmDetectAttempted && localProject.bpmDetectAttempted) {
+                        project.bpmDetectAttempted = localProject.bpmDetectAttempted;
+                        console.log('[SYNC] Preserved local bpmDetectAttempted from:', localProject.name);
                     }
                     mergedProjects.push(project);
                 }
