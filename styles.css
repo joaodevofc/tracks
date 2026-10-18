@@ -5458,6 +5458,17 @@ body.fader-animations-disabled .led-pointer {
     color: var(--color-white);
 }
 
+/* Guide voice channel styling */
+.guide-voice-channel .track-name {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--color-white);
+    line-height: 1.2;
+    word-wrap: break-word;
+    hyphens: auto;
+}
+
 /* BPM and time signature controls */
 .bpm-input {
     width: 60px;
@@ -9232,6 +9243,404 @@ body.fader-animations-disabled .led-pointer {
 
 .waveform-parts-actions .btn {
     min-width: 150px;
+}
+
+/* ========================================
+   WAVEFORM GUIDE VOICE SECTION
+   ======================================== */
+.waveform-guide-voice-section {
+    margin-bottom: 20px;
+    padding: 16px;
+    background: rgba(26, 26, 26, 0.5);
+    border: 1px solid #333;
+    border-radius: 8px;
+}
+
+.waveform-guide-voice-controls {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.waveform-guide-voice-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.waveform-guide-voice-toggle input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.waveform-guide-voice-toggle label {
+    cursor: pointer;
+    font-size: 14px;
+    color: #ccc;
+}
+
+.waveform-guide-voice-lead {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.waveform-guide-voice-lead label {
+    font-size: 14px;
+    color: #888;
+}
+
+.waveform-guide-voice-lead select {
+    padding: 6px 12px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 4px;
+    color: #ccc;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.waveform-guide-voice-lead select:focus {
+    outline: none;
+    border-color: #666;
+}
+
+/* Guide Voice Timeline */
+.waveform-guide-voice-parts-list {
+    margin-top: 16px;
+}
+
+.guide-voice-timeline {
+    position: relative;
+    width: 100%;
+    height: 72px;
+    background: #0a0a0a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.guide-voice-timeline-disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.guide-voice-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.guide-voice-parts-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.guide-voice-warning {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #888;
+    font-size: 13px;
+    text-align: center;
+    pointer-events: none;
+}
+
+.guide-voice-block {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border: 1px solid #333;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 4px 6px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    min-width: 20px;
+}
+
+.guide-voice-block:hover {
+    background-color: rgba(232, 230, 224, 0.1);
+}
+
+.guide-voice-block-no-voice {
+    border-style: dashed;
+    background-color: rgba(26, 26, 26, 0.5);
+}
+
+.guide-voice-block-has-voice {
+    border-style: solid;
+    background-color: rgba(232, 230, 224, 0.15);
+    border-color: #e8e6e0;
+}
+
+.guide-voice-block-part {
+    font-size: 11px;
+    color: #ccc;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.guide-voice-block-voice {
+    font-size: 10px;
+    color: #e8e6e0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.guide-voice-block-voice svg {
+    flex-shrink: 0;
+}
+
+.guide-voice-block-plus {
+    font-size: 16px;
+    color: #666;
+    align-self: center;
+}
+
+/* Guide Voice Selector - Centered (All Devices) */
+.guide-voice-selector-centered {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 20px;
+    min-width: 320px;
+    max-width: 400px;
+    max-height: 70vh;
+    overflow: hidden;
+    z-index: 10000;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+}
+
+.guide-voice-selector-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #e8e6e0;
+    margin-bottom: 4px;
+    padding-right: 32px;
+}
+
+.guide-voice-selector-time {
+    font-size: 13px;
+    color: #888;
+    margin-bottom: 16px;
+}
+
+.guide-voice-selector-list-container {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 8px;
+}
+
+.guide-voice-selector-list-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.guide-voice-selector-list-container::-webkit-scrollbar-track {
+    background: #2a2a2a;
+    border-radius: 3px;
+}
+
+.guide-voice-selector-list-container::-webkit-scrollbar-thumb {
+    background: #555;
+    border-radius: 3px;
+}
+
+.guide-voice-selector-list-container::-webkit-scrollbar-thumb:hover {
+    background: #666;
+}
+
+.guide-voice-category-header {
+    font-size: 12px;
+    font-weight: 600;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 16px 0 8px 0;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #333;
+}
+
+.guide-voice-category-header:first-of-type {
+    margin-top: 0;
+}
+
+.guide-voice-selector-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.guide-voice-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: rgba(26, 26, 26, 0.5);
+    border: 1px solid #333;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-height: 44px;
+}
+
+.guide-voice-option:hover {
+    background: rgba(232, 230, 224, 0.1);
+    border-color: #666;
+}
+
+.guide-voice-option-selected {
+    background: rgba(232, 230, 224, 0.15);
+    border-color: #e8e6e0;
+}
+
+.guide-voice-option-suggested {
+    font-size: 10px;
+    background: rgba(214, 91, 51, 0.2);
+    color: #d65b33;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-right: 8px;
+}
+
+.guide-voice-option-name {
+    flex: 1;
+    font-size: 13px;
+    color: #ccc;
+}
+
+.guide-voice-option-preview {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0a0a0a;
+    border: 1px solid #333;
+    border-radius: 4px;
+    color: #e8e6e0;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.guide-voice-option-preview:hover {
+    background: rgba(232, 230, 224, 0.1);
+    border-color: #666;
+}
+
+.guide-voice-option-preview-error {
+    color: #d65b33;
+    border-color: #d65b33;
+}
+
+.guide-voice-selector-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: #888;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.guide-voice-selector-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ccc;
+}
+
+.guide-voice-selector-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 9999;
+}
+
+/* Mobile specific adjustments */
+@media (max-width: 768px) {
+    .guide-voice-selector-centered {
+        min-width: 280px;
+        max-width: 320px;
+        max-height: 60vh;
+        padding: 16px;
+    }
+
+    .guide-voice-selector-title {
+        font-size: 15px;
+    }
+
+    .guide-voice-selector-time {
+        font-size: 12px;
+    }
+
+    .guide-voice-option {
+        padding: 12px 14px;
+        min-height: 48px;
+    }
+
+    .guide-voice-option-name {
+        font-size: 14px;
+    }
+
+    .guide-voice-option-preview {
+        width: 36px;
+        height: 36px;
+        font-size: 13px;
+    }
+
+    .guide-voice-channel .track-name {
+        font-size: 9px;
+        line-height: 1.1;
+    }
+
+    .guide-voice-timeline {
+        height: 84px;
+    }
+
+    .guide-voice-block {
+        padding: 6px 8px;
+    }
+
+    .guide-voice-block-part {
+        font-size: 12px;
+    }
+
+    .guide-voice-block-voice {
+        font-size: 11px;
+    }
 }
 
 /* ========================================

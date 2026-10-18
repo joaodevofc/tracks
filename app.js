@@ -158,6 +158,9 @@ class MultracksApp {
         this.currentLoadGeneration = null; // Current active load generation
         this.pendingLoadCleanup = new Map(); // generation -> cleanup function
         
+        // Guide voice visualization frame ID
+        this.guideVoiceVisualizationFrame = null;
+        
         // Library preparation system for caching tracks locally
         this.libraryPreparationState = new Map(); // projectId -> { preparing, progress, prepared }
         this.preparingProjects = new Set(); // Set of project IDs currently being prepared
@@ -1896,10 +1899,19 @@ class MultracksApp {
         
         // Set current project
         this.currentProject = project;
-        
+
+        // Load guide voice state from project BEFORE rendering mixer
+        if (this.currentProject.guideVoice) {
+            this.guideVoiceEnabled = this.currentProject.guideVoice.enabled || false;
+            this.guideVoicePartMapping = this.currentProject.guideVoice.partMapping || {};
+        } else {
+            this.guideVoiceEnabled = false;
+            this.guideVoicePartMapping = {};
+        }
+
         // Reset TAP TEMPO when loading new project
         this.resetTapTempo();
-        
+
         // Initialize audio player if needed
         if (!this.audioPlayer) {
             this.audioPlayer = new MultitrackPlayer();
@@ -1935,16 +1947,24 @@ class MultracksApp {
         
         // Load project into player with generation token
         await this.audioPlayer.loadProject(project, currentGeneration);
-        
+
         // Verify this is still the current generation after player load
         if (currentGeneration !== this.currentLoadGeneration) {
             console.log('[APP] [PROJECT LOAD] generation:', currentGeneration, 'cancelled/stale after player load');
             return;
         }
-        
+
+        // Apply guide voice settings to player (after player is loaded and GuideVoice is created)
+        await this.applyGuideVoiceSettingsToPlayer();
+
         // Update UI
         this.renderMixer();
         this.renderProjectInfo();
+
+        // Start guide voice visualization if channel exists
+        if (this.guideVoiceEnabled && this.hasGuideVoiceAssigned()) {
+            this.startGuideVoiceVisualization();
+        }
         
         console.log('[APP] [PROJECT LOAD] generation:', currentGeneration, 'completed (loadProjectToPlayer)');
         console.log('[APP] Project loaded successfully to player with', filteredTrackCount, 'valid tracks');
@@ -2684,6 +2704,7 @@ class MultracksApp {
             this.audioPlayer.onTrackStateChange = (trackId, state) => this.updateTrackState(trackId, state);
             this.audioPlayer.onTrackLevelUpdate = (trackId, level) => this.updateTrackLevelMeter(trackId, level);
             this.audioPlayer.onMetronomeLevelUpdate = (level) => this.updateMetronomeLevelMeter(level);
+            this.audioPlayer.onGuideLevelUpdate = (level) => this.updateGuideLevelMeter(level);
             this.audioPlayer.onMasterLevelUpdate = (level) => this.updateMasterLevelMeter(level);
             this.audioPlayer.onDurationChange = (duration) => this.setTotalDuration(duration);
             this.audioPlayer.onSongEnded = () => {
@@ -2715,6 +2736,53 @@ class MultracksApp {
         this.metronomePan = 0;
         this.metronomeMuted = false;
         this.metronomeSolo = false;
+
+        // Initialize guide voice state
+        this.guideVoiceEnabled = false;
+        this.guideVoiceVolume = 0.7;
+        this.guideVoicePan = 0;
+        this.guideVoiceMuted = false;
+        this.guideVoiceSolo = false;
+        this.guideVoicePartMapping = {};
+
+        // Available guide voice files
+        this.guideVoiceFiles = [
+            { name: 'Nenhuma', value: '' },
+            { name: 'Intro', value: 'Portugese - Intro.wav' },
+            { name: 'Verse 1', value: 'Portugese - Verse 1.wav' },
+            { name: 'Verse 2', value: 'Portugese - Verse 2.wav' },
+            { name: 'Verse 3', value: 'Portugese - Verse 3.wav' },
+            { name: 'Verse 4', value: 'Portugese - Verse 4.wav' },
+            { name: 'Chorus', value: 'Portugese - Chorus.wav' },
+            { name: 'Chorus 1', value: 'Portugese - Chorus 1.wav' },
+            { name: 'Chorus 2', value: 'Portugese - Chorus 2.wav' },
+            { name: 'Pre Chorus', value: 'Portugese - Pre Chorus.wav' },
+            { name: 'Pre Chorus 1', value: 'Portugese - Pre Chorus 1.wav' },
+            { name: 'Pre Chorus 2', value: 'Portugese - Pre Chorus 2.wav' },
+            { name: 'Bridge', value: 'Portugese - Bridge.wav' },
+            { name: 'Bridge 1', value: 'Portugese - Bridge 1.wav' },
+            { name: 'Bridge 2', value: 'Portugese - Bridge 2.wav' },
+            { name: 'Outro', value: 'Portugese - Outro.wav' },
+            { name: 'Ending', value: 'Portugese - Ending.wav' },
+            { name: 'Interlude', value: 'Portugese - Interlude.wav' },
+            { name: 'Instrumental', value: 'Portugese - Instrumental.wav' },
+            { name: 'Solo', value: 'Portugese - Solo.wav' },
+            { name: 'Tag', value: 'Portugese - Tag.wav' },
+            { name: 'Turnaround', value: 'Portugese - Turnaround.wav' },
+            { name: 'Vamp', value: 'Portugese - Vamp.wav' },
+            { name: 'Post Chorus', value: 'Portugese - Post Chorus.wav' },
+            { name: 'Rap', value: 'Portugese - Rap.wav' },
+            { name: 'Refrain', value: 'Portugese - Refrain.wav' },
+            { name: 'Acapella', value: 'Portugese - Acapella.wav' },
+            { name: 'Breakdown', value: 'Portugese - Breakdown.wav' },
+            { name: 'Exhortation', value: 'Portugese - Exhortation.wav' },
+            { name: '1', value: 'Portugese - 1.wav' },
+            { name: '2', value: 'Portugese - 2.wav' },
+            { name: '3', value: 'Portugese - 3.wav' },
+            { name: '4', value: 'Portugese - 4.wav' },
+            { name: '5', value: 'Portugese - 5.wav' },
+            { name: '6', value: 'Portugese - 6.wav' }
+        ];
 
         // Initialize playback speed state
         this.playbackSpeed = 1.0; // Default speed (1.0x)
@@ -2978,7 +3046,7 @@ class MultracksApp {
             this.renderMusicSelector();
             this.renderProjectInfo();
             this.renderMixer();
-            
+
             console.log('[APP] Loading audio for new project:', project.name);
             await this.loadProjectAudio();
             storage.incrementPlayCount(projectId);
@@ -3030,6 +3098,14 @@ class MultracksApp {
         if (this.metronomeEnabled) {
             const metronomeChannel = this.createMetronomeChannel();
             this.mixerTracks.appendChild(metronomeChannel);
+        }
+
+        // Render guide voice channel if enabled and has at least one voice assigned
+        if (this.guideVoiceEnabled && this.hasGuideVoiceAssigned()) {
+            const guideChannel = this.createGuideVoiceChannel();
+            this.mixerTracks.appendChild(guideChannel);
+            // Start visualization when channel is created
+            this.startGuideVoiceVisualization();
         }
 
         // Initialize master LED ring
@@ -3404,7 +3480,141 @@ class MultracksApp {
         
         return channel;
     }
-    
+
+    hasGuideVoiceAssigned() {
+        if (!this.currentProject || !this.currentProject.waveformParts) {
+            return false;
+        }
+        return this.currentProject.waveformParts.some(part => {
+            const voiceFile = this.guideVoicePartMapping[part.id];
+            return voiceFile && voiceFile !== '';
+        });
+    }
+
+    updateGuideVoiceChannelInMixer() {
+        const shouldShow = this.guideVoiceEnabled && this.hasGuideVoiceAssigned();
+        const existingChannel = document.querySelector('.guide-voice-channel');
+
+        if (shouldShow && !existingChannel) {
+            // Create and add the channel
+            const guideChannel = this.createGuideVoiceChannel();
+            this.mixerTracks.appendChild(guideChannel);
+        } else if (!shouldShow && existingChannel) {
+            // Remove the channel and stop visualization
+            existingChannel.remove();
+            this.stopGuideVoiceVisualization();
+        }
+    }
+
+    createGuideVoiceChannel() {
+        const channel = document.createElement('div');
+        channel.className = 'track-channel guide-voice-channel';
+        channel.dataset.trackId = 'guide';
+
+        // Apply initial state classes
+        if (this.guideVoiceMuted) {
+            channel.classList.add('muted');
+        }
+
+        // Check if should be solo-muted
+        const hasSoloTracks = this.currentProject?.tracks.some(t => t.solo) ||
+                             (this.audioPlayer?.hasSoloTracks && this.audioPlayer.hasSoloTracks());
+        if (hasSoloTracks && !this.guideVoiceSolo) {
+            channel.classList.add('solo-muted');
+        }
+
+        // Convert gain to position for display
+        const position = this.gainToPosition(this.guideVoiceVolume);
+        const volumePercent = Math.round(position * 100);
+        const db = this.positionToDb(position);
+
+        channel.innerHTML = `
+            <div class="track-header">
+                <div class="track-name">Guia W.tracks</div>
+            </div>
+            <div class="track-controls">
+                <button class="track-btn guide-mute-btn ${this.guideVoiceMuted ? 'active' : ''}" data-action="mute">M</button>
+                <button class="track-btn guide-solo-btn ${this.guideVoiceSolo ? 'active' : ''}" data-action="solo">S</button>
+            </div>
+            <div class="track-fader">
+                <input type="range" class="fader-input guide-fader" min="0" max="100" value="${volumePercent}">
+                <div class="fader-track">
+                    <div class="fader-fill" style="height: ${volumePercent}%"></div>
+                    <div class="track-level-bar" id="guideLevelBar" style="height: 0%"></div>
+                    <div class="track-level-bar peak" id="guidePeakBar" style="height: 0%"></div>
+                </div>
+                <div class="fader-thumb" style="bottom: ${volumePercent}%"></div>
+            </div>
+            <div class="track-db-separator"></div>
+            <div class="track-pan-container">
+                <div class="track-pan-meter">
+                    <div class="track-pan-meter-left" id="trackPanMeterLeft_guide"></div>
+                    <div class="track-pan-meter-center" id="trackPanMeterCenter_guide"></div>
+                    <div class="track-pan-meter-right" id="trackPanMeterRight_guide"></div>
+                </div>
+                <input type="range" class="track-pan-input guide-pan" min="-1" max="1" step="0.1" value="${this.guideVoicePan}">
+            </div>
+        `;
+
+        // Event listeners
+        const muteBtn = channel.querySelector('.guide-mute-btn');
+        muteBtn?.addEventListener('click', () => this.toggleGuideVoiceMute());
+
+        const soloBtn = channel.querySelector('.guide-solo-btn');
+        soloBtn?.addEventListener('click', () => this.toggleGuideVoiceSolo());
+
+        const volumeInput = channel.querySelector('.guide-fader');
+        const faderContainer = channel.querySelector('.track-fader');
+
+        // Custom fader interaction
+        const handleFaderInteraction = (clientY) => {
+            const rect = faderContainer.getBoundingClientRect();
+            const clickY = clientY - rect.top;
+            const percentage = 1 - (clickY / rect.height);
+            const position = Math.max(0, Math.min(1, percentage));
+            const volumePercent = Math.round(position * 100);
+
+            const db = this.positionToDb(position);
+            const gain = this.dbToGain(db);
+
+            this.setGuideVoiceVolume(gain);
+
+            const thumb = channel.querySelector('.fader-thumb');
+            const faderFill = channel.querySelector('.fader-fill');
+
+            if (thumb) thumb.style.bottom = `${volumePercent}%`;
+            if (faderFill) faderFill.style.height = `${volumePercent}%`;
+
+            volumeInput.value = volumePercent;
+        };
+
+        // Pointer Events for unified mouse/touch/pen handling
+        faderContainer?.addEventListener('pointerdown', (e) => {
+            faderContainer.setPointerCapture(e.pointerId);
+            handleFaderInteraction(e.clientY);
+
+            const handlePointerMove = (moveEvent) => {
+                handleFaderInteraction(moveEvent.clientY);
+            };
+
+            const handlePointerUp = () => {
+                faderContainer.releasePointerCapture(e.pointerId);
+                faderContainer.removeEventListener('pointermove', handlePointerMove);
+                faderContainer.removeEventListener('pointerup', handlePointerUp);
+            };
+
+            faderContainer.addEventListener('pointermove', handlePointerMove);
+            faderContainer.addEventListener('pointerup', handlePointerUp);
+        });
+
+        const panInput = channel.querySelector('.guide-pan');
+        panInput?.addEventListener('input', (e) => {
+            this.setGuideVoicePan(parseFloat(e.target.value));
+        });
+
+        return channel;
+    }
+
     /**
      * Check if a project is fully prepared (all audio files available locally in IndexedDB)
      * @param {Object} project - Project to check
@@ -6791,6 +7001,12 @@ class MultracksApp {
         const hasSoloTracks = this.currentProject?.tracks.some(t => t.solo) || 
                              (this.audioPlayer?.hasSoloTracks && this.audioPlayer.hasSoloTracks());
         
+        // Check if guide voice has solo enabled
+        const hasGuideVoiceSolo = this.guideVoiceSolo;
+        
+        // Check if any solo is active (tracks or guide voice)
+        const hasAnySolo = hasSoloTracks || hasGuideVoiceSolo;
+        
         this.mixerTracks.querySelectorAll('.track-channel').forEach(trackChannel => {
             const trackId = trackChannel.dataset.trackId;
             const track = this.currentProject?.tracks.find(t => t.id === trackId);
@@ -6798,7 +7014,7 @@ class MultracksApp {
             if (track) {
                 // For PAD, use project's solo state directly
                 if (trackId === 'pad-track') {
-                    if (hasSoloTracks && !track.solo) {
+                    if (hasAnySolo && !track.solo) {
                         trackChannel.classList.add('solo-muted');
                         // Mute the PAD gain
                         if (this.padTrackNodes) {
@@ -6814,9 +7030,9 @@ class MultracksApp {
                 } else {
                     // For normal tracks, check if should be solo-muted
                     // A track should be solo-muted if:
-                    // 1. Any track has solo enabled (including PAD)
+                    // 1. Any solo is active (tracks or guide voice)
                     // 2. This specific track is NOT soloed
-                    const shouldMute = hasSoloTracks && !track.solo;
+                    const shouldMute = hasAnySolo && !track.solo;
                     
                     if (shouldMute) {
                         trackChannel.classList.add('solo-muted');
@@ -6826,6 +7042,29 @@ class MultracksApp {
                 }
             }
         });
+
+        // Handle guide voice channel
+        const guideChannel = this.mixerTracks.querySelector('.guide-voice-channel');
+        if (guideChannel) {
+            // Guide voice should be solo-muted if:
+            // 1. Any track has solo enabled
+            // 2. Guide voice is NOT soloed
+            const shouldMuteGuide = hasSoloTracks && !hasGuideVoiceSolo;
+            
+            if (shouldMuteGuide) {
+                guideChannel.classList.add('solo-muted');
+                // Mute guide voice gain
+                if (this.audioPlayer) {
+                    this.audioPlayer.setGuideVoiceVolume(0);
+                }
+            } else {
+                guideChannel.classList.remove('solo-muted');
+                // Restore guide voice gain if not muted
+                if (!this.guideVoiceMuted && this.audioPlayer) {
+                    this.audioPlayer.setGuideVoiceVolume(this.guideVoiceVolume);
+                }
+            }
+        }
     }
     toggleTrackSolo(trackId) {
         // Special handling for PAD track
@@ -7716,6 +7955,11 @@ class MultracksApp {
         if (this.metronomeEnabled) {
             this.startMetronomeVisualization();
         }
+
+        // Update guide voice level in visualization
+        if (this.guideVoiceEnabled) {
+            this.startGuideVoiceVisualization();
+        }
     }
     
     handleTapTempo() {
@@ -7845,36 +8089,184 @@ class MultracksApp {
         soloBtn.classList.toggle('active', this.metronomeSolo);
 
         if (this.metronomeSolo) {
-            // Metronome solo enabled - mute all tracks
-            console.log('[APP] Metronome solo enabled - muting all tracks');
-            if (this.currentProject && this.audioPlayer) {
-                this.currentProject.tracks.forEach(track => {
-                    // Temporarily mute all tracks
-                    track.wasMutedBeforeMetronomeSolo = track.mute;
-                    track.mute = true;
-                    this.audioPlayer.applyMuteSoloToTrack(track.id);
-                });
-                // Update fader visual effects immediately
-                this.updateSoloMutedEffect();
-            }
+            // Mute all track channels
+            this.soloMetronome();
         } else {
-            // Metronome solo disabled - restore previous mute states
-            console.log('[APP] Metronome solo disabled - restoring track mute states');
-            if (this.currentProject && this.audioPlayer) {
-                this.currentProject.tracks.forEach(track => {
-                    // Restore previous mute state
-                    if (track.wasMutedBeforeMetronomeSolo !== undefined) {
-                        track.mute = track.wasMutedBeforeMetronomeSolo;
-                        delete track.wasMutedBeforeMetronomeSolo;
-                    }
-                    this.audioPlayer.applyMuteSoloToTrack(track.id);
-                });
-                // Update fader visual effects immediately
-                this.updateSoloMutedEffect();
+            // Unmute all track channels if no other solo is active
+            this.unsoloMetronome();
+        }
+    }
+
+    setGuideVoiceVolume(gain) {
+        this.guideVoiceVolume = gain;
+
+        if (this.audioPlayer) {
+            // Only apply if not muted
+            if (!this.guideVoiceMuted) {
+                this.audioPlayer.setGuideVoiceVolume(gain);
             }
         }
     }
-    
+
+    setGuideVoicePan(pan) {
+        this.guideVoicePan = pan;
+
+        if (this.audioPlayer) {
+            this.audioPlayer.setGuideVoicePan(pan);
+        }
+    }
+
+    toggleGuideVoiceMute() {
+        this.guideVoiceMuted = !this.guideVoiceMuted;
+
+        const muteBtn = document.querySelector('.guide-mute-btn');
+        muteBtn.classList.toggle('active', this.guideVoiceMuted);
+
+        // Apply muted class for digital mixer effect
+        const guideChannel = document.querySelector('.guide-voice-channel');
+        if (guideChannel) {
+            if (this.guideVoiceMuted) {
+                guideChannel.classList.add('muted');
+            } else {
+                guideChannel.classList.remove('muted');
+            }
+        }
+
+        if (this.audioPlayer) {
+            this.audioPlayer.setGuideVoiceVolume(this.guideVoiceMuted ? 0 : this.guideVoiceVolume);
+        }
+
+        // Re-apply solo-muted effect in case mute state affects solo visibility
+        this.updateSoloMutedEffect();
+    }
+
+    toggleGuideVoiceSolo() {
+        this.guideVoiceSolo = !this.guideVoiceSolo;
+
+        const soloBtn = document.querySelector('.guide-solo-btn');
+        soloBtn.classList.toggle('active', this.guideVoiceSolo);
+
+        if (this.guideVoiceSolo) {
+            this.soloGuideVoice();
+        } else {
+            this.unsoloGuideVoice();
+        }
+
+        // Apply digital mixer effect
+        this.updateSoloMutedEffect();
+    }
+
+    soloGuideVoice() {
+        // Mute all track channels (via player)
+        if (this.audioPlayer) {
+            this.audioPlayer.muteAllTracksForGuideVoiceSolo();
+        }
+        // Also mute metronome
+        if (this.audioPlayer) {
+            this.audioPlayer.setMetronomeVolume(0);
+        }
+    }
+
+    unsoloGuideVoice() {
+        // Unmute all track channels if no other solo is active
+        if (this.audioPlayer) {
+            this.audioPlayer.unmuteAllTracksForGuideVoiceSolo();
+        }
+        // Unmute metronome if not muted
+        if (!this.metronomeMuted && this.audioPlayer) {
+            this.audioPlayer.setMetronomeVolume(this.metronomeVolume);
+        }
+    }
+
+    toggleGuideVoiceEnabled(enabled) {
+        this.guideVoiceEnabled = enabled;
+
+        if (this.audioPlayer) {
+            this.audioPlayer.setGuideVoiceEnabled(enabled);
+        }
+
+        // Update guide voice channel in mixer
+        this.updateGuideVoiceChannelInMixer();
+
+        // Start/stop visualization
+        if (enabled) {
+            this.startGuideVoiceVisualization();
+        }
+    }
+
+    async updateGuideVoiceParts() {
+        if (this.currentProject && this.currentProject.waveformParts && this.audioPlayer) {
+            // Pass parts with their assigned guide voice files
+            const partsWithGuideFiles = this.currentProject.waveformParts.map(part => ({
+                ...part,
+                guideFile: this.guideVoicePartMapping[part.id] || null
+            }));
+            await this.audioPlayer.setGuideVoiceParts(partsWithGuideFiles);
+        }
+    }
+
+    /**
+     * Apply guide voice settings from currentProject to player
+     * This is the single source of truth for applying guide voice state
+     */
+    async applyGuideVoiceSettingsToPlayer() {
+        if (!this.currentProject || !this.audioPlayer) return;
+
+        const guideVoice = this.currentProject.guideVoice || { enabled: false, partMapping: {} };
+        const waveformParts = this.currentProject.waveformParts || [];
+
+        // Update local state from project
+        this.guideVoiceEnabled = guideVoice.enabled || false;
+        this.guideVoicePartMapping = guideVoice.partMapping || {};
+
+        // Apply to player
+        this.audioPlayer.setGuideVoiceEnabled(this.guideVoiceEnabled);
+
+        // Apply parts with guide files
+        const partsWithGuideFiles = waveformParts.map(part => ({
+            ...part,
+            guideFile: this.guideVoicePartMapping[part.id] || null
+        }));
+        await this.audioPlayer.setGuideVoiceParts(partsWithGuideFiles);
+
+        console.log('[GUIDE VOICE] Applied settings to player:', {
+            enabled: this.guideVoiceEnabled,
+            partsCount: partsWithGuideFiles.length
+        });
+    }
+
+    soloMetronome() {
+        // Metronome solo enabled - mute all tracks
+        console.log('[APP] Metronome solo enabled - muting all tracks');
+        if (this.currentProject && this.audioPlayer) {
+            this.currentProject.tracks.forEach(track => {
+                // Temporarily mute all tracks
+                track.wasMutedBeforeMetronomeSolo = track.mute;
+                track.mute = true;
+                this.audioPlayer.applyMuteSoloToTrack(track.id);
+            });
+            // Update fader visual effects immediately
+            this.updateSoloMutedEffect();
+        }
+    }
+
+    unsoloMetronome() {
+        // Metronome solo disabled - restore previous mute states
+        console.log('[APP] Metronome solo disabled - restoring track mute states');
+        if (this.currentProject && this.audioPlayer) {
+            this.currentProject.tracks.forEach(track => {
+                // Restore previous mute state
+                if (track.wasMutedBeforeMetronomeSolo !== undefined) {
+                    track.mute = track.wasMutedBeforeMetronomeSolo;
+                    delete track.wasMutedBeforeMetronomeSolo;
+                }
+                this.audioPlayer.applyMuteSoloToTrack(track.id);
+            });
+            // Update fader visual effects immediately
+            this.updateSoloMutedEffect();
+        }
+    }
+
     startMetronomeVisualization() {
         if (!this.metronomeEnabled) return;
         
@@ -7896,10 +8288,10 @@ class MultracksApp {
         // Handle track state updates from audio player
         console.log('Track state updated:', trackId, state);
     }
-    
-    updateTrackLevelMeter(trackId, level, peakLevel) {
-        // Update the level meter indicator for a specific track using unique ID
-        const levelBar = document.getElementById(`trackLevelBar_${trackId}`);
+
+    updateLevelMeterCommon(levelBarId, peakBarId, level, peakLevel) {
+        // Common function for updating level meters (used by tracks and guide voice)
+        const levelBar = document.getElementById(levelBarId);
         if (levelBar) {
             // Apply logarithmic scaling for better dynamic range representation
             const scaledLevel = Math.pow(level, 0.5); // Square root for more sensitivity at low levels
@@ -7931,15 +8323,51 @@ class MultracksApp {
         }
         
         // Update peak hold indicator
-        const peakBar = document.getElementById(`trackPeakBar_${trackId}`);
+        const peakBar = document.getElementById(peakBarId);
         if (peakBar && peakLevel !== undefined) {
             const scaledPeak = Math.pow(peakLevel, 0.5);
             const peakPercent = Math.min(100, Math.round(scaledPeak * 100));
             peakBar.style.height = `${peakPercent}%`;
         }
+    }
+
+    updateTrackLevelMeter(trackId, level, peakLevel) {
+        // Update the level meter indicator for a specific track using unique ID
+        this.updateLevelMeterCommon(`trackLevelBar_${trackId}`, `trackPeakBar_${trackId}`, level, peakLevel);
         
         // Update pan meter visualization
         this.updateTrackPanMeter(trackId, level);
+    }
+
+    updateGuideLevelMeter(level, peakLevel) {
+        // Update guide voice level meter using common function
+        this.updateLevelMeterCommon('guideLevelBar', 'guidePeakBar', level, peakLevel);
+        
+        // Update pan meter visualization
+        this.updateGuidePanMeter(level);
+    }
+
+    updateGuidePanMeter(level) {
+        const panLeft = document.getElementById('trackPanMeterLeft_guide');
+        const panRight = document.getElementById('trackPanMeterRight_guide');
+        
+        if (panLeft && panRight) {
+            // Calculate pan distribution (-1 to 1)
+            const pan = this.guideVoicePan || 0;
+            
+            // Base intensity from audio level
+            const levelIntensity = Math.min(1, level);
+            
+            // Calculate left and right intensity based on pan position
+            const leftIntensity = levelIntensity * (1 - pan) / 2;
+            const rightIntensity = levelIntensity * (1 + pan) / 2;
+            
+            // Update left meter
+            panLeft.style.background = `rgba(46, 158, 69, ${leftIntensity})`;
+            
+            // Update right meter
+            panRight.style.background = `rgba(46, 158, 69, ${rightIntensity})`;
+        }
     }
     
     updateTrackPanMeter(trackId, level) {
@@ -8024,7 +8452,83 @@ class MultracksApp {
             panRight.style.background = `rgba(46, 158, 69, ${rightIntensity})`;
         }
     }
-    
+
+    updateGuideLevelMeter(level) {
+        // Update guide voice level meter
+        const levelBar = document.getElementById('guideLevelBar');
+        if (levelBar) {
+            // Apply logarithmic scaling for better dynamic range representation
+            const scaledLevel = Math.pow(level, 0.5);
+            const heightPercent = Math.min(100, Math.round(scaledLevel * 100));
+            levelBar.style.height = `${heightPercent}%`;
+        }
+
+        // Update guide voice pan meter
+        this.updateGuidePanMeter(level);
+    }
+
+    updateGuidePanMeter(level) {
+        const panLeft = document.getElementById('trackPanMeterLeft_guide');
+        const panRight = document.getElementById('trackPanMeterRight_guide');
+
+        if (panLeft && panRight) {
+            // Calculate pan distribution (-1 to 1)
+            const pan = this.guideVoicePan || 0;
+
+            // Base intensity from audio level
+            const levelIntensity = Math.min(1, level);
+
+            // Calculate left and right intensity based on pan position
+            const leftIntensity = levelIntensity * (1 - pan) / 2;
+            const rightIntensity = levelIntensity * (1 + pan) / 2;
+
+            // Update left meter - same color as faders
+            panLeft.style.background = `rgba(46, 158, 69, ${leftIntensity})`;
+
+            // Update right meter - same color as faders
+            panRight.style.background = `rgba(46, 158, 69, ${rightIntensity})`;
+        }
+    }
+
+    startGuideVoiceVisualization() {
+        // Stop existing visualization frame if running
+        if (this.guideVoiceVisualizationFrame) {
+            cancelAnimationFrame(this.guideVoiceVisualizationFrame);
+            this.guideVoiceVisualizationFrame = null;
+        }
+
+        const updateGuideLevel = () => {
+            if (!this.guideVoiceEnabled || !this.audioPlayer) {
+                // Zero out the bars when disabled
+                const levelBar = document.getElementById('guideLevelBar');
+                const peakBar = document.getElementById('guidePeakBar');
+                if (levelBar) levelBar.style.height = '0%';
+                if (peakBar) peakBar.style.height = '0%';
+                return;
+            }
+
+            const { level, peak } = this.audioPlayer.getGuideVoiceLevel();
+            this.updateGuideLevelMeter(level, peak);
+
+            this.guideVoiceVisualizationFrame = requestAnimationFrame(updateGuideLevel);
+        };
+
+        this.guideVoiceVisualizationFrame = requestAnimationFrame(updateGuideLevel);
+    }
+
+    stopGuideVoiceVisualization() {
+        if (this.guideVoiceVisualizationFrame) {
+            cancelAnimationFrame(this.guideVoiceVisualizationFrame);
+            this.guideVoiceVisualizationFrame = null;
+        }
+
+        // Zero out the bars
+        const levelBar = document.getElementById('guideLevelBar');
+        const peakBar = document.getElementById('guidePeakBar');
+        if (levelBar) levelBar.style.height = '0%';
+        if (peakBar) peakBar.style.height = '0%';
+    }
+
     async handleSongEnded() {
         console.log('[PLAYBACK] Project ended');
 
@@ -8950,6 +9454,11 @@ class MultracksApp {
         this.renderTimeScale();
         this.updateSelectionUI();
 
+        // Render guide voice timeline after modal is visible
+        requestAnimationFrame(() => {
+            this.renderGuideVoiceCanvas();
+        });
+
         // Initialize precision marker at current playback position
         if (this.audioPlayer) {
             this.precisionMarkerTime = this.audioPlayer.currentTime;
@@ -8972,6 +9481,18 @@ class MultracksApp {
 
         // Clear parts on preview waveform
         this.clearWaveformPartsOnPreview();
+
+        // Close guide voice selector
+        this.closeGuideVoiceSelector();
+
+        // Restore guide voice state from project (undo unsaved changes)
+        if (this.currentProject && this.currentProject.guideVoice) {
+            this.guideVoiceEnabled = this.currentProject.guideVoice.enabled || false;
+            this.guideVoicePartMapping = this.currentProject.guideVoice.partMapping || {};
+        } else {
+            this.guideVoiceEnabled = false;
+            this.guideVoicePartMapping = {};
+        }
 
         // Reset temporary state but don't modify the project
         // The project's waveformParts remains as it was saved
@@ -9093,6 +9614,9 @@ class MultracksApp {
                 this.updateSelectionUI();
                 // Re-render waveform parts on preview waveform
                 this.renderWaveformPartsOnPreview();
+                // Re-render guide voice canvas and blocks
+                this.renderGuideVoiceCanvas();
+                this.renderGuideVoiceBlocks();
             }
             // Re-render waveform parts on main waveform
             this.renderWaveformParts();
@@ -9117,6 +9641,14 @@ class MultracksApp {
 
         // Add clear selection button listener
         this.waveformClearSelection?.addEventListener('click', () => this.clearSelection());
+
+        // Add guide voice toggle listener
+        this.guideVoiceEnabledCheckbox = document.getElementById('guideVoiceEnabled');
+        this.guideVoiceEnabledCheckbox?.addEventListener('change', (e) => {
+            this.guideVoiceEnabled = e.target.checked;
+            // Re-render guide voice blocks to update disabled state
+            this.renderGuideVoiceBlocks();
+        });
     }
 
     setupPartsList() {
@@ -9327,6 +9859,7 @@ class MultracksApp {
 
         // Render updated list
         this.renderWaveformPartsList();
+        this.renderGuideVoicePartsList();
 
         // Render parts on preview waveform immediately
         this.renderWaveformPartsOnPreview();
@@ -9336,10 +9869,16 @@ class MultracksApp {
         // Remove part from array
         this.waveformParts = this.waveformParts.filter(part => part.id !== partId);
 
+        // Remove from guide voice mapping
+        if (this.guideVoicePartMapping[partId]) {
+            delete this.guideVoicePartMapping[partId];
+        }
+
         console.log('[WAVEFORM PARTS] Removed part:', partId);
 
         // Render updated list
         this.renderWaveformPartsList();
+        this.renderGuideVoicePartsList();
 
         // Render parts on preview waveform immediately
         this.renderWaveformPartsOnPreview();
@@ -9394,49 +9933,86 @@ class MultracksApp {
         this.currentProject.waveformParts = this.currentProject.waveformParts || [];
         console.log('[WAVEFORM PARTS] Using local parts initially:', this.currentProject.waveformParts.length);
 
+        // Load guide voice state from project
+        if (this.currentProject.guideVoice) {
+            this.guideVoiceEnabled = this.currentProject.guideVoice.enabled || false;
+            this.guideVoicePartMapping = this.currentProject.guideVoice.partMapping || {};
+        } else {
+            this.guideVoiceEnabled = false;
+            this.guideVoicePartMapping = {};
+        }
+
         // Render parts immediately from local data
         this.renderWaveformParts();
 
+        // Apply guide voice settings to player
+        this.applyGuideVoiceSettingsToPlayer();
+
         // Then, try to load from Firestore in the background
-        this.loadWaveformPartsFromFirestore(projectId).then(cloudParts => {
-            if (cloudParts && Array.isArray(cloudParts)) {
+        this.loadWaveformPartsFromFirestore(projectId).then(cloudData => {
+            if (cloudData && cloudData.waveformParts) {
                 // Use cloud data
-                this.currentProject.waveformParts = cloudParts;
-                console.log('[WAVEFORM PARTS] Loaded cloud parts:', cloudParts.length);
+                this.currentProject.waveformParts = cloudData.waveformParts;
+                console.log('[WAVEFORM PARTS] Loaded cloud parts:', cloudData.waveformParts.length);
+
+                // If guide voice came from cloud, update it
+                if (cloudData.guideVoice) {
+                    this.currentProject.guideVoice = cloudData.guideVoice;
+                    this.guideVoiceEnabled = cloudData.guideVoice.enabled || false;
+                    this.guideVoicePartMapping = cloudData.guideVoice.partMapping || {};
+                    console.log('[WAVEFORM PARTS] Loaded cloud guide voice:', cloudData.guideVoice);
+                }
 
                 // Save cloud data locally
                 storage.updateProject(projectId, {
-                    waveformParts: cloudParts
+                    waveformParts: cloudData.waveformParts,
+                    guideVoice: cloudData.guideVoice
                 }).then(() => {
-                    console.log('[WAVEFORM PARTS] Cloud parts saved locally');
+                    console.log('[WAVEFORM PARTS] Cloud data saved locally');
                 }).catch(error => {
-                    console.warn('[WAVEFORM PARTS] Error saving cloud parts locally:', error);
+                    console.warn('[WAVEFORM PARTS] Error saving cloud data locally:', error);
                 });
 
                 // Re-render with cloud data
                 this.renderWaveformParts();
+
+                // Apply guide voice settings to player again with cloud data
+                this.applyGuideVoiceSettingsToPlayer();
+
+                // Update guide voice channel in mixer
+                this.updateGuideVoiceChannelInMixer();
             } else {
-                console.log('[WAVEFORM PARTS] No cloud parts available, keeping local data');
+                console.log('[WAVEFORM PARTS] No cloud data available, keeping local data');
 
                 // If no user was available, retry after a delay to wait for auth
                 if (typeof window.firebaseAuth !== 'undefined' && window.firebaseAuth.auth && !window.firebaseAuth.auth.currentUser) {
                     console.log('[WAVEFORM PARTS] No user available yet, will retry loading from Firestore after delay');
                     setTimeout(() => {
                         console.log('[WAVEFORM PARTS] Retrying Firestore load after auth delay');
-                        this.loadWaveformPartsFromFirestore(projectId).then(retryCloudParts => {
-                            if (retryCloudParts && Array.isArray(retryCloudParts)) {
-                                this.currentProject.waveformParts = retryCloudParts;
-                                console.log('[WAVEFORM PARTS] Loaded cloud parts on retry:', retryCloudParts.length);
+                        this.loadWaveformPartsFromFirestore(projectId).then(retryCloudData => {
+                            if (retryCloudData && retryCloudData.waveformParts) {
+                                this.currentProject.waveformParts = retryCloudData.waveformParts;
+                                console.log('[WAVEFORM PARTS] Loaded cloud parts on retry:', retryCloudData.waveformParts.length);
+
+                                if (retryCloudData.guideVoice) {
+                                    this.currentProject.guideVoice = retryCloudData.guideVoice;
+                                    this.guideVoiceEnabled = retryCloudData.guideVoice.enabled || false;
+                                    this.guideVoicePartMapping = retryCloudData.guideVoice.partMapping || {};
+                                    console.log('[WAVEFORM PARTS] Loaded cloud guide voice on retry:', retryCloudData.guideVoice);
+                                }
 
                                 storage.updateProject(projectId, {
-                                    waveformParts: retryCloudParts
+                                    waveformParts: retryCloudData.waveformParts,
+                                    guideVoice: retryCloudData.guideVoice
                                 }).then(() => {
-                                    console.log('[WAVEFORM PARTS] Cloud parts saved locally on retry');
+                                    console.log('[WAVEFORM PARTS] Cloud data saved locally on retry');
                                 }).catch(error => {
-                                    console.warn('[WAVEFORM PARTS] Error saving cloud parts locally on retry:', error);
+                                    console.warn('[WAVEFORM PARTS] Error saving cloud data locally on retry:', error);
                                 });
 
                                 this.renderWaveformParts();
+                                this.applyGuideVoiceSettingsToPlayer();
+                                this.updateGuideVoiceChannelInMixer();
                             }
                         }).catch(error => {
                             console.warn('[WAVEFORM PARTS] Error on retry loading from Firestore:', error);
@@ -9461,10 +10037,467 @@ class MultracksApp {
             console.log('[WAVEFORM PARTS] No existing parts, starting with empty array');
         }
 
+        // Load guide voice settings
+        if (this.currentProject && this.currentProject.guideVoice) {
+            this.guideVoiceEnabled = this.currentProject.guideVoice.enabled || false;
+            this.guideVoicePartMapping = this.currentProject.guideVoice.partMapping || {};
+            console.log('[GUIDE VOICE] Loaded guide voice settings:', this.currentProject.guideVoice);
+        } else {
+            // Default settings for projects without guide voice config
+            this.guideVoiceEnabled = false;
+            this.guideVoicePartMapping = {};
+            console.log('[GUIDE VOICE] No guide voice config, using defaults');
+        }
+
+        // Update UI controls
+        const checkbox = document.getElementById('guideVoiceEnabled');
+        if (checkbox) checkbox.checked = this.guideVoiceEnabled;
+
         this.renderWaveformPartsList();
+        this.renderGuideVoicePartsList();
 
         // Render parts on preview waveform after loading
         this.renderWaveformPartsOnPreview();
+    }
+
+    renderGuideVoicePartsList() {
+        const container = document.getElementById('guideVoicePartsList');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        if (!this.waveformParts || this.waveformParts.length === 0) {
+            container.innerHTML = '<div style="color: #666; font-size: 13px; padding: 10px;">Adicione partes na waveform para escolher as vozes guia</div>';
+            return;
+        }
+
+        // Check if guide voice is enabled
+        const isEnabled = this.guideVoiceEnabled;
+
+        // Create timeline container
+        const timeline = document.createElement('div');
+        timeline.className = 'guide-voice-timeline';
+        timeline.id = 'guideVoiceTimeline';
+
+        // Canvas for waveform
+        const canvas = document.createElement('canvas');
+        canvas.className = 'guide-voice-canvas';
+        canvas.id = 'guideVoiceCanvas';
+        timeline.appendChild(canvas);
+
+        // Parts overlay
+        const partsOverlay = document.createElement('div');
+        partsOverlay.className = 'guide-voice-parts-overlay';
+        partsOverlay.id = 'guideVoicePartsOverlay';
+
+        // Add warning if disabled
+        if (!isEnabled) {
+            const warning = document.createElement('div');
+            warning.className = 'guide-voice-warning';
+            warning.textContent = 'Ative a voz guia para escolher as vozes';
+            timeline.appendChild(warning);
+            timeline.classList.add('guide-voice-timeline-disabled');
+        }
+
+        timeline.appendChild(partsOverlay);
+        container.appendChild(timeline);
+
+        // Render blocks
+        this.renderGuideVoiceBlocks();
+
+        // Render canvas (will be redrawn after modal is visible)
+        requestAnimationFrame(() => {
+            this.renderGuideVoiceCanvas();
+        });
+    }
+
+    renderGuideVoiceCanvas() {
+        const canvas = document.getElementById('guideVoiceCanvas');
+        if (!canvas) return;
+
+        const container = canvas.parentElement;
+        if (!container) return;
+
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+
+        if (width === 0 || height === 0) return;
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+
+        // Clear canvas
+        ctx.fillStyle = '#0a0a0a';
+        ctx.fillRect(0, 0, width, height);
+
+        // Draw waveform if available
+        if (this.currentProject?.waveformData) {
+            this.drawWaveformFromCache(ctx, width, height, 'base');
+        } else {
+            // Show text if no waveform
+            ctx.fillStyle = '#333';
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Waveform indisponível', width / 2, height / 2);
+        }
+    }
+
+    renderGuideVoiceBlocks() {
+        const overlay = document.getElementById('guideVoicePartsOverlay');
+        if (!overlay) return;
+
+        overlay.innerHTML = '';
+
+        if (!this.waveformParts || this.waveformParts.length === 0) return;
+
+        if (!this.totalDuration || this.totalDuration === 0) return;
+
+        const isEnabled = this.guideVoiceEnabled;
+
+        this.waveformParts.forEach((part, index) => {
+            const block = document.createElement('button');
+            block.className = 'guide-voice-block';
+            block.dataset.partId = part.id;
+
+            // Position in percentage
+            const left = (part.start / this.totalDuration) * 100;
+            const width = ((part.end - part.start) / this.totalDuration) * 100;
+
+            block.style.left = `${left}%`;
+            block.style.width = `${width}%`;
+            block.style.zIndex = index + 1;
+
+            // Check if has voice assigned
+            const voiceFile = this.guideVoicePartMapping[part.id];
+            const hasVoice = voiceFile && voiceFile !== '';
+
+            if (hasVoice) {
+                block.classList.add('guide-voice-block-has-voice');
+                // Get voice name from file
+                const voiceName = this.getVoiceNameFromFile(voiceFile);
+                block.innerHTML = `
+                    <span class="guide-voice-block-part">${part.name}</span>
+                    <span class="guide-voice-block-voice">
+                        <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12">
+                            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                        </svg>
+                        ${voiceName}
+                    </span>
+                `;
+            } else {
+                block.classList.add('guide-voice-block-no-voice');
+                block.innerHTML = `
+                    <span class="guide-voice-block-part">${part.name}</span>
+                    <span class="guide-voice-block-plus">+</span>
+                `;
+            }
+
+            // Tooltip for narrow blocks
+            const blockWidthPx = (width / 100) * overlay.parentElement.clientWidth;
+            if (blockWidthPx < 48) {
+                block.title = `${part.name} (${this.formatTime(part.start)} - ${this.formatTime(part.end)})`;
+            }
+
+            // Click handler
+            if (isEnabled) {
+                block.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.openGuideVoiceSelector(part);
+                });
+            } else {
+                block.style.pointerEvents = 'none';
+            }
+
+            overlay.appendChild(block);
+        });
+    }
+
+    getVoiceNameFromFile(fileName) {
+        if (!fileName) return '';
+        // Extract name from "Portugese - Chorus 2.wav" -> "Chorus 2"
+        const match = fileName.match(/Portugese - (.+)\.wav/);
+        if (match) return match[1];
+        return fileName;
+    }
+
+    openGuideVoiceSelector(part) {
+        // Close existing selector
+        this.closeGuideVoiceSelector();
+
+        // Create backdrop for all devices
+        const backdrop = document.createElement('div');
+        backdrop.className = 'guide-voice-selector-backdrop';
+        backdrop.id = 'guideVoiceSelectorBackdrop';
+        backdrop.addEventListener('click', () => this.closeGuideVoiceSelector());
+        document.body.appendChild(backdrop);
+
+        // Create selector container
+        const selector = document.createElement('div');
+        selector.className = 'guide-voice-selector-centered';
+        selector.id = 'guideVoiceSelector';
+
+        // Title
+        const title = document.createElement('div');
+        title.className = 'guide-voice-selector-title';
+        title.textContent = `Voz guia para ${part.name}`;
+        selector.appendChild(title);
+
+        // Time range
+        const timeRange = document.createElement('div');
+        timeRange.className = 'guide-voice-selector-time';
+        timeRange.textContent = `${this.formatTime(part.start)} - ${this.formatTime(part.end)}`;
+        selector.appendChild(timeRange);
+
+        // Voice list container with scroll
+        const voiceListContainer = document.createElement('div');
+        voiceListContainer.className = 'guide-voice-selector-list-container';
+
+        // Get suggested voice
+        const suggestedVoice = this.getSuggestedVoiceForPart(part.name);
+
+        // Group voice files by category
+        const categories = {
+            'Números': [],
+            'Intro/Outro': [],
+            'Verse': [],
+            'Chorus': [],
+            'Pre Chorus': [],
+            'Bridge': [],
+            'Outros': []
+        };
+
+        this.guideVoiceFiles.forEach(file => {
+            if (!file.value) return; // Skip "Nenhuma"
+
+            const name = file.name.toLowerCase();
+            if (/^\d+$/.test(name)) {
+                categories['Números'].push(file);
+            } else if (name.includes('intro') || name.includes('outro') || name.includes('ending')) {
+                categories['Intro/Outro'].push(file);
+            } else if (name.includes('verse')) {
+                categories['Verse'].push(file);
+            } else if (name.includes('chorus') || name.includes('refrain')) {
+                categories['Chorus'].push(file);
+            } else if (name.includes('pre chorus') || name.includes('post chorus')) {
+                categories['Pre Chorus'].push(file);
+            } else if (name.includes('bridge')) {
+                categories['Bridge'].push(file);
+            } else {
+                categories['Outros'].push(file);
+            }
+        });
+
+        // Add "Nenhuma voz" option at the top
+        const noneOption = this.createVoiceOption('', 'Nenhuma voz', part.id, suggestedVoice === '');
+        voiceListContainer.appendChild(noneOption);
+
+        // Add categories with their voices
+        Object.entries(categories).forEach(([categoryName, files]) => {
+            if (files.length === 0) return;
+
+            // Category header
+            const categoryHeader = document.createElement('div');
+            categoryHeader.className = 'guide-voice-category-header';
+            categoryHeader.textContent = categoryName;
+            voiceListContainer.appendChild(categoryHeader);
+
+            // Voice options in this category
+            files.forEach(file => {
+                const option = this.createVoiceOption(file.value, file.name, part.id, suggestedVoice === file.value);
+                voiceListContainer.appendChild(option);
+            });
+        });
+
+        selector.appendChild(voiceListContainer);
+
+        // Close button
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'guide-voice-selector-close';
+        closeBtn.innerHTML = '✕';
+        closeBtn.addEventListener('click', () => this.closeGuideVoiceSelector());
+        selector.appendChild(closeBtn);
+
+        // Add to document
+        document.body.appendChild(selector);
+
+        // Close on escape
+        this.guideVoiceSelectorEscapeHandler = (e) => {
+            if (e.key === 'Escape') {
+                this.closeGuideVoiceSelector();
+            }
+        };
+        document.addEventListener('keydown', this.guideVoiceSelectorEscapeHandler);
+    }
+
+    createVoiceOption(voiceFile, voiceName, partId, isSuggested) {
+        const option = document.createElement('div');
+        option.className = 'guide-voice-option';
+
+        // Check if selected
+        const isSelected = this.guideVoicePartMapping[partId] === voiceFile;
+        if (isSelected) {
+            option.classList.add('guide-voice-option-selected');
+        }
+
+        // Add suggested badge
+        if (isSuggested && voiceFile) {
+            const suggestedBadge = document.createElement('span');
+            suggestedBadge.className = 'guide-voice-option-suggested';
+            suggestedBadge.textContent = 'Sugerida';
+            option.appendChild(suggestedBadge);
+        }
+
+        // Voice name
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'guide-voice-option-name';
+        nameSpan.textContent = voiceName;
+        option.appendChild(nameSpan);
+
+        // Preview button
+        if (voiceFile) {
+            const previewBtn = document.createElement('button');
+            previewBtn.className = 'guide-voice-option-preview';
+            previewBtn.innerHTML = '▶';
+            previewBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.previewGuideVoice(voiceFile, previewBtn);
+            });
+            option.appendChild(previewBtn);
+        }
+
+        // Click to select
+        option.addEventListener('click', () => {
+            if (voiceFile) {
+                this.guideVoicePartMapping[partId] = voiceFile;
+            } else {
+                delete this.guideVoicePartMapping[partId];
+            }
+            this.renderGuideVoiceBlocks();
+            this.closeGuideVoiceSelector();
+        });
+
+        return option;
+    }
+
+    getSuggestedVoiceForPart(partName) {
+        if (!partName) return '';
+
+        const norm = (s) => s.toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]/g, '');
+
+        const normalized = norm(partName);
+
+        // Try exact match with number
+        const match = normalized.match(/^(.+?)(\d+)?$/);
+        if (!match) return '';
+
+        const base = match[1];
+        const number = match[2] ? parseInt(match[2]) : null;
+
+        // Portuguese to English mapping
+        const mapping = {
+            'intro': 'Intro',
+            'verso': 'Verse',
+            'refrao': 'Chorus',
+            'prerefrão': 'Pre Chorus',
+            'ponte': 'Bridge',
+            'interludio': 'Interlude',
+            'instrumental': 'Instrumental',
+            'solo': 'Solo',
+            'tag': 'Tag',
+            'turnaround': 'Turnaround',
+            'vamp': 'Vamp',
+            'finalizacao': 'Outro'
+        };
+
+        const englishBase = mapping[base] || base;
+
+        // Try with number first
+        if (number) {
+            const numberedName = `${englishBase} ${number}`;
+            const numberedFile = this.guideVoiceFiles.find(f => f.name === numberedName);
+            if (numberedFile) return numberedFile.value;
+        }
+
+        // Try without number
+        const baseFile = this.guideVoiceFiles.find(f => f.name === englishBase);
+        if (baseFile) return baseFile.value;
+
+        // Special case for FINALIZAÇÃO
+        if (normalized.includes('finaliz')) {
+            const endingFile = this.guideVoiceFiles.find(f => f.name === 'Ending');
+            if (endingFile) return endingFile.value;
+        }
+
+        return '';
+    }
+
+    previewGuideVoice(voiceFile, button) {
+        // Stop existing preview
+        this.stopGuideVoicePreview();
+
+        const url = this.audioPlayer?.guideVoice?.voiceFilesPath + encodeURIComponent(voiceFile) || 'Song Sections/' + encodeURIComponent(voiceFile);
+
+        const audio = new Audio(url);
+
+        audio.addEventListener('loadeddata', () => {
+            audio.play().catch(err => {
+                console.warn('[GUIDE VOICE PREVIEW] Failed to play:', err);
+                button.classList.add('guide-voice-option-preview-error');
+            });
+        });
+
+        audio.addEventListener('error', () => {
+            console.warn('[GUIDE VOICE PREVIEW] Failed to load:', url);
+            button.classList.add('guide-voice-option-preview-error');
+        });
+
+        audio.addEventListener('ended', () => {
+            this.stopGuideVoicePreview();
+        });
+
+        this.guideVoicePreviewAudio = audio;
+    }
+
+    stopGuideVoicePreview() {
+        if (this.guideVoicePreviewAudio) {
+            this.guideVoicePreviewAudio.pause();
+            this.guideVoicePreviewAudio = null;
+        }
+
+        // Remove error states
+        document.querySelectorAll('.guide-voice-option-preview-error').forEach(btn => {
+            btn.classList.remove('guide-voice-option-preview-error');
+        });
+    }
+
+    closeGuideVoiceSelector() {
+        const selector = document.getElementById('guideVoiceSelector');
+        if (selector) {
+            selector.remove();
+        }
+
+        const backdrop = document.getElementById('guideVoiceSelectorBackdrop');
+        if (backdrop) {
+            backdrop.remove();
+        }
+
+        // Stop preview
+        this.stopGuideVoicePreview();
+
+        // Remove event listeners
+        if (this.guideVoiceSelectorEscapeHandler) {
+            document.removeEventListener('keydown', this.guideVoiceSelectorEscapeHandler);
+            this.guideVoiceSelectorEscapeHandler = null;
+        }
+        if (this.guideVoiceSelectorClickHandler) {
+            document.removeEventListener('click', this.guideVoiceSelectorClickHandler);
+            this.guideVoiceSelectorClickHandler = null;
+        }
     }
 
     async saveWaveformParts() {
@@ -9499,18 +10532,30 @@ class MultracksApp {
         // Update project with validated parts
         this.currentProject.waveformParts = validatedParts;
 
+        // Update guide voice settings
+        this.currentProject.guideVoice = {
+            enabled: this.guideVoiceEnabled,
+            partMapping: this.guideVoicePartMapping
+        };
+
         console.log('[WAVEFORM PARTS] Saving parts to project:', validatedParts.length);
+        console.log('[GUIDE VOICE] Saving guide voice settings:', this.currentProject.guideVoice);
 
         try {
             // Save using the existing storage system
             await storage.updateProject(this.currentProject.id, {
-                waveformParts: validatedParts
+                waveformParts: validatedParts,
+                guideVoice: this.currentProject.guideVoice
             });
 
             console.log('[WAVEFORM PARTS] Parts saved successfully to local storage');
 
             // Sync to Firestore if authenticated
-            const firestoreSyncSuccess = await this.saveWaveformPartsToFirestore(this.currentProject.id, validatedParts);
+            const firestoreSyncSuccess = await this.saveWaveformPartsToFirestore(
+                this.currentProject.id,
+                validatedParts,
+                this.currentProject.guideVoice
+            );
 
             if (firestoreSyncSuccess) {
                 console.log('[WAVEFORM PARTS] Parts synced to Firestore successfully');
@@ -9521,6 +10566,12 @@ class MultracksApp {
             // Render parts on main waveform after successful save
             this.renderWaveformParts();
 
+            // Apply guide voice settings to player
+            await this.applyGuideVoiceSettingsToPlayer();
+
+            // Update guide voice channel in mixer (create or remove based on state)
+            this.updateGuideVoiceChannelInMixer();
+
             // Close modal after successful save (even if Firestore sync is pending)
             this.closeWaveformPartsModal();
         } catch (error) {
@@ -9529,11 +10580,11 @@ class MultracksApp {
         }
     }
 
-    async saveWaveformPartsToFirestore(projectId, waveformParts) {
+    async saveWaveformPartsToFirestore(projectId, waveformParts, guideVoice) {
         // Check if Firebase is available
         if (typeof window.firebaseDB === 'undefined' || typeof window.firebaseAuth === 'undefined') {
             console.log('[WAVEFORM PARTS SYNC] Firebase not available, marking as pending sync');
-            this.pendingWaveformPartsSync = { projectId, waveformParts };
+            this.pendingWaveformPartsSync = { projectId, waveformParts, guideVoice };
             return false;
         }
 
@@ -9542,31 +10593,32 @@ class MultracksApp {
         const user = auth.currentUser;
         if (!user) {
             console.log('[WAVEFORM PARTS SYNC] No authenticated user, marking as pending sync');
-            this.pendingWaveformPartsSync = { projectId, waveformParts };
+            this.pendingWaveformPartsSync = { projectId, waveformParts, guideVoice };
             return false;
         }
 
         const userId = user.uid;
-        console.log('[WAVEFORM PARTS SYNC] Saving parts to Firestore for project:', projectId, 'user:', userId);
+        console.log('[WAVEFORM PARTS SYNC] Saving parts and guide voice to Firestore for project:', projectId, 'user:', userId);
 
         try {
             const { doc, setDoc, serverTimestamp } = window.firebaseDB;
             const db = window.firebaseDB.db;
             const projectRef = doc(db, 'users', userId, 'projects', projectId);
 
-            // Update only waveformParts field
+            // Update waveformParts and guideVoice fields
             const firestoreData = {
                 waveformParts: waveformParts,
+                guideVoice: guideVoice,
                 syncedAt: serverTimestamp()
             };
 
             await setDoc(projectRef, firestoreData, { merge: true });
-            console.log('[WAVEFORM PARTS SYNC] Parts synced to Firestore successfully');
+            console.log('[WAVEFORM PARTS SYNC] Parts and guide voice synced to Firestore successfully');
             return true;
         } catch (error) {
             console.error('[WAVEFORM PARTS SYNC] Firestore sync failed:', error);
             // Mark as pending to retry later
-            this.pendingWaveformPartsSync = { projectId, waveformParts };
+            this.pendingWaveformPartsSync = { projectId, waveformParts, guideVoice };
             return false;
         }
     }
@@ -9587,7 +10639,7 @@ class MultracksApp {
         }
 
         const userId = user.uid;
-        console.log('[WAVEFORM PARTS SYNC] Loading parts from Firestore for project:', projectId);
+        console.log('[WAVEFORM PARTS SYNC] Loading parts and guide voice from Firestore for project:', projectId);
 
         try {
             const { doc, getDoc } = window.firebaseDB;
@@ -9609,7 +10661,14 @@ class MultracksApp {
             }
 
             console.log('[WAVEFORM PARTS SYNC] Loaded', data.waveformParts.length, 'parts from Firestore');
-            return data.waveformParts;
+            if (data.guideVoice) {
+                console.log('[WAVEFORM PARTS SYNC] Loaded guide voice from Firestore:', data.guideVoice);
+            }
+
+            return {
+                waveformParts: data.waveformParts,
+                guideVoice: data.guideVoice || null
+            };
         } catch (error) {
             console.error('[WAVEFORM PARTS SYNC] Firestore load failed:', error);
             return null;
@@ -12606,6 +13665,10 @@ class MultracksApp {
                     this.currentProject.bpm = bpm;
                     storage.updateProject(this.currentProject.id, this.currentProject);
                 }
+                // Update guide voice timing
+                if (this.guideVoiceEnabled) {
+                    this.applyGuideVoiceSettingsToPlayer();
+                }
             }
         });
 
@@ -12631,17 +13694,22 @@ class MultracksApp {
             }
         };
 
-        bpmStepUp?.addEventListener('click', () => incrementBpm(1));
-        bpmStepDown?.addEventListener('click', () => incrementBpm(-1));
-
-        // Hold to continue incrementing/decrementing
+        // Hold to continue incrementing/decrementing (with delay before continuous)
         let holdInterval = null;
+        let holdTimeout = null;
         const startHold = (delta) => {
             incrementBpm(delta);
-            holdInterval = setInterval(() => incrementBpm(delta), 150);
+            // Wait 500ms before starting continuous increment
+            holdTimeout = setTimeout(() => {
+                holdInterval = setInterval(() => incrementBpm(delta), 300);
+            }, 500);
         };
 
         const stopHold = () => {
+            if (holdTimeout) {
+                clearTimeout(holdTimeout);
+                holdTimeout = null;
+            }
             if (holdInterval) {
                 clearInterval(holdInterval);
                 holdInterval = null;
@@ -12670,6 +13738,10 @@ class MultracksApp {
             const timeSignature = e.target.value;
             if (this.audioPlayer) {
                 this.audioPlayer.setMetronomeTimeSignature(timeSignature);
+            }
+            // Update guide voice timing
+            if (this.guideVoiceEnabled) {
+                this.applyGuideVoiceSettingsToPlayer();
             }
         });
         
@@ -13151,8 +14223,8 @@ class MultracksApp {
                         // Sync pending waveform parts if any
                         if (this.pendingWaveformPartsSync) {
                             console.log('[WAVEFORM PARTS SYNC] Syncing pending waveform parts after auth');
-                            const { projectId, waveformParts } = this.pendingWaveformPartsSync;
-                            const syncSuccess = await this.saveWaveformPartsToFirestore(projectId, waveformParts);
+                            const { projectId, waveformParts, guideVoice } = this.pendingWaveformPartsSync;
+                            const syncSuccess = await this.saveWaveformPartsToFirestore(projectId, waveformParts, guideVoice);
                             if (syncSuccess) {
                                 console.log('[WAVEFORM PARTS SYNC] Pending waveform parts synced successfully');
                                 this.pendingWaveformPartsSync = null;
@@ -13170,8 +14242,8 @@ class MultracksApp {
                                 }
 
                                 console.log('[WAVEFORM PARTS SYNC] Retrying pending waveform parts sync');
-                                const { projectId, waveformParts } = this.pendingWaveformPartsSync;
-                                const syncSuccess = await this.saveWaveformPartsToFirestore(projectId, waveformParts);
+                                const { projectId, waveformParts, guideVoice } = this.pendingWaveformPartsSync;
+                                const syncSuccess = await this.saveWaveformPartsToFirestore(projectId, waveformParts, guideVoice);
                                 if (syncSuccess) {
                                     console.log('[WAVEFORM PARTS SYNC] Pending waveform parts synced successfully on retry');
                                     this.pendingWaveformPartsSync = null;

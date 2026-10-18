@@ -23,7 +23,7 @@
  * - arquivos de áudio
  */
 
-const CACHE_VERSION = 'wtracks-pc-v2';
+const CACHE_VERSION = 'wtracks-pc-v3';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 
 /*
@@ -97,6 +97,13 @@ function isStaticAsset(url) {
  */
 function isBlockedRequest(url) {
     const pathname = url.pathname.toLowerCase();
+
+    /*
+     * Exceção: permitir arquivos de voz guia da pasta Song Sections
+     */
+    if (pathname.includes('/song sections/')) {
+        return false;
+    }
 
     /*
      * Áudio e arquivos potencialmente grandes.

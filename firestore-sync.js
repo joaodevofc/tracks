@@ -307,8 +307,16 @@ class FirestoreSync {
 
                 if (firestoreTime > localTime) {
                     console.log('[SYNC] Using Firestore version:', firestoreProject.name, '(Firestore newer)');
-                    // Use Firestore version
+                    // Use Firestore version, but preserve local guideVoice if Firestore doesn't have it
                     const project = await Project.fromJSON(firestoreProject);
+                    if (!project.guideVoice && localProject.guideVoice) {
+                        project.guideVoice = localProject.guideVoice;
+                        console.log('[SYNC] Preserved local guideVoice from:', localProject.name);
+                    }
+                    if (!project.waveformParts && localProject.waveformParts) {
+                        project.waveformParts = localProject.waveformParts;
+                        console.log('[SYNC] Preserved local waveformParts from:', localProject.name);
+                    }
                     mergedProjects.push(project);
                 } else if (localTime > firestoreTime) {
                     console.log('[SYNC] Using local version:', localProject.name, '(Local newer)');
@@ -320,8 +328,16 @@ class FirestoreSync {
                     });
                 } else {
                     console.log('[SYNC] Versions equal, using Firestore version:', firestoreProject.name);
-                    // Versions equal, use Firestore version
+                    // Versions equal, use Firestore version, but preserve local guideVoice if Firestore doesn't have it
                     const project = await Project.fromJSON(firestoreProject);
+                    if (!project.guideVoice && localProject.guideVoice) {
+                        project.guideVoice = localProject.guideVoice;
+                        console.log('[SYNC] Preserved local guideVoice from:', localProject.name);
+                    }
+                    if (!project.waveformParts && localProject.waveformParts) {
+                        project.waveformParts = localProject.waveformParts;
+                        console.log('[SYNC] Preserved local waveformParts from:', localProject.name);
+                    }
                     mergedProjects.push(project);
                 }
             } else {

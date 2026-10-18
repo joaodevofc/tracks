@@ -2436,6 +2436,18 @@
                         <input type="text" id="waveformCustomName" class="waveform-time-input" placeholder="Digite o nome personalizado">
                     </div>
                 </div>
+                <div class="waveform-guide-voice-section">
+                    <label class="waveform-part-type-label">Voz guia</label>
+                    <div class="waveform-guide-voice-controls">
+                        <div class="waveform-guide-voice-toggle">
+                            <input type="checkbox" id="guideVoiceEnabled">
+                            <label for="guideVoiceEnabled">Ativar voz guia</label>
+                        </div>
+                    </div>
+                    <div class="waveform-guide-voice-parts-list" id="guideVoicePartsList">
+                        <!-- Timeline de voz guia será gerada aqui -->
+                    </div>
+                </div>
                 <div class="waveform-parts-actions">
                     <button class="btn btn-primary" id="waveformAddPart">+ Adicionar parte</button>
                     <button class="btn btn-secondary" id="waveformClearSelection">Limpar seleção</button>
@@ -2448,12 +2460,6 @@
                 </div>
                 <div class="waveform-parts-save-section">
                     <button class="btn btn-primary waveform-save-btn" id="waveformSaveParts">Salvar partes</button>
-                </div>
-                <div class="waveform-parts-list-section">
-                    <label class="waveform-part-type-label">Partes adicionadas</label>
-                    <div class="waveform-parts-list" id="waveformPartsList">
-                        <!-- Parts will be rendered here -->
-                    </div>
                 </div>
             </div>
         </div>

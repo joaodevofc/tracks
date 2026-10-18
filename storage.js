@@ -229,6 +229,10 @@ class Project {
         
         // Firestore sync tracking
         this.syncedAt = data.syncedAt || null; // Timestamp when project was first synced to Firestore
+
+        // Guide voice settings
+        this.guideVoice = data.guideVoice || null; // { enabled, partMapping }
+        this.waveformParts = data.waveformParts || []; // Waveform parts array
     }
     
     generateId() {
@@ -330,7 +334,9 @@ class Project {
             loopEnabled: this.loopEnabled,
             loopStart: this.loopStart,
             loopEnd: this.loopEnd,
-            syncedAt: this.syncedAt // Include syncedAt field if it exists (from Firestore sync)
+            syncedAt: this.syncedAt, // Include syncedAt field if it exists (from Firestore sync)
+            guideVoice: this.guideVoice, // Guide voice settings
+            waveformParts: this.waveformParts // Waveform parts array
         };
     }
     

@@ -44,6 +44,10 @@ class MultitrackPlayer {
         this.metronomeBpm = 120;
         this.metronomeTimeSignature = '4/4';
 
+        // Guide Voice
+        this.guideVoice = null;
+        this.guideVoiceEnabled = false;
+
         // Pre-countdown (pré-contagem)
         this.preCountInProgress = false;
         this.preCountGeneration = 0; // Token for canceling stale countdowns
@@ -56,6 +60,7 @@ class MultitrackPlayer {
         this.onLoadingProgress = null;
         this.onTrackLevelUpdate = null; // Callback for track level meter updates
         this.onMetronomeLevelUpdate = null; // Callback for metronome level meter updates
+        this.onGuideLevelUpdate = null; // Callback for guide voice level meter updates
         this.onMasterLevelUpdate = null; // Callback for master level meter updates
         this.onDurationChange = null; // Callback for duration changes
         this.onSongEnded = null; // Callback for when song ends
@@ -125,6 +130,12 @@ class MultitrackPlayer {
                 // Callback for UI visualization if needed
                 // The scheduledTime parameter allows UI to sync animations with actual audio timing
             };
+
+            // Initialize guide voice
+            this.guideVoice = new GuideVoice(this.audioContext, this.masterGain);
+            this.guideVoice.setBpm(this.metronomeBpm);
+            this.guideVoice.setTimeSignature(this.metronomeTimeSignature);
+            this.guideVoice.setEnabled(this.guideVoiceEnabled);
             
         } catch (error) {
             console.error('[PLAYER] Error initializing AudioContext:', error);
@@ -574,6 +585,11 @@ class MultitrackPlayer {
                     this.metronome.start(activeLoop.start);
                 }
 
+                // Restart guide voice at loop start if enabled
+                if (this.guideVoice && this.guideVoiceEnabled) {
+                    this.guideVoice.start(activeLoop.start);
+                }
+
                 // Notify UI of time update
                 if (this.onTimeUpdate) {
                     this.onTimeUpdate(this.currentTime);
@@ -725,6 +741,11 @@ class MultitrackPlayer {
                     if (this.metronome && this.metronomeEnabled) {
                         console.log('[PLAYER] Starting metronome at musical position:', this.currentTime);
                         this.metronome.start(this.currentTime);
+                    }
+
+                    // Start guide voice if enabled
+                    if (this.guideVoice && this.guideVoiceEnabled) {
+                        this.guideVoice.start(this.currentTime);
                     }
 
                     // Record playback start time for hardware clock synchronization
@@ -925,6 +946,11 @@ class MultitrackPlayer {
             this.metronome.stop();
             console.log('[PLAYER] Metronome stopped');
         }
+
+        // Stop guide voice
+        if (this.guideVoice) {
+            this.guideVoice.stop();
+        }
         
         // Synchronized pause: Capture current position first, then pause all
         const syncPosition = this.currentTime;
@@ -985,6 +1011,11 @@ class MultitrackPlayer {
         if (this.metronome) {
             this.metronome.stop();
             console.log('[PLAYER] Metronome stopped');
+        }
+
+        // Stop guide voice unconditionally
+        if (this.guideVoice) {
+            this.guideVoice.stop();
         }
         
         // Stop playback timer
@@ -1096,6 +1127,8 @@ class MultitrackPlayer {
             // Start metronome at current audioContext time (0 in musical time)
             this.metronome.start(0);
         }
+
+        // Guide voice doesn't play during pre-count (start after pre-count ends)
 
         // Track current beat for visual feedback
         let currentBeat = 0;
@@ -1235,6 +1268,11 @@ class MultitrackPlayer {
             this.metronome.start(0);
         }
 
+        // Start guide voice if enabled
+        if (this.guideVoice && this.guideVoiceEnabled) {
+            this.guideVoice.start(0);
+        }
+
         // Record playback start time for hardware clock synchronization
         this.playbackStartContextTime = this.audioContext.currentTime;
         this.playbackStartOffset = 0;
@@ -1299,6 +1337,11 @@ class MultitrackPlayer {
                         if (this.metronome && this.metronomeEnabled) {
                             // console.log('[PLAYER] Seek: Restarting metronome at new position:', this.currentTime);
                             this.metronome.start(this.currentTime);
+                        }
+
+                        // Restart guide voice at new position if enabled
+                        if (this.guideVoice && this.guideVoiceEnabled) {
+                            this.guideVoice.start(this.currentTime);
                         }
 
                         this.startSynchronizedPlayback();
@@ -1761,6 +1804,35 @@ class MultitrackPlayer {
         
         console.log('[PLAYER] Applied mute/solo to track:', track.name, 'baseVolume:', nodes.baseVolume, 'effectiveGain:', effectiveGain.toFixed(4), 'mute:', track.mute, 'solo:', track.solo, 'hasSoloTracks:', this.hasSoloTracks(padHasSolo), 'padHasSolo:', padHasSolo);
     }
+
+    /**
+     * Mute all tracks for guide voice solo
+     * Used when guide voice solo is activated
+     */
+    muteAllTracksForGuideVoiceSolo() {
+        this.trackNodes.forEach((nodes, trackId) => {
+            const track = this.currentProject?.tracks.find(t => t.id === trackId);
+            if (track && nodes.gain) {
+                // Force gain to 0 regardless of mute/solo state
+                const currentTime = this.audioContext ? this.audioContext.currentTime : 0;
+                nodes.gain.gain.setTargetAtTime(0, currentTime, 0.015);
+            }
+        });
+    }
+
+    /**
+     * Unmute all tracks for guide voice solo
+     * Used when guide voice solo is deactivated
+     * Restores tracks to their proper mute/solo state
+     */
+    unmuteAllTracksForGuideVoiceSolo() {
+        const padTrack = this.currentProject?.tracks.find(t => t.id === 'pad-track');
+        const padHasSolo = padTrack ? padTrack.solo : false;
+
+        this.trackNodes.forEach((nodes, trackId) => {
+            this.applyMuteSoloToTrack(trackId, padHasSolo);
+        });
+    }
     
     /**
      * Set master volume with smooth transition
@@ -2115,8 +2187,11 @@ class MultitrackPlayer {
         if (this.metronome) {
             this.metronome.setBpm(bpm);
         }
+        if (this.guideVoice) {
+            this.guideVoice.setBpm(bpm);
+        }
     }
-    
+
     /**
      * Set metronome time signature
      */
@@ -2124,6 +2199,9 @@ class MultitrackPlayer {
         this.metronomeTimeSignature = timeSignature;
         if (this.metronome) {
             this.metronome.setTimeSignature(timeSignature);
+        }
+        if (this.guideVoice) {
+            this.guideVoice.setTimeSignature(timeSignature);
         }
     }
     
@@ -2173,7 +2251,79 @@ class MultitrackPlayer {
         }
         return 0;
     }
-    
+
+    getGuideVoiceLevel() {
+        if (this.guideVoice) {
+            return this.guideVoice.getLevel();
+        }
+        return { level: 0, peak: 0 };
+    }
+
+    /**
+     * Set guide voice parts
+     */
+    async setGuideVoiceParts(parts) {
+        if (this.guideVoice) {
+            await this.guideVoice.setParts(parts);
+        }
+    }
+
+
+
+    /**
+     * Enable/disable guide voice
+     */
+    setGuideVoiceEnabled(enabled) {
+        this.guideVoiceEnabled = enabled;
+        if (this.guideVoice) {
+            this.guideVoice.setEnabled(enabled);
+
+            // Start/stop guide voice immediately if playback is active
+            if (enabled && this.isPlaying && this.audioContext) {
+                this.guideVoice.start(this.currentTime);
+            } else if (!enabled && this.guideVoice.isPlaying) {
+                this.guideVoice.stop();
+            }
+        }
+    }
+
+    /**
+     * Set guide voice volume
+     */
+    setGuideVoiceVolume(volume) {
+        if (this.guideVoice) {
+            this.guideVoice.setVolume(volume);
+        }
+    }
+
+    /**
+     * Set guide voice mute
+     */
+    setGuideVoiceMuted(muted) {
+        if (this.guideVoice) {
+            this.guideVoice.setMuted(muted);
+        }
+    }
+
+    /**
+     * Set guide voice pan
+     */
+    setGuideVoicePan(pan) {
+        if (this.guideVoice) {
+            this.guideVoice.setPan(pan);
+        }
+    }
+
+    /**
+     * Get guide voice level
+     */
+    getGuideVoiceLevel() {
+        if (this.guideVoice) {
+            return this.guideVoice.getLevel();
+        }
+        return 0;
+    }
+
     /**
      * Clean up resources
      */
@@ -2186,7 +2336,12 @@ class MultitrackPlayer {
         if (this.metronome) {
             this.metronome.destroy();
         }
-        
+
+        // Destroy guide voice
+        if (this.guideVoice) {
+            this.guideVoice.destroy();
+        }
+
         this.trackNodes.forEach(nodes => {
             // Stop and cleanup audio element
             if (nodes.audioElement) {
@@ -2743,6 +2898,427 @@ class Metronome {
         if (this.rightGain) {
             this.rightGain.disconnect();
         }
+    }
+}
+
+/**
+ * Guide Voice Class
+ * Plays spoken audio cues before marked waveform parts
+ */
+class GuideVoice {
+    constructor(audioContext, masterGain) {
+        this.audioContext = audioContext;
+        this.masterGain = masterGain;
+
+        this.isEnabled = false;
+        this.isPlaying = false;
+        this.isMuted = false;
+
+        // Guide voice track nodes
+        this.gain = null;
+        this.panner = null;
+        this.analyser = null;
+
+        // Parts and timing
+        this.parts = [];
+        this.bpm = 120;
+        this.timeSignature = '4/4';
+
+        // Scheduler
+        this.lookahead = 25.0; // ms
+        this.scheduleAheadTime = 0.1; // seconds
+        this.nextVoiceTime = 0.0;
+        this.currentPartIndex = 0;
+        this.schedulerTimer = null;
+        this.isScheduling = false; // Prevent concurrent scheduler execution
+
+        // Temporal references for precise timing
+        this.startMusicalTime = undefined;
+        this.startAudioTime = undefined;
+
+        // Audio buffer cache (lazy loaded)
+        this.audioBufferCache = new Map();
+
+        // Active voice source nodes (for fading out when overlapping)
+        this.activeVoices = [];
+
+        // File path prefix
+        this.voiceFilesPath = 'Song Sections/';
+
+        // Level meter state
+        this.currentLevel = 0;
+        this.peakLevel = 0;
+        this.peakTime = 0;
+
+        // Callbacks
+        this.onGuideLevelUpdate = null;
+
+        this.init();
+    }
+
+    init() {
+        // Create guide voice-specific nodes
+        this.gain = this.audioContext.createGain();
+        this.gain.gain.value = 0.7; // Default volume
+
+        this.panner = this.audioContext.createStereoPanner();
+
+        this.analyser = this.audioContext.createAnalyser();
+        this.analyser.fftSize = 256;
+
+        // Connect: gain -> panner -> analyser -> master
+        this.gain.connect(this.panner);
+        this.panner.connect(this.analyser);
+        this.analyser.connect(this.masterGain);
+
+        console.log('[GUIDE VOICE] GuideVoice initialized');
+    }
+
+    /**
+     * Load audio buffer for a file (lazy loading)
+     */
+    async loadAudioBuffer(fileName) {
+        if (this.audioBufferCache.has(fileName)) {
+            return this.audioBufferCache.get(fileName);
+        }
+
+        try {
+            const url = this.voiceFilesPath + encodeURIComponent(fileName);
+            console.log('[GUIDE VOICE] Fetching:', url);
+            const response = await fetch(url);
+            if (!response.ok) {
+                console.warn('[GUIDE VOICE] File not found:', url, 'Status:', response.status);
+                return null;
+            }
+
+            const arrayBuffer = await response.arrayBuffer();
+            const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+            this.audioBufferCache.set(fileName, audioBuffer);
+            console.log('[GUIDE VOICE] Loaded audio buffer:', fileName);
+            return audioBuffer;
+        } catch (error) {
+            console.error('[GUIDE VOICE] Error loading audio buffer:', fileName, error);
+            return null;
+        }
+    }
+
+    /**
+     * Set waveform parts
+     * Parts should have a guideFile property with the filename to use
+     */
+    async setParts(parts) {
+        // Sort parts by start time
+        this.parts = (parts || []).sort((a, b) => a.start - b.start);
+        console.log('[GUIDE VOICE] Parts set and sorted:', this.parts.length, 'parts');
+
+        // Pre-load all audio buffers for parts with guide files
+        const loadPromises = this.parts
+            .filter(part => part.guideFile)
+            .map(part => this.loadAudioBuffer(part.guideFile));
+
+        await Promise.all(loadPromises);
+        console.log('[GUIDE VOICE] Pre-loaded audio buffers for parts with guide files');
+
+        // Log mapping when enabled
+        if (this.isEnabled) {
+            console.log('[GUIDE VOICE] Part mapping:');
+            this.parts.forEach(part => {
+                const fileName = part.guideFile || null;
+                console.log('[GUIDE VOICE] -', part.name, '->', fileName || 'NO VOICE');
+            });
+        }
+    }
+
+    /**
+     * Set BPM and time signature
+     */
+    setBpm(bpm) {
+        this.bpm = bpm || 120;
+    }
+
+    setTimeSignature(timeSignature) {
+        this.timeSignature = timeSignature || '4/4';
+    }
+
+    /**
+     * Enable/disable guide voice
+     */
+    setEnabled(enabled) {
+        this.isEnabled = enabled;
+        console.log('[GUIDE VOICE] Enabled:', enabled);
+
+        if (!enabled && this.isPlaying) {
+            this.stop();
+        }
+    }
+
+    /**
+     * Set volume
+     */
+    setVolume(volume) {
+        if (this.gain) {
+            this.gain.gain.value = volume;
+        }
+    }
+
+    /**
+     * Set mute
+     */
+    setMuted(muted) {
+        this.isMuted = muted;
+        if (this.gain) {
+            this.gain.gain.value = muted ? 0 : 0.7;
+        }
+    }
+
+    /**
+     * Set pan
+     */
+    setPan(pan) {
+        if (this.panner) {
+            this.panner.pan.value = pan;
+        }
+    }
+
+    /**
+     * Get level for meter
+     */
+    getLevel() {
+        if (!this.analyser) return { level: 0, peak: 0 };
+
+        const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+        this.analyser.getByteFrequencyData(dataArray);
+
+        // Calculate RMS (Root Mean Square) for more accurate level representation
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+            sum += dataArray[i] * dataArray[i];
+        }
+        const rms = Math.sqrt(sum / dataArray.length);
+        const normalizedLevel = rms / 255; // 0.0 to 1.0
+
+        // Apply asymmetric attack/release smoothing for responsive meters
+        // Attack: fast response to level increases (0.6)
+        // Release: slow decay for natural fall-off (0.08)
+        const attackFactor = 0.6;
+        const releaseFactor = 0.08;
+        const smoothingFactor = normalizedLevel > (this.currentLevel || 0)
+            ? attackFactor
+            : releaseFactor;
+        const smoothedLevel = this.currentLevel !== undefined
+            ? this.currentLevel * (1 - smoothingFactor) + normalizedLevel * smoothingFactor
+            : normalizedLevel;
+
+        // Store level for next frame
+        this.currentLevel = smoothedLevel;
+
+        // Peak hold tracking
+        const currentTime = Date.now();
+        if (smoothedLevel > (this.peakLevel || 0)) {
+            // New peak detected
+            this.peakLevel = smoothedLevel;
+            this.peakTime = currentTime;
+        } else if (currentTime - (this.peakTime || 0) > 800) {
+            // Peak hold expired (800ms), decay slowly
+            this.peakLevel = (this.peakLevel || 0) * 0.95;
+        }
+
+        return { level: smoothedLevel, peak: this.peakLevel };
+    }
+
+    /**
+     * Convert musical time to audioContext time
+     */
+    musicalTimeToAudioTime(musicalTime) {
+        if (this.startMusicalTime === undefined || this.startAudioTime === undefined) {
+            return this.audioContext.currentTime;
+        }
+        const musicalOffset = musicalTime - this.startMusicalTime;
+        return this.startAudioTime + musicalOffset;
+    }
+
+    /**
+     * Start guide voice from a specific musical time
+     */
+    async start(musicalTime) {
+        if (!this.isEnabled || !this.parts || this.parts.length === 0) {
+            return;
+        }
+
+        // Idempotent: stop existing scheduler before creating new one
+        if (this.schedulerTimer) {
+            clearInterval(this.schedulerTimer);
+            this.schedulerTimer = null;
+        }
+
+        console.log('[GUIDE VOICE] Starting at musical time:', musicalTime.toFixed(3));
+
+        this.isPlaying = true;
+
+        // Store temporal references for precise calculation
+        this.startMusicalTime = musicalTime;
+        this.startAudioTime = this.audioContext.currentTime;
+
+        // Find first part that hasn't passed yet (50ms tolerance)
+        this.currentPartIndex = 0;
+
+        while (this.currentPartIndex < this.parts.length) {
+            const part = this.parts[this.currentPartIndex];
+            const triggerTime = part.start;
+
+            if (triggerTime > musicalTime - 0.05) { // 50ms tolerance
+                break;
+            }
+            this.currentPartIndex++;
+        }
+
+        if (this.currentPartIndex >= this.parts.length) {
+            console.log('[GUIDE VOICE] No future parts to schedule');
+            this.isPlaying = false;
+            return;
+        }
+
+        // Calculate first voice trigger time
+        const firstPart = this.parts[this.currentPartIndex];
+        const firstTriggerTime = firstPart.start;
+        this.nextVoiceTime = this.musicalTimeToAudioTime(firstTriggerTime);
+
+        console.log('[GUIDE VOICE] First voice at:', firstTriggerTime.toFixed(3), 's');
+
+        // Start the scheduler
+        this.schedulerTimer = setInterval(() => this.scheduler(), this.lookahead);
+    }
+
+    /**
+     * Stop guide voice
+     */
+    stop() {
+        console.log('[GUIDE VOICE] Stopping');
+
+        this.isPlaying = false;
+
+        if (this.schedulerTimer) {
+            clearInterval(this.schedulerTimer);
+            this.schedulerTimer = null;
+        }
+
+        // Fade out and stop all active voices
+        this.activeVoices.forEach(voice => {
+            try {
+                voice.source.stop(this.audioContext.currentTime + 0.03);
+                voice.gain.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.03);
+            } catch (e) {
+                // Ignore errors from already stopped voices
+            }
+        });
+        this.activeVoices = [];
+    }
+
+    /**
+     * Scheduler - looks ahead and schedules voices
+     */
+    async scheduler() {
+        // Prevent concurrent execution
+        if (this.isScheduling) {
+            return;
+        }
+
+        try {
+            this.isScheduling = true;
+
+            const targetTime = this.audioContext.currentTime + this.scheduleAheadTime;
+
+            while (this.currentPartIndex < this.parts.length) {
+                const part = this.parts[this.currentPartIndex];
+                const triggerTime = part.start;
+                const audioTime = this.musicalTimeToAudioTime(triggerTime);
+
+                if (audioTime > targetTime) {
+                    break;
+                }
+
+                // Increment index BEFORE await to prevent scheduling same part twice
+                this.currentPartIndex++;
+
+                // Schedule this voice
+                await this.scheduleVoice(part, audioTime);
+            }
+        } finally {
+            this.isScheduling = false;
+        }
+    }
+
+    /**
+     * Schedule a single voice
+     */
+    async scheduleVoice(part, time) {
+        // Use the guideFile property set by the user
+        const fileName = part.guideFile;
+        if (!fileName) {
+            return; // No voice file selected for this part
+        }
+
+        const audioBuffer = await this.loadAudioBuffer(fileName);
+        if (!audioBuffer) {
+            return;
+        }
+
+        // Fade out any currently playing voice
+        this.activeVoices.forEach(voice => {
+            try {
+                voice.gain.gain.exponentialRampToValueAtTime(0.001, time - 0.03);
+                voice.source.stop(time);
+            } catch (e) {
+                // Ignore errors
+            }
+        });
+        this.activeVoices = [];
+
+        // Create source and gain for this voice
+        const source = this.audioContext.createBufferSource();
+        const voiceGain = this.audioContext.createGain();
+
+        source.buffer = audioBuffer;
+        source.playbackRate.value = 1.0; // Always play at normal speed
+
+        // Envelope with fade in
+        voiceGain.gain.setValueAtTime(0, time);
+        voiceGain.gain.linearRampToValueAtTime(1, time + 0.01);
+        voiceGain.gain.linearRampToValueAtTime(1, time + audioBuffer.duration - 0.04);
+        voiceGain.gain.exponentialRampToValueAtTime(0.001, time + audioBuffer.duration);
+
+        // Connect
+        source.connect(voiceGain);
+        voiceGain.connect(this.gain);
+
+        // Schedule
+        source.start(time);
+        source.stop(time + audioBuffer.duration);
+
+        // Track active voice
+        this.activeVoices.push({ source, gain: voiceGain });
+
+        // Cleanup
+        source.onended = () => {
+            source.disconnect();
+            voiceGain.disconnect();
+            this.activeVoices = this.activeVoices.filter(v => v.source !== source);
+        };
+
+        console.log('[GUIDE VOICE] Scheduled:', part.name, 'at', time.toFixed(3), 's');
+    }
+
+    /**
+     * Clean up
+     */
+    destroy() {
+        this.stop();
+
+        if (this.gain) this.gain.disconnect();
+        if (this.panner) this.panner.disconnect();
+        if (this.analyser) this.analyser.disconnect();
+
+        this.audioBufferCache.clear();
     }
 }
 
